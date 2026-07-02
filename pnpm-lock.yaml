@@ -15,6 +15,15 @@ importers:
         specifier: ^5.8.0
         version: 5.9.3
 
+  packages/canonical:
+    dependencies:
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+
   packages/core: {}
 
   packages/parser:

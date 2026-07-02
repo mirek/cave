@@ -46,7 +46,7 @@ parse('a USES b')  // strict variant: throws on any diagnostic
 |---|---|
 | `attr: value` | attribute payload (any verb — §21 uses `NEEDS test: …`) |
 | `HAS attr value` (colonless, value numeric/date) | attribute payload + legacy diagnostic (§3.4) |
-| `IS` + numeric/date value | metric payload |
+| numeric/date value (any verb) | metric payload — `latency IS 30ms`, `load EXCEEDS 1000 req/s` |
 | nothing (verb `EXISTS`) | `none` payload (§5.2 bare existence) |
 | single term | relational object |
 | words only | relational object phrase (entity whitespace normalized later) |
