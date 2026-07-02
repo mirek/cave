@@ -1,0 +1,76 @@
+/**
+ * UUIDv7 transaction identifiers (spec §9.1).
+ *
+ * CAVE storage is append-only; each appended claim carries a transaction id.
+ * UUIDv7 is recommended because it encodes timestamp and ordering — ids sort
+ * lexicographically by creation time, so `MAX(tx)` resolves current belief.
+ *
+ * {@link next} is strictly monotonic within a process: same-millisecond calls
+ * increment a 12-bit sequence in the `rand_a` field, and a backwards system
+ * clock never produces a smaller id.
+ */
+
+import { randomFillSync } from 'node:crypto'
+
+const hex = (n: number, digits: number): string =>
+  n.toString(16).padStart(digits, '0')
+
+/**
+ * Formats a UUIDv7 from parts — pure, for tests and deterministic imports.
+ *
+ * @param ms unix timestamp in milliseconds (48 bits)
+ * @param seq 12-bit sequence placed in `rand_a`
+ * @param rand 62 bits of randomness for `rand_b` as 8 bytes (top 2 bits are
+ * overwritten by the variant)
+ */
+export const at = (ms: number, seq: number, rand: Uint8Array): string => {
+  if (!Number.isInteger(ms) || ms < 0 || ms > 0xffff_ffff_ffff) {
+    throw new Error(`Expected 48-bit millisecond timestamp, got ${ms}.`)
+  }
+  if (!Number.isInteger(seq) || seq < 0 || seq > 0xfff) {
+    throw new Error(`Expected 12-bit sequence, got ${seq}.`)
+  }
+  if (rand.length < 8) {
+    throw new Error(`Expected 8 random bytes, got ${rand.length}.`)
+  }
+  const time = hex(ms, 12)
+  const variantByte = (rand[0]! & 0x3f) | 0x80
+  return [
+    time.slice(0, 8),
+    time.slice(8, 12),
+    `7${hex(seq, 3)}`,
+    hex(variantByte, 2) + hex(rand[1]!, 2),
+    [...rand.slice(2, 8)].map(byte => hex(byte, 2)).join('')
+  ].join('-')
+}
+
+let lastMs = -1
+let lastSeq = 0
+
+/**
+ * @returns next monotonic UUIDv7. Strictly increasing (lexicographically)
+ * within the process even across same-millisecond calls and clock skew.
+ */
+export const next = (now: () => number = Date.now): string => {
+  let ms = now()
+  if (ms <= lastMs) {
+    ms = lastMs
+    lastSeq += 1
+    if (lastSeq > 0xfff) {
+      ms += 1
+      lastSeq = 0
+    }
+  } else {
+    lastSeq = 0
+  }
+  lastMs = ms
+  const rand = new Uint8Array(8)
+  randomFillSync(rand)
+  return at(ms, lastSeq, rand)
+}
+
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+/** @returns `true` if `s` is a well-formed UUIDv7 string. */
+export const is = (s: string): boolean =>
+  uuidRe.test(s)
