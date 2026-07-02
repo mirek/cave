@@ -35,6 +35,30 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0
 
+  packages/query:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
+
+  packages/store:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@prelude/parser@7.1.0':
