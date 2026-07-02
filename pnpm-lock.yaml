@@ -24,6 +24,27 @@ importers:
         specifier: workspace:*
         version: link:../parser
 
+  packages/cli:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/loop':
+        specifier: workspace:*
+        version: link:../loop
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/core: {}
 
   packages/fusion:

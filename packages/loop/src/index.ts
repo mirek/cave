@@ -9,6 +9,7 @@
  * LLM-adapter sketch and a runnable multi-hop recovery demo.
  */
 
+export * as Demo from './demo.ts'
 export type { CaveStore, Edge } from './store.ts'
 export { memoryStore, memoryStoreOfText } from './store.ts'
 export { heuristicPolicy, reconstruct } from './reconstruct.ts'

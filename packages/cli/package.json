@@ -1,0 +1,25 @@
+{
+  "name": "@cave/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
+  "bin": {
+    "cave": "./src/main.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cave/canonical": "workspace:*",
+    "@cave/core": "workspace:*",
+    "@cave/loop": "workspace:*",
+    "@cave/parser": "workspace:*",
+    "@cave/query": "workspace:*",
+    "@cave/store": "workspace:*"
+  }
+}
