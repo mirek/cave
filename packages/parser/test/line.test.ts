@@ -221,3 +221,41 @@ test('qualifier payload: full claim triple (spec §9.1: BECAUSE market/condition
   assert.ok(result.ok)
   assert.equal(result.value.kind, 'claim')
 })
+
+test('percent-less and out-of-range confidence are diagnosed (spec §6.3)', () => {
+  const percentless = claim('a USES b @ 90')
+  assert.equal(percentless.value.meta.conf, undefined)
+  assert.equal(percentless.problems.length, 1)
+  assert.match(percentless.problems[0]!, /percentage/)
+  const typo = claim('x HAS due: 5d @ 2026')
+  assert.equal(typo.value.meta.conf, undefined)
+  assert.equal(typo.problems.length, 1)
+  const overflow = claim('a USES b @ 250%')
+  assert.equal(overflow.value.meta.conf, 1)
+  assert.match(overflow.problems[0]!, /above 100%/)
+})
+
+test('repeated non-repeatable metadata is diagnosed, last wins (spec §3.2)', () => {
+  const conf = claim('a USES b @ 90% @ 80%')
+  assert.equal(conf.value.meta.conf, 0.8)
+  assert.equal(conf.problems.length, 1)
+  assert.match(conf.problems[0]!, /repeated confidence/)
+  const rest = claim('x IS 5 +/- 1 +/- 2 (1σ) (3σ) ! !')
+  assert.equal(rest.value.meta.delta?.raw, '2')
+  assert.equal(rest.value.meta.sigmaLevel, 3)
+  assert.deepEqual(
+    rest.problems.map(problem => problem.split(' ')[1]),
+    ['+/-', '(Nσ)', '!']
+  )
+})
+
+test('glued attribute colon splits with a diagnostic (spec §3.4, §4.3)', () => {
+  const result = claim('auth/key HAS expiry:3600s')
+  assert.equal(result.value.payload.kind, 'attribute')
+  if (result.value.payload.kind === 'attribute') {
+    assert.equal(result.value.payload.attribute, 'expiry')
+    assert.equal(result.value.payload.value.num, 3600)
+  }
+  assert.equal(result.problems.length, 1)
+  assert.match(result.problems[0]!, /glued attribute colon/)
+})

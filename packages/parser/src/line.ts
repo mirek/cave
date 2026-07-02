@@ -95,13 +95,25 @@ export const parseMeta = (tokens: readonly Token[], comment?: string): { meta: A
     const word = token.text
     if (word === '@') {
       const next = tokens[i]
-      const parsed = next?.kind === 'word' ? Confidence.parse(next.text) : undefined
+      const text = next?.kind === 'word' ? next.text : undefined
+      const parsed = text === undefined ? undefined : Confidence.parse(text)
       if (parsed === undefined) {
-        problems.push('expected percentage after "@ " (spec §6.3)')
+        // Consume a number-like token so `@ 90` / `@ 2026` yield one clear
+        // problem instead of a cascade (§6.3: confidence must end in %).
+        if (text !== undefined && /^\d/.test(text)) {
+          i += 1
+        }
+        problems.push(`expected percentage ending in % after "@ "${text === undefined ? '' : `, got ${JSON.stringify(text)}`} (spec §6.3)`)
         continue
       }
-      conf = parsed
       i += 1
+      if (Number(text!.slice(0, -1)) > 100) {
+        problems.push(`confidence ${text} above 100% clamped (spec §6.3)`)
+      }
+      if (conf !== undefined) {
+        problems.push('repeated confidence — only contexts and tags may repeat (spec §3.2); last one wins')
+      }
+      conf = parsed
       continue
     }
     if (word.startsWith('@')) {
@@ -124,15 +136,24 @@ export const parseMeta = (tokens: readonly Token[], comment?: string): { meta: A
         problems.push('expected value after +/- (spec §7.2)')
         continue
       }
+      if (delta !== undefined) {
+        problems.push('repeated +/- uncertainty — only contexts and tags may repeat (spec §3.2); last one wins')
+      }
       delta = Value.parse(raw)
       continue
     }
     const sigma = sigmaRe.exec(word)
     if (sigma) {
+      if (sigmaLevel !== undefined) {
+        problems.push('repeated (Nσ) level — only contexts and tags may repeat (spec §3.2); last one wins')
+      }
       sigmaLevel = Number(sigma[1])
       continue
     }
     if (word === '!') {
+      if (importance) {
+        problems.push('repeated ! importance marker (spec §3.2)')
+      }
       importance = true
       continue
     }
@@ -185,6 +206,21 @@ const parsePayload = (verb: string, tokens: readonly Token[]): Result<Claim.Payl
       return fail(`missing or mixed value after attribute ${JSON.stringify(attribute)} (spec §3.4)`)
     }
     return ok(Claim.attribute(attribute, value))
+  }
+  if (head!.kind === 'word') {
+    // Glued colon: `expiry:3600s`. The payload `:` is reserved as the
+    // attribute/value separator (spec §4.3) — split it, keep a diagnostic.
+    const colonAt = head!.text.indexOf(':')
+    if (colonAt > 0 && colonAt < head!.text.length - 1) {
+      const attribute = head!.text.slice(0, colonAt)
+      const value = valueOf([{ kind: 'word', text: head!.text.slice(colonAt + 1) }, ...rest])
+      if (value !== undefined) {
+        return ok(
+          Claim.attribute(attribute, value),
+          [`glued attribute colon; canonical is "${attribute}: ${value.raw}" — quote the object for a literal : (spec §3.4, §4.3)`]
+        )
+      }
+    }
   }
   if (verb === 'HAS' && rest.length > 0 && head!.kind === 'word') {
     const value = valueOf(rest)

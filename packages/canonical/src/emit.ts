@@ -65,20 +65,17 @@ export const emitClaim = (claim: Claim.t): string => {
 }
 
 /**
- * @returns the qualifier-payload text of a condition claim: bare-entity
- * conditions (`EXISTS`, no payload) emit as `[NOT] entity` (§8.2 canonical
- * `WHEN NOT x`), anything else as a full claim line.
+ * @returns the qualifier-payload text of a condition claim. Negation always
+ * emits as a `NOT` *prefix* — the §8.2 canonical `WHEN NOT x` shape — never
+ * as the claim-internal `VERB NOT` form: a postfix `NOT` after a symbolic
+ * comparison verb (`WHEN cpu >= NOT 900`) would be unreadable to the
+ * parser and silently invert the condition on round trip.
  */
 const conditionText = (claim: Claim.t): string => {
-  if (claim.verb === 'EXISTS' && claim.payload.kind === 'none') {
-    const parts = [Claim.formatTerm(claim.subject)]
-    if (claim.negated) {
-      parts.unshift('NOT')
-    }
-    parts.push(...metaText(claim))
-    return parts.join(' ')
-  }
-  return emitClaim(claim)
+  const body = claim.verb === 'EXISTS' && claim.payload.kind === 'none' ?
+    [Claim.formatTerm(claim.subject), ...metaText(claim)].join(' ') :
+    emitClaim({ ...claim, negated: false })
+  return claim.negated ? `NOT ${body}` : body
 }
 
 /**

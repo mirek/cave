@@ -43,15 +43,26 @@ WHERE conf >= 0.8        (also accepts 80%)
 WHERE tag = security     (bare key matches any value; topic:auth is exact)
 WHERE context = production
 WHERE value > 1000 req/s (numeric column; unit equality when given)
-WHERE tx > 2026-01-01    (date → UUIDv7 lower bound, lexicographic compare)
+WHERE tx > 2026-01-01    (dates are whole-day UTC intervals)
 ```
+
+`tx` filters compile a date to the interval `[day-start, next-day-start)`
+in UUIDv7 space: `=` means "recorded that day", `<=` includes the boundary
+day that `<` excludes, and `>` starts the day after. A timestamp value
+covers one second.
 
 ## Semantics
 
 - Queries run over **current beliefs** (latest tx per claim key, §9.1) by
-  default; `{ all: true }` matches the full append-only history.
+  default, and skip retracted (`@ 0%`) ones — a retracted claim has no
+  current support (§9.3), and `VERB` must agree with `VERB+` on a one-hop
+  path. An explicit `WHERE conf …` filter or `{ all: true }` opts back in.
 - Object-position variables bind relational rows only (`object IS NOT
-  NULL`) — `?x ?verb ?y` enumerates the relation graph, not attributes.
+  NULL`) — `?x ?verb ?y` enumerates the relation graph, not attributes. A
+  *bound* date/number object additionally matches metric rows
+  (`latency IS 30ms` the pattern finds `latency IS 30ms` the claim).
+- A repeated variable forces equality in transitive patterns too:
+  `?x EXTENDS+ ?x` finds nodes on cycles, not every reachable pair.
 - Transitive patterns support endpoint slots only; tag/context/WHERE
   filters on them are rejected rather than silently ignored.
 

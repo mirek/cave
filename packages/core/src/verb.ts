@@ -35,6 +35,12 @@ export type Qualifier = (typeof qualifiers)[number]
 /** The inverse-declaration verb (spec §5.5). */
 export const REVERSE = 'REVERSE'
 
+/** The standard inverse names (spec §5.5's declaration block). */
+export const standardInverses = [
+  'PART-OF', 'CAUSED-BY', 'FOLLOWS', 'USED-BY',
+  'NEEDED-BY', 'ENABLED-BY', 'BLOCKED-BY', 'EXTENDED-BY'
+] as const
+
 /** All standard relational verbs (qualifiers excluded). */
 export const standard: readonly Verb[] = [
   ...identity,
@@ -45,6 +51,7 @@ export const standard: readonly Verb[] = [
 
 const standardSet = new Set<string>(standard)
 const qualifierSet = new Set<string>(qualifiers)
+const knownSet = new Set<string>([...standard, 'HAS', REVERSE, ...standardInverses])
 
 /**
  * @returns `true` if `s` has the lexical shape of a verb — an uppercase atom:
@@ -60,3 +67,12 @@ export const isStandard = (v: string): boolean =>
 /** @returns `true` if `v` is a qualifier verb (`WHEN`, `UNLESS`, `VIA`, `BECAUSE`). */
 export const isQualifier = (v: string): v is Qualifier =>
   qualifierSet.has(v)
+
+/**
+ * @returns `true` if `v` belongs to the known standard vocabulary —
+ * standard verbs, `HAS`, `REVERSE`, and the standard §5.5 inverse names.
+ * Used by the parser's indentation tiebreak: `USES JWT` is a continuation
+ * (JWT is not a known verb) while `API NEEDS auth` is a full triple.
+ */
+export const isKnown = (v: string): boolean =>
+  knownSet.has(v)

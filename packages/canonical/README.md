@@ -70,7 +70,14 @@ survive the round trip (tested).
 - **"As written" inheritance**: a continuation under an inverse-form parent
   (`packages/api PART-OF monorepo` + `  CONTAINS x`) inherits the parent's
   *written* subject (`packages/api`), matching §8.3's mechanical rule, then
-  canonicalizes independently.
+  canonicalizes independently — including in-band declarations, which work
+  from continuations exactly as from full lines (§5.4).
+- **The inverse swap re-classifies endpoints symmetrically**: a date/number
+  endpoint is a metric payload in one direction and a subject term in the
+  other, so `deploy PRECEDES 2026-01-01` and `2026-01-01 FOLLOWS deploy`
+  land on one claim key. Qualifier negation always emits as the `WHEN NOT …`
+  prefix — a claim-internal `VERB NOT` after a symbolic comparison operator
+  would invert the condition on reparse.
 - **Undeclared inverse continuations** (§8.3 calls them ill-formed) cannot
   be *detected* — `PART-OF` without a declaration is just an unknown verb,
   so the line canonicalizes forward with the inherited subject. Loading the

@@ -68,3 +68,24 @@ test('demo runs and narrates the recovery', () => {
   assert.match(text, /PART-OF/)
   assert.match(text, /`<=` FIX token-expiry @auth\.ts:42/)
 })
+
+test('a weaker path discovered later never downgrades a pending cue', () => {
+  const withWeakEdge = [
+    'seed USES mid',
+    'seed USES endpoint @ 70%',
+    'mid CAUSE endpoint @ 5%',
+    'endpoint YIELDS treasure'
+  ].join('\n')
+  const withoutWeakEdge = [
+    'seed USES mid',
+    'seed USES endpoint @ 70%',
+    'endpoint YIELDS treasure'
+  ].join('\n')
+  for (const text of [withWeakEdge, withoutWeakEdge]) {
+    const { claims } = reconstruct(memoryStoreOfText(text), heuristicPolicy(), ['seed'])
+    assert.ok(
+      claims.some(claim => claim.raw.includes('treasure')),
+      `treasure reachable (adding an edge must never remove claims): ${text.split('\n').length} lines`
+    )
+  }
+})

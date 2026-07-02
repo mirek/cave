@@ -39,8 +39,8 @@ export const usage = `cave — Compressed Atomic Verb Expressions
 Usage:
   cave parse [file] [--json]             lint CAVE text (stdin when no file)
   cave add [file...] --db <path>         ingest into a store [--strict] [--no-prelude]
-  cave query <pattern> --db <path>       run a CAVE-Q pattern [--json] [--all]
-  cave export --db <path> [--current]    emit canonical CAVE text
+  cave query <pattern> --db <path>       run a CAVE-Q pattern [--json] [--all] [--no-prelude]
+  cave export --db <path> [--current]    emit canonical CAVE text [--no-prelude]
   cave demo                              run the cave-loop reconstruction demo
   cave help                              this text
 
@@ -116,7 +116,8 @@ export const queryCommand = (argv: readonly string[]): Output => {
     options: {
       db: { type: 'string' },
       json: { type: 'boolean' },
-      all: { type: 'boolean' }
+      all: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
   })
@@ -127,7 +128,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return fail('cave query: a pattern is required (spec §12.1)\n')
   }
   const pattern = positionals.join('\n')
-  const store = open(values.db)
+  const store = open(values.db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
     const matches = caveQuery(store, pattern, { all: values.all === true })
     if (values.json === true) {
@@ -140,7 +141,9 @@ export const queryCommand = (argv: readonly string[]): Output => {
       const bindings = Object.entries(match.bindings)
         .map(([name, value]) => `?${name} = ${value}`)
         .join('  ')
-      return bindings === '' ? match.row!.raw_line : bindings
+      // A fully bound pattern has no bindings to print; transitive matches
+      // additionally carry no row — confirm with the pattern itself.
+      return bindings !== '' ? bindings : match.row?.raw_line ?? pattern.split('\n')[0]!
     })
     return ok(`${lines.join('\n')}\n`)
   } catch (error) {
@@ -155,14 +158,15 @@ export const exportCommand = (argv: readonly string[]): Output => {
     args: [...argv],
     options: {
       db: { type: 'string' },
-      current: { type: 'boolean' }
+      current: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
     },
     allowPositionals: false
   })
   if (values.db === undefined) {
     return fail('cave export: --db <path> is required\n')
   }
-  const store = open(values.db)
+  const store = open(values.db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
     return ok(store.exportText({ current: values.current === true }))
   } finally {

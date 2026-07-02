@@ -25,8 +25,11 @@
 
 import type * as Claim from './claim.ts'
 
+// Every term kind gets its own prefix so the three encodings occupy
+// disjoint namespaces — an entity literally named `code:<=` must not
+// collide with the backticked code literal `<=`.
 const termPart = (term: Claim.Term): string =>
-  term.kind === 'entity' ? term.text : `${term.kind}:${term.text}`
+  term.kind === 'entity' ? `e:${term.text}` : `${term.kind}:${term.text}`
 
 const payloadPart = (payload: Claim.Payload): string => {
   switch (payload.kind) {

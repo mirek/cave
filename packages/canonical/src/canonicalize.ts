@@ -20,7 +20,7 @@
  * in-band, affecting subsequent lines (§5.4, §5.5).
  */
 
-import { Claim, Entity, Verb } from '@cave/core'
+import { Claim, Entity, Value, Verb } from '@cave/core'
 import { parseDocument, type Ast } from '@cave/parser'
 import * as Registry from './registry.ts'
 
@@ -67,6 +67,36 @@ const comparisonVerb = (op: Ast.ComparisonOp): string =>
 const normalizeTerm = (term: Claim.Term): Claim.Term =>
   term.kind === 'entity' ? Claim.entity(Entity.normalize(term.text)) : term
 
+/**
+ * Term ↔ payload conversion for the §5.5 inverse swap. The parser
+ * classifies a date/number endpoint as a metric payload but a subject is
+ * always a term; swapping must re-classify both directions the same way,
+ * or `deploy PRECEDES 2026-01-01` and `2026-01-01 FOLLOWS deploy` would
+ * key differently — two keys for one fact.
+ */
+const termOfPayload = (payload: Claim.Payload): undefined | Claim.Term => {
+  switch (payload.kind) {
+    case 'relation':
+      return payload.object
+    case 'metric':
+      return payload.value.kind === 'code' ? Claim.code(payload.value.raw) :
+        payload.value.kind === 'text' ? Claim.text(payload.value.raw) :
+        Claim.entity(Entity.normalize(payload.value.raw))
+    default:
+      return undefined
+  }
+}
+
+const payloadOfTerm = (term: Claim.Term): Claim.Payload => {
+  if (term.kind === 'entity') {
+    const value = Value.parse(term.text)
+    if (value.kind === 'number' || value.kind === 'date') {
+      return Claim.metric(value)
+    }
+  }
+  return Claim.relation(term)
+}
+
 const initOf = (meta: Ast.Meta): Partial<Claim.Init> => ({
   contexts: meta.contexts,
   tags: meta.tags,
@@ -100,13 +130,13 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
     }
     const { primary, isInverse } = Registry.primaryOf(registry, verb)
     if (isInverse) {
-      if (payload.kind === 'relation') {
-        const object = payload.object
-        payload = Claim.relation(subject)
-        subject = object
-        verb = primary
-      } else {
+      const objectTerm = termOfPayload(payload)
+      if (objectTerm === undefined) {
         problem(line, `inverse verb ${verb} needs an object to swap with — keeping the line as written (spec §5.5)`)
+      } else {
+        payload = payloadOfTerm(subject)
+        subject = objectTerm
+        verb = primary
       }
     }
     const claim = Claim.of({
@@ -197,6 +227,9 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
         const full: Ast.Full = { subject: parent.writtenSubject, ...line.body }
         const { claim, writtenSubject } = buildClaim(full, line.raw, line.line)
         append(claim, line.line, writtenSubject, lineIndex)
+        // §8.3: each continuation is an ordinary independent claim, so an
+        // in-band declaration works here exactly as on a full line (§5.4).
+        applyDeclarations(claim, line.line)
         return
       }
       case 'qualifier': {

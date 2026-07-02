@@ -15,12 +15,15 @@ export type t = Confidence
 export const defaultConfidence = 1
 
 /**
- * Parses a percentage token (`90%` or `90`) to a decimal clamped to [0, 1]
- * (spec §13.4 step 6: `@ 90%` → `0.9`).
+ * Parses a percentage token (`90%`) to a decimal clamped to [0, 1]
+ * (spec §13.4 step 6: `@ 90%` → `0.9`). The `%` is required — the grammar
+ * (spec §16) defines confidence as a percentage ending in `%`, and demanding
+ * it keeps a mistyped context like `@ 2026` from silently becoming
+ * certainty.
  * @returns `undefined` when the token is not a percentage.
  */
 export const parse = (token: string): undefined | Confidence => {
-  const match = /^(\d+(?:\.\d+)?)%?$/.exec(token.trim())
+  const match = /^(\d+(?:\.\d+)?)%$/.exec(token.trim())
   if (!match || match[1] === undefined) {
     return undefined
   }

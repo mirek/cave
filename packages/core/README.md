@@ -18,7 +18,7 @@ const claim: Claim.t = Claim.of({
   payload: Claim.relation(Claim.entity('jwt'))
 })
 
-Key.of(claim)   // '["auth/middleware","USES",0,"r:jwt",[]]'
+Key.of(claim)   // '["e:auth/middleware","USES",0,"r:e:jwt",[]]'
 Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 ```
 
@@ -45,9 +45,10 @@ Decisions this package pins down where the spec leaves latitude:
 - **Key format** is a JSON array string —
   `[subject, verb, negated, payloadPart, sortedContexts]` — deterministic,
   collision-free (JSON escaping), and human-readable in the database.
-  `payloadPart` is `r:<object>` / `a:<attribute>` / `m`, with non-entity
-  object terms kind-prefixed (`r:code:<=`) so a code literal never collides
-  with a same-spelled entity.
+  `payloadPart` is `r:<object>` / `a:<attribute>` / `m` / `n`, and *every*
+  term is kind-prefixed (`e:` entity, `code:`, `text:`) so the three term
+  encodings occupy disjoint namespaces — even an entity literally named
+  `code:<=` cannot collide with the code literal `` `<=` ``.
 - **Negation is a key component for all payload kinds.** §9.2 lists it for
   relational claims; we extend it to attribute/metric claims so
   `x HAS NOT a: v` and `x HAS a: v` evolve as separate facts, mirroring the

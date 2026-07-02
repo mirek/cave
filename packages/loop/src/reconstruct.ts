@@ -105,11 +105,25 @@ export const reconstruct = (store: CaveStore, policy: Policy, seeds: readonly st
     for (const edge of edges) {
       offer(edge.to, policy.score(edge, cue), cue.depth + 1)
     }
+    // Merge offers into the frontier keeping the maximum score per entity:
+    // a weaker path discovered later must never downgrade a pending cue,
+    // or adding knowledge could remove reachable claims.
+    const merged: Cue[] = []
+    for (const entry of state.frontier) {
+      if (entry.entity === cue.entity) {
+        continue
+      }
+      const offered = neighbors.get(entry.entity)
+      if (offered !== undefined) {
+        merged.push(offered.score > entry.score ? offered : entry)
+        neighbors.delete(entry.entity)
+      } else {
+        merged.push(entry)
+      }
+    }
+    merged.push(...neighbors.values())
     state = {
-      frontier: [
-        ...state.frontier.filter(entry => entry.entity !== cue.entity && !neighbors.has(entry.entity)),
-        ...neighbors.values()
-      ],
+      frontier: merged,
       visited,
       collected: claims,
       steps: state.steps + 1

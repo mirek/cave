@@ -49,13 +49,23 @@ const classify = (tokens: readonly Token.t[], depth: number): Classified | { err
   }
   if (head.kind === 'word' && Verb.isVerbToken(head.text)) {
     const second = tokens[1]
-    const fullTriple = second?.kind === 'word' && Verb.isVerbToken(second.text) && second.text !== 'NOT'
-    if (fullTriple) {
-      return 'claim'
+    const secondWord = second?.kind === 'word' ? second.text : undefined
+    // Tiebreak between "continuation" and "full triple with an uppercase
+    // subject", using the known standard vocabulary (see the README):
+    //   CONTAINS REVERSE PART-OF  → claim (declaration)
+    //   NEEDS NOT downtime        → continuation (NOT is a modifier)
+    //   API NEEDS auth            → claim (second token is a known verb)
+    //   USES JWT / PART-OF ORG    → continuation (first known, second not)
+    //   API MIGRATES postgres     → claim (neither known — subject wins)
+    const kind: Classified =
+      secondWord === Verb.REVERSE ? 'claim' :
+      secondWord !== undefined && secondWord !== 'NOT' && Verb.isVerbToken(secondWord) ?
+        (Verb.isKnown(secondWord) ? 'claim' : Verb.isKnown(head.text) ? 'continuation' : 'claim') :
+        'continuation'
+    if (kind === 'continuation' && depth === 0) {
+      return { error: `continuation line at top level — nothing to inherit a subject from (spec §8.3)` }
     }
-    return depth > 0 ?
-      'continuation' :
-      { error: `continuation line at top level — nothing to inherit a subject from (spec §8.3)` }
+    return kind
   }
   return 'claim'
 }

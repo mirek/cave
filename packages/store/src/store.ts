@@ -12,7 +12,7 @@
  */
 
 import { DatabaseSync } from 'node:sqlite'
-import { Claim, Key, Uuidv7 } from '@cave/core'
+import { Claim, Key, Uuidv7, Verb } from '@cave/core'
 import * as Canonical from '@cave/canonical'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
@@ -86,17 +86,28 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
-  /** Rebuilds in-band declarations from stored claims (ordered by tx). */
+  /**
+   * Rebuilds in-band declarations from stored claims (ordered by tx),
+   * mirroring `@cave/canonical`'s `applyDeclarations` predicate exactly —
+   * the registry after reopen must equal the registry at close. Qualifier
+   * condition rows (children of WHEN/VIA/BECAUSE edges) never declared
+   * in-session, so they are excluded here too; `X IS verb` needs a
+   * verb-shaped plain-entity subject.
+   */
   const rebuildRegistry = (): void => {
     const declarations = db.prepare(`
       SELECT subject, verb, object FROM cave_claim
       WHERE negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'IS')
+        AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
       ORDER BY tx
     `).all() as { subject: string, verb: string, object: string }[]
     for (const declaration of declarations) {
-      if (declaration.verb === 'REVERSE') {
+      if (!Verb.isVerbToken(declaration.subject)) {
+        continue
+      }
+      if (declaration.verb === 'REVERSE' && Verb.isVerbToken(declaration.object)) {
         registry = Canonical.Registry.declareReverse(registry, declaration.subject, declaration.object).registry
-      } else if (declaration.object === 'verb') {
+      } else if (declaration.verb === 'IS' && declaration.object === 'verb') {
         registry = Canonical.Registry.declareVerb(registry, declaration.subject)
       }
     }
@@ -302,21 +313,44 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /**
      * Emits the store as canonical CAVE text — all rows in transaction
      * order, or only current beliefs with `current`.
+     *
+     * In current-only export an edge endpoint may be a superseded row;
+     * dropping such edges would silently un-condition current claims and
+     * promote orphaned WHEN conditions to top-level facts. Instead each
+     * endpoint resolves to the *current row of its claim key*, and the
+     * resulting edges are deduplicated.
      */
     exportText(options_: { current?: boolean } = {}): string {
-      const claimRows = options_.current === true ?
+      const current = options_.current === true
+      const claimRows = current ?
         rows(`${currentSql} ORDER BY c.tx`) :
         rows('SELECT * FROM cave_claim ORDER BY tx')
       const indexById = new Map(claimRows.map((row, index) => [row.id, index]))
+      let resolve = (id: string): undefined | number => indexById.get(id)
+      if (current) {
+        const indexByKey = new Map(claimRows.map((row, index) => [row.claim_key, index]))
+        const keyById = new Map(
+          (db.prepare('SELECT id, claim_key FROM cave_claim').all() as { id: string, claim_key: string }[])
+            .map(row => [row.id, row.claim_key])
+        )
+        resolve = id => indexById.get(id) ?? indexByKey.get(keyById.get(id) ?? '')
+      }
       const claims = claimRows.map(row => ({ claim: toClaim(row), line: 0 }))
       const edgeRows = db.prepare('SELECT parent_id, role, child_id FROM cave_edge').all() as
         { parent_id: string, role: Canonical.EdgeRole, child_id: string }[]
+      const seen = new Set<string>()
       const edges = edgeRows.flatMap(edge => {
-        const parent = indexById.get(edge.parent_id)
-        const child = indexById.get(edge.child_id)
-        return parent === undefined || child === undefined ?
-          [] :
-          [{ parent, role: edge.role, child }]
+        const parent = resolve(edge.parent_id)
+        const child = resolve(edge.child_id)
+        if (parent === undefined || child === undefined || parent === child) {
+          return []
+        }
+        const dedupe = `${parent}|${edge.role}|${child}`
+        if (seen.has(dedupe)) {
+          return []
+        }
+        seen.add(dedupe)
+        return [{ parent, role: edge.role, child }]
       })
       return Canonical.emit({ claims, edges })
     },

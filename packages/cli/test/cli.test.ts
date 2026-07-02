@@ -131,3 +131,31 @@ test('demo narrates the multi-hop recovery', () => {
   assert.match(result.out, /reconstructed claims:/)
   assert.match(result.out, /FIX token-expiry/)
 })
+
+test('fully-bound transitive query confirms the match instead of crashing', () => {
+  withDir(dir => {
+    const db = join(dir, 'tr.db')
+    const file = join(dir, 'tr.cave')
+    writeFileSync(file, 'terrier EXTENDS dog\ndog EXTENDS animal\n')
+    addCommand([file, '--db', db])
+    const result = queryCommand(['terrier EXTENDS+ animal', '--db', db])
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.out, 'terrier EXTENDS+ animal\n')
+    assert.equal(queryCommand(['animal EXTENDS+ terrier', '--db', db]).out, 'no matches\n')
+  })
+})
+
+test('query/export accept --no-prelude so read-time registry matches write-time', () => {
+  withDir(dir => {
+    const db = join(dir, 'np.db')
+    const file = join(dir, 'np.cave')
+    writeFileSync(file, 'packages/api PART-OF monorepo\n')
+    addCommand([file, '--db', db, '--no-prelude'])
+    const withPrelude = queryCommand(['packages/api PART-OF ?x', '--db', db])
+    assert.equal(withPrelude.out, 'no matches\n', 'prelude registry flips the verb away from the stored row')
+    const aligned = queryCommand(['packages/api PART-OF ?x', '--db', db, '--no-prelude'])
+    assert.equal(aligned.out, '?x = monorepo\n')
+    const exported = exportCommand(['--db', db, '--no-prelude'])
+    assert.match(exported.out, /packages\/api PART-OF monorepo/)
+  })
+})

@@ -10,11 +10,9 @@ test('parses percentage to decimal (spec §13.4 step 6)', () => {
   assert.equal(Confidence.parse('94.5%'), 0.945)
 })
 
-test('tolerates missing % sign', () => {
-  assert.equal(Confidence.parse('90'), 0.9)
-})
-
-test('rejects non-percentages', () => {
+test('rejects non-percentages, including percent-less numbers (spec §16)', () => {
+  assert.equal(Confidence.parse('90'), undefined)
+  assert.equal(Confidence.parse('2026'), undefined)
   assert.equal(Confidence.parse('production'), undefined)
   assert.equal(Confidence.parse('%'), undefined)
   assert.equal(Confidence.parse(''), undefined)

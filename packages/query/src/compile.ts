@@ -12,7 +12,7 @@
  * CTE over current, positive, non-retracted edges (depth-capped at 32).
  */
 
-import { Uuidv7 } from '@cave/core'
+import { Uuidv7, Value } from '@cave/core'
 import { Registry } from '@cave/canonical'
 import type { Row, Store } from '@cave/store'
 import * as Pattern from './pattern.ts'
@@ -36,13 +36,20 @@ JOIN (
 ) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
 `
 
-/** UUIDv7 lower bound for a calendar date/timestamp — for `WHERE tx > 2026-01-01`. */
-const txBoundary = (text: string): string => {
-  const ms = Date.parse(text.includes('T') ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(ms)) {
+/**
+ * UUIDv7 interval `[lo, hi)` for a tx filter value: a bare date covers the
+ * whole UTC day, a timestamp covers one second. Interval semantics keep
+ * adjacent operators distinguishable (`<=` includes the boundary day that
+ * `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
+ */
+const txBounds = (text: string): { lo: string, hi: string } => {
+  const hasTime = text.includes('T')
+  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
+  if (Number.isNaN(start)) {
     throw new Error(`CAVE-Q: cannot parse tx date ${JSON.stringify(text)}`)
   }
-  return Uuidv7.at(ms, 0, new Uint8Array(8))
+  const end = start + (hasTime ? 1_000 : 86_400_000)
+  return { lo: Uuidv7.at(start, 0, new Uint8Array(8)), hi: Uuidv7.at(end, 0, new Uint8Array(8)) }
 }
 
 type Compiled = {
@@ -83,6 +90,17 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
   const slot = (value: Pattern.Slot, column: string, requireNotNull: boolean): void => {
     switch (value.kind) {
       case 'term':
+        // A date/number term in object position must also match metric
+        // rows, which store their value in value_text with object NULL
+        // (`latency IS 30ms` ⇒ pattern `latency IS 30ms` matches).
+        if (column === 'object') {
+          const parsed = Value.parse(value.text)
+          if (parsed.kind === 'number' || parsed.kind === 'date') {
+            conditions.push('(c.object = ? OR (c.object IS NULL AND c.value_text = ?))')
+            params.push(value.text, value.text)
+            return
+          }
+        }
         conditions.push(`c.${column} = ?`)
         params.push(value.text)
         return
@@ -165,11 +183,45 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
           params.push(filter.unit)
         }
         break
-      case 'tx':
-        conditions.push(`c.tx ${filter.op} ?`)
-        params.push(txBoundary(filter.value))
+      case 'tx': {
+        const { lo, hi } = txBounds(filter.value)
+        switch (filter.op) {
+          case '>':
+            conditions.push('c.tx >= ?')
+            params.push(hi)
+            break
+          case '>=':
+            conditions.push('c.tx >= ?')
+            params.push(lo)
+            break
+          case '<':
+            conditions.push('c.tx < ?')
+            params.push(lo)
+            break
+          case '<=':
+            conditions.push('c.tx < ?')
+            params.push(hi)
+            break
+          case '=':
+            conditions.push('(c.tx >= ? AND c.tx < ?)')
+            params.push(lo, hi)
+            break
+          case '!=':
+            conditions.push('(c.tx < ? OR c.tx >= ?)')
+            params.push(lo, hi)
+            break
+        }
         break
+      }
     }
+  }
+
+  // Positive patterns match supported beliefs: a retracted (@ 0%) current
+  // belief has no current support (§9.3) and is skipped — mirroring the
+  // transitive CTE and store traversal — unless the query asks about
+  // confidence explicitly or runs over the full history.
+  if (options.all !== true && !pattern.filters.some(filter => filter.field === 'conf')) {
+    conditions.push('c.conf > 0')
   }
 
   const base = options.all === true ? 'SELECT * FROM cave_claim' : currentSql
@@ -205,6 +257,12 @@ const compileTransitive = (
   if (objectSlot?.kind === 'term') {
     conditions.push('h.dst = ?')
     params.push(objectSlot.text)
+  }
+  // A repeated variable forces equality here just as in single-hop
+  // patterns: `?x EXTENDS+ ?x` asks for nodes on a cycle, not for every
+  // reachable pair.
+  if (subjectSlot.kind === 'var' && objectSlot?.kind === 'var' && subjectSlot.name === objectSlot.name) {
+    conditions.push('h.src = h.dst')
   }
   const sql = `
 WITH RECURSIVE cur AS (

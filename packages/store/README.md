@@ -29,7 +29,10 @@ store.exportText({ current: true })          // canonical CAVE text back out
   relation named via the registry's `inverseOf`. Nothing is materialized.
 - **Registry persistence is in-band**: `REVERSE` and `X IS verb` claims are
   ordinary rows; on open the store replays them (in tx order) on top of the
-  initial registry, which defaults to the standard §5.5 prelude pairs.
+  initial registry, which defaults to the standard §5.5 prelude pairs. The
+  replay predicate mirrors the canonicalizer exactly — qualifier-condition
+  rows never declare, and `X IS verb` needs a verb-shaped subject — so the
+  registry after reopen equals the registry at close.
 - **Traversal defaults**: `forward`/`reverse`/`topicMembers`/`topicsOf`
   read *current beliefs* and skip negated (`VERB NOT`) and retracted
   (`@ 0%`) rows; opt back in with `{ negated: true, retracted: true }`.
@@ -70,6 +73,10 @@ store.exportText({ current: true })          // canonical CAVE text back out
 - **`search()` phrase-quotes by default** — FTS5 would parse
   `token-expiry` as a column filter; `{ raw: true }` opts into full MATCH
   syntax.
+- **Current-only export remaps edge endpoints** to the current row of each
+  endpoint's claim key: a superseded qualified parent keeps its `WHEN`
+  attached to the surviving belief, and orphaned condition claims are never
+  promoted to top-level facts.
 
 ## Tests
 

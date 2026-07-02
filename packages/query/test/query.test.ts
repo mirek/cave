@@ -97,13 +97,14 @@ test('value filter (spec §12.2: WHERE value > …)', () => {
   store.close()
 })
 
-test('queries run over current beliefs by default (spec §9.1)', () => {
+test('queries run over supported current beliefs by default (spec §9.1, §9.3)', () => {
   const store = open()
   store.ingest('server IS compromised @ 60%')
   store.ingest('server IS compromised @ 0% ; retracted')
-  const current = query(store, 'server IS compromised')
-  assert.equal(current.length, 1)
-  assert.equal(current[0]!.row?.conf, 0)
+  assert.equal(query(store, 'server IS compromised').length, 0, 'retracted → no current support')
+  const explicit = query(store, 'server IS compromised\n  WHERE conf <= 1')
+  assert.equal(explicit.length, 1, 'explicit conf filter sees the retracted current row')
+  assert.equal(explicit[0]!.row?.conf, 0)
   assert.equal(query(store, 'server IS compromised', { all: true }).length, 2)
   store.close()
 })
@@ -144,5 +145,53 @@ test('code literal terms in patterns', () => {
 test('transitive patterns reject filters', () => {
   const store = fixture()
   assert.throws(() => query(store, 'terrier EXTENDS+ ?x\n  WHERE conf >= 0.5'), /transitive/)
+  store.close()
+})
+
+test('?x EXTENDS+ ?x finds cycles only (repeated-var equality in transitive patterns)', () => {
+  const acyclic = open()
+  acyclic.ingest('a EXTENDS b\nb EXTENDS c')
+  assert.deepEqual(query(acyclic, '?x EXTENDS+ ?x'), [])
+  acyclic.close()
+  const cyclic = open()
+  cyclic.ingest('a EXTENDS b\nb EXTENDS a\nc EXTENDS d')
+  assert.deepEqual(
+    query(cyclic, '?x EXTENDS+ ?x').map(match => match.bindings['x']).sort(),
+    ['a', 'b']
+  )
+  cyclic.close()
+})
+
+test('VERB and VERB+ agree on retracted edges (spec §9.3)', () => {
+  const store = open()
+  store.ingest('terrier EXTENDS dog')
+  store.ingest('terrier EXTENDS dog @ 0% ; retracted')
+  assert.equal(query(store, 'terrier EXTENDS dog').length, 0, 'no current support')
+  assert.equal(query(store, 'terrier EXTENDS+ dog').length, 0)
+  assert.equal(query(store, 'terrier EXTENDS dog\n  WHERE conf <= 0.5').length, 1, 'explicit conf filter opts back in')
+  assert.equal(query(store, 'terrier EXTENDS dog', { all: true }).length, 2)
+  store.close()
+})
+
+test('tx date filters use whole-day intervals (spec §12.2)', () => {
+  const store = open()
+  store.ingest('a USES jwt')
+  const row = store.currentBeliefs()[0]!
+  const day = new Date(parseInt(row.tx.slice(0, 8) + row.tx.slice(9, 13), 16)).toISOString().slice(0, 10)
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx = ${day}`).length, 1, 'recorded that day')
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx <= ${day}`).length, 1, '<= includes the boundary day')
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx > ${day}`).length, 0, '> excludes the boundary day')
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx >= ${day}`).length, 1)
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx != ${day}`).length, 0)
+  store.close()
+})
+
+test('bound date/number objects match metric rows', () => {
+  const store = open()
+  store.ingest('latency IS 30ms\ndeploy PRECEDES 2026-01-01')
+  assert.equal(query(store, 'latency IS 30ms').length, 1)
+  assert.equal(query(store, 'deploy PRECEDES 2026-01-01').length, 1)
+  const inverse = query(store, '2026-01-01 FOLLOWS deploy')
+  assert.equal(inverse.length, 1, 'inverse pattern reaches the same metric row')
   store.close()
 })

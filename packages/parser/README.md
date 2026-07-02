@@ -70,11 +70,16 @@ examples and are tried in order:
   *every* physical line; broken ones become `invalid` with a diagnostic.
   This honors the robust-extraction goal (§1.6) and makes the parser usable
   as a linter.
-- **Classification tiebreak.** A line starting with a verb-shaped token is a
-  continuation *unless* the second token is also verb-shaped (and not
-  `NOT`), in which case it is a full triple with an uppercase subject. This
-  resolves `API NEEDS auth` (claim) vs `CONTAINS packages/web`
-  (continuation) vs `CONTAINS REVERSE PART-OF` (claim) without a registry.
+- **Classification tiebreak.** A line starting with a verb-shaped token is
+  classified using the known standard vocabulary (standard verbs, `HAS`,
+  `REVERSE`, the §5.5 inverse names): second token `REVERSE` → claim
+  (declaration); second token a *known* verb → claim with an uppercase
+  subject (`API NEEDS auth`); first token known → continuation, even when
+  the object is ALL-CAPS (`USES JWT`, `PART-OF ORG`, `USES GPU cluster`);
+  neither known → claim (`API MIGRATES postgres`). The residual ambiguity —
+  an *extension*-verb continuation with an ALL-CAPS object — is inherently
+  registry-dependent and the parser stays registry-free; write the subject
+  explicitly there.
 - **`@` disambiguation is exactly one character of lookahead** (§6.3):
   the token `@` alone expects a following percentage (confidence);
   `@anything` is a context.
@@ -83,7 +88,12 @@ examples and are tried in order:
   to a plain word.
 - **Metadata problems don't kill lines.** `a USES b stray` parses with a
   diagnostic; only structural failures (missing verb/object) invalidate a
-  line.
+  line. Confidence must end in `%` and stay ≤ 100 (`@ 2026`, `@ 90`,
+  `@ 250%` are diagnosed rather than silently clamped); repeating a
+  non-repeatable metadata item (`@ N%`, `+/-`, `(Nσ)`, `!`) is diagnosed
+  with last-wins retention (§3.2 allows repetition only for contexts and
+  tags); a glued attribute colon (`expiry:3600s`) splits into the attribute
+  form with a diagnostic, since payload `:` is reserved (§4.3).
 
 ## Tests
 

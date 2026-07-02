@@ -80,3 +80,49 @@ test('per-row tx ids are strictly increasing in document order', () => {
   assert.equal(new Set(txs).size, 3)
   store.close()
 })
+
+test('registry rebuild matches in-session semantics: qualifier-condition declarations stay inert', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-'))
+  const path = join(dir, 'parity.db')
+  try {
+    const first = open(path, { registry: Registry.empty })
+    first.ingest('x USES y\n  BECAUSE FLIES REVERSE FLOWN-BY\nfoo IS verb')
+    assert.equal(Registry.inverseOf(first.registry(), 'FLIES'), undefined)
+    assert.equal(Registry.isDeclared(first.registry(), 'foo'), false)
+    first.ingest('pigeon FLOWN-BY mike @ 40%')
+    first.close()
+    const second = open(path, { registry: Registry.empty })
+    assert.equal(Registry.inverseOf(second.registry(), 'FLIES'), undefined, 'reopen equals close')
+    assert.equal(Registry.isDeclared(second.registry(), 'foo'), false)
+    second.ingest('pigeon FLOWN-BY mike @ 90%')
+    const series = second.currentBeliefs().filter(row => row.raw_line.startsWith('pigeon'))
+    assert.equal(series.length, 1, 'one fact, one belief series across reopen')
+    assert.equal(series[0]!.conf, 0.9)
+    second.close()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('current export preserves WHEN edges shared across parents (dangling-edge remap)', () => {
+  const store = open()
+  store.ingest('api CAUSE timeout @ 70%\n  WHEN high-load\ndb CAUSE timeout @ 60%\n  WHEN high-load')
+  const text = store.exportText({ current: true })
+  assert.equal(text, [
+    'api CAUSE timeout @ 70%',
+    '  WHEN high-load',
+    'db CAUSE timeout @ 60%',
+    '  WHEN high-load',
+    ''
+  ].join('\n'))
+  store.close()
+})
+
+test('current export never promotes orphaned conditions to top-level facts', () => {
+  const store = open()
+  store.ingest('server CAUSE crash @ 80%\n  WHEN memory-leak')
+  store.ingest('server CAUSE crash @ 95%')
+  const text = store.exportText({ current: true })
+  assert.equal(text, 'server CAUSE crash @ 95%\n  WHEN memory-leak\n')
+  store.close()
+})

@@ -174,3 +174,28 @@ test('windows line endings', () => {
   const doc = parseDocument('a USES b\r\nc USES d\r\n')
   assert.deepEqual(doc.lines.map(line => line.kind), ['claim', 'claim', 'blank'])
 })
+
+test('continuation with ALL-CAPS object stays a continuation (tiebreak via known vocabulary)', () => {
+  const two = parseDocument('auth USES tokens\n  USES JWT')
+  assert.equal(two.diagnostics.length, 0)
+  const jwt = two.lines[1]!
+  assert.equal(jwt.kind, 'continuation')
+  if (jwt.kind === 'continuation') {
+    assert.equal(jwt.body.verb, 'USES')
+    assert.deepEqual(jwt.body.payload, { kind: 'relation', object: { kind: 'entity', text: 'JWT' } })
+  }
+  const three = parseDocument('team USES tooling\n  USES GPU cluster')
+  assert.equal(three.lines[1]!.kind, 'continuation')
+  const inverse = parseDocument('monorepo CONTAINS packages/api\n  PART-OF ORG')
+  assert.equal(inverse.lines[1]!.kind, 'continuation')
+})
+
+test('unknown-verb triples with uppercase subjects stay claims (tiebreak)', () => {
+  const doc = parseDocument('MIGRATES IS verb\nparent CONTAINS x\n  API MIGRATES postgres')
+  const grouped = doc.lines[2]!
+  assert.equal(grouped.kind, 'claim')
+  if (grouped.kind === 'claim') {
+    assert.equal(grouped.claim.subject.text, 'API')
+    assert.equal(grouped.claim.verb, 'MIGRATES')
+  }
+})

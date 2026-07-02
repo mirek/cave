@@ -64,6 +64,23 @@ test('object term kind distinguishes literals from entities', () => {
   assert.notEqual(Key.of(asEntity), Key.of(asCode))
 })
 
+test('entity names mimicking kind prefixes never collide with literals', () => {
+  const entityNamed = relation('expiry-check', 'USES', 'code:<=')
+  const codeLiteral = Claim.of({
+    subject: Claim.entity('expiry-check'),
+    verb: 'USES',
+    payload: Claim.relation(Claim.code('<='))
+  })
+  assert.notEqual(Key.of(entityNamed), Key.of(codeLiteral))
+  const textAlias = relation('a', 'IS', 'text:x')
+  const textLiteral = Claim.of({
+    subject: Claim.entity('a'),
+    verb: 'IS',
+    payload: Claim.relation(Claim.text('x'))
+  })
+  assert.notEqual(Key.of(textAlias), Key.of(textLiteral))
+})
+
 test('different payload kinds never collide', () => {
   const rel = relation('x', 'HAS', 'max')
   const attr = Claim.of({

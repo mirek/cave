@@ -187,3 +187,24 @@ test('parser diagnostics surface as problems', () => {
   assert.equal(result.claims.length, 0)
   assert.equal(result.problems.length, 1)
 })
+
+test('inverse writes with date/number endpoints share the forward key (spec §5.5)', () => {
+  const forward = canonicalizeText('deploy PRECEDES 2026-01-01', standardRegistry)
+  const inverse = canonicalizeText('2026-01-01 FOLLOWS deploy', standardRegistry)
+  assert.deepEqual(inverse.problems, [])
+  assert.equal(Key.of(inverse.claims[0]!.claim), Key.of(forward.claims[0]!.claim))
+  const metricSide = canonicalizeText('deploy FOLLOWS 2026-01-01', standardRegistry)
+  assert.deepEqual(metricSide.problems, [])
+  const claim = metricSide.claims[0]!.claim
+  assert.equal(claim.verb, 'PRECEDES')
+  assert.deepEqual(claim.subject, { kind: 'entity', text: '2026-01-01' })
+  assert.equal(
+    Key.of(claim),
+    Key.of(canonicalizeText('2026-01-01 PRECEDES deploy', standardRegistry).claims[0]!.claim)
+  )
+})
+
+test('declarations written as continuations update the registry (spec §5.4, §8.3)', () => {
+  const result = canonicalizeText('MIGRATES HAS domain: data-platform\n  IS verb')
+  assert.ok(result.registry.declared.has('MIGRATES'))
+})

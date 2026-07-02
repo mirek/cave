@@ -84,3 +84,26 @@ test('emitClaim renders every metadata item in §3.2 anatomy order', () => {
 test('empty result emits empty text', () => {
   assert.equal(emit({ claims: [], edges: [] }), '')
 })
+
+test('negated comparison conditions emit as WHEN NOT and round-trip keys (spec §8.2)', () => {
+  const result = canonicalizeText('server CAUSE crash\n  UNLESS cpu >= 900', standardRegistry)
+  const text = emit(result)
+  assert.equal(text, 'server CAUSE crash\n  WHEN NOT cpu >= 900\n')
+  const again = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.equal(Key.of(again.claims[1]!.claim), Key.of(result.claims[1]!.claim))
+  assert.equal(again.claims[1]!.claim.negated, true)
+  const exceeds = canonicalizeText('server CAUSE crash\n  WHEN NOT load > 1000 req/s', standardRegistry)
+  const exceedsText = emit(exceeds)
+  assert.equal(exceedsText, 'server CAUSE crash\n  WHEN NOT load EXCEEDS 1000 req/s\n')
+  const exceedsAgain = canonicalizeText(exceedsText, standardRegistry)
+  assert.equal(Key.of(exceedsAgain.claims[1]!.claim), Key.of(exceeds.claims[1]!.claim))
+})
+
+test('negated full-claim conditions round-trip (spec §8.2)', () => {
+  const result = canonicalizeText('server CAUSE crash\n  WHEN NOT memory-leak EXISTS @production', standardRegistry)
+  const text = emit(result)
+  const again = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.equal(Key.of(again.claims[1]!.claim), Key.of(result.claims[1]!.claim))
+})
