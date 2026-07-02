@@ -26,6 +26,12 @@ importers:
 
   packages/core: {}
 
+  packages/fusion:
+    dependencies:
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/parser:
     dependencies:
       '@cave/core':
