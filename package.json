@@ -1,0 +1,18 @@
+{
+  "name": "cave",
+  "private": true,
+  "type": "module",
+  "description": "CAVE — Compressed Atomic Verb Expressions. Monorepo implementing the v3 consolidated specification (see README.md).",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  }
+}

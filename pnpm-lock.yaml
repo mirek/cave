@@ -1,0 +1,131 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.20.0
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/canonical:
+    dependencies:
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+
+  packages/cli:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/loop':
+        specifier: workspace:*
+        version: link:../loop
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
+
+  packages/core: {}
+
+  packages/fusion:
+    dependencies:
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/loop:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/parser:
+    dependencies:
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@prelude/parser':
+        specifier: ^7.1.0
+        version: 7.1.0
+
+  packages/query:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
+
+  packages/store:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
+packages:
+
+  '@prelude/parser@7.1.0':
+    resolution: {integrity: sha512-rY+tf+NfOfh0hR5UIHMrSspZyA+7aa6UpeWkIfpobjdUEUo1SW8OQ11OAp8zfpj/bn+qnMZ2+MRMSRBu82m1bQ==}
+
+  '@prelude/radix-trie@0.1.1':
+    resolution: {integrity: sha512-4S4nG4sqOO4jDeGnBhDi8um48yMLKrQxdV/Js4RYpKAubZ4jgm2HyKuAWH/RXee8LkdBJwlCgZB/hf0PnwUM0A==}
+
+  '@types/node@22.20.0':
+    resolution: {integrity: sha512-QWlFW2wf3nTjC13/DqRnBpR4ZO36VJH/JVBkA/vcnmbTBNQIlnObqyqZE1tUR7+Ni23Lda8R1BxMfbXRpCUx5g==}
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+snapshots:
+
+  '@prelude/parser@7.1.0':
+    dependencies:
+      '@prelude/radix-trie': 0.1.1
+
+  '@prelude/radix-trie@0.1.1': {}
+
+  '@types/node@22.20.0':
+    dependencies:
+      undici-types: 6.21.0
+
+  typescript@5.9.3: {}
+
+  undici-types@6.21.0: {}

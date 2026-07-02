@@ -1,0 +1,17 @@
+{
+  "name": "@cave/fusion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CAVE probabilistic layer — Bayesian fusion of numeric estimates, noisy-AND conditional confidence, hypothesis helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cave/core": "workspace:*"
+  }
+}
