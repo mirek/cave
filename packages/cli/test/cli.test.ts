@@ -3,7 +3,8 @@ import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, demoCommand, exportCommand, parseCommand, queryCommand } from '@cave/cli'
+import { addCommand, cave, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cave/cli'
+import { open } from '@cave/store'
 
 const withDir = (body: (dir: string) => void): void => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
@@ -157,5 +158,77 @@ test('query/export accept --no-prelude so read-time registry matches write-time'
     assert.equal(aligned.out, '?x = monorepo\n')
     const exported = exportCommand(['--db', db, '--no-prelude'])
     assert.match(exported.out, /packages\/api PART-OF monorepo/)
+  })
+})
+
+test('export --out writes a file; import restores the full belief history', () => {
+  withDir(dir => {
+    const original = join(dir, 'original.db')
+    const restored = join(dir, 'restored.db')
+    const backup = join(dir, 'backup.cave')
+    const source = join(dir, 'source.cave')
+    writeFileSync(source, [
+      'Anthropic HAS ipo-timing: 2026-H2 @ 40% ; initial assessment',
+      'Anthropic HAS ipo-timing: 2026-H2 @ 65% ; updated after CFO statement',
+      'Anthropic HAS ipo-timing: 2026-H2 @ 35% ; market conditions worsened',
+      'server CAUSE crash @ 80%',
+      '  WHEN load > ~1000 req/s',
+      'packages/api PART-OF monorepo',
+      'WRAPS REVERSE WRAPPED-BY',
+      'gift WRAPPED-BY paper'
+    ].join('\n'))
+    addCommand([source, '--db', original])
+
+    const exported = exportCommand(['--db', original, '--out', backup])
+    assert.equal(exported.code, 0)
+    assert.match(exported.out, /exported 8 claim\(s\) to /)
+
+    const imported = importCommand([backup, '--db', restored])
+    assert.equal(imported.code, 0, imported.err)
+    assert.match(imported.out, /added 8 claim\(s\), 1 edge\(s\)/)
+    assert.equal(imported.err, '', 'a cave export imports without problems')
+
+    // Full belief series survives: same per-key confidence sequences.
+    const series = (db: string): string => {
+      const store = open(db)
+      const rows = store.db.prepare('SELECT claim_key, conf FROM cave_claim ORDER BY tx').all() as
+        { claim_key: string, conf: number }[]
+      store.close()
+      const byKey = new Map<string, number[]>()
+      for (const row of rows) {
+        byKey.set(row.claim_key, [...byKey.get(row.claim_key) ?? [], row.conf])
+      }
+      return JSON.stringify([...byKey.entries()].sort())
+    }
+    assert.equal(series(restored), series(original))
+
+    // The restored database answers queries identically, incl. inverse reads
+    // backed by the imported in-band declaration.
+    assert.equal(
+      queryCommand(['monorepo CONTAINS ?x', '--db', restored]).out,
+      '?x = packages/api\n'
+    )
+    assert.equal(
+      queryCommand(['paper WRAPS ?x', '--db', restored]).out,
+      '?x = gift\n'
+    )
+  })
+})
+
+test('export --current --out backs up only current beliefs', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const source = join(dir, 's.cave')
+    const backup = join(dir, 'current.cave')
+    writeFileSync(source, 'x HAS state: a @ 40%\n')
+    addCommand([source, '--db', db])
+    writeFileSync(source, 'x HAS state: b @ 90%\n')
+    addCommand([source, '--db', db])
+    const exported = exportCommand(['--db', db, '--current', '--out', backup])
+    assert.match(exported.out, /exported 1 claim\(s\)/)
+    const fresh = join(dir, 'fresh.db')
+    importCommand([backup, '--db', fresh])
+    const state = queryCommand(['x HAS state: ?s', '--db', fresh])
+    assert.equal(state.out, '?s = b\n')
   })
 })
