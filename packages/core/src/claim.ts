@@ -49,16 +49,19 @@ export const formatTerm = (term: Term): string => {
 }
 
 /**
- * Claim payload — the three canonical line shapes (spec §3.1):
+ * Claim payload — the canonical line shapes (spec §3.1) plus the object-less
+ * form used by bare existence assertions (spec §5.2 `EXISTS`):
  *
  * - `relation`:  `subject VERB object`
  * - `attribute`: `subject HAS attribute: value`
  * - `metric`:    `metric IS value`
+ * - `none`:      `memory-leak EXISTS @production`
  */
 export type Payload =
   | { readonly kind: 'relation', readonly object: Term }
   | { readonly kind: 'attribute', readonly attribute: string, readonly value: Value.t }
   | { readonly kind: 'metric', readonly value: Value.t }
+  | { readonly kind: 'none' }
 
 /** Canonical (primary-direction) claim. */
 export type Claim = {
@@ -129,6 +132,10 @@ export const attribute = (attribute: string, value: Value.t): Payload =>
 /** @returns metric claim payload. */
 export const metric = (value: Value.t): Payload =>
   ({ kind: 'metric', value })
+
+/** Object-less payload — bare existence assertion (spec §5.2 `EXISTS`). */
+export const none: Payload =
+  { kind: 'none' }
 
 /**
  * σ derived from the claim's `+/- Δ (kσ)` metadata: σ = Δ / k with k

@@ -36,6 +36,8 @@ const payloadPart = (payload: Claim.Payload): string => {
       return `a:${payload.attribute}`
     case 'metric':
       return 'm'
+    case 'none':
+      return 'n'
   }
 }
 
