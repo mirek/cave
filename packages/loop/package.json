@@ -1,0 +1,19 @@
+{
+  "name": "@cave/loop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "cave-loop — active-reconstruction agent layer over the CAVE graph (spec §18, non-normative).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "demo": "node --disable-warning=ExperimentalWarning src/demo.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cave/canonical": "workspace:*",
+    "@cave/core": "workspace:*"
+  }
+}

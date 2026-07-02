@@ -32,6 +32,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/loop:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/parser:
     dependencies:
       '@cave/core':
