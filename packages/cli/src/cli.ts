@@ -42,6 +42,7 @@ Usage:
   cave import [file...] --db <path>      restore/merge a database from CAVE text (same as add)
   cave query <pattern> --db <path>       run a CAVE-Q pattern [--json] [--all] [--no-prelude]
   cave export --db <path> [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
+  cave mcp --db <path>                   serve the engine as an MCP server on stdio [--no-prelude]
   cave demo                              run the cave-loop reconstruction demo
   cave help                              this text
 

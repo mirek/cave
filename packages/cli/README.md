@@ -28,6 +28,7 @@ $ pnpm exec cave demo
 | `import [file…] --db p` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — same operation as `add`, because canonical text *is* the interchange format. |
 | `query <pattern…> --db p` | `--json`, `--all`, `--no-prelude` | CAVE-Q. Extra positionals join as lines, so `WHERE` filters ride as separate arguments. Bindings print as `?x = value`; fully bound patterns print the matched raw line (or the pattern itself for transitive matches, which carry no row). `--no-prelude` aligns the read-time registry with a store written via `add --no-prelude`. |
 | `export --db p` | `--out <file>`, `--current`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. Stdout by default; `--out` writes a file and reports the claim count. |
+| `mcp --db p` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cave/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
 | `demo` | | The cave-loop multi-hop recovery demo (§18). |
 
 ## Text backup / interchange
