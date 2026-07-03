@@ -14,7 +14,7 @@
  * `file` defaults to stdin (`-`).
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { parseDocument } from '@cave/parser'
 import { Registry, standardRegistry } from '@cave/canonical'
@@ -39,8 +39,9 @@ export const usage = `cave — Compressed Atomic Verb Expressions
 Usage:
   cave parse [file] [--json]             lint CAVE text (stdin when no file)
   cave add [file...] --db <path>         ingest into a store [--strict] [--no-prelude]
+  cave import [file...] --db <path>      restore/merge a database from CAVE text (same as add)
   cave query <pattern> --db <path>       run a CAVE-Q pattern [--json] [--all] [--no-prelude]
-  cave export --db <path> [--current]    emit canonical CAVE text [--no-prelude]
+  cave export --db <path> [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave demo                              run the cave-loop reconstruction demo
   cave help                              this text
 
@@ -78,7 +79,7 @@ export const parseCommand = (argv: readonly string[]): Output => {
   return { code: 1, out: `${summary}\n`, err: `${problems}\n` }
 }
 
-export const addCommand = (argv: readonly string[]): Output => {
+const ingestCommand = (name: string) => (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -89,7 +90,7 @@ export const addCommand = (argv: readonly string[]): Output => {
     allowPositionals: true
   })
   if (values.db === undefined) {
-    return fail('cave add: --db <path> is required\n')
+    return fail(`cave ${name}: --db <path> is required\n`)
   }
   const input = readInput(positionals)
   const store = open(values.db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
@@ -109,6 +110,20 @@ export const addCommand = (argv: readonly string[]): Output => {
     store.close()
   }
 }
+
+export const addCommand = ingestCommand('add')
+
+/**
+ * `cave import` — restore/merge a knowledge database from CAVE text files.
+ * Identical to `add` by design: canonical CAVE text *is* the interchange
+ * format (spec §2.2), so importing a file exported with `cave export`
+ * replays its claims append-only. What the text round trip preserves:
+ * every claim with metadata, full belief-series order (rows export in tx
+ * order and re-ingest with fresh monotonic tx ids), qualifier/grouping
+ * edges, and in-band registry declarations. Original tx timestamps are
+ * re-minted — the text format carries no transaction identity.
+ */
+export const importCommand = ingestCommand('import')
 
 export const queryCommand = (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({
@@ -159,6 +174,7 @@ export const exportCommand = (argv: readonly string[]): Output => {
     options: {
       db: { type: 'string' },
       current: { type: 'boolean' },
+      out: { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: false
@@ -168,7 +184,13 @@ export const exportCommand = (argv: readonly string[]): Output => {
   }
   const store = open(values.db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    return ok(store.exportText({ current: values.current === true }))
+    const text = store.exportText({ current: values.current === true })
+    if (values.out === undefined) {
+      return ok(text)
+    }
+    writeFileSync(values.out, text)
+    const claims = text === '' ? 0 : text.trimEnd().split('\n').length
+    return ok(`exported ${claims} claim(s) to ${values.out}\n`)
   } finally {
     store.close()
   }
@@ -186,6 +208,8 @@ export const cave = (argv: readonly string[]): Output => {
         return parseCommand(rest)
       case 'add':
         return addCommand(rest)
+      case 'import':
+        return importCommand(rest)
       case 'query':
       case 'q':
         return queryCommand(rest)
