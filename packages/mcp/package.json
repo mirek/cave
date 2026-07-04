@@ -5,7 +5,8 @@
   "type": "module",
   "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./bin": "./src/bin.ts"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",

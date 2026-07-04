@@ -11,7 +11,7 @@
  * spec §22 compact card so connected models can write CAVE directly.
  */
 
-export { createServer, serve, instructions, protocolVersion, serverInfo } from './server.ts'
+export { createServer, serve, instructions, protocolVersion, serverInfo, specCard } from './server.ts'
 export { runMcp } from './main.ts'
 export { tools } from './tools.ts'
 export type { Tool } from './tools.ts'

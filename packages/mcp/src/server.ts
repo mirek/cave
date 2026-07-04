@@ -26,10 +26,10 @@ export const serverInfo = {
 } as const
 
 /**
- * Server instructions — the spec §22 compact card, so a connected model
- * knows how to write CAVE without reading the full specification.
+ * The spec §22 compact card — tool-agnostic CAVE writing knowledge,
+ * shared with `@cave/ingest` prompts.
  */
-export const instructions = `CAVE (Compressed Atomic Verb Expressions) persists knowledge as atomic claims:
+export const specCard = `CAVE (Compressed Atomic Verb Expressions) persists knowledge as atomic claims:
 
   subject VERB [NOT] object                [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
   subject HAS attribute: value [+/- delta] [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
@@ -44,7 +44,13 @@ Verbs are UPPERCASE (IS, HAS, CAUSE, FIX, NEEDS, USES, YIELDS, ENABLES, BLOCKS,
 CONTAINS, PRECEDES, EXTENDS, ALIAS, LIKE, EXISTS, VS, BECOMES, EXCEEDS).
 Entities are kebab-case with / for scope (auth/middleware). @ctx = context
 (no space), @ 90% = confidence (space). Storage is append-only: update belief
-by adding the same claim with new confidence; retract with @ 0%.
+by adding the same claim with new confidence; retract with @ 0%.`
+
+/**
+ * Server instructions — the card plus tool guidance, so a connected model
+ * knows how to write CAVE without reading the full specification.
+ */
+export const instructions = `${specCard}
 
 Extract knowledge with one claim per line via cave_add (validate with
 cave_lint first), ask questions with cave_query patterns (?x USES jwt),

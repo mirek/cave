@@ -8,7 +8,8 @@
     "cave": "./src/main.ts"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./main": "./src/main.ts"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
@@ -21,6 +22,7 @@
     "@cave/parser": "workspace:*",
     "@cave/query": "workspace:*",
     "@cave/store": "workspace:*",
-    "@cave/mcp": "workspace:*"
+    "@cave/mcp": "workspace:*",
+    "@cave/ingest": "workspace:*"
   }
 }

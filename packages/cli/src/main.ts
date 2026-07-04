@@ -8,6 +8,10 @@ if (argv[0] === 'mcp') {
   // Long-running: serves MCP on stdio until the client disconnects.
   const { runMcp } = await import('@cave/mcp')
   process.exitCode = await runMcp(argv.slice(1))
+} else if (argv[0] === 'ingest') {
+  // Long-running: drives an LLM agent over batches of files.
+  const { runIngest } = await import('@cave/ingest')
+  process.exitCode = await runIngest(argv.slice(1))
 } else {
   const { code, out, err } = cave(argv)
   if (out !== '') {

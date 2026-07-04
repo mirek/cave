@@ -32,6 +32,9 @@ importers:
       '@cave/core':
         specifier: workspace:*
         version: link:../core
+      '@cave/ingest':
+        specifier: workspace:*
+        version: link:../ingest
       '@cave/loop':
         specifier: workspace:*
         version: link:../loop
@@ -55,6 +58,24 @@ importers:
       '@cave/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/ingest:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/loop:
     dependencies:
