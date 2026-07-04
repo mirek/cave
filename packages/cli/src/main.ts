@@ -3,11 +3,22 @@
 
 import { cave } from './cli.ts'
 
-const { code, out, err } = cave(process.argv.slice(2))
-if (out !== '') {
-  process.stdout.write(out)
+const argv = process.argv.slice(2)
+if (argv[0] === 'mcp') {
+  // Long-running: serves MCP on stdio until the client disconnects.
+  const { runMcp } = await import('@cave/mcp')
+  process.exitCode = await runMcp(argv.slice(1))
+} else if (argv[0] === 'ingest') {
+  // Long-running: drives an LLM agent over batches of files.
+  const { runIngest } = await import('@cave/ingest')
+  process.exitCode = await runIngest(argv.slice(1))
+} else {
+  const { code, out, err } = cave(argv)
+  if (out !== '') {
+    process.stdout.write(out)
+  }
+  if (err !== '') {
+    process.stderr.write(err)
+  }
+  process.exitCode = code
 }
-if (err !== '') {
-  process.stderr.write(err)
-}
-process.exitCode = code

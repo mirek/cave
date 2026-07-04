@@ -1,0 +1,21 @@
+{
+  "name": "@cave/ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LLM-driven knowledge ingestion — batch files through any headless agent (claude, copilot, custom SDK scripts) into a CAVE database.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cave/mcp": "workspace:*",
+    "@cave/parser": "workspace:*",
+    "@cave/store": "workspace:*",
+    "@cave/core": "workspace:*",
+    "@cave/canonical": "workspace:*"
+  }
+}

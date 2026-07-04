@@ -32,9 +32,15 @@ importers:
       '@cave/core':
         specifier: workspace:*
         version: link:../core
+      '@cave/ingest':
+        specifier: workspace:*
+        version: link:../ingest
       '@cave/loop':
         specifier: workspace:*
         version: link:../loop
+      '@cave/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@cave/parser':
         specifier: workspace:*
         version: link:../parser
@@ -53,6 +59,24 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/ingest:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/loop:
     dependencies:
       '@cave/canonical':
@@ -61,6 +85,27 @@ importers:
       '@cave/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/mcp:
+    dependencies:
+      '@cave/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cave/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cave/loop':
+        specifier: workspace:*
+        version: link:../loop
+      '@cave/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cave/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cave/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/parser:
     dependencies:

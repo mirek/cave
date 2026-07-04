@@ -18,7 +18,9 @@ Dependency order, bottom to top:
 | [`@cave/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
 | [`@cave/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cave/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
-| [`@cave/cli`](packages/cli) | — | `cave parse / add / query / export / demo` |
+| [`@cave/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
+| [`@cave/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
+| [`@cave/cli`](packages/cli) | — | `cave parse / add / import / query / export / mcp / ingest / demo` |
 
 ## Toolchain
 

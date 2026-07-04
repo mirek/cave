@@ -1,0 +1,29 @@
+/**
+ * `@cave/ingest` — LLM-driven knowledge ingestion.
+ *
+ * ```sh
+ * cave ingest 'src/**' --db k.db \
+ *   --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
+ * ```
+ *
+ * Library API for SDK scripts:
+ *
+ * ```ts
+ * import { run } from '@cave/ingest'
+ * import { open } from '@cave/store'
+ *
+ * const store = open('k.db')
+ * await run({
+ *   db: 'k.db', store, patterns: ['docs/**'], mode: 'stdout', embed: true,
+ *   agent: async prompt => callYourSdk(prompt)   // returns CAVE text
+ * })
+ * ```
+ */
+
+export * as Context from './context.ts'
+export * as Files from './files.ts'
+export { buildPrompt, extractionRules, readInstructions } from './prompt.ts'
+export type { Mode, PromptInput } from './prompt.ts'
+export { caveTextOf, promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
+export type { Agent, Batch, BatchReport, Options, Report } from './run.ts'
+export { runIngest } from './main.ts'

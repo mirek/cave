@@ -1,15 +1,12 @@
 {
-  "name": "@cave/cli",
+  "name": "@cave/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
-  "bin": {
-    "cave": "./src/main.ts"
-  },
+  "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
   "exports": {
     ".": "./src/index.ts",
-    "./main": "./src/main.ts"
+    "./bin": "./src/bin.ts"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
@@ -19,10 +16,8 @@
     "@cave/canonical": "workspace:*",
     "@cave/core": "workspace:*",
     "@cave/loop": "workspace:*",
-    "@cave/parser": "workspace:*",
     "@cave/query": "workspace:*",
     "@cave/store": "workspace:*",
-    "@cave/mcp": "workspace:*",
-    "@cave/ingest": "workspace:*"
+    "@cave/parser": "workspace:*"
   }
 }
