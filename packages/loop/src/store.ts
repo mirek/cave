@@ -21,7 +21,7 @@ export type Edge = {
   /**
    * Relation name in the direction of traversal: the verb itself going
    * forward, the declared inverse going backward — `undefined` when no
-   * inverse is declared (the pre-v3 un-named fallback, spec §5.5).
+   * inverse is declared (the un-named fallback, spec §5.5).
    */
   readonly rel?: string
   readonly conf: number

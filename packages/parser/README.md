@@ -1,7 +1,7 @@
 # @cave/parser
 
 CAVE text → AST. Implements the syntax layer of the
-[CAVE v3 specification](../../README.md): lexical rules (§4), line shapes
+[CAVE specification](../../README.md#the-specification): lexical rules (§4), line shapes
 (§3), indentation kinds (§8) and the normative grammar (§16). Built on
 [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser)
 combinators.

@@ -1,6 +1,9 @@
 # CAVE — Implementation
 
-A pnpm TypeScript monorepo implementing the [CAVE v3 specification](README.md).
+A pnpm TypeScript monorepo implementing the CAVE specification
+(split across the skills in [`.claude/skills/`](.claude/skills) — see the
+[README's section index](README.md#the-specification) for which skill holds
+which § sections).
 Functional style throughout (immutable values, namespace modules in the
 `@prelude` convention, no classes), built bottom-up — each package fully
 documented and tested before the next one starts.
@@ -68,7 +71,7 @@ Package READMEs document local decisions; these are the global ones:
 
 ## Status vs the spec
 
-- **Normative v3**: implemented, including legacy v0.1 acceptance
+- **Normative spec**: implemented, including legacy acceptance
   (colonless attributes parse, emitters always produce the colon form).
 - **Draft layer (§17)** — variables in core grammar, reification `[S V O]`,
   rules `=>`, temporal values: *not implemented*, as speced ("commitment is

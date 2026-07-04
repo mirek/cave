@@ -238,7 +238,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     },
 
     /**
-     * Inverse reads — the pre-v3 gap (spec §13.3): current relational facts
+     * Inverse reads (spec §13.3): current relational facts
      * with `entity` as object, relation named via the registry's inverse
      * when one is declared.
      */

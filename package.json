@@ -2,7 +2,7 @@
   "name": "cave",
   "private": true,
   "type": "module",
-  "description": "CAVE — Compressed Atomic Verb Expressions. Monorepo implementing the v3 consolidated specification (see README.md).",
+  "description": "CAVE — Compressed Atomic Verb Expressions. Monorepo implementing the CAVE specification (see README.md).",
   "engines": {
     "node": ">=22.18"
   },

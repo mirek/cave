@@ -47,7 +47,8 @@ Usage:
   cave demo                              run the cave-loop reconstruction demo
   cave help                              this text
 
-The spec lives in README.md at the repository root.`
+The spec lives in the .claude/skills/ directory at the repository root
+(section index in README.md).`
 
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?

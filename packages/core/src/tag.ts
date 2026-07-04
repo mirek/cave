@@ -3,7 +3,7 @@
  *
  * A flat `#security` is `key=security, value=undefined`; a scoped
  * `#topic:auth-security` splits on the first `:`. Scoped tags subsume flat
- * tags — every pre-v3 `#tag` is a v3 tag with null value.
+ * tags — a flat `#tag` is simply a tag with null value.
  *
  * Tags classify the claim, not the entity, and carry no independent belief
  * history (the two-lane rule, spec §11.1).

@@ -2,7 +2,7 @@
 
 The CAVE domain model — the dependency-free foundation every other package in
 this monorepo builds on. Implements the model layer of the
-[CAVE v3 specification](../../README.md): canonical claims (§2), metadata
+[CAVE specification](../../README.md#the-specification): canonical claims (§2), metadata
 semantics (§6), values/units/uncertainty (§7), claim keys and append-only
 belief evolution primitives (§9).
 

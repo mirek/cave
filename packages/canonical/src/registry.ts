@@ -96,7 +96,7 @@ export const primaryOf = (registry: Registry, verb: string): { primary: string, 
 /**
  * @returns the opposite name of `verb` — `CONTAINS` → `PART-OF`,
  * `PART-OF` → `CONTAINS` — or `undefined` when no inverse is declared
- * (reverse reads then fall back to pre-v3 behavior, spec §5.5).
+ * (reverse reads then fall back to an un-named object-side scan, spec §5.5).
  */
 export const inverseOf = (registry: Registry, verb: string): undefined | string => {
   const pair = registry.pairs.get(verb)
