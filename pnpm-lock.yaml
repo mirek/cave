@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@cavelang/cli':
+        specifier: workspace:*
+        version: link:packages/cli
       '@types/node':
         specifier: ^22.15.0
         version: 22.20.0
