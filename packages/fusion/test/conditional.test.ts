@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { noisyAndIndependent, normalizeHypotheses, hypothesisGap } from '@cave/fusion'
+import { noisyAndIndependent, normalizeHypotheses, hypothesisGap } from '@cavelang/fusion'
 
 test('spec §10.2 example: 0.8 × 0.6 = 0.48', () => {
   assert.ok(Math.abs(noisyAndIndependent(0.8, [0.6]) - 0.48) < 1e-12)

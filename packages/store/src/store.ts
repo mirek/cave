@@ -12,8 +12,8 @@
  */
 
 import { DatabaseSync } from 'node:sqlite'
-import { Claim, Key, Uuidv7, Verb } from '@cave/core'
-import * as Canonical from '@cave/canonical'
+import { Claim, Key, Uuidv7, Verb } from '@cavelang/core'
+import * as Canonical from '@cavelang/canonical'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
 
@@ -88,7 +88,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
 
   /**
    * Rebuilds in-band declarations from stored claims (ordered by tx),
-   * mirroring `@cave/canonical`'s `applyDeclarations` predicate exactly —
+   * mirroring `@cavelang/canonical`'s `applyDeclarations` predicate exactly —
    * the registry after reopen must equal the registry at close. Qualifier
    * condition rows (children of WHEN/VIA/BECAUSE edges) never declared
    * in-session, so they are excluded here too; `X IS verb` needs a
@@ -181,7 +181,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     (options.retracted === true ? '' : ' AND conf > 0')
 
   return {
-    /** Raw database handle — used by `@cave/query`; treat as read-only. */
+    /** Raw database handle — used by `@cavelang/query`; treat as read-only. */
     db,
 
     /** Current verb registry (input registry + stored + ingested declarations). */

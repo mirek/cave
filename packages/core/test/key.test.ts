@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Claim, Key, Value } from '@cave/core'
+import { Claim, Key, Value } from '@cavelang/core'
 
 const relation = (subject: string, verb: string, object: string, extra: Partial<Claim.Init> = {}) =>
   Claim.of({ subject: Claim.entity(subject), verb, payload: Claim.relation(Claim.entity(object)), ...extra })

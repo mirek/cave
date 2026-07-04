@@ -11,11 +11,11 @@
  *    check and the fix.
  *
  * ```
- * pnpm --filter @cave/loop demo
+ * pnpm --filter @cavelang/loop demo
  * ```
  */
 
-import { emitClaim } from '@cave/canonical'
+import { emitClaim } from '@cavelang/canonical'
 import { memoryStoreOfText } from './store.ts'
 import { heuristicPolicy, reconstruct } from './reconstruct.ts'
 

@@ -14,7 +14,7 @@
  */
 
 import { createInterface } from 'node:readline'
-import type { Store } from '@cave/store'
+import type { Store } from '@cavelang/store'
 import { byName, tools } from './tools.ts'
 
 /** Protocol revision answered when the client's is not a string. */
@@ -27,7 +27,7 @@ export const serverInfo = {
 
 /**
  * The spec §22 compact card — tool-agnostic CAVE writing knowledge,
- * shared with `@cave/ingest` prompts.
+ * shared with `@cavelang/ingest` prompts.
  */
 export const specCard = `CAVE (Compressed Atomic Verb Expressions) persists knowledge as atomic claims:
 

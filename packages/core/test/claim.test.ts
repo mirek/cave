@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Claim, Value } from '@cave/core'
+import { Claim, Value } from '@cavelang/core'
 
 test('defaults: positive, certain, unimportant, no metadata (spec §6)', () => {
   const claim = Claim.of({

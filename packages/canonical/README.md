@@ -1,12 +1,12 @@
-# @cave/canonical
+# @cavelang/canonical
 
 The CAVE semantic layer: verb registry, the §13.4 canonicalization
 pipeline, the shared standard prelude, and the canonical emitter. Sits
-between `@cave/parser` (pure syntax) and `@cave/store` (persistence).
+between `@cavelang/parser` (pure syntax) and `@cavelang/store` (persistence).
 
 ```ts
-import { canonicalizeText, standardRegistry, emit } from '@cave/canonical'
-import { Key } from '@cave/core'
+import { canonicalizeText, standardRegistry, emit } from '@cavelang/canonical'
+import { Key } from '@cavelang/core'
 
 const result = canonicalizeText('packages/api PART-OF monorepo', standardRegistry)
 result.claims[0].claim.verb           // 'CONTAINS' — primary direction
@@ -91,7 +91,7 @@ survive the round trip (tested).
 ## Tests
 
 ```
-pnpm --filter @cave/canonical test
+pnpm --filter @cavelang/canonical test
 ```
 
 Covers the §5.5 inverse semantics (shared keys, negation riding the row,

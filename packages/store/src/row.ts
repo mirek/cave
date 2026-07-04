@@ -9,7 +9,7 @@
  * the normalized numeric value and unit (spec §13.4 step 9).
  */
 
-import { Claim, Value } from '@cave/core'
+import { Claim, Value } from '@cavelang/core'
 
 /** A `cave_claim` row. */
 export type Row = {

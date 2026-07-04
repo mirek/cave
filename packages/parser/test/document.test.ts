@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { parseDocument, parse, type Ast } from '@cave/parser'
+import { parseDocument, parse, type Ast } from '@cavelang/parser'
 
 const kinds = (input: string): string[] =>
   parseDocument(input).lines.map(line => line.kind)

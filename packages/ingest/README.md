@@ -1,4 +1,4 @@
-# @cave/ingest
+# @cavelang/ingest
 
 LLM-driven knowledge ingestion: point `cave ingest` at files (globs
 supported) and it drives an agent of your choosing — headless Claude Code,
@@ -78,8 +78,8 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
 - The library API takes a function agent:
 
   ```ts
-  import { run } from '@cave/ingest'
-  import { open } from '@cave/store'
+  import { run } from '@cavelang/ingest'
+  import { open } from '@cavelang/store'
 
   const store = open('k.db')
   await run({
@@ -108,7 +108,7 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
 ## Tests
 
 ```
-pnpm --filter @cave/ingest test
+pnpm --filter @cavelang/ingest test
 ```
 
 Glob/batch/digest units, context slices, prompt assembly for both modes,

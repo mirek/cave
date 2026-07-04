@@ -1,9 +1,18 @@
 {
-  "name": "@cave/cli",
+  "name": "@cavelang/cli",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/cli"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "bin": {
     "cave": "./src/main.ts"
   },
@@ -11,18 +20,27 @@
     ".": "./src/index.ts",
     "./main": "./src/main.ts"
   },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cave/canonical": "workspace:*",
-    "@cave/core": "workspace:*",
-    "@cave/loop": "workspace:*",
-    "@cave/parser": "workspace:*",
-    "@cave/query": "workspace:*",
-    "@cave/store": "workspace:*",
-    "@cave/mcp": "workspace:*",
-    "@cave/ingest": "workspace:*"
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*",
+    "@cavelang/mcp": "workspace:*",
+    "@cavelang/ingest": "workspace:*"
   }
 }

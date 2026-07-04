@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Confidence } from '@cave/core'
+import { Confidence } from '@cavelang/core'
 
 test('parses percentage to decimal (spec §13.4 step 6)', () => {
   assert.equal(Confidence.parse('90%'), 0.9)

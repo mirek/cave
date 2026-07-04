@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cave/loop'
+import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cavelang/loop'
 import { knowledge, run } from '../src/demo.ts'
 
 test('multi-hop recovery: symptom → cause → topic → fix (spec §11.3, §18)', () => {

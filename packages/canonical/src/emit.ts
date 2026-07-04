@@ -8,7 +8,7 @@
  * (`QUALIFIES` edges) re-indent as full lines.
  */
 
-import { Claim, Confidence, Tag, Value } from '@cave/core'
+import { Claim, Confidence, Tag, Value } from '@cavelang/core'
 import type * as Canonicalize from './canonicalize.ts'
 
 const payloadText = (payload: Claim.Payload): undefined | string => {

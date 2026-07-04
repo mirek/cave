@@ -12,7 +12,7 @@
  *   deliberately outside the language (spec §18).
  */
 
-import { Claim, Key } from '@cave/core'
+import { Claim, Key } from '@cavelang/core'
 import type { CaveStore, Edge } from './store.ts'
 
 /** A scored frontier entry. */

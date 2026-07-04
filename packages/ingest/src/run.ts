@@ -25,7 +25,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Store } from '@cave/store'
+import type { Store } from '@cavelang/store'
 import * as Files from './files.ts'
 import * as Context from './context.ts'
 import * as Prompt from './prompt.ts'
@@ -82,7 +82,7 @@ export const writeMcpConfig = (
   options: { noPrelude?: boolean, dir?: string } = {}
 ): string => {
   const dir = options.dir ?? mkdtempSync(join(tmpdir(), 'cave-ingest-'))
-  const server = fileURLToPath(import.meta.resolve('@cave/mcp/bin'))
+  const server = fileURLToPath(import.meta.resolve('@cavelang/mcp/bin'))
   const path = join(dir, 'cave-mcp.json')
   writeFileSync(path, `${JSON.stringify({
     mcpServers: {

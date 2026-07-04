@@ -12,8 +12,8 @@
 import { createHash } from 'node:crypto'
 import { globSync, readFileSync, statSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
-import { Key, Claim, Value } from '@cave/core'
-import type { Store } from '@cave/store'
+import { Key, Claim, Value } from '@cavelang/core'
+import type { Store } from '@cavelang/store'
 
 /** Digest attribute name used in provenance claims. */
 export const digestAttribute = 'ingest-digest'

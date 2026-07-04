@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Claim, Value } from '@cave/core'
-import { fuse, fuseClaims, estimateOf } from '@cave/fusion'
+import { Claim, Value } from '@cavelang/core'
+import { fuse, fuseClaims, estimateOf } from '@cavelang/fusion'
 
 const metricClaim = (value: string, delta: string, conf: number): Claim.t =>
   Claim.of({

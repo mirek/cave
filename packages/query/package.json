@@ -1,20 +1,38 @@
 {
-  "name": "@cave/query",
+  "name": "@cavelang/query",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "CAVE-Q — graph-pattern queries (?x vars, wildcards, inverse verbs, transitive hops, WHERE filters) compiled to SQL.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/query"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cave/canonical": "workspace:*",
-    "@cave/core": "workspace:*",
-    "@cave/parser": "workspace:*",
-    "@cave/store": "workspace:*"
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/store": "workspace:*"
   }
 }

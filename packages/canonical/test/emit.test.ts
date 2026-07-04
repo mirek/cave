@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Key } from '@cave/core'
-import { canonicalizeText, emit, emitClaim, standardRegistry } from '@cave/canonical'
+import { Key } from '@cavelang/core'
+import { canonicalizeText, emit, emitClaim, standardRegistry } from '@cavelang/canonical'
 
 const roundTrip = (text: string): { first: string, second: string } => {
   const result = canonicalizeText(text, standardRegistry)

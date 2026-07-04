@@ -1,5 +1,5 @@
 /**
- * `@cave/ingest` — LLM-driven knowledge ingestion.
+ * `@cavelang/ingest` — LLM-driven knowledge ingestion.
  *
  * ```sh
  * cave ingest 'src/**' --db k.db \
@@ -9,8 +9,8 @@
  * Library API for SDK scripts:
  *
  * ```ts
- * import { run } from '@cave/ingest'
- * import { open } from '@cave/store'
+ * import { run } from '@cavelang/ingest'
+ * import { open } from '@cavelang/store'
  *
  * const store = open('k.db')
  * await run({

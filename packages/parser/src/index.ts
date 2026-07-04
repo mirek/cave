@@ -1,13 +1,13 @@
 /**
- * `@cave/parser` — CAVE text → AST (spec §3, §4, §8, §16).
+ * `@cavelang/parser` — CAVE text → AST (spec §3, §4, §8, §16).
  *
  * Line-oriented parser for the normative CAVE language, built on
  * `@prelude/parser` combinators. Produces pure syntax: inverse verbs,
- * continuations and `UNLESS` are resolved later by `@cave/canonical`
+ * continuations and `UNLESS` are resolved later by `@cavelang/canonical`
  * (spec §13.4).
  *
  * ```ts
- * import { parseDocument } from '@cave/parser'
+ * import { parseDocument } from '@cavelang/parser'
  *
  * const { lines, diagnostics } = parseDocument('auth/middleware USES jwt @ 90%')
  * ```

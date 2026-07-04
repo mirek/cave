@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { memoryStoreOfText } from '@cave/loop'
+import { memoryStoreOfText } from '@cavelang/loop'
 
 test('forward and inverse-named reverse traversal (spec §18 store contract)', () => {
   const store = memoryStoreOfText('monorepo CONTAINS packages/api')

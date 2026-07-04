@@ -1,4 +1,4 @@
-# @cave/loop
+# @cavelang/loop
 
 `cave-loop` — the active-reconstruction agent layer over the CAVE graph
 (spec §18, **non-normative**). Implements Ji et al.'s Algorithm 1
@@ -10,7 +10,7 @@ reconstruction is a *policy* over the graph, so the policy can evolve or
 be swapped without spec churn. Everything here is injectable.
 
 ```ts
-import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cave/loop'
+import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cavelang/loop'
 
 const store = memoryStoreOfText(knowledge)
 const { claims, trace } = reconstruct(store, heuristicPolicy(), ['reject-valid-tokens'])
@@ -22,7 +22,7 @@ const { claims, trace } = reconstruct(store, heuristicPolicy(), ['reject-valid-t
   (§18): forward reads via the subject index, *named* inverse reads via
   the object index plus `inverse_of()`, current-belief resolution via
   claim keys, topic expansion via `CONTAINS` in both directions.
-  `memoryStore` implements it dependency-free (and mirrors `@cave/store`'s
+  `memoryStore` implements it dependency-free (and mirrors `@cavelang/store`'s
   traversal defaults: negated and `@ 0%` facts are not edges).
 - **`Policy`** — select / score / stop, injected into `reconstruct`. The
   loop routes by expanding a cue's claims (content) and offering scored
@@ -37,7 +37,7 @@ const { claims, trace } = reconstruct(store, heuristicPolicy(), ['reject-valid-t
 ## Demo
 
 ```
-pnpm --filter @cave/loop demo
+pnpm --filter @cavelang/loop demo
 ```
 
 The multi-hop recovery pattern central to the paper's thesis: starting
@@ -50,5 +50,5 @@ knowledge.
 ## Tests
 
 ```
-pnpm --filter @cave/loop test
+pnpm --filter @cavelang/loop test
 ```

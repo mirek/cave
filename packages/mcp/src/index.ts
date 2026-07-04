@@ -1,5 +1,5 @@
 /**
- * `@cave/mcp` — the CAVE engine as an MCP server.
+ * `@cavelang/mcp` — the CAVE engine as an MCP server.
  *
  * ```jsonc
  * // client configuration

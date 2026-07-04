@@ -16,11 +16,11 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
-import { parseDocument } from '@cave/parser'
-import { Registry, standardRegistry } from '@cave/canonical'
-import { open } from '@cave/store'
-import { query as caveQuery } from '@cave/query'
-import { Demo } from '@cave/loop'
+import { parseDocument } from '@cavelang/parser'
+import { Registry, standardRegistry } from '@cavelang/canonical'
+import { open } from '@cavelang/store'
+import { query as caveQuery } from '@cavelang/query'
+import { Demo } from '@cavelang/loop'
 
 export type Output = {
   readonly code: number

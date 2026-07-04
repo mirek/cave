@@ -10,8 +10,8 @@
  * `cave_*` MCP tools for anything deeper.
  */
 
-import { emitClaim } from '@cave/canonical'
-import type { Store } from '@cave/store'
+import { emitClaim } from '@cavelang/canonical'
+import type { Store } from '@cavelang/store'
 
 /** Tokens worth searching for, derived from a file path. */
 export const pathTokens = (path: string): string[] => {

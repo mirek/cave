@@ -1,6 +1,6 @@
 /**
  * The CAVE engine surface exposed as MCP tools, all operating on one open
- * `@cave/store` database:
+ * `@cavelang/store` database:
  *
  * | Tool | Purpose |
  * |---|---|
@@ -17,11 +17,11 @@
  * because that is the notation the client model is instructed with.
  */
 
-import { parseDocument } from '@cave/parser'
-import { emitClaim } from '@cave/canonical'
-import type { Store } from '@cave/store'
-import { query as caveQuery } from '@cave/query'
-import { reconstruct, heuristicPolicy, type CaveStore } from '@cave/loop'
+import { parseDocument } from '@cavelang/parser'
+import { emitClaim } from '@cavelang/canonical'
+import type { Store } from '@cavelang/store'
+import { query as caveQuery } from '@cavelang/query'
+import { reconstruct, heuristicPolicy, type CaveStore } from '@cavelang/loop'
 
 export type Tool = {
   readonly name: string
@@ -43,7 +43,7 @@ const aboutLines = (store: Store, entity: string): string[] =>
     .filter(row => row.subject === entity || row.object === entity)
     .map(row => emitClaim(store.toClaim(row)))
 
-/** `@cave/loop` store contract over the SQLite store (spec §18). */
+/** `@cavelang/loop` store contract over the SQLite store (spec §18). */
 const loopStore = (store: Store): CaveStore => ({
   forward: entity =>
     store.forward(entity).map(fact => ({

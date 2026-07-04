@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Line, Token } from '@cave/parser'
+import { Line, Token } from '@cavelang/parser'
 
 const claim = (input: string) => {
   const { head, comment } = Token.splitComment(input)

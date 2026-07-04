@@ -3,8 +3,8 @@ import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Registry } from '@cave/canonical'
-import { open } from '@cave/store'
+import { Registry } from '@cavelang/canonical'
+import { open } from '@cavelang/store'
 
 test('registry rebuilds from stored declaration claims on reopen', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-'))

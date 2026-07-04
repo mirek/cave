@@ -9,7 +9,7 @@
  * 4. entity whitespace normalizes to `-`, proper-noun casing preserved;
  * 5. `raw` keeps the line exactly as written;
  * 6–10. confidence, `~`, multipliers, tag splitting are handled by the
- *    parser and `@cave/core`;
+ *    parser and `@cavelang/core`;
  * 11. claim keys are computed on the canonical form (`Key.of`);
  * 12. contexts/tags ride on each claim for the store's side tables.
  *
@@ -20,8 +20,8 @@
  * in-band, affecting subsequent lines (§5.4, §5.5).
  */
 
-import { Claim, Entity, Value, Verb } from '@cave/core'
-import { parseDocument, type Ast } from '@cave/parser'
+import { Claim, Entity, Value, Verb } from '@cavelang/core'
+import { parseDocument, type Ast } from '@cavelang/parser'
 import * as Registry from './registry.ts'
 
 /** Edge roles persisted in `cave_edge` (spec §13.2). */

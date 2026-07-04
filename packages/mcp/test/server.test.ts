@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { open } from '@cave/store'
-import { createServer, instructions, tools } from '@cave/mcp'
+import { open } from '@cavelang/store'
+import { createServer, instructions, tools } from '@cavelang/mcp'
 
 type Response = {
   jsonrpc: '2.0'

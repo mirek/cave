@@ -5,12 +5,12 @@
  * The contract: forward reads via the subject index, named inverse reads
  * via the object index plus `inverse_of()`, current-belief resolution via
  * claim keys, and topic expansion via `CONTAINS` in both directions.
- * `@cave/store`'s SQLite store satisfies the same shape; the in-memory
+ * `@cavelang/store`'s SQLite store satisfies the same shape; the in-memory
  * store keeps the loop testable without I/O.
  */
 
-import { Claim, Key } from '@cave/core'
-import { Registry, canonicalizeText, standardRegistry } from '@cave/canonical'
+import { Claim, Key } from '@cavelang/core'
+import { Registry, canonicalizeText, standardRegistry } from '@cavelang/canonical'
 
 /** A traversable edge, read from one endpoint. */
 export type Edge = {
@@ -52,7 +52,7 @@ const objectText = (claim: Claim.t): undefined | string =>
  * In-memory `CaveStore` over canonical claims. Claim order is transaction
  * order — for duplicated claim keys the last one wins (current belief,
  * spec §9.1). Negated and retracted (`@ 0%`) facts are excluded from
- * traversal, matching `@cave/store` defaults.
+ * traversal, matching `@cavelang/store` defaults.
  */
 export const memoryStore = (claims: readonly Claim.t[], registry: Registry.t = standardRegistry): CaveStore => {
   const current = new Map<string, Claim.t>()

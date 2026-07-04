@@ -1,11 +1,11 @@
-# @cave/query
+# @cavelang/query
 
 CAVE-Q — the graph-pattern query layer (spec §12), compiled to SQL over an
-open `@cave/store`.
+open `@cavelang/store`.
 
 ```ts
-import { open } from '@cave/store'
-import { query } from '@cave/query'
+import { open } from '@cavelang/store'
+import { query } from '@cavelang/query'
 
 const store = open('knowledge.db')
 query(store, '?x USES jwt')
@@ -69,7 +69,7 @@ covers one second.
 ## Tests
 
 ```
-pnpm --filter @cave/query test
+pnpm --filter @cavelang/query test
 ```
 
 Every §12.1 example pattern and every §12.2 filter runs against a live

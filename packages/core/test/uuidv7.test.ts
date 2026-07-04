@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Uuidv7 } from '@cave/core'
+import { Uuidv7 } from '@cavelang/core'
 
 test('well-formed UUIDv7: version and variant bits', () => {
   const id = Uuidv7.next()

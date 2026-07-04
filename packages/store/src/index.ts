@@ -1,9 +1,9 @@
 /**
- * `@cave/store` — CAVE persistence on the Node.js builtin `node:sqlite`
+ * `@cavelang/store` — CAVE persistence on the Node.js builtin `node:sqlite`
  * (spec §13).
  *
  * ```ts
- * import { open } from '@cave/store'
+ * import { open } from '@cavelang/store'
  *
  * const store = open('knowledge.db')
  * store.ingest('monorepo CONTAINS packages/api')

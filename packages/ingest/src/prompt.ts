@@ -13,7 +13,7 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { specCard as caveCard } from '@cave/mcp'
+import { specCard as caveCard } from '@cavelang/mcp'
 
 export type Mode = 'mcp' | 'stdout'
 

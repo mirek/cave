@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Uncertainty, Claim, Value } from '@cave/core'
+import { Uncertainty, Claim, Value } from '@cavelang/core'
 
 test('default 2σ: 20B +/- 2B → σ = 1B (spec §7.2)', () => {
   assert.equal(Uncertainty.sigma(2e9), 1e9)

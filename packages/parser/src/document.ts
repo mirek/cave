@@ -23,7 +23,7 @@
  * every problem is a diagnostic. `parse` is the strict variant.
  */
 
-import { Verb } from '@cave/core'
+import { Verb } from '@cavelang/core'
 import type * as Ast from './ast.ts'
 import * as Line from './line.ts'
 import * as Token from './token.ts'

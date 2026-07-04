@@ -1,4 +1,4 @@
-# @cave/mcp
+# @cavelang/mcp
 
 The CAVE engine as an **MCP server**: `cave mcp --db knowledge.db` serves
 the Model Context Protocol on stdio, so any MCP client (Claude Code,
@@ -29,7 +29,7 @@ connected model knows how to write CAVE claims without further prompting.
 | `cave_export` | canonical text backup (`current` for beliefs only) |
 | `cave_lint` | validate CAVE text without storing |
 
-`cave_reconstruct` runs the `@cave/loop` heuristic policy over the SQLite
+`cave_reconstruct` runs the `@cavelang/loop` heuristic policy over the SQLite
 store through the §18 store contract — the same multi-hop recovery as the
 demo, against persistent knowledge.
 
@@ -49,7 +49,7 @@ ids while MCP ids may be strings.
 ## Tests
 
 ```
-pnpm --filter @cave/mcp test
+pnpm --filter @cavelang/mcp test
 ```
 
 Pure-dispatcher tests for every tool and protocol path, plus an end-to-end

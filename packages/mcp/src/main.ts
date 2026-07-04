@@ -5,8 +5,8 @@
  */
 
 import { parseArgs } from 'node:util'
-import { Registry } from '@cave/canonical'
-import { open } from '@cave/store'
+import { Registry } from '@cavelang/canonical'
+import { open } from '@cavelang/store'
 import { serve, serverInfo } from './server.ts'
 
 /** Runs the server; resolves with the process exit code. */

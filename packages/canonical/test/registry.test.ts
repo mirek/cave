@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Registry, standardRegistry } from '@cave/canonical'
+import { Registry, standardRegistry } from '@cavelang/canonical'
 
 test('declaring an inverse pair — left side is primary (spec §5.5)', () => {
   const declared = Registry.declareReverse(Registry.empty, 'CONTAINS', 'PART-OF')

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { open, type Store } from '@cave/store'
-import { query } from '@cave/query'
+import { open, type Store } from '@cavelang/store'
+import { query } from '@cavelang/query'
 
 const fixture = (): Store => {
   const store = open()

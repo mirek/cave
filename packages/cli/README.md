@@ -1,4 +1,4 @@
-# @cave/cli
+# @cavelang/cli
 
 The `cave` command — the whole stack behind one binary. Runs directly from
 TypeScript sources via Node's type stripping; no build step.
@@ -28,8 +28,8 @@ $ pnpm exec cave demo
 | `import [file…] --db p` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — same operation as `add`, because canonical text *is* the interchange format. |
 | `query <pattern…> --db p` | `--json`, `--all`, `--no-prelude` | CAVE-Q. Extra positionals join as lines, so `WHERE` filters ride as separate arguments. Bindings print as `?x = value`; fully bound patterns print the matched raw line (or the pattern itself for transitive matches, which carry no row). `--no-prelude` aligns the read-time registry with a store written via `add --no-prelude`. |
 | `export --db p` | `--out <file>`, `--current`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. Stdout by default; `--out` writes a file and reports the claim count. |
-| `mcp --db p` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cave/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
-| `ingest <globs…> --db p` | see `cave ingest --help` | LLM-driven ingestion of files through any headless agent (see [`@cave/ingest`](../ingest)): batching, instructions markdown, hybrid knowledge context, MCP or stdout agents, incremental digests, `--plan` NDJSON for SDK drivers. |
+| `mcp --db p` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
+| `ingest <globs…> --db p` | see `cave ingest --help` | LLM-driven ingestion of files through any headless agent (see [`@cavelang/ingest`](../ingest)): batching, instructions markdown, hybrid knowledge context, MCP or stdout agents, incremental digests, `--plan` NDJSON for SDK drivers. |
 | `demo` | | The cave-loop multi-hop recovery demo (§18). |
 
 ## Text backup / interchange
@@ -52,5 +52,5 @@ CAVE text carries no transaction identity. Use `--current` for a compact
 backup of current beliefs only (history intentionally dropped).
 
 Everything is testable without spawning: each command is a pure function
-`(argv) → { code, out, err }` (`@cave/cli` exports them), and `main.ts` is
+`(argv) → { code, out, err }` (`@cavelang/cli` exports them), and `main.ts` is
 a four-line dispatcher. Tests cover both layers.

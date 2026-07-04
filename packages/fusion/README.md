@@ -1,11 +1,11 @@
-# @cave/fusion
+# @cavelang/fusion
 
-The CAVE probabilistic layer (spec §10) — pure functions over `@cave/core`
+The CAVE probabilistic layer (spec §10) — pure functions over `@cavelang/core`
 claims. The math is an implementation layer, not required syntax: CAVE
 itself only stores claims and metadata.
 
 ```ts
-import { fuseClaims, noisyAndIndependent } from '@cave/fusion'
+import { fuseClaims, noisyAndIndependent } from '@cavelang/fusion'
 
 // revenue IS 18B USD/yr +/- 3B USD/yr @ 60%   (analyst)
 // revenue IS 20B USD/yr +/- 0.5B USD/yr @ 95% (filing)
@@ -46,5 +46,5 @@ the append-only §9 discipline, not a computation.
 ## Tests
 
 ```
-pnpm --filter @cave/fusion test
+pnpm --filter @cavelang/fusion test
 ```

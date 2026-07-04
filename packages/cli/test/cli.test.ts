@@ -3,8 +3,8 @@ import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cave/cli'
-import { open } from '@cave/store'
+import { addCommand, cave, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))

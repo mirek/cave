@@ -1,23 +1,41 @@
 {
-  "name": "@cave/mcp",
+  "name": "@cavelang/mcp",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/mcp"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./bin": "./src/bin.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cave/canonical": "workspace:*",
-    "@cave/core": "workspace:*",
-    "@cave/loop": "workspace:*",
-    "@cave/query": "workspace:*",
-    "@cave/store": "workspace:*",
-    "@cave/parser": "workspace:*"
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*",
+    "@cavelang/parser": "workspace:*"
   }
 }

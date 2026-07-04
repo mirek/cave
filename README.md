@@ -27,10 +27,10 @@ Properties: **atomic** (one claim per line), **append-only** (belief evolves by 
 pnpm install
 pnpm test          # all packages, bottom-up
 pnpm typecheck
-pnpm --filter @cave/loop demo
+pnpm --filter @cavelang/loop demo
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cave/core` → `parser` → `canonical` → `store` → `query` → `fusion` → `loop` → `mcp` → `ingest` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `fusion` → `loop` → `mcp` → `ingest` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 

@@ -7,7 +7,7 @@
  * everything before the first metadata token is payload.
  */
 
-import { Claim, Confidence, Tag, Value, Verb } from '@cave/core'
+import { Claim, Confidence, Tag, Value, Verb } from '@cavelang/core'
 import type * as Ast from './ast.ts'
 import type { Token } from './token.ts'
 

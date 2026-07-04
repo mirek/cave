@@ -1,11 +1,29 @@
 {
-  "name": "@cave/core",
+  "name": "@cavelang/core",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "CAVE domain model — claims, values, units, uncertainty, claim keys, UUIDv7 transactions.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/core"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",

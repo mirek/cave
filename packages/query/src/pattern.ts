@@ -15,8 +15,8 @@
  * lines (spec §12.2), indented or not.
  */
 
-import { Confidence, Verb } from '@cave/core'
-import { Token } from '@cave/parser'
+import { Confidence, Verb } from '@cavelang/core'
+import { Token } from '@cavelang/parser'
 
 /** A pattern slot: named variable, wildcard `_`, or a bound term. */
 export type Slot =

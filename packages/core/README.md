@@ -1,4 +1,4 @@
-# @cave/core
+# @cavelang/core
 
 The CAVE domain model — the dependency-free foundation every other package in
 this monorepo builds on. Implements the model layer of the
@@ -10,7 +10,7 @@ Modules follow the `@prelude` convention — import a module as a namespace,
 its principal type is `t`:
 
 ```ts
-import { Claim, Key, Value, Confidence, Uuidv7 } from '@cave/core'
+import { Claim, Key, Value, Confidence, Uuidv7 } from '@cavelang/core'
 
 const claim: Claim.t = Claim.of({
   subject: Claim.entity('auth/middleware'),
@@ -69,7 +69,7 @@ Decisions this package pins down where the spec leaves latitude:
 ## Tests
 
 ```
-pnpm --filter @cave/core test
+pnpm --filter @cavelang/core test
 ```
 
 Every table and example in spec §6–§7 that concerns the model layer appears

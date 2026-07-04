@@ -1,5 +1,5 @@
 /**
- * `@cave/canonical` — the CAVE semantic layer (spec §5.4, §5.5, §8, §13.4).
+ * `@cavelang/canonical` — the CAVE semantic layer (spec §5.4, §5.5, §8, §13.4).
  *
  * Verb registry with in-band `REVERSE`/extension declarations, the
  * canonicalization pipeline (inverse resolution, continuation expansion,
@@ -7,7 +7,7 @@
  * the canonical emitter.
  *
  * ```ts
- * import { canonicalizeText, standardRegistry, emit } from '@cave/canonical'
+ * import { canonicalizeText, standardRegistry, emit } from '@cavelang/canonical'
  *
  * const result = canonicalizeText('packages/api PART-OF monorepo', standardRegistry)
  * result.claims[0].claim // monorepo CONTAINS packages/api — one fact, two names

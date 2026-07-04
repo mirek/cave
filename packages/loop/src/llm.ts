@@ -16,7 +16,7 @@
  * export const llmPolicy = (complete: Complete): AsyncPolicy => ({
  *   async select(state) {
  *     // Render the frontier and the claims collected so far as canonical
- *     // CAVE text (emitClaim from @cave/canonical) — compact, line
+ *     // CAVE text (emitClaim from @cavelang/canonical) — compact, line
  *     // oriented, and exactly the notation the model was told about in
  *     // its system prompt.
  *     const prompt = [
@@ -49,7 +49,7 @@
  * ```
  */
 
-import type { Claim } from '@cave/core'
+import type { Claim } from '@cavelang/core'
 import type { Edge } from './store.ts'
 import type { Cue, State } from './reconstruct.ts'
 

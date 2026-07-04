@@ -1,8 +1,14 @@
 {
   "name": "cave",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "CAVE — Compressed Atomic Verb Expressions. Monorepo implementing the CAVE specification (see README.md).",
+  "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git"
+  },
   "engines": {
     "node": ">=22.18"
   },

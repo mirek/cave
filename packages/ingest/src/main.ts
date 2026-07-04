@@ -5,8 +5,8 @@
  */
 
 import { parseArgs } from 'node:util'
-import { Registry } from '@cave/canonical'
-import { open } from '@cave/store'
+import { Registry } from '@cavelang/canonical'
+import { open } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
 const usage = `cave ingest <files/globs...> --db <path> --agent '<command>' [options]

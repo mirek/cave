@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Claim, Key } from '@cave/core'
+import { Claim, Key } from '@cavelang/core'
 
 test('object-less EXISTS claim (spec §5.2)', () => {
   const claim = Claim.of({ subject: Claim.entity('memory-leak'), verb: 'EXISTS', payload: Claim.none, contexts: ['production'] })

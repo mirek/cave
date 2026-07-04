@@ -14,16 +14,16 @@ Dependency order, bottom to top:
 
 | Package | Spec | Purpose |
 |---|---|---|
-| [`@cave/core`](packages/core) | §2, §6, §7, §9 | Domain model: claims, values/units/multipliers, uncertainty, confidence, tags, contexts, claim keys, monotonic UUIDv7 |
-| [`@cave/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
-| [`@cave/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
-| [`@cave/store`](packages/store) | §13 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5 |
-| [`@cave/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
-| [`@cave/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
-| [`@cave/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
-| [`@cave/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
-| [`@cave/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
-| [`@cave/cli`](packages/cli) | — | `cave parse / add / import / query / export / mcp / ingest / demo` |
+| [`@cavelang/core`](packages/core) | §2, §6, §7, §9 | Domain model: claims, values/units/multipliers, uncertainty, confidence, tags, contexts, claim keys, monotonic UUIDv7 |
+| [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
+| [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
+| [`@cavelang/store`](packages/store) | §13 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5 |
+| [`@cavelang/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
+| [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
+| [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
+| [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
+| [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / add / import / query / export / mcp / ingest / demo` |
 
 ## Toolchain
 
@@ -41,7 +41,7 @@ Dependency order, bottom to top:
 pnpm install
 pnpm test          # all packages, bottom-up
 pnpm typecheck
-pnpm --filter @cave/loop demo
+pnpm --filter @cavelang/loop demo
 ```
 
 ## Cross-package design decisions
@@ -66,7 +66,7 @@ Package READMEs document local decisions; these are the global ones:
 - **Traversal defaults**: graph reads (store, query, loop) skip negated
   and `@ 0%` rows; contradictions still coexist as data (§9.4).
 - **The standard prelude is opt-out, not baked in**: no verb is born with
-  an inverse (§5.5), but `@cave/store` and the CLI default to the shared
+  an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).
 
 ## Status vs the spec
@@ -77,4 +77,4 @@ Package READMEs document local decisions; these are the global ones:
   rules `=>`, temporal values: *not implemented*, as speced ("commitment is
   gated on the parser implementation"). CAVE-Q's `?x` layer (§12) is
   implemented.
-- **Non-normative agent layer (§18)**: implemented as `@cave/loop`.
+- **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`.

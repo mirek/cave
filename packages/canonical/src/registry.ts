@@ -11,7 +11,7 @@
  * declarations take effect for subsequent lines only.
  */
 
-import { Verb } from '@cave/core'
+import { Verb } from '@cavelang/core'
 
 /** An inverse pair. The primary is the left side of the first declaration (spec §5.5). */
 export type Pair = {

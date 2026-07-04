@@ -12,9 +12,9 @@
  * CTE over current, positive, non-retracted edges (depth-capped at 32).
  */
 
-import { Uuidv7, Value } from '@cave/core'
-import { Registry } from '@cave/canonical'
-import type { Row, Store } from '@cave/store'
+import { Uuidv7, Value } from '@cavelang/core'
+import { Registry } from '@cavelang/canonical'
+import type { Row, Store } from '@cavelang/store'
 import * as Pattern from './pattern.ts'
 
 /** One query solution: variable bindings plus the matched row (absent for transitive hops). */

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Entity } from '@cave/core'
+import { Entity } from '@cavelang/core'
 
 test('normalizes whitespace to - (spec §13.4 step 4)', () => {
   assert.equal(Entity.normalize('token expiry'), 'token-expiry')

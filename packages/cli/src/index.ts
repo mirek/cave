@@ -1,5 +1,5 @@
 /**
- * `@cave/cli` — the `cave` command (parse / add / query / export / demo).
+ * `@cavelang/cli` — the `cave` command (parse / add / query / export / demo).
  * Programmatic access to the same implementations lives here.
  */
 

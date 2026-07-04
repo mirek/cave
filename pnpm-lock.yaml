@@ -17,37 +17,37 @@ importers:
 
   packages/canonical:
     dependencies:
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
-      '@cave/parser':
+      '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
 
   packages/cli:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
-      '@cave/ingest':
+      '@cavelang/ingest':
         specifier: workspace:*
         version: link:../ingest
-      '@cave/loop':
+      '@cavelang/loop':
         specifier: workspace:*
         version: link:../loop
-      '@cave/mcp':
+      '@cavelang/mcp':
         specifier: workspace:*
         version: link:../mcp
-      '@cave/parser':
+      '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
-      '@cave/query':
+      '@cavelang/query':
         specifier: workspace:*
         version: link:../query
-      '@cave/store':
+      '@cavelang/store':
         specifier: workspace:*
         version: link:../store
 
@@ -55,61 +55,61 @@ importers:
 
   packages/fusion:
     dependencies:
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
 
   packages/ingest:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
-      '@cave/mcp':
+      '@cavelang/mcp':
         specifier: workspace:*
         version: link:../mcp
-      '@cave/parser':
+      '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
-      '@cave/store':
+      '@cavelang/store':
         specifier: workspace:*
         version: link:../store
 
   packages/loop:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
 
   packages/mcp:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
-      '@cave/loop':
+      '@cavelang/loop':
         specifier: workspace:*
         version: link:../loop
-      '@cave/parser':
+      '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
-      '@cave/query':
+      '@cavelang/query':
         specifier: workspace:*
         version: link:../query
-      '@cave/store':
+      '@cavelang/store':
         specifier: workspace:*
         version: link:../store
 
   packages/parser:
     dependencies:
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
       '@prelude/parser':
@@ -118,25 +118,25 @@ importers:
 
   packages/query:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
-      '@cave/parser':
+      '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
-      '@cave/store':
+      '@cavelang/store':
         specifier: workspace:*
         version: link:../store
 
   packages/store:
     dependencies:
-      '@cave/canonical':
+      '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
-      '@cave/core':
+      '@cavelang/core':
         specifier: workspace:*
         version: link:../core
 

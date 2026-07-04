@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Pattern } from '@cave/query'
+import { Pattern } from '@cavelang/query'
 
 test('variables, wildcards and terms (spec §12.1)', () => {
   const pattern = Pattern.parse('?x USES jwt')

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { open } from '@cave/store'
+import { open } from '@cavelang/store'
 
 test('current belief = latest tx per claim key (spec §9.1)', () => {
   const store = open()

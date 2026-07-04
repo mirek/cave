@@ -1,4 +1,4 @@
-# @cave/parser
+# @cavelang/parser
 
 CAVE text → AST. Implements the syntax layer of the
 [CAVE specification](../../README.md#the-specification): lexical rules (§4), line shapes
@@ -9,10 +9,10 @@ combinators.
 The parser is deliberately *pre-semantic*: inverse verbs stay as written
 (`packages/api PART-OF monorepo` keeps verb `PART-OF`), continuation lines
 keep their missing endpoint, `UNLESS` stays `UNLESS`. The §13.4
-canonicalization pipeline lives in `@cave/canonical`.
+canonicalization pipeline lives in `@cavelang/canonical`.
 
 ```ts
-import { parseDocument, parse } from '@cave/parser'
+import { parseDocument, parse } from '@cavelang/parser'
 
 const doc = parseDocument(`
 server CAUSE crash @ 80%
@@ -98,7 +98,7 @@ examples and are tried in order:
 ## Tests
 
 ```
-pnpm --filter @cave/parser test
+pnpm --filter @cavelang/parser test
 ```
 
 Every syntax example from spec §3–§8, §16 and the §21 worked example is a

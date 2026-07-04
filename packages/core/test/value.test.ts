@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Value } from '@cave/core'
+import { Value } from '@cavelang/core'
 
 test('simple units glue to the number (spec §7.1)', () => {
   assert.deepEqual(Value.parse('30ms'), { raw: '30ms', kind: 'number', approx: false, num: 30, unit: 'ms' })

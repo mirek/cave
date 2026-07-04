@@ -5,10 +5,10 @@
  * canonicalization. Inverse verbs are *not* resolved here (`packages/api
  * PART-OF monorepo` parses with verb `PART-OF`); continuation lines keep
  * their missing endpoint; qualifier payloads keep their surface shape.
- * `@cave/canonical` applies the spec §13.4 pipeline on top of this AST.
+ * `@cavelang/canonical` applies the spec §13.4 pipeline on top of this AST.
  */
 
-import type { Claim, Value, Tag, Context, Verb } from '@cave/core'
+import type { Claim, Value, Tag, Context, Verb } from '@cavelang/core'
 
 /** Line metadata suffixes (spec §6), all optional. */
 export type Meta = {

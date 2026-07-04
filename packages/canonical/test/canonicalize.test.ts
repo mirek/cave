@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Key } from '@cave/core'
-import { canonicalizeText, standardRegistry, standardPrelude } from '@cave/canonical'
+import { Key } from '@cavelang/core'
+import { canonicalizeText, standardRegistry, standardPrelude } from '@cavelang/canonical'
 
 test('inverse write normalizes to primary before keying (spec §5.5)', () => {
   const result = canonicalizeText('packages/api PART-OF monorepo', standardRegistry)

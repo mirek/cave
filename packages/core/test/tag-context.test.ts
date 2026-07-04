@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Tag, Context } from '@cave/core'
+import { Tag, Context } from '@cavelang/core'
 
 test('flat tag has undefined value (spec §6.2)', () => {
   assert.deepEqual(Tag.parse('security'), { key: 'security' })

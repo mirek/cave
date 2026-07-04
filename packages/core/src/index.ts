@@ -1,5 +1,5 @@
 /**
- * `@cave/core` — the CAVE domain model (spec §2, §6, §7, §9).
+ * `@cavelang/core` — the CAVE domain model (spec §2, §6, §7, §9).
  *
  * Dependency-free foundation of the CAVE monorepo: canonical claim shapes,
  * values/units/multipliers, uncertainty and confidence semantics, claim keys

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Token } from '@cave/parser'
+import { Token } from '@cavelang/parser'
 
 test('words split on whitespace', () => {
   assert.deepEqual(Token.tokenize('auth/middleware USES jwt'), [

@@ -1,18 +1,36 @@
 {
-  "name": "@cave/parser",
+  "name": "@cavelang/parser",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "CAVE text to AST parser built on @prelude/parser combinators.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/parser"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cave/core": "workspace:*",
+    "@cavelang/core": "workspace:*",
     "@prelude/parser": "^7.1.0"
   }
 }

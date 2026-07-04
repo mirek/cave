@@ -1,8 +1,8 @@
 /**
- * `@cave/query` — CAVE-Q, the graph-pattern query layer (spec §12).
+ * `@cavelang/query` — CAVE-Q, the graph-pattern query layer (spec §12).
  *
  * ```ts
- * import { query } from '@cave/query'
+ * import { query } from '@cavelang/query'
  *
  * query(store, '?x USES jwt')                    // [{ bindings: { x: 'auth/middleware' }, row }]
  * query(store, '?x HAS bug: ?bug #security')

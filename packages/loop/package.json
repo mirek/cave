@@ -1,11 +1,29 @@
 {
-  "name": "@cave/loop",
+  "name": "@cavelang/loop",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "cave-loop — active-reconstruction agent layer over the CAVE graph (spec §18, non-normative).",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/loop"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
@@ -13,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cave/canonical": "workspace:*",
-    "@cave/core": "workspace:*"
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-# @cave/store
+# @cavelang/store
 
 CAVE persistence on the **Node.js builtin `node:sqlite`** — no native
 dependencies. Implements the spec §13 storage model: the exact §13.1/§13.2
@@ -6,7 +6,7 @@ schema (`cave_claim`, `cave_context`, `cave_tag`, `cave_edge`, `cave_fts`
 FTS5), append-only belief series, and inverse-aware reads.
 
 ```ts
-import { open } from '@cave/store'
+import { open } from '@cavelang/store'
 
 const store = open('knowledge.db')          // or open() for in-memory
 store.ingest(`
@@ -24,7 +24,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
   monotonic UUIDv7 in `id` and `tx`, so `MAX(tx)` per `claim_key` is the
   current belief. Each ingest call is one SQLite transaction.
 - **One row per fact** (§13.3): inverse writes are canonicalized before
-  keying (`@cave/canonical`), inverse *reads* are query-time views —
+  keying (`@cavelang/canonical`), inverse *reads* are query-time views —
   `forward()` uses the subject index, `reverse()` the object index with the
   relation named via the registry's `inverseOf`. Nothing is materialized.
 - **Registry persistence is in-band**: `REVERSE` and `X IS verb` claims are
@@ -44,7 +44,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | Method | Spec | Purpose |
 |---|---|---|
 | `ingest(text, {strict})` | §13.4 | parse → canonicalize → append; lenient by default |
-| `insertResult(result)` | | append a pre-canonicalized `@cave/canonical` result |
+| `insertResult(result)` | | append a pre-canonicalized `@cavelang/canonical` result |
 | `currentBeliefs({minConf})` | §13.5 | latest row per key |
 | `currentBelief(key)` / `history(key)` | §9.1 | one fact's belief series |
 | `claimsAbout(entity)` | §13.5 | both directions, all rows |
@@ -56,7 +56,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
 | `exportText({current})` | | emit canonical CAVE text |
-| `db` | | raw `DatabaseSync` — used by `@cave/query` |
+| `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
 
 ## Storage decisions
 
@@ -81,7 +81,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
 ## Tests
 
 ```
-pnpm --filter @cave/store test
+pnpm --filter @cavelang/store test
 ```
 
 Covers the §9.1 belief series, §5.5 one-fact-two-names invariants

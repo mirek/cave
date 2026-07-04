@@ -13,7 +13,7 @@
  * CAVE itself only stores claims and metadata.
  */
 
-import { Claim } from '@cave/core'
+import { Claim } from '@cavelang/core'
 
 /** One numeric estimate: mean, σ, and confidence weight p ∈ (0, 1]. */
 export type Estimate = {

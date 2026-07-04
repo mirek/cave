@@ -1,5 +1,5 @@
 /**
- * `@cave/loop` — cave-loop, the active-reconstruction agent layer over the
+ * `@cavelang/loop` — cave-loop, the active-reconstruction agent layer over the
  * CAVE graph (spec §18, non-normative).
  *
  * The agent layer is deliberately outside the language specification:

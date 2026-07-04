@@ -3,8 +3,8 @@ import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { open } from '@cave/store'
-import { run, writeMcpConfig } from '@cave/ingest'
+import { open } from '@cavelang/store'
+import { run, writeMcpConfig } from '@cavelang/ingest'
 
 const withDir = (body: (dir: string) => Promise<void>): Promise<void> => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-run-'))

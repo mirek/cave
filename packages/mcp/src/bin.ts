@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Standalone `cave mcp` entry — lets other packages (and MCP client
- * configurations) point at the server without going through `@cave/cli`.
+ * configurations) point at the server without going through `@cavelang/cli`.
  */
 
 import { runMcp } from './main.ts'
