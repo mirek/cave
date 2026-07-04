@@ -27,85 +27,121 @@ Properties: **atomic** (one claim per line), **append-only** (belief evolves by 
 pnpm install       # puts the `cave` CLI on the workspace path
 ```
 
-Take a note you'd write anyway — Friday's incident, say:
+Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
 
-> At 14:05 UTC checkout latency spiked to ~4s and errors hit 12%. Checkout calls payments, payments goes through the auth gateway, and auth keeps sessions in redis-cache — which had been failing over intermittently since a 13:50 config push. The CDN was the first suspect (unlikely, maybe 30%), but the redis failover looks like the real cause (85%): rolling the config back brought latency down to ~180ms by 14:40. Billing is still investigating a few double-charges (60% it's related).
+> Talked family history with Grandma Maria today. Her father Jan was born in Kraków — she says 1932, but her cousin has always insisted it was 1931. Jan's mother Helena ran a bakery on Long Street until the war. Family lore says Helena's father — my great-great-grandfather — fought in the 1920 war; Maria is only fairly sure it's true (60%, say), nobody has papers.
+>
+> Maria's daughter is my mum, Anna. Oh, and last spring's DNA test finally settled it: the "cousin Piotr" branch really is related — 88% match.
 
-The same knowledge as CAVE — one atomic claim per line. Save it as `incident.cave`:
+The same knowledge as CAVE — one atomic claim per line ([`examples/family-history/notes.cave`](examples/family-history/notes.cave)):
 
 ```cave
-; Friday's checkout incident — extracted 2026-07-03
+; Grandma Maria's 90th birthday — family history notes, caved 2026-07-04
 
-checkout USES payments
-payments USES auth/gateway
-auth/gateway USES redis-cache
+PARENT-OF IS verb ; X is a parent of Y
+PARENT-OF REVERSE CHILD-OF
 
-redis-cache HAS state: intermittent-failover @time:2026-07-03T13:50Z
-config-push CAUSE redis-cache/failover @ 85%
+helena/father PARENT-OF helena
+helena PARENT-OF jan
+jan PARENT-OF maria
+maria PARENT-OF anna
+anna PARENT-OF me
 
-checkout HAS p99-latency: ~4s @time:2026-07-03T14:05Z
-checkout HAS error-rate: 12% @time:2026-07-03T14:05Z
+jan HAS birthplace: Kraków @src:maria
+jan HAS birth-year: 1932 @src:maria @ 70%
+jan HAS birth-year: 1931 @src:cousin @ 40%
 
-cdn CAUSE checkout/errors @ 30% ; first suspicion
-redis-cache/failover CAUSE checkout/errors @ 85%
-  BECAUSE rollback-restored-latency
+helena HAS occupation: baker @loc:long-street
+helena/father IS war-1920-veteran @ 60% ; family lore, no papers
 
-rollback FIX checkout/errors
-checkout HAS p99-latency: ~180ms @time:2026-07-03T14:40Z
-
-double-charge EXISTS @support #billing @ 60% ; billing still investigating
+piotr/branch IS related-family @src:dna-test @ 88%
 ```
 
 Lint it, then load it into a SQLite store:
 
 ```
-$ pnpm exec cave parse incident.cave
-ok: 1 comment, 7 blank, 12 claim, 1 qualifier
+$ pnpm exec cave parse examples/family-history/notes.cave
+ok: 1 comment, 6 blank, 13 claim
 
-$ pnpm exec cave add incident.cave --db incident.db
-added 13 claim(s), 1 edge(s)
+$ pnpm exec cave add examples/family-history/notes.cave --db family.db
+added 13 claim(s), 0 edge(s)
 ```
 
-**Ask for something nobody wrote down.** No line says checkout depends on redis-cache — that fact is three hops of `USES` away. The transitive pattern derives it:
+**Ask for something nobody wrote down.** Every stored fact is a single hop; the ancestor chain is nowhere stated. The transitive pattern derives it:
 
 ```
-$ pnpm exec cave query '?svc USES+ redis-cache' --db incident.db
-?svc = auth/gateway
-?svc = checkout
-?svc = payments
+$ pnpm exec cave query '?a PARENT-OF+ me' --db family.db
+?a = anna
+?a = helena
+?a = helena/father
+?a = jan
+?a = maria
 ```
 
-Every service exposed to the flaky cache — including `checkout`, which only reaches it through `payments → auth/gateway`.
-
-**Ask what you actually believe.** Claims carry confidence, and queries filter on it — competing hypotheses coexist until evidence sorts them out:
+And because the file declared `PARENT-OF REVERSE CHILD-OF`, the *same stored rows* answer the opposite direction — Helena's descendants, no extra rows, one shared belief history per fact:
 
 ```
-$ pnpm exec cave query '?cause CAUSE checkout/errors' --db incident.db
-?cause = cdn
-?cause = redis-cache/failover
-
-$ pnpm exec cave query '?cause CAUSE checkout/errors' 'WHERE conf >= 0.7' --db incident.db
-?cause = redis-cache/failover
+$ pnpm exec cave query '?d CHILD-OF+ helena' --db family.db
+?d = anna
+?d = jan
+?d = maria
+?d = me
 ```
 
-**Update belief by appending, never editing.** The CDN logs come back clean — append one line. The latest claim wins; the 30% row stays in history:
+**Ask what you actually believe.** The disputed birth year is two coexisting claims, each with its own source and confidence — and queries filter on it:
 
 ```
-$ echo 'cdn CAUSE checkout/errors @ 5% ; ruled out, CDN logs clean' | pnpm exec cave add --db incident.db
+$ pnpm exec cave query 'jan HAS birth-year: ?y' --db family.db
+?y = 1932
+?y = 1931
+
+$ pnpm exec cave query 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6' --db family.db
+?y = 1932
+```
+
+**Update belief by appending, never editing.** The birth certificate turns up in an archive: append the new evidence and downgrade grandma's version (context is part of a claim's identity, so the downgrade names the same `@src:`). Nothing is deleted:
+
+```
+$ echo 'jan HAS birth-year: 1931 @src:birth-certificate @ 95%' | pnpm exec cave add --db family.db
 added 1 claim(s), 0 edge(s)
 
-$ pnpm exec cave query '?cause CAUSE checkout/errors' 'WHERE conf >= 0.2' --db incident.db
-?cause = redis-cache/failover
+$ echo 'jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one' | pnpm exec cave add --db family.db
+added 1 claim(s), 0 edge(s)
+
+$ pnpm exec cave query 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6' --db family.db
+?y = 1931
 ```
 
-**Read the same fact from either end.** `USES REVERSE USED-BY` ships in the standard prelude, so one stored row answers both directions — no second row, one shared belief history:
+The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it).
+
+### Let an LLM write the claims — `cave ingest`
+
+The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
 
 ```
-$ pnpm exec cave query 'redis-cache USED-BY ?x' --db incident.db
-?x = auth/gateway
+$ pnpm exec cave ingest examples/family-history/notes.md --db lore.db \
+    --instructions examples/family-history/instructions.md \
+    --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
+ingest: 1 file(s) matched, 0 skipped (unchanged), 1 batch(es)
+batch 1/1 (1 file(s)): +14 claim(s)
+  agent: done: 14 claims added
+done: +14 claim(s)
 ```
 
-From here: `cave export --db incident.db` replays the full belief history as canonical text (`--current` for current beliefs only — the text *is* the backup/interchange format), `cave ingest 'notes/**/*.md' --db knowledge.db` drives an LLM agent to do the prose→claims extraction for you, and `cave mcp --db knowledge.db` serves the store to any MCP client. `pnpm exec cave help` lists everything.
+The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. The machine-built database answers the same transitive query:
+
+```
+$ pnpm exec cave query '?a PARENT-OF+ me' --db lore.db
+?a = anna
+?a = helena
+?a = helena/father
+?a = jan
+?a = maria
+```
+
+(LLM output naturally varies run to run; the report above is one actual run. See [`@cavelang/ingest`](packages/ingest) for batching, hybrid knowledge context, `--stdout` mode, and SDK drivers.)
+
+From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ## Development
 
