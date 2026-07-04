@@ -27,8 +27,15 @@ test('cave mcp speaks MCP over stdio end to end', async () => {
     const rpc = (method: string, params?: unknown): Promise<Record<string, unknown>> => {
       const id = ++nextId
       const promise = new Promise<Record<string, unknown>>((resolve, reject) => {
-        pending.set(id, resolve)
-        setTimeout(() => reject(new Error(`timeout waiting for ${method}`)), 15_000).unref()
+        const timer = setTimeout(() => {
+          pending.delete(id)
+          reject(new Error(`timeout waiting for ${method}`))
+        }, 15_000)
+        timer.unref()
+        pending.set(id, response => {
+          clearTimeout(timer)
+          resolve(response)
+        })
       })
       child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, ...params === undefined ? {} : { params } })}\n`)
       return promise

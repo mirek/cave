@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { globSync, readFileSync } from 'node:fs'
+import { globSync, readFileSync, statSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { Key, Claim, Value } from '@cave/core'
 import type { Store } from '@cave/store'
@@ -21,10 +21,12 @@ export const digestAttribute = 'ingest-digest'
 /** Context marking provenance claims. */
 export const provenanceContext = 'src:cave-ingest'
 
-/** @returns matching file paths — globs expanded, deduplicated, sorted. */
+/** @returns matching regular-file paths — globs expanded, directories dropped, deduplicated, sorted. */
 export const expand = (patterns: readonly string[], cwd: string = process.cwd()): string[] => {
   const matched = patterns.flatMap(pattern => globSync(pattern, { cwd }))
-  return [...new Set(matched)].sort()
+  return [...new Set(matched)]
+    .filter(path => statSync(resolvePath(cwd, path)).isFile())
+    .sort()
 }
 
 /** @returns first 12 hex chars of the content's sha256. */

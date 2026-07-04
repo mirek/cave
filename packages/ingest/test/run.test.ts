@@ -122,11 +122,16 @@ test('mcp mode reports the database delta made by an external agent', () =>
 
 test('writeMcpConfig points a client at cave mcp for the database', () =>
   withDir(async dir => {
-    const path = writeMcpConfig(join(dir, 'k.db'), dir)
+    const path = writeMcpConfig(join(dir, 'k.db'), { dir })
     const config = JSON.parse(String(await import('node:fs').then(fs => fs.readFileSync(path, 'utf8'))))
     const cave = config.mcpServers.cave
     assert.equal(cave.command, process.execPath)
     assert.match(cave.args.join(' '), /bin\.ts --db .*k\.db/)
+    assert.ok(!cave.args.includes('--no-prelude'))
+
+    const bare = writeMcpConfig(join(dir, 'k.db'), { dir, noPrelude: true })
+    const bareConfig = JSON.parse(String(await import('node:fs').then(fs => fs.readFileSync(bare, 'utf8'))))
+    assert.ok(bareConfig.mcpServers.cave.args.includes('--no-prelude'))
   }))
 
 test('problems in agent output are reported, valid lines still land', () =>

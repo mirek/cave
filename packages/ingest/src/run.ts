@@ -21,9 +21,9 @@
  */
 
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Store } from '@cave/store'
 import * as Files from './files.ts'
@@ -46,6 +46,8 @@ export type Options = {
   /** Inline file contents into prompts (for agents without file access). */
   readonly embed?: boolean
   readonly force?: boolean
+  /** Open generated MCP servers without the standard prelude registry. */
+  readonly noPrelude?: boolean
   readonly timeoutSeconds?: number
   readonly cwd?: string
   readonly store: Store
@@ -75,12 +77,19 @@ export type Batch = {
 }
 
 /** Writes an MCP client configuration pointing at `cave mcp --db <db>`. */
-export const writeMcpConfig = (db: string, dir: string = mkdtempSync(join(tmpdir(), 'cave-ingest-'))): string => {
+export const writeMcpConfig = (
+  db: string,
+  options: { noPrelude?: boolean, dir?: string } = {}
+): string => {
+  const dir = options.dir ?? mkdtempSync(join(tmpdir(), 'cave-ingest-'))
   const server = fileURLToPath(import.meta.resolve('@cave/mcp/bin'))
   const path = join(dir, 'cave-mcp.json')
   writeFileSync(path, `${JSON.stringify({
     mcpServers: {
-      cave: { command: process.execPath, args: [server, '--db', resolve(db)] }
+      cave: {
+        command: process.execPath,
+        args: [server, '--db', resolve(db), ...options.noPrelude === true ? ['--no-prelude'] : []]
+      }
     }
   }, undefined, 2)}\n`)
   return path
@@ -127,10 +136,17 @@ const runShellAgent = (
   substitutions: Readonly<Record<string, string>>,
   timeoutSeconds: number,
   cwd: string
-): Promise<{ code: number | null, stdout: string }> => {
+): Promise<{ code: number | null, stdout: string, error?: string }> => {
   const command = Object.entries(substitutions)
     .reduce((acc, [name, value]) => acc.replaceAll(`{${name}}`, value), template)
   return new Promise(resolvePromise => {
+    let settled = false
+    const settle = (result: { code: number | null, stdout: string, error?: string }): void => {
+      if (!settled) {
+        settled = true
+        resolvePromise(result)
+      }
+    }
     const child = spawn(command, {
       shell: true,
       cwd,
@@ -141,7 +157,9 @@ const runShellAgent = (
     child.stdout.on('data', chunk => {
       stdout += String(chunk)
     })
-    child.on('close', code => resolvePromise({ code, stdout }))
+    child.on('error', error => settle({ code: null, stdout, error: error.message }))
+    child.on('close', code => settle({ code, stdout }))
+    child.stdin.on('error', () => {})
     child.stdin.write(prompt)
     child.stdin.end()
   })
@@ -166,66 +184,76 @@ export const run = async (options: Options): Promise<Report> => {
   const { selection, batches } = selectBatches(store, options)
   const reports: BatchReport[] = []
   const mcpConfig = typeof options.agent === 'string' && options.agent.includes('{mcp-config}') ?
-    writeMcpConfig(options.db) :
+    writeMcpConfig(options.db, { noPrelude: options.noPrelude === true }) :
     undefined
   const promptDir = mkdtempSync(join(tmpdir(), 'cave-prompt-'))
-  for (const [index, files] of batches.entries()) {
-    const prompt = promptFor(store, files, { ...options, mode })
-    const paths = files.map(file => file.path)
-    if (options.agent === undefined) {
-      reports.push({ files: paths, ok: false, added: 0, problems: [], note: 'no agent configured' })
-      continue
-    }
-    const before = claimCount(store)
-    let ok: boolean
-    let output: string
-    if (typeof options.agent === 'function') {
-      try {
-        output = await options.agent(prompt, paths)
-        ok = true
-      } catch (error) {
-        output = ''
-        ok = false
+  try {
+    for (const [index, files] of batches.entries()) {
+      const prompt = promptFor(store, files, { ...options, mode })
+      const paths = files.map(file => file.path)
+      if (options.agent === undefined) {
+        reports.push({ files: paths, ok: false, added: 0, problems: [], note: 'no agent configured' })
+        continue
+      }
+      const before = claimCount(store)
+      let ok: boolean
+      let output: string
+      if (typeof options.agent === 'function') {
+        try {
+          output = await options.agent(prompt, paths)
+          ok = true
+        } catch (error) {
+          output = ''
+          ok = false
+          reports.push({
+            files: paths, ok, added: 0, problems: [],
+            note: error instanceof Error ? error.message : String(error)
+          })
+          continue
+        }
+      } else {
+        const promptFile = join(promptDir, `batch-${index + 1}.md`)
+        writeFileSync(promptFile, prompt)
+        const result = await runShellAgent(options.agent, prompt, {
+          'prompt-file': promptFile,
+          ...mcpConfig === undefined ? {} : { 'mcp-config': mcpConfig },
+          db: resolve(options.db)
+        }, timeoutSeconds, cwd)
+        ok = result.code === 0
+        output = result.stdout
+        if (!ok) {
+          reports.push({
+            files: paths, ok, added: 0, problems: [],
+            note: result.error ?? `agent exited with ${result.code}`
+          })
+          continue
+        }
+      }
+      if (mode === 'stdout') {
+        const ingested = store.ingest(caveTextOf(output))
         reports.push({
-          files: paths, ok, added: 0, problems: [],
-          note: error instanceof Error ? error.message : String(error)
+          files: paths,
+          ok: true,
+          added: ingested.ids.length,
+          problems: ingested.problems.map(problem => `line ${problem.line}: ${problem.message}`)
         })
-        continue
+      } else {
+        const note = output.trim().split('\n').at(-1) ?? ''
+        reports.push({
+          files: paths,
+          ok: true,
+          added: claimCount(store) - before,
+          problems: [],
+          ...note === '' ? {} : { note }
+        })
       }
-    } else {
-      const promptFile = join(promptDir, `batch-${index + 1}.md`)
-      writeFileSync(promptFile, prompt)
-      const result = await runShellAgent(options.agent, prompt, {
-        'prompt-file': promptFile,
-        ...mcpConfig === undefined ? {} : { 'mcp-config': mcpConfig },
-        db: resolve(options.db)
-      }, timeoutSeconds, cwd)
-      ok = result.code === 0
-      output = result.stdout
-      if (!ok) {
-        reports.push({ files: paths, ok, added: 0, problems: [], note: `agent exited with ${result.code}` })
-        continue
-      }
+      Files.recordDigests(store, files)
     }
-    if (mode === 'stdout') {
-      const ingested = store.ingest(caveTextOf(output))
-      reports.push({
-        files: paths,
-        ok: true,
-        added: ingested.ids.length,
-        problems: ingested.problems.map(problem => `line ${problem.line}: ${problem.message}`)
-      })
-    } else {
-      const note = output.trim().split('\n').at(-1) ?? ''
-      reports.push({
-        files: paths,
-        ok: true,
-        added: claimCount(store) - before,
-        problems: [],
-        ...note === '' ? {} : { note }
-      })
+  } finally {
+    rmSync(promptDir, { recursive: true, force: true })
+    if (mcpConfig !== undefined) {
+      rmSync(dirname(mcpConfig), { recursive: true, force: true })
     }
-    Files.recordDigests(store, files)
   }
   const succeeded = reports.filter(report => report.ok)
   return {

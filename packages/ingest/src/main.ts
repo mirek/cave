@@ -65,7 +65,18 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     process.stderr.write('cave ingest: --agent is required (or use --plan / --dry-run)\n')
     return 1
   }
-  const store = open(values.db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const batchSize = values.batch === undefined ? undefined : Number(values.batch)
+  if (batchSize !== undefined && (!Number.isInteger(batchSize) || batchSize < 1)) {
+    process.stderr.write(`cave ingest: --batch must be a positive integer, got '${values.batch}'\n`)
+    return 1
+  }
+  const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
+  if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
+    process.stderr.write(`cave ingest: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    return 1
+  }
+  const noPrelude = values['no-prelude'] === true
+  const store = open(values.db, noPrelude ? { registry: Registry.empty } : {})
   try {
     const options = {
       db: values.db,
@@ -74,15 +85,16 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
       mode: values.stdout === true ? 'stdout' as const : 'mcp' as const,
       ...values.agent === undefined ? {} : { agent: values.agent },
       ...values.instructions === undefined ? {} : { instructions: values.instructions },
-      ...values.batch === undefined ? {} : { batchSize: Number(values.batch) },
-      ...values.timeout === undefined ? {} : { timeoutSeconds: Number(values.timeout) },
+      ...batchSize === undefined ? {} : { batchSize },
+      ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
       embed: values.embed === true,
-      force: values.force === true
+      force: values.force === true,
+      noPrelude
     }
     if (planning) {
       const { selection, batches } = selectBatches(store, options)
       if (values.plan === true) {
-        const mcpConfig = writeMcpConfig(values.db)
+        const mcpConfig = writeMcpConfig(values.db, { noPrelude })
         for (const files of batches) {
           const prompt = promptFor(store, files, options)
           process.stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db: values.db })}\n`)
