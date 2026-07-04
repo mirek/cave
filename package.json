@@ -18,6 +18,7 @@
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "@cavelang/cli": "workspace:*",
     "@types/node": "^22.15.0",
     "typescript": "^5.8.0"
   }
