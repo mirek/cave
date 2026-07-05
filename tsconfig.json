@@ -1,0 +1,35 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/canonical"
+    },
+    {
+      "path": "packages/cli"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/fusion"
+    },
+    {
+      "path": "packages/ingest"
+    },
+    {
+      "path": "packages/loop"
+    },
+    {
+      "path": "packages/mcp"
+    },
+    {
+      "path": "packages/parser"
+    },
+    {
+      "path": "packages/query"
+    },
+    {
+      "path": "packages/store"
+    }
+  ]
+}

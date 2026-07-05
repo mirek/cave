@@ -18,17 +18,32 @@
     "./bin": "./src/bin.ts"
   },
   "files": [
+    "dist",
+    "!dist/test",
+    "!dist/tsconfig.tsbuildinfo",
     "src",
     "!src/**/*.test.ts",
     "README.md",
     "License.md"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/src/index.d.ts",
+        "default": "./dist/src/index.js"
+      },
+      "./bin": {
+        "types": "./dist/src/bin.d.ts",
+        "default": "./dist/src/bin.js"
+      }
+    }
   },
   "scripts": {
+    "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -b",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@cavelang/canonical": "workspace:*",

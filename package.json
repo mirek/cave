@@ -12,10 +12,13 @@
   "engines": {
     "node": ">=22.18"
   },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b --watch --preserveWatchOutput",
+    "clean": "rm -rf packages/*/dist",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "tsc -b"
   },
   "devDependencies": {
     "@cavelang/cli": "workspace:*",

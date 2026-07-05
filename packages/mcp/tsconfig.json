@@ -1,4 +1,31 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../canonical"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../loop"
+    },
+    {
+      "path": "../query"
+    },
+    {
+      "path": "../store"
+    },
+    {
+      "path": "../parser"
+    }
+  ]
 }
