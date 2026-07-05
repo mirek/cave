@@ -1,0 +1,104 @@
+==================
+value with compound unit, uncertainty, context and confidence
+==================
+OpenAI HAS revenue: ~20B USD/yr +/- 2B USD/yr @2026-Q1 @ 90%
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)
+        (unit)))
+    (uncertainty
+      (value
+        (number)
+        (unit)))
+    (context)
+    (confidence)))
+
+==================
+sigma level override
+==================
+OpenAI HAS revenue: 20B USD/yr +/- 2B USD/yr (1σ)
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)
+        (unit)))
+    (uncertainty
+      (value
+        (number)
+        (unit)))
+    (sigma)))
+
+==================
+glued simple unit
+==================
+auth/key HAS expiry: 3600s !
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)))
+    (importance)))
+
+==================
+count with unit word
+==================
+pool HAS max: 20 conn
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)
+        (unit)))))
+
+==================
+date-like value
+==================
+Anthropic HAS ipo-timing: 2026-H2 @ 40%
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)))
+    (confidence)))
+
+==================
+atom attribute value
+==================
+auth/middleware HAS topic: security
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (entity))))

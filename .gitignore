@@ -7,3 +7,10 @@ coverage/
 dist/
 .DS_Store
 *.tsbuildinfo
+*.vsix
+
+# Generated grammar artifacts — unauditable, so never committed; built on
+# demand by `pnpm --filter @cavelang/tree-sitter-cave build` (tree-sitter-cli
+# fetches wasi-sdk itself) and shipped only inside the npm tarball via prepack.
+*.wasm
+packages/tree-sitter-cave/src/

@@ -12,7 +12,9 @@ trap 'rm -rf "$tmp"' EXIT
 
 echo "==> packing workspace packages"
 mkdir "$tmp/tarballs"
-(cd "$root" && pnpm -r exec pnpm pack --pack-destination "$tmp/tarballs" >/dev/null)
+# Only the npm-published packages — the VSCode extension (editors/*) is
+# private and ships as a .vsix, not a tarball.
+(cd "$root" && pnpm -r --filter '@cavelang/*' exec pnpm pack --pack-destination "$tmp/tarballs" >/dev/null)
 
 echo "==> installing tarballs into a scratch project"
 mkdir "$tmp/app"
@@ -29,6 +31,11 @@ echo "==> cave add / query / export round-trip"
 "$cave" add "$root/examples/incident/incident.cave" --db "$tmp/smoke.db"
 "$cave" query '?svc USES+ redis-cache' --db "$tmp/smoke.db" >/dev/null
 "$cave" export --db "$tmp/smoke.db" >/dev/null
+echo "==> cave highlight emits ANSI from the packed grammar wasm"
+"$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
+  echo "error: cave highlight produced no ANSI escapes" >&2
+  exit 1
+}
 echo "==> cave demo"
 "$cave" demo >/dev/null
 echo "==> smoke OK"

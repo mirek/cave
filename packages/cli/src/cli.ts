@@ -6,6 +6,7 @@
  * Commands:
  *
  * - `cave parse [file]` — lint / dump the AST (`--json`)
+ * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
@@ -42,6 +43,7 @@ export const usage = `cave — Compressed Atomic Verb Expressions
 
 Usage:
   cave parse [file...] [--json]            lint CAVE text (stdin when no file)
+  cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--no-prelude]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (same as add)
   cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--no-prelude]
@@ -75,6 +77,22 @@ Examples:
   cave parse notes.cave
   echo 'auth USES jwt @ 90%' | cave parse
   cave parse notes.cave --json | jq '.lines[0]'`,
+
+  highlight: `cave highlight — print CAVE text with ANSI syntax colors
+
+Usage:
+  cave highlight [file...]
+
+Reads stdin when no file (or \`-\`) is given. Colors come from the
+tree-sitter grammar's highlight query (@cavelang/tree-sitter-cave), the
+same source editors use. Output always carries ANSI codes — pipe through
+\`less -R\` to page. \`cave export\` colors its output the same way when
+stdout is a terminal (disable with NO_COLOR).
+
+Examples:
+  cave highlight notes.cave
+  echo 'auth USES jwt @ 90%' | cave highlight
+  cave highlight notes.cave | less -R`,
 
   add: `cave add — ingest CAVE text into a knowledge database
 
@@ -193,6 +211,19 @@ export const parseCommand = (argv: readonly string[]): Output => {
     .map(diagnostic => `line ${diagnostic.line}: ${diagnostic.message}`)
     .join('\n')
   return { code: 1, out: `${summary}\n`, err: `${problems}\n` }
+}
+
+/**
+ * `cave highlight` — ANSI syntax colors from the tree-sitter grammar's own
+ * highlight query. Async (the grammar WASM loads on first use), so `main.ts`
+ * routes it separately, like `mcp` and `ingest`.
+ */
+export const highlightCommand = async (argv: readonly string[]): Promise<Output> => {
+  const { positionals } = parseArgs({ args: [...argv], options: {}, allowPositionals: true })
+  const input = readInput(positionals)
+  const { highlighter } = await import('@cavelang/highlight')
+  const { ansi } = await highlighter()
+  return ok(ansi(input))
 }
 
 const ingestCommand = (name: string) => (argv: readonly string[]): Output => {

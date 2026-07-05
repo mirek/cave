@@ -1,0 +1,163 @@
+==================
+relational claim
+==================
+auth/middleware USES jwt
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))
+
+==================
+negated claim with confidence
+==================
+server IS NOT compromised @ 90%
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (negation)
+    (object
+      (entity))
+    (confidence)))
+
+==================
+attribute claim with tag
+==================
+auth/middleware HAS bug: token-expiry #security
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (entity))
+    (tag
+      (tag_key))))
+
+==================
+code literal subject and context
+==================
+`<=` FIX token-expiry @auth.ts:42
+---
+
+(document
+  (claim_line
+    (code)
+    (verb)
+    (object
+      (entity))
+    (context)))
+
+==================
+string literal object
+==================
+step/1 IS "install dependencies"
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (string))))
+
+==================
+metric claim
+==================
+latency IS 30ms
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number))))
+
+==================
+percentage metric
+==================
+free-user-rate IS 94.5%
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number))))
+
+==================
+bare existence
+==================
+memory-leak EXISTS @production
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (context)))
+
+==================
+negated existence
+==================
+feature EXISTS NOT @production
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (negation)
+    (context)))
+
+==================
+verb-shaped subject — REVERSE declaration
+==================
+CONTAINS REVERSE PART-OF
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))
+
+==================
+extension verb definition with comment
+==================
+MIGRATES IS verb ; X moves data between platforms
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))
+    (comment)))
+
+==================
+multi-word object phrase
+==================
+outage CAUSE lost customer trust
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)
+      (entity)
+      (entity))))

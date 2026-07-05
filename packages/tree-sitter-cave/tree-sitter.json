@@ -1,0 +1,38 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "cave",
+      "camelcase": "Cave",
+      "title": "CAVE",
+      "scope": "source.cave",
+      "path": ".",
+      "file-types": [
+        "cave"
+      ],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^cave$"
+    }
+  ],
+  "metadata": {
+    "version": "0.5.0",
+    "license": "CC0-1.0",
+    "description": "Tree-sitter grammar for CAVE — Compressed Atomic Verb Expressions",
+    "authors": [
+      {
+        "name": "Mirek Rusin"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/mirek/cave"
+    }
+  },
+  "bindings": {
+    "c": false,
+    "go": false,
+    "node": false,
+    "python": false,
+    "rust": false,
+    "swift": false
+  }
+}

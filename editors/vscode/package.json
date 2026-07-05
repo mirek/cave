@@ -1,0 +1,60 @@
+{
+  "name": "cave-language",
+  "displayName": "CAVE",
+  "version": "0.5.0",
+  "private": true,
+  "description": "CAVE language support — syntax highlighting driven by the @cavelang/tree-sitter-cave grammar via semantic tokens.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "publisher": "cavelang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:cave"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cave",
+        "aliases": [
+          "CAVE"
+        ],
+        "extensions": [
+          ".cave"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[cave]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @cavelang/tree-sitter-cave build && node build.mjs",
+    "test": "pnpm run typecheck && pnpm run build",
+    "typecheck": "tsc --noEmit",
+    "package": "pnpm run build && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@cavelang/tree-sitter-cave": "workspace:*",
+    "web-tree-sitter": "^0.26.10"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.8.0"
+  }
+}

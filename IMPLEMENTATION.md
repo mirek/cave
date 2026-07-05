@@ -23,7 +23,13 @@ Dependency order, bottom to top:
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / add / import / query / export / mcp / ingest / demo` |
+| [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
+| [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / export / mcp / ingest / demo` |
+
+Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
+packages the same grammar WASM and highlight query as a VSCode extension
+(semantic tokens — deliberately no TextMate grammar to drift out of sync).
 
 ## Toolchain
 

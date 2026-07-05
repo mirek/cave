@@ -1,0 +1,42 @@
+{
+  "name": "@cavelang/tree-sitter-cave",
+  "version": "0.5.0",
+  "description": "Tree-sitter grammar for CAVE — the canonical grammar artifact behind editor and terminal highlighting.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/tree-sitter-cave"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    "./wasm": "./tree-sitter-cave.wasm",
+    "./highlights": "./queries/highlights.scm",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "grammar.js",
+    "tree-sitter.json",
+    "src",
+    "queries",
+    "tree-sitter-cave.wasm",
+    "README.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "build": "tree-sitter generate && tree-sitter build --wasm -o tree-sitter-cave.wasm",
+    "test": "pnpm run build && tree-sitter test",
+    "typecheck": "true",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.10"
+  }
+}

@@ -1,0 +1,6 @@
+**
+!dist/**
+!language-configuration.json
+!package.json
+!README.md
+!License.md

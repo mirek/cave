@@ -1,0 +1,162 @@
+==================
+qualifiers — comparison and negated condition
+==================
+server CAUSE crash @ 80%
+  WHEN load > ~1000 req/s
+  WHEN NOT cache/enabled
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))
+    (confidence))
+  (qualifier_line
+    (qualifier_verb)
+    (comparison
+      (entity)
+      (comparison_op)
+      (value
+        (number)
+        (unit))))
+  (qualifier_line
+    (qualifier_verb)
+    (negation)
+    (entity)))
+
+==================
+continuations — forward and inverse
+==================
+monorepo CONTAINS packages/api
+  CONTAINS packages/web
+  PART-OF org/monorepos
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (continuation_line
+    (verb)
+    (object
+      (entity)))
+  (continuation_line
+    (verb)
+    (object
+      (entity))))
+
+==================
+negated continuation
+==================
+deploy NEEDS docker
+  NEEDS NOT downtime
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (continuation_line
+    (verb)
+    (negation)
+    (object
+      (entity))))
+
+==================
+grouped full claim under VIA
+==================
+deploy VIA github-actions
+  build PRECEDES deploy
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))
+
+==================
+comment line, blank line, claim
+==================
+; a whole-line comment
+
+jwt IS token-format
+---
+
+(document
+  (comment_line
+    (comment))
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))
+
+==================
+trailing comment persists
+==================
+Anthropic HAS ipo-timing: 2026-H2 @ 65% ; updated after CFO statement
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)))
+    (confidence)
+    (comment)))
+
+==================
+scoped and flat tags
+==================
+deploy NEEDS docker #env:prod #team:platform #security
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))
+    (tag
+      (tag_key)
+      (tag_value))
+    (tag
+      (tag_key)
+      (tag_value))
+    (tag
+      (tag_key))))
+
+==================
+uppercase claim at indent stays a claim
+==================
+api IS service
+  API NEEDS auth
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))

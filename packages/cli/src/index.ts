@@ -3,5 +3,5 @@
  * Programmatic access to the same implementations lives here.
  */
 
-export { addCommand, cave, commandHelp, demoCommand, exportCommand, helpCommand, importCommand, parseCommand, queryCommand, usage, versionCommand } from './cli.ts'
+export { addCommand, cave, commandHelp, demoCommand, exportCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, usage, versionCommand } from './cli.ts'
 export type { Output } from './cli.ts'

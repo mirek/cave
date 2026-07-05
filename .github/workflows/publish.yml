@@ -25,6 +25,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Generated grammar artifacts (parser.c, WASM) are never committed —
+      # tree-sitter-cli (a devDependency) regenerates them here; its
+      # `build --wasm` downloads wasi-sdk into ~/.cache/tree-sitter on
+      # first use, so no extra toolchain setup is needed.
+      - run: pnpm --filter @cavelang/tree-sitter-cave build
+
       - run: pnpm build
 
       - run: pnpm test

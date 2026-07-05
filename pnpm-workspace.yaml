@@ -1,2 +1,9 @@
 packages:
   - packages/*
+  - editors/*
+
+allowBuilds:
+  '@vscode/vsce-sign': false
+  esbuild: true
+  keytar: false
+  tree-sitter-cli: true

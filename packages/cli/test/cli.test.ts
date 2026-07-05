@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, commandHelp, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { addCommand, cave, commandHelp, demoCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -280,4 +280,20 @@ test('export --current --out backs up only current beliefs', () => {
     const state = queryCommand(['x HAS state: ?s', '--db', fresh])
     assert.equal(state.out, '?s = b\n')
   })
+})
+
+test('highlight renders ANSI colors from the grammar query', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
+    const file = join(dir, 'notes.cave')
+    const text = 'auth USES jwt @ 90% #security ; note\n'
+    writeFileSync(file, text)
+    const result = await highlightCommand([file])
+    assert.equal(result.code, 0)
+    assert.match(result.out, /\u001B\[[0-9;]+mUSES\u001B\[0m/u)
+    assert.match(result.out, /\u001B\[[0-9;]+m; note\u001B\[0m/u)
+    assert.equal(result.out.replaceAll(/\u001B\[[0-9;]*m/gu, ''), text)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

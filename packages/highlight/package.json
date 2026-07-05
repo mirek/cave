@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/store",
+  "name": "@cavelang/highlight",
   "version": "0.5.0",
   "type": "module",
-  "description": "CAVE persistence on node:sqlite — §13 storage model, append-only belief series, inverse-aware reads.",
+  "description": "CAVE syntax highlighting — web-tree-sitter over the @cavelang/tree-sitter-cave grammar, rendered to ANSI for terminals.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/store"
+    "directory": "packages/highlight"
   },
   "engines": {
     "node": ">=22.18"
@@ -41,7 +41,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@cavelang/canonical": "workspace:*",
-    "@cavelang/core": "workspace:*"
+    "@cavelang/tree-sitter-cave": "workspace:*",
+    "web-tree-sitter": "^0.26.10"
   }
 }
