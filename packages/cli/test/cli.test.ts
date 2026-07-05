@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { addCommand, cave, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
@@ -124,6 +124,17 @@ test('missing --db is a usage error', () => {
   assert.equal(addCommand(['x.cave']).code, 1)
   assert.equal(queryCommand(['?x USES y']).code, 1)
   assert.equal(exportCommand([]).code, 1)
+})
+
+test('version prints the package version', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+  ) as { version: string }
+  for (const argv of [['version'], ['--version'], ['-v']]) {
+    const result = cave(argv)
+    assert.equal(result.code, 0)
+    assert.equal(result.out, `${manifest.version}\n`)
+  }
 })
 
 test('demo narrates the multi-hop recovery', () => {

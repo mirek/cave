@@ -10,11 +10,14 @@
  * - `cave query '<pattern>' --db <path>` — CAVE-Q (`--json`, `--all`)
  * - `cave export --db <path>` — canonical text out (`--current`)
  * - `cave demo` — the cave-loop multi-hop recovery demo
+ * - `cave version` — print the cave version
  *
  * `file` defaults to stdin (`-`).
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
@@ -45,6 +48,7 @@ Usage:
   cave mcp --db <path>                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest <globs/urls...> --db <path>  LLM-driven ingestion of files and web pages (cave ingest --help)
   cave demo                              run the cave-loop reconstruction demo
+  cave version                           print the cave version
   cave help                              this text
 
 The spec lives in the .claude/skills/ directory at the repository root
@@ -202,6 +206,26 @@ export const exportCommand = (argv: readonly string[]): Output => {
 export const demoCommand = (): Output =>
   ok(`${Demo.run().lines.join('\n')}\n`)
 
+/**
+ * The CLI runs from `src/` in development and `dist/src/` when published,
+ * so find our package.json by walking up from this module — the nearest
+ * one is always the @cavelang/cli manifest.
+ */
+const packageVersion = (): string => {
+  for (let dir = dirname(fileURLToPath(import.meta.url)); ; dir = dirname(dir)) {
+    const candidate = join(dir, 'package.json')
+    if (existsSync(candidate)) {
+      return (JSON.parse(readFileSync(candidate, 'utf8')) as { version: string }).version
+    }
+    if (dir === dirname(dir)) {
+      return 'unknown'
+    }
+  }
+}
+
+export const versionCommand = (): Output =>
+  ok(`${packageVersion()}\n`)
+
 /** Dispatches one invocation. */
 export const cave = (argv: readonly string[]): Output => {
   const [command, ...rest] = argv
@@ -220,6 +244,10 @@ export const cave = (argv: readonly string[]): Output => {
         return exportCommand(rest)
       case 'demo':
         return demoCommand()
+      case 'version':
+      case '--version':
+      case '-v':
+        return versionCommand()
       case undefined:
       case 'help':
       case '--help':
