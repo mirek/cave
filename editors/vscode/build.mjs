@@ -4,13 +4,21 @@
  * query (single source shared with `@cavelang/highlight`).
  */
 
-import { copyFileSync, mkdirSync } from 'node:fs'
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 
 mkdirSync('dist', { recursive: true })
+
+// web-tree-sitter's ESM glue calls `createRequire(import.meta.url)`, which is
+// `undefined` once esbuild lowers the bundle to CJS — substitute a shim that
+// reconstructs the URL from `__filename` at runtime.
+writeFileSync(
+  'dist/import-meta-url-shim.js',
+  "export var importMetaUrl = require('node:url').pathToFileURL(__filename).href\n"
+)
 
 await build({
   entryPoints: ['src/extension.ts'],
@@ -19,6 +27,8 @@ await build({
   platform: 'node',
   format: 'cjs',
   sourcemap: true,
+  define: { 'import.meta.url': 'importMetaUrl' },
+  inject: ['dist/import-meta-url-shim.js'],
   outfile: 'dist/extension.js'
 })
 

@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
   "license": "CC0-1.0",
