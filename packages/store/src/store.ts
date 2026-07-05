@@ -58,6 +58,15 @@ export type TraverseOptions = {
 export type Store = ReturnType<typeof open>
 
 /**
+ * Database path used by CLI surfaces when `--db` is omitted: the `CAVE_DB`
+ * environment variable, falling back to `cave.db` in the current directory.
+ * Read at call time so tests (and long-lived processes) can change the
+ * environment.
+ */
+export const defaultDbPath = (): string =>
+  process.env['CAVE_DB'] ?? 'cave.db'
+
+/**
  * Opens (creating if necessary) a CAVE store. The registry defaults to the
  * standard §5.5 prelude pairs and is extended by any declaration claims
  * already stored; pass `Canonical.Registry.empty` for a declaration-free

@@ -63,14 +63,14 @@ Lint it, then load it into a SQLite store:
 $ pnpm exec cave parse examples/family-history/notes.cave
 ok: 1 comment, 6 blank, 13 claim
 
-$ pnpm exec cave add examples/family-history/notes.cave --db family.db
+$ pnpm exec cave add --db family.db examples/family-history/notes.cave
 added 13 claim(s), 0 edge(s)
 ```
 
 **Ask for something nobody wrote down.** Every stored fact is a single hop; the ancestor chain is nowhere stated. The transitive pattern derives it:
 
 ```
-$ pnpm exec cave query '?a PARENT-OF+ me' --db family.db
+$ pnpm exec cave query --db family.db '?a PARENT-OF+ me'
 ?a = anna
 ?a = helena
 ?a = helena/father
@@ -81,7 +81,7 @@ $ pnpm exec cave query '?a PARENT-OF+ me' --db family.db
 And because the file declared `PARENT-OF REVERSE CHILD-OF`, the *same stored rows* answer the opposite direction — Helena's descendants, no extra rows, one shared belief history per fact:
 
 ```
-$ pnpm exec cave query '?d CHILD-OF+ helena' --db family.db
+$ pnpm exec cave query --db family.db '?d CHILD-OF+ helena'
 ?d = anna
 ?d = jan
 ?d = maria
@@ -91,11 +91,11 @@ $ pnpm exec cave query '?d CHILD-OF+ helena' --db family.db
 **Ask what you actually believe.** The disputed birth year is two coexisting claims, each with its own source and confidence — and queries filter on it:
 
 ```
-$ pnpm exec cave query 'jan HAS birth-year: ?y' --db family.db
+$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y'
 ?y = 1932
 ?y = 1931
 
-$ pnpm exec cave query 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6' --db family.db
+$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
 ?y = 1932
 ```
 
@@ -108,7 +108,7 @@ added 1 claim(s), 0 edge(s)
 $ echo 'jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one' | pnpm exec cave add --db family.db
 added 1 claim(s), 0 edge(s)
 
-$ pnpm exec cave query 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6' --db family.db
+$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
 ?y = 1931
 ```
 
@@ -119,7 +119,7 @@ The 70% row is still there: `cave export --db family.db` replays the full belief
 The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) or web pages (URLs are fetched and readability-extracted) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
 
 ```
-$ pnpm exec cave ingest examples/family-history/notes.md --db lore.db \
+$ pnpm exec cave ingest --db lore.db examples/family-history/notes.md \
     --instructions examples/family-history/instructions.md \
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
 ingest: 1 file(s) matched, 0 skipped (unchanged), 1 batch(es)
@@ -131,7 +131,7 @@ done: +14 claim(s)
 The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. The machine-built database answers the same transitive query:
 
 ```
-$ pnpm exec cave query '?a PARENT-OF+ me' --db lore.db
+$ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'
 ?a = anna
 ?a = helena
 ?a = helena/father

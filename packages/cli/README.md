@@ -7,30 +7,36 @@ TypeScript sources via Node's type stripping; no build step.
 $ echo 'auth USES jwt @ 90%' | pnpm exec cave parse
 ok: 1 claim
 
-$ pnpm exec cave add notes.cave --db knowledge.db
+$ pnpm exec cave add --db knowledge.db notes.cave
 added 12 claim(s), 3 edge(s)
 
-$ pnpm exec cave query '?x USES jwt' --db knowledge.db
+$ pnpm exec cave query --db knowledge.db '?x USES jwt'
 ?x = auth/middleware
 ?x = api/gateway
 
-$ pnpm exec cave query '?cause CAUSE app/crash' 'WHERE conf >= 0.7' --db knowledge.db
+$ pnpm exec cave query --db knowledge.db '?cause CAUSE app/crash' 'WHERE conf >= 0.7'
 $ pnpm exec cave export --db knowledge.db --current
 $ pnpm exec cave demo
 ```
 
 ## Commands
 
+Every command answers `--help` with its options and examples (also
+`cave help <command>`). `--db` is optional everywhere: it defaults to
+`$CAVE_DB`, or `cave.db` in the current directory.
+
 | Command | Flags | Behavior |
 |---|---|---|
-| `parse [file]` | `--json` | Lint (stdin by default). Exit 1 when diagnostics exist; `--json` dumps the AST document. |
-| `add [file…] --db p` | `--strict`, `--no-prelude` | Ingest. Lenient by default (problems on stderr, valid lines land); `--strict` rolls back on any problem; `--no-prelude` starts from an empty registry instead of the standard §5.5 pairs. |
-| `import [file…] --db p` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — same operation as `add`, because canonical text *is* the interchange format. |
-| `query <pattern…> --db p` | `--json`, `--all`, `--no-prelude` | CAVE-Q. Extra positionals join as lines, so `WHERE` filters ride as separate arguments. Bindings print as `?x = value`; fully bound patterns print the matched raw line (or the pattern itself for transitive matches, which carry no row). `--no-prelude` aligns the read-time registry with a store written via `add --no-prelude`. |
-| `export --db p` | `--out <file>`, `--current`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. Stdout by default; `--out` writes a file and reports the claim count. |
-| `mcp --db p` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
-| `ingest <globs/urls…> --db p` | see `cave ingest --help` | LLM-driven ingestion of files and web pages (fetched and readability-extracted) through any headless agent (see [`@cavelang/ingest`](../ingest)): batching, instructions markdown, hybrid knowledge context, MCP or stdout agents, incremental digests, `--plan` NDJSON for SDK drivers. |
+| `parse [file…]` | `--json` | Lint (stdin by default). Exit 1 when diagnostics exist; `--json` dumps the AST document. |
+| `add [--db p] [file…]` | `--strict`, `--no-prelude` | Ingest. Lenient by default (problems on stderr, valid lines land); `--strict` rolls back on any problem; `--no-prelude` starts from an empty registry instead of the standard §5.5 pairs. |
+| `import [--db p] [file…]` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — same operation as `add`, because canonical text *is* the interchange format. |
+| `query [--db p] <pattern…>` | `--json`, `--all`, `--no-prelude` | CAVE-Q. Extra positionals join as lines, so `WHERE` filters ride as separate arguments. Bindings print as `?x = value`; fully bound patterns print the matched raw line (or the pattern itself for transitive matches, which carry no row). `--no-prelude` aligns the read-time registry with a store written via `add --no-prelude`. |
+| `export [--db p]` | `--out <file>`, `--current`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. Stdout by default; `--out` writes a file and reports the claim count. |
+| `mcp [--db p]` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
+| `ingest [--db p] <globs/urls…>` | see `cave ingest --help` | LLM-driven ingestion of files and web pages (fetched and readability-extracted) through any headless agent (see [`@cavelang/ingest`](../ingest)): batching, instructions markdown, hybrid knowledge context, MCP or stdout agents, incremental digests, `--plan` NDJSON for SDK drivers. |
 | `demo` | | The cave-loop multi-hop recovery demo (§18). |
+| `version` | | Print the cave version. |
+| `help [command]` | | The overview, or one command's options and examples. |
 
 ## Text backup / interchange
 
@@ -38,7 +44,7 @@ $ pnpm exec cave demo
 $ cave export --db knowledge.db --out backup.cave
 exported 812 claim(s) to backup.cave
 
-$ cave import backup.cave --db restored.db
+$ cave import --db restored.db backup.cave
 added 812 claim(s), 37 edge(s)
 ```
 

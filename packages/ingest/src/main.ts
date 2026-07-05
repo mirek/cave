@@ -6,17 +6,20 @@
 
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { open } from '@cavelang/store'
+import { defaultDbPath, open } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
-const usage = `cave ingest <files/globs/urls...> --db <path> --agent '<command>' [options]
+const usage = `cave ingest — LLM-driven ingestion of files and web pages
+
+Usage:
+  cave ingest [--db <path>] <files/globs/urls...> --agent '<command>' [options]
 
 Sources may be file paths, globs, or http(s) URLs. URLs are fetched with
 the built-in fetch; HTML pages are reduced to their readable article text
 (Readability) and embedded into the prompt.
 
 Options:
-  --db <path>            knowledge database (required)
+  --db <path>            knowledge database (default: $CAVE_DB, or cave.db)
   --agent <template>     shell command run once per batch; the prompt is piped
                          to stdin and {prompt-file}, {mcp-config}, {db} are
                          substituted
@@ -32,12 +35,12 @@ Options:
   --no-prelude           open the store without the standard §5.5 registry
 
 Examples:
-  cave ingest 'src/**/*.ts' README.md --db k.db \\
+  cave ingest --db k.db 'src/**/*.ts' README.md \\
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
-  cave ingest 'docs/**/*.md' --db k.db --stdout --agent 'copilot -p "$(cat {prompt-file})"'
-  cave ingest https://example.com/blog/design-notes --db k.db \\
+  cave ingest --db k.db 'docs/**/*.md' --stdout --agent 'copilot -p "$(cat {prompt-file})"'
+  cave ingest --db k.db https://example.com/blog/design-notes \\
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
-  cave ingest 'packages/*/README.md' --db k.db --plan > plan.ndjson`
+  cave ingest --db k.db 'packages/*/README.md' --plan > plan.ndjson`
 
 export const runIngest = async (argv: readonly string[]): Promise<number> => {
   const { values, positionals } = parseArgs({
@@ -54,7 +57,7 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
       plan: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
       'no-prelude': { type: 'boolean' },
-      help: { type: 'boolean' }
+      help: { type: 'boolean', short: 'h' }
     },
     allowPositionals: true
   })
@@ -62,10 +65,11 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     process.stdout.write(`${usage}\n`)
     return 0
   }
-  if (values.db === undefined || positionals.length === 0) {
-    process.stderr.write(`cave ingest: sources (files, globs, urls) and --db are required\n\n${usage}\n`)
+  if (positionals.length === 0) {
+    process.stderr.write(`cave ingest: sources (files, globs, urls) are required\n\n${usage}\n`)
     return 1
   }
+  const db = values.db ?? defaultDbPath()
   const planning = values.plan === true || values['dry-run'] === true
   if (values.agent === undefined && !planning) {
     process.stderr.write('cave ingest: --agent is required (or use --plan / --dry-run)\n')
@@ -82,10 +86,10 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     return 1
   }
   const noPrelude = values['no-prelude'] === true
-  const store = open(values.db, noPrelude ? { registry: Registry.empty } : {})
+  const store = open(db, noPrelude ? { registry: Registry.empty } : {})
   try {
     const options = {
-      db: values.db,
+      db,
       patterns: positionals,
       store,
       mode: values.stdout === true ? 'stdout' as const : 'mcp' as const,
@@ -100,10 +104,10 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     if (planning) {
       const { selection, batches } = await selectBatches(store, options)
       if (values.plan === true) {
-        const mcpConfig = writeMcpConfig(values.db, { noPrelude })
+        const mcpConfig = writeMcpConfig(db, { noPrelude })
         for (const files of batches) {
           const prompt = promptFor(store, files, options)
-          process.stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db: values.db })}\n`)
+          process.stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db })}\n`)
         }
         return 0
       }

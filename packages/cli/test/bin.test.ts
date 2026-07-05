@@ -18,6 +18,16 @@ test('binary: help exits 0', () => {
   assert.match(result.stdout, /Usage:/)
 })
 
+test('binary: per-command help is discoverable', () => {
+  const result = run(['query', '--help'])
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /Usage:/)
+  assert.match(result.stdout, /Examples:/)
+  assert.equal(run(['help', 'export']).status, 0)
+  assert.match(run(['help', 'ingest']).stdout, /LLM-driven ingestion/)
+  assert.match(run(['mcp', '--help']).stdout, /MCP server on stdio/)
+})
+
 test('binary: parse reads stdin', () => {
   const result = run(['parse'], 'auth USES jwt\n')
   assert.equal(result.status, 0)

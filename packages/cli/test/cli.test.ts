@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { addCommand, cave, commandHelp, demoCommand, exportCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -120,10 +120,48 @@ test('add --strict fails on problems and leaves the db empty', () => {
   })
 })
 
-test('missing --db is a usage error', () => {
-  assert.equal(addCommand(['x.cave']).code, 1)
-  assert.equal(queryCommand(['?x USES y']).code, 1)
-  assert.equal(exportCommand([]).code, 1)
+test('every command answers --help with usage; cave help <command> matches', () => {
+  for (const name of Object.keys(commandHelp)) {
+    const result = cave([name, '--help'])
+    assert.equal(result.code, 0, name)
+    assert.match(result.out, /Usage:/, name)
+    assert.equal(cave(['help', name]).out, result.out, name)
+  }
+  assert.match(cave(['query', '--help']).out, /Examples:/)
+  assert.match(cave(['q', '-h']).out, /cave query/)
+  const unknown = cave(['help', 'frobnicate'])
+  assert.equal(unknown.code, 2)
+  assert.match(unknown.err, /unknown command/)
+})
+
+test('--db defaults to $CAVE_DB, then cave.db in the cwd', () => {
+  withDir(dir => {
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'auth USES jwt\n')
+    const previous = process.env['CAVE_DB']
+    process.env['CAVE_DB'] = join(dir, 'env.db')
+    try {
+      assert.equal(addCommand([file]).code, 0)
+      assert.ok(existsSync(join(dir, 'env.db')), 'store created at $CAVE_DB')
+      assert.equal(queryCommand(['auth USES ?x']).out, '?x = jwt\n')
+      assert.match(exportCommand([]).out, /auth USES jwt/)
+    } finally {
+      if (previous === undefined) {
+        delete process.env['CAVE_DB']
+      } else {
+        process.env['CAVE_DB'] = previous
+      }
+    }
+    const cwd = process.cwd()
+    process.chdir(dir)
+    try {
+      assert.equal(addCommand([file]).code, 0)
+      assert.ok(existsSync(join(dir, 'cave.db')), 'store created at ./cave.db')
+      assert.equal(queryCommand(['auth USES ?x']).out, '?x = jwt\n')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
 })
 
 test('version prints the package version', () => {

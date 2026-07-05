@@ -19,16 +19,16 @@ A production-incident postmortem: a service dependency chain, competing
 root-cause hypotheses, and a rollback.
 
 ```sh
-pnpm exec cave add examples/incident/incident.cave --db incident.db
+pnpm exec cave add --db incident.db examples/incident/incident.cave
 
 # who is transitively exposed to the flaky cache? (no line states it)
-pnpm exec cave query '?svc USES+ redis-cache' --db incident.db
+pnpm exec cave query --db incident.db '?svc USES+ redis-cache'
 #   ?svc = auth/gateway
 #   ?svc = checkout
 #   ?svc = payments
 
 # which root causes do we actually believe?
-pnpm exec cave query '?cause CAUSE checkout/errors' 'WHERE conf >= 0.7' --db incident.db
+pnpm exec cave query --db incident.db '?cause CAUSE checkout/errors' 'WHERE conf >= 0.7'
 #   ?cause = redis-cache/failover
 
 # CDN logs came back clean — belief evolves by appending
@@ -36,6 +36,6 @@ echo 'cdn CAUSE checkout/errors @ 5% ; ruled out, CDN logs clean' \
   | pnpm exec cave add --db incident.db
 
 # read the same stored rows from the other end (USES REVERSE USED-BY)
-pnpm exec cave query 'redis-cache USED-BY ?x' --db incident.db
+pnpm exec cave query --db incident.db 'redis-cache USED-BY ?x'
 #   ?x = auth/gateway
 ```

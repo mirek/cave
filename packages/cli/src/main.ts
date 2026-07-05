@@ -3,7 +3,11 @@
 
 import { cave } from './cli.ts'
 
-const argv = process.argv.slice(2)
+// mcp and ingest own their help text, so `cave help X` becomes `cave X --help`.
+const raw = process.argv.slice(2)
+const argv = raw[0] === 'help' && (raw[1] === 'mcp' || raw[1] === 'ingest') ?
+  [raw[1], '--help'] :
+  raw
 if (argv[0] === 'mcp') {
   // Long-running: serves MCP on stdio until the client disconnects.
   const { runMcp } = await import('@cavelang/mcp')
