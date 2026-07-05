@@ -9,7 +9,11 @@ import { Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
-const usage = `cave ingest <files/globs...> --db <path> --agent '<command>' [options]
+const usage = `cave ingest <files/globs/urls...> --db <path> --agent '<command>' [options]
+
+Sources may be file paths, globs, or http(s) URLs. URLs are fetched with
+the built-in fetch; HTML pages are reduced to their readable article text
+(Readability) and embedded into the prompt.
 
 Options:
   --db <path>            knowledge database (required)
@@ -31,6 +35,8 @@ Examples:
   cave ingest 'src/**/*.ts' README.md --db k.db \\
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
   cave ingest 'docs/**/*.md' --db k.db --stdout --agent 'copilot -p "$(cat {prompt-file})"'
+  cave ingest https://example.com/blog/design-notes --db k.db \\
+    --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
   cave ingest 'packages/*/README.md' --db k.db --plan > plan.ndjson`
 
 export const runIngest = async (argv: readonly string[]): Promise<number> => {
@@ -57,7 +63,7 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     return 0
   }
   if (values.db === undefined || positionals.length === 0) {
-    process.stderr.write(`cave ingest: file patterns and --db are required\n\n${usage}\n`)
+    process.stderr.write(`cave ingest: sources (files, globs, urls) and --db are required\n\n${usage}\n`)
     return 1
   }
   const planning = values.plan === true || values['dry-run'] === true
@@ -92,7 +98,7 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
       noPrelude
     }
     if (planning) {
-      const { selection, batches } = selectBatches(store, options)
+      const { selection, batches } = await selectBatches(store, options)
       if (values.plan === true) {
         const mcpConfig = writeMcpConfig(values.db, { noPrelude })
         for (const files of batches) {

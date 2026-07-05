@@ -1,9 +1,10 @@
 /**
  * The ingestion orchestrator.
  *
- * `cave ingest` walks a file list (globs supported), skips files whose
- * content is already ingested (digest provenance claims), batches the
- * rest, composes one prompt per batch, and drives an *agent* over it:
+ * `cave ingest` walks a source list (file globs and http(s) URLs — see
+ * `web.ts`), skips sources whose content is already ingested (digest
+ * provenance claims), batches the rest, composes one prompt per batch,
+ * and drives an *agent* over it:
  *
  * - a shell command template (`--agent 'claude -p --mcp-config {mcp-config} …'`)
  *   for headless Claude Code / Copilot CLI runs — the prompt is piped to
@@ -27,6 +28,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Store } from '@cavelang/store'
 import * as Files from './files.ts'
+import * as Web from './web.ts'
 import * as Context from './context.ts'
 import * as Prompt from './prompt.ts'
 
@@ -50,6 +52,8 @@ export type Options = {
   readonly noPrelude?: boolean
   readonly timeoutSeconds?: number
   readonly cwd?: string
+  /** Injection point for URL fetching in tests. */
+  readonly fetchImpl?: Web.FetchLike
   readonly store: Store
 }
 
@@ -98,7 +102,10 @@ export const writeMcpConfig = (
 const promptFiles = (files: readonly Files.Selected[], embed: boolean, cwd: string) =>
   files.map(file => ({
     path: file.path,
-    ...embed ? { content: readFileSync(resolve(cwd, file.path), 'utf8') } : {}
+    // URL sources carry their extracted text and are always embedded —
+    // the agent has no other way to read them readability-cleaned.
+    ...file.content !== undefined ? { content: file.content } :
+      embed ? { content: readFileSync(resolve(cwd, file.path), 'utf8') } : {}
   }))
 
 /** Builds the prompt for one batch against the store's *current* state. */
@@ -117,13 +124,22 @@ export const promptFor = (
   })
 }
 
-/** Selects and batches the files to process. */
-export const selectBatches = (store: Store, options: Options): { selection: Files.Selection, batches: Files.Selected[][] } => {
-  const paths = Files.expand(options.patterns, options.cwd)
-  const selection = Files.select(store, paths, {
+/** Selects and batches the sources to process — file globs and URLs. */
+export const selectBatches = async (store: Store, options: Options): Promise<{ selection: Files.Selection, batches: Files.Selected[][] }> => {
+  const urls = options.patterns.filter(Web.isUrl)
+  const paths = Files.expand(options.patterns.filter(pattern => !Web.isUrl(pattern)), options.cwd)
+  const local = Files.select(store, paths, {
     force: options.force === true,
     ...options.cwd === undefined ? {} : { cwd: options.cwd }
   })
+  const remote = await Web.select(store, urls, {
+    force: options.force === true,
+    ...options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }
+  })
+  const selection = {
+    files: [...local.files, ...remote.files],
+    skipped: [...local.skipped, ...remote.skipped]
+  }
   return { selection, batches: Files.batch(selection.files, options.batchSize ?? 8) }
 }
 
@@ -181,7 +197,7 @@ export const run = async (options: Options): Promise<Report> => {
   const cwd = options.cwd ?? process.cwd()
   const mode = options.mode ?? 'mcp'
   const timeoutSeconds = options.timeoutSeconds ?? 600
-  const { selection, batches } = selectBatches(store, options)
+  const { selection, batches } = await selectBatches(store, options)
   const reports: BatchReport[] = []
   const mcpConfig = typeof options.agent === 'string' && options.agent.includes('{mcp-config}') ?
     writeMcpConfig(options.db, { noPrelude: options.noPrelude === true }) :

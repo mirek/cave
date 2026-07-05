@@ -13,12 +13,13 @@
 import { emitClaim } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
 
-/** Tokens worth searching for, derived from a file path. */
+/** Tokens worth searching for, derived from a file path or URL. */
 export const pathTokens = (path: string): string[] => {
   const parts = path
-    .split(/[/\\]/)
+    .split(/[/\\?#&=]/)
     .flatMap(segment => segment.split('.'))
-    .filter(token => token.length >= 3 && !/^(src|test|index|json|md|ts|js|tsx|jsx|txt|yaml|yml)$/.test(token))
+    .filter(token => token.length >= 3 &&
+      !/^(src|test|index|json|md|ts|js|tsx|jsx|txt|yaml|yml|https?:|www|com|net|org|html|htm)$/.test(token))
   return [...new Set(parts)]
 }
 

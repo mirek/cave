@@ -116,7 +116,7 @@ The 70% row is still there: `cave export --db family.db` replays the full belief
 
 ### Let an LLM write the claims — `cave ingest`
 
-The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
+The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) or web pages (URLs are fetched and readability-extracted) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
 
 ```
 $ pnpm exec cave ingest examples/family-history/notes.md --db lore.db \
@@ -139,7 +139,7 @@ $ pnpm exec cave query '?a PARENT-OF+ me' --db lore.db
 ?a = maria
 ```
 
-(LLM output naturally varies run to run; the report above is one actual run. See [`@cavelang/ingest`](packages/ingest) for batching, hybrid knowledge context, `--stdout` mode, and SDK drivers.)
+(LLM output naturally varies run to run; the report above is one actual run. See [`@cavelang/ingest`](packages/ingest) for URL ingestion, batching, hybrid knowledge context, `--stdout` mode, and SDK drivers.)
 
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 

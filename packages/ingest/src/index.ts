@@ -2,7 +2,7 @@
  * `@cavelang/ingest` — LLM-driven knowledge ingestion.
  *
  * ```sh
- * cave ingest 'src/**' --db k.db \
+ * cave ingest 'src/**' https://example.com/design-notes --db k.db \
  *   --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
  * ```
  *
@@ -22,6 +22,7 @@
 
 export * as Context from './context.ts'
 export * as Files from './files.ts'
+export * as Web from './web.ts'
 export { buildPrompt, extractionRules, readInstructions } from './prompt.ts'
 export type { Mode, PromptInput } from './prompt.ts'
 export { caveTextOf, promptFor, run, selectBatches, writeMcpConfig } from './run.ts'

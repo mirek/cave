@@ -45,12 +45,20 @@ const provenanceKey = (path: string): string =>
 export type Selected = {
   readonly path: string
   readonly digest: string
+  /** Pre-fetched content (URL sources); files are read from disk instead. */
+  readonly content?: string
 }
 
 export type Selection = {
   readonly files: readonly Selected[]
   /** Files skipped because their current digest claim matches. */
   readonly skipped: readonly string[]
+}
+
+/** @returns whether the source's current `ingest-digest` belief matches. */
+export const isIngested = (store: Store, path: string, digest: string): boolean => {
+  const known = store.currentBelief(provenanceKey(path))
+  return known !== undefined && known.value_text === digest && known.conf > 0
 }
 
 /**
@@ -68,8 +76,7 @@ export const select = (
   const cwd = options.cwd ?? process.cwd()
   for (const path of paths) {
     const digest = digestOf(readFileSync(resolvePath(cwd, path), 'utf8'))
-    const known = options.force === true ? undefined : store.currentBelief(provenanceKey(path))
-    if (known !== undefined && known.value_text === digest && known.conf > 0) {
+    if (options.force !== true && isIngested(store, path, digest)) {
       skipped.push(path)
     } else {
       files.push({ path, digest })
