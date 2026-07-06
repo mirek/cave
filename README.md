@@ -147,6 +147,10 @@ From here: `cave mcp --db family.db` serves the store to any MCP client, and `pn
 
 One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives every surface: `cave highlight` (and `cave export` on a terminal) colors CAVE text with the grammar's own `highlights.scm`, the [VSCode extension](editors/vscode) replays the same query as semantic tokens, and tree-sitter-native editors (Neovim, Helix, Zed) can point at the grammar directly.
 
+## Where CAVE is heading
+
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (expectations, rules, actions, evals, sync), the phased plan, and the open design decisions along the way.
+
 ## Development
 
 ```sh
