@@ -95,6 +95,22 @@ test('cave_about, cave_neighbors and cave_search read the graph', () => {
   store.close()
 })
 
+test('cave_query, cave_about and cave_neighbors resolve aliases on request (spec §13.6)', () => {
+  const store = open()
+  store.ingest('postgres ALIAS postgresql\nbilling USES postgres\nanalytics USES postgresql')
+  const server = createServer(store)
+  const exact = contentText(call(server, 30, 'cave_query', { pattern: '?x USES postgres' }))
+  assert.equal(exact, '?x = billing  ; billing USES postgres')
+  const widened = contentText(call(server, 31, 'cave_query', { pattern: '?x USES postgres', aliases: true }))
+  assert.match(widened, /\?x = billing/)
+  assert.match(widened, /\?x = analytics/)
+  const about = contentText(call(server, 32, 'cave_about', { entity: 'postgres', aliases: true }))
+  assert.match(about, /analytics USES postgresql/, 'stored names come back untouched')
+  const neighbors = contentText(call(server, 33, 'cave_neighbors', { entity: 'postgres', aliases: true }))
+  assert.match(neighbors, /postgresql USED-BY analytics/)
+  store.close()
+})
+
 test('cave_reconstruct performs multi-hop recovery over the sqlite store (spec §18)', () => {
   const store = open()
   store.ingest([

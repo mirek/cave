@@ -303,3 +303,53 @@ Numeric threshold and comment search:
 SELECT * FROM cave_claim WHERE attribute = 'weekly-users' AND value_num > 100000000;
 SELECT * FROM cave_claim WHERE comment LIKE '%heap dump%';
 ```
+
+### 13.6 Alias closure
+
+`ALIAS` (§5.2) asserts that two names denote one entity. Query engines
+SHOULD offer **opt-in** resolution through the *alias closure*: the set of
+names connected by current positive `ALIAS` claims, read as **undirected**
+edges (`ALIAS` declares no `REVERSE`, so each written direction is its own
+claim key — either one asserts the link).
+
+```cave
+postgres ALIAS postgresql
+billing USES postgres
+analytics USES postgresql
+```
+
+With closure enabled, `?x USES postgres` matches both rows. Semantics are
+**union-of-rows**: matching widens to aliased names; stored rows, claim
+keys and bindings are never rewritten to a canonical name. Aliased
+entities keep separate belief series — when the series disagree, the union
+*surfaces* the disagreement as coexisting claims (§9.4); silent merging is
+not permitted.
+
+Merge and unmerge are ordinary appends:
+
+- merge — `dupe ALIAS canonical`;
+- unmerge — retraction, `dupe ALIAS canonical @ 0%` (per written
+  direction); both histories survive intact.
+
+Negated claims (`a ALIAS NOT b`) and retracted claims never link. The
+closure is computed from **current** beliefs even when a query runs over
+the full history — it is entity resolution as believed now. A recursive
+CTE over the symmetrized edge set implements it:
+
+```sql
+WITH RECURSIVE alias_edge(a, b) AS (
+  SELECT subject, object FROM current
+  WHERE verb = 'ALIAS' AND negated = 0 AND conf > 0 AND object IS NOT NULL
+  UNION
+  SELECT object, subject FROM current
+  WHERE verb = 'ALIAS' AND negated = 0 AND conf > 0 AND object IS NOT NULL
+), alias_closure(name) AS (
+  SELECT :entity
+  UNION
+  SELECT e.b FROM alias_closure s JOIN alias_edge e ON e.a = s.name
+)
+SELECT name FROM alias_closure;
+```
+
+The closure applies to entity positions only — values, attribute names
+and verbs are not entities (verb lifecycle is a separate concern).

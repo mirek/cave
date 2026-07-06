@@ -185,7 +185,10 @@ For graph quality, use standard verbs when they fit.
 | `LIKE` | similar but not identical | `cave-lang LIKE toki-pona` |
 | `EXISTS` | bare existence assertion | `memory-leak EXISTS @production` |
 
-Prefer `ALIAS` over `IS` for true equivalence.
+Prefer `ALIAS` over `IS` for true equivalence. Merging two names for one
+entity is appending `dupe ALIAS canonical`; unmerging is retracting it
+(`dupe ALIAS canonical @ 0%`). Query-time resolution through `ALIAS`
+links — the alias closure — is §13.6.
 
 **Causation and change**
 

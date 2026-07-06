@@ -71,6 +71,12 @@ Package READMEs document local decisions; these are the global ones:
   same, while entity queries from §13.5 work verbatim.
 - **Traversal defaults**: graph reads (store, query, loop) skip negated
   and `@ 0%` rows; contradictions still coexist as data (§9.4).
+- **Alias closure is union-of-rows** (§13.6, roadmap open decision 2):
+  opt-in `aliases` on store traversal and CAVE-Q widens matching through
+  current positive `ALIAS` claims (undirected recursive CTE), but stored
+  rows, claim keys and bindings are never rewritten to a canonical name —
+  aliased entities keep separate belief series, and disagreements surface
+  side by side instead of merging silently.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

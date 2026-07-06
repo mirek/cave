@@ -25,6 +25,27 @@ JOIN (
 ) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
 `
 
+/**
+ * Alias closure (spec §13.6): current positive `ALIAS` claims as undirected
+ * edges (`ALIAS` has no `REVERSE`, so each written direction is its own
+ * claim key — both assert the same link), walked recursively from a seed
+ * entity. Retraction unmerges: `a ALIAS b @ 0%` drops that direction's edge.
+ * The seed is the query's single positional parameter.
+ */
+const aliasClosureSql = `
+WITH RECURSIVE alias_edge(a, b) AS (
+  SELECT c.subject, c.object FROM (${currentSql}) c
+  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+  UNION
+  SELECT c.object, c.subject FROM (${currentSql}) c
+  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+), alias_closure(name) AS (
+  SELECT ?
+  UNION
+  SELECT e.b FROM alias_closure s JOIN alias_edge e ON e.a = s.name
+)
+`
+
 export type IngestResult = {
   /** ids of inserted claim rows, in document order. */
   readonly ids: readonly string[]
@@ -53,6 +74,12 @@ export type TraverseOptions = {
   readonly negated?: boolean
   /** Include rows whose current belief is `@ 0%` (default `false`). */
   readonly retracted?: boolean
+  /**
+   * Match the entity through its alias closure — every name linked by
+   * current positive `ALIAS` claims (spec §13.6, default `false`).
+   * Union-of-rows: matching widens, returned rows keep their stored names.
+   */
+  readonly aliases?: boolean
 }
 
 export type Store = ReturnType<typeof open>
@@ -189,6 +216,18 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     (options.negated === true ? '' : ' AND negated = 0') +
     (options.retracted === true ? '' : ' AND conf > 0')
 
+  /**
+   * Entity-matching fragment for one traversal endpoint: exact by default,
+   * `IN` the alias closure when opted in. Either form consumes exactly one
+   * positional parameter — the closure seeds from it (`aliasClosureSql`
+   * must be prepended when `aliases` is set).
+   */
+  const entityMatch = (column: string, options: TraverseOptions): string =>
+    options.aliases === true ? `${column} IN (SELECT name FROM alias_closure)` : `${column} = ?`
+
+  const withAliases = (options: TraverseOptions): string =>
+    options.aliases === true ? aliasClosureSql : ''
+
   return {
     /** Raw database handle — used by `@cavelang/query`; treat as read-only. */
     db,
@@ -233,15 +272,34 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
       return rows('SELECT * FROM cave_claim WHERE claim_key = ? ORDER BY tx', claimKey)
     },
 
+    /**
+     * The alias closure of an entity (spec §13.6): the entity itself plus
+     * every name reachable through current positive `ALIAS` claims, read as
+     * undirected edges. Unmerge is retraction — appending `a ALIAS b @ 0%`
+     * removes that link. The queried name first, the rest sorted.
+     */
+    aliasesOf(entity: string): string[] {
+      const names = db.prepare(`${aliasClosureSql} SELECT name FROM alias_closure WHERE name <> ? ORDER BY name`)
+        .all(entity, entity) as { name: string }[]
+      return [entity, ...names.map(row => row.name)]
+    },
+
     /** All rows about an entity, both directions, newest first (spec §13.5). */
-    claimsAbout(entity: string): Row.t[] {
-      return rows('SELECT * FROM cave_claim WHERE subject = ? OR object = ? ORDER BY tx DESC', entity, entity)
+    claimsAbout(entity: string, options_: { aliases?: boolean } = {}): Row.t[] {
+      return options_.aliases === true ?
+        rows(
+          `${aliasClosureSql} SELECT * FROM cave_claim
+           WHERE subject IN (SELECT name FROM alias_closure) OR object IN (SELECT name FROM alias_closure)
+           ORDER BY tx DESC`,
+          entity
+        ) :
+        rows('SELECT * FROM cave_claim WHERE subject = ? OR object = ? ORDER BY tx DESC', entity, entity)
     },
 
     /** Forward reads: current relational facts with `entity` as subject (spec §13.3). */
     forward(entity: string, options_: TraverseOptions = {}): ForwardFact[] {
       return rows(
-        `SELECT * FROM (${currentSql}) WHERE subject = ? AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('subject', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => ({ verb: row.verb, target: row.object!, row }))
     },
@@ -253,7 +311,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      */
     reverse(entity: string, options_: TraverseOptions = {}): ReverseFact[] {
       return rows(
-        `SELECT * FROM (${currentSql}) WHERE object = ? AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('object', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => {
         const rel = Canonical.Registry.inverseOf(registry, row.verb)
@@ -282,7 +340,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Members of a topic — forward `CONTAINS` traversal (spec §11.2). */
     topicMembers(topic: string, options_: TraverseOptions = {}): string[] {
       return rows(
-        `SELECT * FROM (${currentSql}) WHERE subject = ? AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('subject', options_)} AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         topic
       ).map(row => row.object!)
     },
@@ -290,7 +348,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Topics containing an entity — the inverse `CONTAINS` read (spec §11.2). */
     topicsOf(entity: string, options_: TraverseOptions = {}): string[] {
       return rows(
-        `SELECT * FROM (${currentSql}) WHERE object = ? AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('object', options_)} AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => row.subject)
     },
