@@ -37,11 +37,16 @@ const text = (value: unknown, name: string): string => {
   return value
 }
 
-/** Current claims mentioning `entity` on either endpoint, as canonical lines. */
-const aboutLines = (store: Store, entity: string): string[] =>
-  store.currentBeliefs()
-    .filter(row => row.subject === entity || row.object === entity)
+/**
+ * Current claims mentioning `entity` on either endpoint, as canonical
+ * lines — through the alias closure (spec §13.6) when asked.
+ */
+const aboutLines = (store: Store, entity: string, aliases: boolean): string[] => {
+  const names = new Set(aliases ? store.aliasesOf(entity) : [entity])
+  return store.currentBeliefs()
+    .filter(row => names.has(row.subject) || (row.object !== null && names.has(row.object)))
     .map(row => emitClaim(store.toClaim(row)))
+}
 
 /** `@cavelang/loop` store contract over the SQLite store (spec §18). */
 const loopStore = (store: Store): CaveStore => ({
@@ -105,11 +110,12 @@ export const tools: readonly Tool[] = [
       required: ['pattern'],
       properties: {
         pattern: { type: 'string', description: 'CAVE-Q pattern; WHERE filters on following lines' },
-        all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' }
+        all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' },
+        aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' }
       }
     },
     run: (store, args) => {
-      const matches = caveQuery(store, text(args['pattern'], 'pattern'), { all: args['all'] === true })
+      const matches = caveQuery(store, text(args['pattern'], 'pattern'), { all: args['all'] === true, aliases: args['aliases'] === true })
       if (matches.length === 0) {
         return 'no matches'
       }
@@ -146,10 +152,13 @@ export const tools: readonly Tool[] = [
     inputSchema: {
       type: 'object',
       required: ['entity'],
-      properties: { entity: { type: 'string', description: 'entity name, e.g. auth/middleware' } }
+      properties: {
+        entity: { type: 'string', description: 'entity name, e.g. auth/middleware' },
+        aliases: { type: 'boolean', description: 'include claims about aliased names (current ALIAS claims, spec §13.6)' }
+      }
     },
     run: (store, args) =>
-      aboutLines(store, text(args['entity'], 'entity')).join('\n') || 'no claims'
+      aboutLines(store, text(args['entity'], 'entity'), args['aliases'] === true).join('\n') || 'no claims'
   },
   {
     name: 'cave_neighbors',
@@ -158,16 +167,22 @@ export const tools: readonly Tool[] = [
     inputSchema: {
       type: 'object',
       required: ['entity'],
-      properties: { entity: { type: 'string' } }
+      properties: {
+        entity: { type: 'string' },
+        aliases: { type: 'boolean', description: 'include edges of aliased names (current ALIAS claims, spec §13.6)' }
+      }
     },
     run: (store, args) => {
       const entity = text(args['entity'], 'entity')
-      const forward = store.forward(entity)
-        .map(fact => `${entity} ${fact.verb} ${fact.target}`)
-      const reverse = store.reverse(entity)
+      const options = { aliases: args['aliases'] === true }
+      // Endpoints print as stored — under aliases a matched row may name
+      // an aliased spelling, and union semantics never rewrites it.
+      const forward = store.forward(entity, options)
+        .map(fact => `${fact.row.subject} ${fact.verb} ${fact.target}`)
+      const reverse = store.reverse(entity, options)
         .map(fact => fact.rel === undefined ?
-          `${fact.source} ${fact.verb} ${entity} ; no inverse name declared` :
-          `${entity} ${fact.rel} ${fact.source}`)
+          `${fact.source} ${fact.verb} ${fact.row.object} ; no inverse name declared` :
+          `${fact.row.object} ${fact.rel} ${fact.source}`)
       return [...forward, ...reverse].join('\n') || 'no edges'
     }
   },

@@ -38,6 +38,13 @@ store.exportText({ current: true })          // canonical CAVE text back out
   (`@ 0%`) rows; opt back in with `{ negated: true, retracted: true }`.
   Contradictions still coexist as rows (§9.4) — resolution belongs to the
   query layer.
+- **Alias closure is opt-in** (§13.6): `{ aliases: true }` on traversal
+  (and on `claimsAbout`) matches the entity through every name linked by
+  current positive `ALIAS` claims, read as undirected edges;
+  `aliasesOf(entity)` returns the closure itself. Union-of-rows semantics:
+  matching widens, stored names come back untouched, and disagreeing
+  belief series surface side by side rather than merging silently. Unmerge
+  is retraction — `dupe ALIAS canonical @ 0%`.
 
 ## API
 
@@ -47,8 +54,9 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `insertResult(result)` | | append a pre-canonicalized `@cavelang/canonical` result |
 | `currentBeliefs({minConf})` | §13.5 | latest row per key |
 | `currentBelief(key)` / `history(key)` | §9.1 | one fact's belief series |
-| `claimsAbout(entity)` | §13.5 | both directions, all rows |
+| `claimsAbout(entity, {aliases})` | §13.5 | both directions, all rows |
 | `forward(entity)` / `reverse(entity)` | §13.3 | named traversal, inverse-aware |
+| `aliasesOf(entity)` | §13.6 | the entity's alias closure |
 | `byTag(key, value?)` | §13.5 | flat (`value` omitted → `IS NULL`) or scoped |
 | `byContext(ctx)` | §13.5 | context filter |
 | `topicMembers(t)` / `topicsOf(e)` | §11.2 | topic layer over `CONTAINS` |
@@ -86,6 +94,7 @@ pnpm --filter @cavelang/store test
 
 Covers the §9.1 belief series, §5.5 one-fact-two-names invariants
 (unified belief through either name, negation riding the row, no
-materialized inverses), every §13.5 query, the §11.2 topic reads, edge
-persistence, registry rebuild across reopen, transactional strict ingest
-and export round-trips.
+materialized inverses), every §13.5 query, the §13.6 alias closure
+(merge, unmerge by retraction, opt-in traversal, union semantics), the
+§11.2 topic reads, edge persistence, registry rebuild across reopen,
+transactional strict ingest and export round-trips.

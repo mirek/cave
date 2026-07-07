@@ -25,9 +25,10 @@ Summary of the gaps:
 - **Sense** — deterministic structured ingestion, continuous ingestion,
   and query-time federation are missing; LLM ingestion (`cave ingest`)
   exists.
-- **Model** — storage, belief evolution, inverses, and query exist and
-  are CAVE's strongest layer; schema expectations, alias resolution, and
-  a contradiction-resolution policy are missing.
+- **Model** — storage, belief evolution, inverses, query, and alias
+  closure (0.6.0) exist and are CAVE's strongest layer; schema
+  expectations, alias *discovery*, and a contradiction-resolution policy
+  are missing.
 - **Conclude** — nothing in a CAVE store was ever *derived*; the rules
   engine (Draft §17.4) is the single largest functional hole.
 - **Act** — the entire kinetic layer (governed writes, side effects,
@@ -53,8 +54,9 @@ foundations the roadmap builds on rather than replaces:
    for the same entity destructively is the classic mistake; CAVE's
    append-only model pre-solves it: merge = append `dupe ALIAS
    canonical`, unmerge = append `dupe ALIAS canonical @ 0%`, and both
-   histories survive intact. Only query-time alias closure is missing
-   (and one real design question; see open decision 2).
+   histories survive intact. Query-time alias closure shipped in 0.6.0
+   (spec §13.6, roadmap item 1; the design question was open
+   decision 2, now decided).
 3. **`REVERSE` keeps belief coherent across directions.** One stored
    row, one belief series, two readable names (§13.3) — the two
    directions of a relation can never drift apart in confidence. The
@@ -121,7 +123,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Schema expectations, checkable typing | entities, verbs, in-band extension verbs, unit parsing | partial | schema-as-claims (expected attributes, units, cardinality) + a validator; typing exists by convention, is never checkable |
 | Verb lifecycle | adding verbs/inverses/topics is free, in-band | partial | *renaming/deprecating* a verb strands historical claims — needs a verb-alias / deprecation convention (entity `ALIAS` doesn't cover verbs) |
 | Shape polymorphism | `EXTENDS` taxonomy + transitive CAVE-Q | partial | let shape declarations target "everything that `EXTENDS+` service" — the taxonomy is queryable but nothing *binds* to it |
-| Entity resolution: merge/unmerge | `ALIAS` verb (§5.2), ignored by query/traversal | partial | query-time alias closure; unmerge = retraction — near-free thanks to append-only (open decision 2) |
+| Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreement surfacing lands with `cave check` (item 3) |
 | Entity resolution: match discovery | none | missing | candidate suggestion (`cave suggest-alias`) — under LLM extraction, naming drift makes *discovery*, not merge mechanics, the bottleneck |
 | As-of reconstruction | `history(key)`, `WHERE tx > date`; data fully supports it | partial | an as-of resolver (`cave query --as-of <date>`) — pure SQL over existing rows |
 | Contradiction-resolution policy | latest-tx-per-key only | missing | §9.4 promises resolution via source reliability, precedence, context — configurable and explicit, so human corrections outrank ingest re-runs |
@@ -190,7 +192,9 @@ extend an existing one.
    Query-time resolution of entities through current positive `ALIAS`
    claims (recursive CTE, like `VERB+`); unmerge = `ALIAS … @ 0%`.
    Opt-in per query/traversal first; requires the belief-series decision
-   in open decision 2.
+   in open decision 2. — **Shipped in 0.6.0** (spec §13.6): opt-in
+   `aliases` on store traversal, CAVE-Q, `cave query --aliases`, and the
+   MCP query/about/neighbors tools; union-of-rows per open decision 2.
 2. **Actor provenance** (spec convention + `mcp`/`ingest`/`cli`).
    Auto-stamp `@src:agent/<name>` / `@src:cli` / `@src:ingest/<digest>`
    on appends that don't already carry a source context. Completes the
@@ -313,14 +317,14 @@ Flagged here so they are decided deliberately, not implied by code.
    provenance, not raw tx, as the tiebreaker across origins. The
    interchange format must carry tx (an additive canonical-text
    extension or sidecar). This decision *is* the design work of item 14.
-2. **Alias closure vs claim-key identity.** Aliased entities keep
-   separate belief series (claim keys embed the subject). Closure must
-   choose: union-of-rows at read time (cheap, but two series can
-   disagree) or cross-key belief resolution (coherent, but re-opens the
-   "one fact, two names" problem §19.2 solved for inverses — this time
-   without a canonical direction). Recommendation: union + surface
-   disagreements as review candidates in `cave check`, never silent
-   merging.
+2. **Alias closure vs claim-key identity.** *Decided (0.6.0, spec
+   §13.6): union-of-rows.* Aliased entities keep separate belief series
+   (claim keys embed the subject); closure widens matching at read time,
+   never rewrites stored names, and lets disagreeing series coexist
+   visibly. Cross-key belief resolution was rejected — it re-opens the
+   "one fact, two names" problem §19.2 solved for inverses, this time
+   without a canonical direction. Remaining: surface cross-series
+   disagreements as review candidates in `cave check` (item 3).
 3. **Append-only vs forgetting.** Ingesting external data will
    eventually capture a secret or PII, and retraction leaves the text in
    `raw_line` and every export. Either commit to documented permanence

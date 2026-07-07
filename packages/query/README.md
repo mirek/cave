@@ -16,6 +16,8 @@ query(store, `?cause CAUSE app/crash
 
 query(store, '?x PART-OF monorepo')     // inverse verb → same physical query
 query(store, 'terrier EXTENDS+ animal') // transitive
+
+query(store, '?x USES postgres', { aliases: true }) // + rows about aliased names (§13.6)
 ```
 
 ## Pattern language (§12.1)
@@ -65,6 +67,13 @@ covers one second.
   `?x EXTENDS+ ?x` finds nodes on cycles, not every reachable pair.
 - Transitive patterns support endpoint slots only; tag/context/WHERE
   filters on them are rejected rather than silently ignored.
+- **`{ aliases: true }` resolves entity terms through the alias closure**
+  (§13.6): current positive `ALIAS` claims as undirected edges. Matching
+  widens — bound terms match aliased spellings, repeated variables compare
+  alias-equal, transitive hops cross alias links — while bindings and rows
+  keep stored names untouched (union-of-rows, never silent merging). The
+  closure always reads current beliefs, even under `{ all: true }`.
+  Values, attribute names and verbs are not entities and never resolve.
 
 ## Tests
 
@@ -74,4 +83,6 @@ pnpm --filter @cavelang/query test
 
 Every §12.1 example pattern and every §12.2 filter runs against a live
 in-memory store, including inverse and transitive-inverse cases,
-current-vs-history semantics and negated patterns.
+current-vs-history semantics, negated patterns and the §13.6 alias
+closure (term widening, transitive hops across aliases, unmerge by
+retraction, value/attribute exemption).

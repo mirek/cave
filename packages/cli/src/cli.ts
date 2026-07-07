@@ -8,7 +8,7 @@
  * - `cave parse [file]` — lint / dump the AST (`--json`)
  * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`)
- * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`)
+ * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
@@ -46,7 +46,7 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--no-prelude]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (same as add)
-  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--no-prelude]
+  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--no-prelude]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
@@ -132,12 +132,13 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--no-prelude]
 
 Options:
   ${dbHelp}
   --json         emit matches as JSON
   --all          match all beliefs, not just current ones
+  --aliases      resolve entities through current ALIAS claims (spec §13.6)
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -149,6 +150,7 @@ Examples:
   cave query --db k.db '?x HAS bug: ?bug #security'
   cave query --db k.db '?cause CAUSE app/crash' 'WHERE conf >= 0.5'
   cave query --db k.db 'terrier EXTENDS+ animal'
+  cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db '?x ?verb ?y @production' --json`,
 
   export: `cave export — emit canonical CAVE text from a store
@@ -276,6 +278,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       db: { type: 'string' },
       json: { type: 'boolean' },
       all: { type: 'boolean' },
+      aliases: { type: 'boolean' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
@@ -286,7 +289,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
   const pattern = positionals.join('\n')
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const matches = caveQuery(store, pattern, { all: values.all === true })
+    const matches = caveQuery(store, pattern, { all: values.all === true, aliases: values.aliases === true })
     if (values.json === true) {
       return ok(`${JSON.stringify(matches, undefined, 2)}\n`)
     }

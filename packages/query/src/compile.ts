@@ -26,6 +26,13 @@ export type Match = {
 export type Options = {
   /** Match all appended rows, not only current beliefs. */
   readonly all?: boolean
+  /**
+   * Resolve entity terms through the alias closure — current positive
+   * `ALIAS` claims read as undirected edges (spec §13.6). Union-of-rows:
+   * matching widens to aliased names; bindings and rows keep the stored
+   * names untouched.
+   */
+  readonly aliases?: boolean
 }
 
 const currentSql = `
@@ -35,6 +42,31 @@ JOIN (
   FROM cave_claim GROUP BY claim_key
 ) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
 `
+
+/**
+ * Alias closure CTEs (spec §13.6): `alias_edge` is the current positive
+ * `ALIAS` claims symmetrized (each written direction is its own claim key —
+ * both assert the same undirected link); `alias_pair` its transitive
+ * closure — every ordered pair of names currently believed to denote one
+ * entity. Resolution always reads *current* beliefs, even under `all`:
+ * the closure is entity resolution as believed now, not as believed when
+ * a row landed.
+ */
+const aliasPairSql = `alias_edge(a, b) AS (
+  SELECT c.subject, c.object FROM (${currentSql}) c
+  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+  UNION
+  SELECT c.object, c.subject FROM (${currentSql}) c
+  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+), alias_pair(a, b) AS (
+  SELECT a, b FROM alias_edge
+  UNION
+  SELECT p.a, e.b FROM alias_pair p JOIN alias_edge e ON e.a = p.b
+)`
+
+/** SQL for "these two expressions name the same entity" under the closure. */
+const aliasSame = (left: string, right: string): string =>
+  `(${left} = ${right} OR EXISTS (SELECT 1 FROM alias_pair p WHERE p.a = ${left} AND p.b = ${right}))`
 
 /**
  * UUIDv7 interval `[lo, hi)` for a tx filter value: a bare date covers the
@@ -83,27 +115,35 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
     return compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options)
   }
 
+  const aliases = options.aliases === true
+  // Alias closure applies to entity columns only: values and attribute
+  // names are not entities, and verb aliasing is a separate, undesigned
+  // lifecycle question.
+  const entityColumns = ['subject', 'object']
   const conditions: string[] = [`c.negated = ${pattern.negated ? 1 : 0}`]
   const params: (string | number)[] = []
   /** var name → row columns it binds; repeated vars add join conditions. */
   const varColumns = new Map<string, string[]>()
   const slot = (value: Pattern.Slot, column: string, requireNotNull: boolean): void => {
     switch (value.kind) {
-      case 'term':
+      case 'term': {
+        const match = aliases && entityColumns.includes(column) ? aliasSame('?', `c.${column}`) : `c.${column} = ?`
+        const termParams = aliases && entityColumns.includes(column) ? [value.text, value.text] : [value.text]
         // A date/number term in object position must also match metric
         // rows, which store their value in value_text with object NULL
         // (`latency IS 30ms` ⇒ pattern `latency IS 30ms` matches).
         if (column === 'object') {
           const parsed = Value.parse(value.text)
           if (parsed.kind === 'number' || parsed.kind === 'date') {
-            conditions.push('(c.object = ? OR (c.object IS NULL AND c.value_text = ?))')
-            params.push(value.text, value.text)
+            conditions.push(`(${match} OR (c.object IS NULL AND c.value_text = ?))`)
+            params.push(...termParams, value.text)
             return
           }
         }
-        conditions.push(`c.${column} = ?`)
-        params.push(value.text)
+        conditions.push(match)
+        params.push(...termParams)
         return
+      }
       case 'var': {
         const columns = varColumns.get(value.name) ?? []
         columns.push(column)
@@ -140,7 +180,11 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
   }
   for (const columns of varColumns.values()) {
     for (let i = 1; i < columns.length; i++) {
-      conditions.push(`c.${columns[0]} = c.${columns[i]}`)
+      conditions.push(
+        aliases && entityColumns.includes(columns[0]!) && entityColumns.includes(columns[i]!) ?
+          aliasSame(`c.${columns[0]}`, `c.${columns[i]}`) :
+          `c.${columns[0]} = c.${columns[i]}`
+      )
     }
   }
   for (const context of pattern.contexts) {
@@ -225,7 +269,8 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
   }
 
   const base = options.all === true ? 'SELECT * FROM cave_claim' : currentSql
-  const sql = `SELECT c.* FROM (${base}) c WHERE ${conditions.join(' AND ')} ORDER BY c.tx`
+  const withClause = aliases ? `WITH RECURSIVE ${aliasPairSql} ` : ''
+  const sql = `${withClause}SELECT c.* FROM (${base}) c WHERE ${conditions.join(' AND ')} ORDER BY c.tx`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
     const bindings: Record<string, string> = {}
     for (const [name, columns] of varColumns) {
@@ -247,32 +292,42 @@ const compileTransitive = (
       pattern.payload.kind === 'attribute') {
     throw new Error('CAVE-Q: transitive patterns support subject/object slots only (spec §12.1)')
   }
+  const aliases = options.aliases === true
   const base = options.all === true ? 'SELECT * FROM cave_claim' : currentSql
+  /** Endpoint equality: exact, or alias-equal under the closure (spec §13.6). */
+  const same = (left: string, right: string): string =>
+    aliases ? aliasSame(left, right) : `${left} = ${right}`
   const conditions: string[] = []
   const params: (string | number)[] = [verb]
   if (subjectSlot.kind === 'term') {
-    conditions.push('h.src = ?')
+    conditions.push(same('h.src', '?'))
     params.push(subjectSlot.text)
+    if (aliases) {
+      params.push(subjectSlot.text)
+    }
   }
   if (objectSlot?.kind === 'term') {
-    conditions.push('h.dst = ?')
+    conditions.push(same('h.dst', '?'))
     params.push(objectSlot.text)
+    if (aliases) {
+      params.push(objectSlot.text)
+    }
   }
   // A repeated variable forces equality here just as in single-hop
   // patterns: `?x EXTENDS+ ?x` asks for nodes on a cycle, not for every
   // reachable pair.
   if (subjectSlot.kind === 'var' && objectSlot?.kind === 'var' && subjectSlot.name === objectSlot.name) {
-    conditions.push('h.src = h.dst')
+    conditions.push(same('h.src', 'h.dst'))
   }
   const sql = `
-WITH RECURSIVE cur AS (
+WITH RECURSIVE ${aliases ? `${aliasPairSql}, ` : ''}cur AS (
   SELECT c.subject AS src, c.object AS dst
   FROM (${base}) c
   WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
 ), hops(src, dst, depth) AS (
   SELECT src, dst, 1 FROM cur
   UNION
-  SELECT h.src, cur.dst, h.depth + 1 FROM hops h JOIN cur ON cur.src = h.dst
+  SELECT h.src, cur.dst, h.depth + 1 FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}
   WHERE h.depth < 32
 )
 SELECT DISTINCT h.src AS src, h.dst AS dst FROM hops h
@@ -304,6 +359,22 @@ export const query = (store: Store, input: string, options: Options = {}): Match
   const pattern = Pattern.parse(input)
   const compiled = compile(pattern, store.registry(), options)
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
+  if (compiled.transitive && options.aliases === true) {
+    // Distinct (src, dst) pairs can repeat a binding set when an endpoint
+    // matched through different spellings of one aliased entity; a
+    // transitive match carries no row, so identical bindings are identical
+    // answers.
+    const seen = new Set<string>()
+    return rows.flatMap(row => {
+      const bindings = compiled.bind(row)
+      const key = JSON.stringify(bindings)
+      if (seen.has(key)) {
+        return []
+      }
+      seen.add(key)
+      return [{ bindings }]
+    })
+  }
   return rows.map(row =>
     compiled.transitive ?
       { bindings: compiled.bind(row) } :

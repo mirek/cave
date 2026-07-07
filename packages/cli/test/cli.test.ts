@@ -96,6 +96,22 @@ test('query with WHERE filter as second positional', () => {
   })
 })
 
+test('query --aliases resolves entities through current ALIAS claims (spec §13.6)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'postgres ALIAS postgresql',
+      'billing USES postgres',
+      'analytics USES postgresql'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+    assert.equal(queryCommand(['?x USES postgres', '--db', db]).out, '?x = billing\n')
+    const widened = queryCommand(['?x USES postgres', '--db', db, '--aliases'])
+    assert.equal(widened.out, '?x = billing\n?x = analytics\n')
+  })
+})
+
 test('bound patterns with no variables print matched raw lines', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
