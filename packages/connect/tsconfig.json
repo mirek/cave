@@ -13,31 +13,13 @@
       "path": "../canonical"
     },
     {
-      "path": "../connect"
-    },
-    {
       "path": "../core"
-    },
-    {
-      "path": "../highlight"
-    },
-    {
-      "path": "../ingest"
-    },
-    {
-      "path": "../loop"
-    },
-    {
-      "path": "../mcp"
     },
     {
       "path": "../parser"
     },
     {
       "path": "../query"
-    },
-    {
-      "path": "../shape"
     },
     {
       "path": "../store"
