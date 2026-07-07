@@ -171,15 +171,30 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   }
   rebuildRegistry()
 
+  /**
+   * Savepoint-based, so transactions nest: a caller can wrap several
+   * appends — or an append plus checks against the appended state — and
+   * roll the whole group back by throwing (spec §20.3 write gating).
+   * Rollback also restores the in-memory verb registry, so declarations
+   * from rolled-back claims don't outlive their rows.
+   */
+  let transactionDepth = 0
   const transaction = <T>(body: () => T): T => {
-    db.exec('BEGIN')
+    const savepoint = `cave_tx_${transactionDepth}`
+    transactionDepth += 1
+    const savedRegistry = registry
+    db.exec(`SAVEPOINT ${savepoint}`)
     try {
       const result = body()
-      db.exec('COMMIT')
+      db.exec(`RELEASE ${savepoint}`)
       return result
     } catch (error) {
-      db.exec('ROLLBACK')
+      db.exec(`ROLLBACK TO ${savepoint}`)
+      db.exec(`RELEASE ${savepoint}`)
+      registry = savedRegistry
       throw error
+    } finally {
+      transactionDepth -= 1
     }
   }
 
@@ -255,6 +270,14 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
 
     /** Current verb registry (input registry + stored + ingested declarations). */
     registry: (): Canonical.Registry.t => registry,
+
+    /**
+     * Runs `body` atomically; throwing rolls everything back, including
+     * nested appends and their registry declarations. Nestable
+     * (savepoints) — the write gate wraps ingest + check in one of these
+     * (spec §20.3).
+     */
+    transaction,
 
     /**
      * Parses, canonicalizes and appends CAVE text. Lenient by default —

@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
 
 test('current belief = latest tx per claim key (spec §9.1)', () => {
@@ -202,5 +203,23 @@ test('code literals survive storage round trip', () => {
     assert.equal(codeValue.payload.value.kind, 'code')
     assert.equal(codeValue.payload.value.raw, 'validateToken')
   }
+  store.close()
+})
+
+test('transaction nests and rolls back appends with their declarations (spec §20.3)', () => {
+  const store = open()
+  store.ingest('auth USES jwt')
+  assert.throws(() => store.transaction(() => {
+    store.ingest('MIGRATES IS verb\nlegacy MIGRATES postgres')
+    assert.equal(store.claimsAbout('legacy').length, 1, 'visible inside the transaction')
+    throw new Error('gate says no')
+  }))
+  assert.equal(store.claimsAbout('legacy').length, 0, 'rolled back')
+  assert.equal(store.claimsAbout('auth').length, 1, 'prior commits survive')
+  assert.equal(Registry.isDeclared(store.registry(), 'MIGRATES'), false, 'registry restored on rollback')
+  const kept = store.transaction(() =>
+    store.transaction(() => store.ingest('billing USES postgres')))
+  assert.equal(kept.ids.length, 1)
+  assert.equal(store.claimsAbout('billing').length, 1, 'nested commit lands')
   store.close()
 })

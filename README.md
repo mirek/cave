@@ -159,7 +159,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `fusion` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `fusion` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 
@@ -169,7 +169,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21 | Converting text to CAVE, granularity, operating modes, worked example |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

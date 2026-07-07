@@ -208,3 +208,11 @@ test('declarations written as continuations update the registry (spec §5.4, §8
   const result = canonicalizeText('MIGRATES HAS domain: data-platform\n  IS verb')
   assert.ok(result.registry.declared.has('MIGRATES'))
 })
+
+test('the standard prelude declares EXPECTS (spec §20.1)', () => {
+  const result = canonicalizeText(standardPrelude)
+  assert.equal(result.problems.length, 0)
+  const declared = canonicalizeText('service EXPECTS owner', result.registry).claims[0]!.claim
+  assert.equal(declared.verb, 'EXPECTS')
+  assert.deepEqual(declared.payload, { kind: 'relation', object: { kind: 'entity', text: 'owner' } })
+})

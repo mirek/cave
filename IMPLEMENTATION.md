@@ -19,13 +19,14 @@ Dependency order, bottom to top:
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
 | [`@cavelang/store`](packages/store) | §13 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5 |
 | [`@cavelang/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
+| [`@cavelang/shape`](packages/shape) | §20 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / export / mcp / ingest / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / check / export / mcp / ingest / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -86,6 +87,13 @@ Package READMEs document local decisions; these are the global ones:
   ingest `ingest/<batch-digest>` (content-derived for key-stable
   re-runs) — and `cave import` passes nothing, because interchange
   replay must preserve exported claim keys.
+- **Checking is a read; gating is a transaction** (§20):
+  `@cavelang/shape` evaluates in-band `EXPECTS` declarations with SQL
+  over current beliefs and never writes; `cave add --check` wraps
+  ingest + re-evaluation in the store's savepoint-based (nestable)
+  `transaction` and rolls back appends that introduce new violations —
+  in-memory registry declarations included, so rolled-back claims can't
+  leave vocabulary behind.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

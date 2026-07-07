@@ -25,10 +25,10 @@ Summary of the gaps:
 - **Sense** — deterministic structured ingestion, continuous ingestion,
   and query-time federation are missing; LLM ingestion (`cave ingest`)
   exists.
-- **Model** — storage, belief evolution, inverses, query, and alias
-  closure (0.6.0) exist and are CAVE's strongest layer; schema
-  expectations, alias *discovery*, and a contradiction-resolution policy
-  are missing.
+- **Model** — storage, belief evolution, inverses, query, alias closure
+  (0.6.0), and shape expectations (0.8.0) exist and are CAVE's strongest
+  layer; alias *discovery* and a contradiction-resolution policy are
+  missing.
 - **Conclude** — nothing in a CAVE store was ever *derived*; the rules
   engine (Draft §17.4) is the single largest functional hole.
 - **Act** — the entire kinetic layer (governed writes, side effects,
@@ -93,7 +93,8 @@ foundations the roadmap builds on rather than replaces:
    variables and low-confidence claims *are* the frontier — the graph
    itself says what is missing and what needs review. Expectation and
    coverage tooling is both the data-health story and the on-ramp to the
-   Draft layer.
+   Draft layer; the first cut shipped in 0.8.0 as `cave check` (item 3,
+   spec §20).
 
 One overclaim to avoid: human-corrections-outrank-machine-ingest does
 **not** fall out of latest-tx resolution alone. Latest-tx makes the most
@@ -121,10 +122,10 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
 | Claim-level transactions, immutable history | append-only `cave_claim`, UUIDv7 tx, `MAX(tx)` = current, full history export | exists | none — this is CAVE's strongest layer |
-| Schema expectations, checkable typing | entities, verbs, in-band extension verbs, unit parsing | partial | schema-as-claims (expected attributes, units, cardinality) + a validator; typing exists by convention, is never checkable |
+| Schema expectations, checkable typing | `EXPECTS` attribute/relation expectations + `cave check` (spec §20), shipped in 0.8.0 (item 3) | partial | unit and cardinality expectations — presence is checkable, value shape is not yet |
 | Verb lifecycle | adding verbs/inverses/topics is free, in-band | partial | *renaming/deprecating* a verb strands historical claims — needs a verb-alias / deprecation convention (entity `ALIAS` doesn't cover verbs) |
-| Shape polymorphism | `EXTENDS` taxonomy + transitive CAVE-Q | partial | let shape declarations target "everything that `EXTENDS+` service" — the taxonomy is queryable but nothing *binds* to it |
-| Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreement surfacing lands with `cave check` (item 3) |
+| Shape polymorphism | `EXPECTS` binds shape declarations to the `EXTENDS` taxonomy (spec §20.1) | exists | shipped in 0.8.0 (item 3) |
+| Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreements surfaced by `cave check` since 0.8.0 (item 3) |
 | Entity resolution: match discovery | none | missing | candidate suggestion (`cave suggest-alias`) — under LLM extraction, naming drift makes *discovery*, not merge mechanics, the bottleneck |
 | As-of reconstruction | `history(key)`, `WHERE tx > date`; data fully supports it | partial | an as-of resolver (`cave query --as-of <date>`) — pure SQL over existing rows |
 | Contradiction-resolution policy | latest-tx-per-key only | missing | §9.4 promises resolution via source reliability, precedence, context — configurable and explicit, so human corrections outrank ingest re-runs |
@@ -139,7 +140,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Rules / transforms | none (rules `=>` are Draft §17.4, unimplemented) | missing | forward-chaining rules engine deriving claims from patterns — CAVE's transform layer, already designed in the spec |
 | Incremental derivation | none — but the tx log is the required substrate | missing | derived computation resuming from a tx watermark instead of full recomputation |
 | Derivation lineage | `raw_line`, `@src:` contexts, `BECAUSE`/`VIA` edges | partial | derived claims must link to premise claims + rule via `BECAUSE` edges; today lineage exists for sources, not for conclusions |
-| Knowledge health checks | `cave_lint` / parse diagnostics, `--strict` rollback | partial | *shape* checking (required attributes, staleness, confidence floors, coverage) as a runnable command, with optional write-gating |
+| Knowledge health checks | `cave check` (spec §20.2): violations, staleness, review candidates, alias disagreements, coverage; `cave add --check` write gating | exists | shipped in 0.8.0 (item 3) |
 
 ### Act — the kinetic layer
 
@@ -218,7 +219,17 @@ extend an existing one.
    claims (tx older than N), review candidates (conf 0.3–0.7), and
    §17.6-precursor coverage stats. Optional `--strict` gating on
    `add`/`ingest` — the same checks later reused as action preconditions
-   (one mechanism, two enforcement points).
+   (one mechanism, two enforcement points). — **Shipped in 0.8.0**
+   (spec §20): `EXPECTS` in the standard prelude declares attribute and
+   relation expectations (relation direction is `REVERSE`-aware);
+   instances bind through current `IS` claims into the type or its
+   `EXTENDS+` descendants; `cave check` adds alias-disagreement
+   surfacing (closing open decision 2's remainder) and exits 1 on
+   violations only; the gate landed as `cave add --check` — append +
+   re-check in one savepoint transaction, rolled back when the append
+   introduces violations absent before (pre-existing violations never
+   block). LLM-ingest gating stays open until the action layer (item 8)
+   gives agents the governed write path.
 4. **`@cavelang/connect` — deterministic structured ingestion +
    federation-lite.** `cave connect data.csv --map mapping.cave`:
    mapping templates are CAVE lines with `?column` variables (reusing
@@ -332,8 +343,8 @@ Flagged here so they are decided deliberately, not implied by code.
    never rewrites stored names, and lets disagreeing series coexist
    visibly. Cross-key belief resolution was rejected — it re-opens the
    "one fact, two names" problem §19.2 solved for inverses, this time
-   without a canonical direction. Remaining: surface cross-series
-   disagreements as review candidates in `cave check` (item 3).
+   without a canonical direction. The remainder — surfacing cross-series
+   disagreements — shipped with `cave check` in 0.8.0 (spec §20.2).
 3. **Append-only vs forgetting.** Ingesting external data will
    eventually capture a secret or PII, and retraction leaves the text in
    `raw_line` and every export. Either commit to documented permanence

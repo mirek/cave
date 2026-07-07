@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries. Use when working on @cave/store, @cave/query, @cave/canonical, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -385,3 +385,119 @@ SELECT name FROM alias_closure;
 
 The closure applies to entity positions only — values, attribute names
 and verbs are not entities (verb lifecycle is a separate concern).
+
+---
+
+## 20. Shape Expectations and Knowledge Health
+
+Everything before this section records what *is* believed. This section
+records what a store *expects to know* — schema as claims — and defines
+the health checks a store runs against those expectations. No new syntax:
+one meta-verb on the bootstrap, exactly like `REVERSE` (§5.5).
+
+### 20.1 The `EXPECTS` meta-verb
+
+`EXPECTS` declares that instances of a type are expected to carry an
+attribute or a relation. It is defined in-band the way every extension
+verb is, and belongs to the standard prelude:
+
+```cave
+EXPECTS IS verb ; a type expects its instances to carry an attribute or relation
+```
+
+Declarations are ordinary relational claims — subject a **type entity**,
+object the expected **attribute name** (lowercase atom) or **verb**
+(UPPERCASE token):
+
+```cave
+service EXPECTS owner        ; instances carry HAS owner: …
+service EXPECTS repo
+service EXPECTS USES         ; instances appear as subject of a USES claim
+team EXPECTS PART-OF         ; instances appear where PART-OF puts them —
+                             ; the object side of a stored CONTAINS row
+```
+
+**Targets — binding through the taxonomy.** An entity is an *instance*
+of type `T` when it carries a current positive `IS` claim whose object is
+`T` or transitively `EXTENDS+` into `T`. A shape declared on `service`
+therefore covers `api-gateway` through either path:
+
+```cave
+api-gateway IS service                            ; direct
+microservice EXTENDS service
+api-gateway IS microservice                       ; via the taxonomy
+```
+
+The `EXTENDS` taxonomy is the *only* widening mechanism — no name globs,
+which would institute a shadow type system beside it. Subclass entities
+themselves (`microservice` above) are not instances; expectations bind
+through `IS`. Verb-token subjects are never instances — `MIGRATES IS
+verb` is a declaration (§5.4), not a membership.
+
+**Satisfaction.** An instance satisfies
+
+- an attribute expectation `attr` when a current positive claim
+  `instance HAS attr: …` exists;
+- a relation expectation `V` when a current positive claim with verb `V`
+  names the instance on the side `V` reads from — subject for a primary
+  verb, object of the stored primary row when `V` is a declared inverse
+  (§5.5). `team EXPECTS PART-OF` is met by a stored `org CONTAINS team-x`.
+
+Negated (`VERB NOT`) and retracted (`@ 0%`) claims satisfy nothing.
+
+**Lifecycle.** Each expectation is its own claim key, so shapes evolve
+append-only like everything else: retract with `service EXPECTS owner
+@ 0%`, and the expectation stops checking; the declaration history
+survives. A negated declaration (`service EXPECTS NOT owner`) never
+checks — it documents a deliberate non-expectation.
+
+Expectations do **not** constrain writes by default: §9.4 tolerance is
+load-bearing, and a store must accept claims about entities it has no
+shape for. Checking is a read (§20.2); enforcement is an opt-in gate at
+specific append surfaces (§20.3).
+
+### 20.2 Knowledge health — `cave check`
+
+`cave check` reads the store against its own declared expectations and
+reports, without writing anything:
+
+| Section | What it lists |
+|---|---|
+| violations | (instance, expectation) pairs currently unsatisfied |
+| stale | current beliefs whose tx timestamp is older than N days (UUIDv7 encodes wall-clock ms) |
+| review candidates | current beliefs with `0.3 <= conf <= 0.7` (§13.5) |
+| alias disagreements | cross-series conflicts inside an alias group (below) |
+| coverage | aggregate stats — the §17.6 precursor |
+
+**Alias disagreements** close the loop §13.6 left open (union-of-rows
+surfaces disagreements; something must *look*): within one alias closure
+group, member names keep separate belief series, and the checker reports
+
+- **value disagreements** — two member names carry current positive
+  claims with the same verb and attribute but different values
+  (`postgres HAS version: 14` vs `postgresql HAS version: 15`);
+- **polarity disagreements** — same verb and object, one series currently
+  positive, another currently negated (`postgres IS production` vs
+  `postgresql IS NOT production`).
+
+A retracted series conflicts with nothing — absence is not disagreement.
+
+**Coverage** measures knowledge quality intrinsically (§17.6): claim and
+fact counts, retracted and negated counts, the confidence distribution of
+current beliefs, the fraction of entities carrying a current `IS` type,
+and the fraction of expectation checks satisfied. Low-confidence claims
+and unsatisfied expectations *are* the frontier — the graph itself says
+what is missing and what needs review.
+
+Violations make the check fail (nonzero exit); stale claims, review
+candidates and disagreements are advisory.
+
+### 20.3 Write gating
+
+The same checks, applied at an append surface instead of after the fact:
+a gated append runs inside one transaction — append, check, and roll back
+when the append **introduces violations that were not present before**.
+Pre-existing violations never block: the gate compares, it does not
+demand a clean store. `cave add --check` is the first enforcement point;
+action preconditions (roadmap) reuse the identical mechanism — one
+mechanism, two enforcement points.
