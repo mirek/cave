@@ -30,6 +30,7 @@ echo "==> cave parse"
 echo "==> cave add / query / export round-trip"
 "$cave" add "$root/examples/incident/incident.cave" --db "$tmp/smoke.db"
 "$cave" query '?svc USES+ redis-cache' --db "$tmp/smoke.db" >/dev/null
+"$cave" check --db "$tmp/smoke.db" >/dev/null
 "$cave" export --db "$tmp/smoke.db" >/dev/null
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {

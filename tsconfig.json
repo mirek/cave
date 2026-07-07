@@ -32,6 +32,9 @@
       "path": "packages/query"
     },
     {
+      "path": "packages/shape"
+    },
+    {
       "path": "packages/store"
     }
   ]

@@ -42,3 +42,10 @@ test('next() survives clock going backwards', () => {
   const after = Uuidv7.next(() => 1_000_000_000_000)
   assert.ok(before < after)
 })
+
+test('msOf() recovers the encoded timestamp (spec §20.2 staleness)', () => {
+  const rand = new Uint8Array(8)
+  assert.equal(Uuidv7.msOf(Uuidv7.at(1_750_000_000_000, 0, rand)), 1_750_000_000_000)
+  assert.equal(Uuidv7.msOf(Uuidv7.at(0, 0, rand)), 0)
+  assert.equal(Uuidv7.msOf(Uuidv7.at(0xffff_ffff_ffff, 0, rand)), 0xffff_ffff_ffff)
+})

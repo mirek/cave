@@ -35,6 +35,9 @@ export type Qualifier = (typeof qualifiers)[number]
 /** The inverse-declaration verb (spec §5.5). */
 export const REVERSE = 'REVERSE'
 
+/** The shape-expectation meta-verb (spec §20.1). */
+export const EXPECTS = 'EXPECTS'
+
 /** The standard inverse names (spec §5.5's declaration block). */
 export const standardInverses = [
   'PART-OF', 'CAUSED-BY', 'FOLLOWS', 'USED-BY',
@@ -51,7 +54,7 @@ export const standard: readonly Verb[] = [
 
 const standardSet = new Set<string>(standard)
 const qualifierSet = new Set<string>(qualifiers)
-const knownSet = new Set<string>([...standard, 'HAS', REVERSE, ...standardInverses])
+const knownSet = new Set<string>([...standard, 'HAS', REVERSE, EXPECTS, ...standardInverses])
 
 /**
  * @returns `true` if `s` has the lexical shape of a verb — an uppercase atom:
@@ -70,7 +73,8 @@ export const isQualifier = (v: string): v is Qualifier =>
 
 /**
  * @returns `true` if `v` belongs to the known standard vocabulary —
- * standard verbs, `HAS`, `REVERSE`, and the standard §5.5 inverse names.
+ * standard verbs, `HAS`, `REVERSE`, `EXPECTS`, and the standard §5.5
+ * inverse names.
  * Used by the parser's indentation tiebreak: `USES JWT` is a continuation
  * (JWT is not a known verb) while `API NEEDS auth` is a full triple.
  */

@@ -10,9 +10,10 @@
 
 import * as Registry from './registry.ts'
 
-/** The spec §5.5 declaration block, verbatim. */
+/** The spec §5.5 declaration block, verbatim, plus §20.1's `EXPECTS`. */
 export const standardPrelude = `REVERSE IS verb ; declares that two verbs name the same edge read in opposite directions
 REVERSE HAS arity: 2
+EXPECTS IS verb ; a type expects its instances to carry an attribute or relation
 CONTAINS REVERSE PART-OF
 CAUSE REVERSE CAUSED-BY
 PRECEDES REVERSE FOLLOWS
@@ -34,9 +35,9 @@ const standardPairs: readonly [string, string][] = [
   ['EXTENDS', 'EXTENDED-BY']
 ]
 
-/** Registry with the standard §5.5 inverse pairs declared. */
+/** Registry with the standard §5.5 inverse pairs and §20.1 `EXPECTS` declared. */
 export const standardRegistry: Registry.t =
   standardPairs.reduce<Registry.t>((registry, [primary, inverse]) => {
     const declared = Registry.declareReverse(registry, primary, inverse)
     return declared.registry
-  }, Registry.declareVerb(Registry.empty, 'REVERSE'))
+  }, Registry.declareVerb(Registry.declareVerb(Registry.empty, 'REVERSE'), 'EXPECTS'))

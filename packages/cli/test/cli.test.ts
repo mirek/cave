@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, commandHelp, demoCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { addCommand, cave, checkCommand, commandHelp, demoCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -343,4 +343,84 @@ test('highlight renders ANSI colors from the grammar query', async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('check reports violations with exit 1 and satisfied shapes with exit 0 (spec §20.2)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'service EXPECTS owner',
+      'microservice EXTENDS service',
+      'api IS microservice',
+      'jan HAS birth-year: 1931 @ 40%'
+    ].join('\n'))
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const failing = checkCommand(['--db', db])
+    assert.equal(failing.code, 1)
+    assert.match(failing.out, /violations \(1\):/)
+    assert.match(failing.out, /api missing attribute owner \(api IS microservice; service EXPECTS owner\)/)
+    assert.match(failing.out, /review candidates \(1, conf 0.3-0.7\):/)
+    assert.match(failing.out, /coverage: /)
+    writeFileSync(file, 'api HAS owner: platform-team\n')
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const passing = checkCommand(['--db', db])
+    assert.equal(passing.code, 0)
+    assert.match(passing.out, /shape: 1 expectation\(s\), 1 instance\(s\), 1\/1 satisfied/)
+    assert.doesNotMatch(passing.out, /violations/)
+  })
+})
+
+test('check --json emits the full report; --stale validates (spec §20.2)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'auth USES jwt\n')
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const report = JSON.parse(checkCommand(['--db', db, '--json']).out)
+    assert.deepEqual(report.violations, [])
+    assert.equal(report.coverage.rows, 1)
+    assert.equal(checkCommand(['--db', db, '--stale', 'soon']).code, 1)
+    assert.equal(checkCommand(['--db', db, '--stale', '0']).code, 0)
+  })
+})
+
+test('check surfaces alias disagreements (spec §20.2)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'postgres ALIAS postgresql',
+      'postgres HAS version: 14',
+      'postgresql HAS version: 15'
+    ].join('\n'))
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const result = checkCommand(['--db', db])
+    assert.equal(result.code, 0, 'disagreements are advisory')
+    assert.match(result.out, /alias disagreements \(1\):/)
+    assert.match(result.out, /HAS version across postgres, postgresql:/)
+  })
+})
+
+test('add --check rolls back appends that introduce violations (spec §20.3)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const shapes = join(dir, 'shapes.cave')
+    writeFileSync(shapes, 'service EXPECTS owner\n')
+    assert.equal(addCommand(['--db', db, shapes]).code, 0)
+    const bad = join(dir, 'bad.cave')
+    writeFileSync(bad, 'api IS service\n')
+    const rejected = addCommand(['--db', db, '--check', bad])
+    assert.equal(rejected.code, 1)
+    assert.match(rejected.err, /rejected: 1 new violation\(s\), nothing added/)
+    assert.match(rejected.err, /api missing attribute owner/)
+    const store = open(db)
+    assert.equal(store.claimsAbout('api').length, 0)
+    store.close()
+    const good = join(dir, 'good.cave')
+    writeFileSync(good, 'api IS service\napi HAS owner: platform-team\n')
+    const accepted = addCommand(['--db', db, '--check', good])
+    assert.equal(accepted.code, 0)
+    assert.match(accepted.out, /added 2 claim\(s\)/)
+  })
 })

@@ -342,6 +342,17 @@ Critical distinction:
 
 Related but not identical: the first is logical negation; the second assigns zero confidence to the positive claim (§9.4).
 
+### 5.7 Shape expectations — `EXPECTS`
+
+`EXPECTS` (standard prelude, defined in §20) declares what instances of a type are expected to carry — an attribute (lowercase object) or a relation (UPPERCASE object):
+
+```cave
+service EXPECTS owner        ; instances carry HAS owner: …
+service EXPECTS USES         ; instances appear as subject of a USES claim
+```
+
+Targets bind through the `EXTENDS` taxonomy: everything with a current `IS` claim into the type or its `EXTENDS+` descendants. Checking semantics, knowledge health reporting and write gating are §20.
+
 ---
 
 ## 6. Metadata Qualifiers

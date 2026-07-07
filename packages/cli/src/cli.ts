@@ -7,8 +7,9 @@
  *
  * - `cave parse [file]` — lint / dump the AST (`--json`)
  * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
- * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`)
+ * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`)
+ * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
@@ -25,6 +26,8 @@ import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { defaultDbPath, open } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
+import { check as caveCheck, defaultStaleDays, gatedIngest } from '@cavelang/shape'
+import type { Report, Violation } from '@cavelang/shape'
 import { Demo } from '@cavelang/loop'
 
 export type Output = {
@@ -44,9 +47,10 @@ export const usage = `cave — Compressed Atomic Verb Expressions
 Usage:
   cave parse [file...] [--json]            lint CAVE text (stdin when no file)
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
-  cave add [--db <path>] [file...]         ingest into a store [--strict] [--no-prelude] [--no-src]
+  cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
   cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--no-prelude]
+  cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
@@ -97,11 +101,13 @@ Examples:
   add: `cave add — ingest CAVE text into a knowledge database
 
 Usage:
-  cave add [--db <path>] [file...] [--strict] [--no-prelude] [--no-src]
+  cave add [--db <path>] [file...] [--strict] [--check] [--no-prelude] [--no-src]
 
 Options:
   ${dbHelp}
   --strict       reject the whole ingest on any problem
+  --check        shape gate (spec §20.3): roll the append back if it
+                 introduces new expectation violations
   --no-prelude   open the store without the standard verb registry
   --no-src       do not stamp actor provenance on appended claims
 
@@ -112,7 +118,8 @@ exported text without stamping.
 Examples:
   cave add --db k.db notes.cave
   echo 'auth USES jwt @ 90%' | cave add
-  cave add --db k.db --strict reviewed.cave`,
+  cave add --db k.db --strict reviewed.cave
+  cave add --db k.db --check new-services.cave`,
 
   import: `cave import — restore/merge a database from CAVE text (add without @src: stamping)
 
@@ -157,6 +164,27 @@ Examples:
   cave query --db k.db 'terrier EXTENDS+ animal'
   cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db '?x ?verb ?y @production' --json`,
+
+  check: `cave check — knowledge health report (spec §20)
+
+Usage:
+  cave check [--db <path>] [--stale <days>] [--json] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --stale <days> staleness horizon (default: ${defaultStaleDays})
+  --json         emit the full report as JSON
+  --no-prelude   open the store without the standard verb registry
+
+Reads the store against its own in-band EXPECTS declarations (spec §20.1)
+and reports shape violations, stale current beliefs, review candidates
+(conf 0.3–0.7), alias disagreements (spec §13.6) and coverage stats.
+Exits 1 when violations exist; everything else is advisory.
+
+Examples:
+  cave check --db k.db
+  cave check --db k.db --stale 30
+  cave check --db k.db --json | jq '.violations'`,
 
   export: `cave export — emit canonical CAVE text from a store
 
@@ -240,6 +268,10 @@ export const highlightCommand = async (argv: readonly string[]): Promise<Output>
  * replays interchange text, which must preserve claim keys as exported,
  * so it never stamps.
  */
+const formatViolation = (violation: Violation): string =>
+  `${violation.entity} missing ${violation.expectation.kind} ${violation.expectation.name} ` +
+  `(${violation.entity} IS ${violation.via}; ${violation.expectation.type} EXPECTS ${violation.expectation.name})`
+
 const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({
     args: [...argv],
@@ -247,23 +279,32 @@ const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Out
       db: { type: 'string' },
       strict: { type: 'boolean' },
       'no-prelude': { type: 'boolean' },
-      ...name === 'add' ? { 'no-src': { type: 'boolean' } } : {}
+      ...name === 'add' ? { 'no-src': { type: 'boolean' }, check: { type: 'boolean' } } : {}
     },
     allowPositionals: true
   })
   const input = readInput(positionals)
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const result = store.ingest(input, {
+    const options = {
       strict: values.strict === true,
       ...name === 'add' && values['no-src'] !== true ? { source: 'cli' } : {}
-    })
-    const problems = result.problems
+    }
+    // The shape gate (spec §20.3): append + check in one transaction,
+    // rolled back when the append introduces new expectation violations.
+    const outcome = name === 'add' && values.check === true ?
+      gatedIngest(store, input, options) :
+      { ok: true as const, result: store.ingest(input, options) }
+    if (!outcome.ok) {
+      const detail = outcome.violations.map(violation => `  ${formatViolation(violation)}`).join('\n')
+      return fail(`rejected: ${outcome.violations.length} new violation(s), nothing added (spec §20.3)\n${detail}\n`)
+    }
+    const problems = outcome.result.problems
       .map(problem => `line ${problem.line}: ${problem.message}`)
       .join('\n')
     return {
       code: 0,
-      out: `added ${result.ids.length} claim(s), ${result.edges} edge(s)\n`,
+      out: `added ${outcome.result.ids.length} claim(s), ${outcome.result.edges} edge(s)\n`,
       err: problems === '' ? '' : `${problems}\n`
     }
   } catch (error) {
@@ -325,6 +366,69 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return ok(`${lines.join('\n')}\n`)
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+/** Text rendering of the §20.2 report: always shape + coverage, non-empty advisory sections. */
+const renderReport = (report: Report, staleDays: number): string => {
+  const lines: string[] = []
+  const { coverage } = report
+  lines.push(`shape: ${coverage.expectations} expectation(s), ${coverage.instances} instance(s), ${coverage.satisfied}/${coverage.checks} satisfied`)
+  if (report.violations.length > 0) {
+    lines.push(`violations (${report.violations.length}):`)
+    lines.push(...report.violations.map(violation => `  ${formatViolation(violation)}`))
+  }
+  if (report.stale.length > 0) {
+    lines.push(`stale (${report.stale.length}, older than ${staleDays} day(s)):`)
+    lines.push(...report.stale.map(({ row, ageDays }) => `  ${row.raw_line} (${ageDays}d)`))
+  }
+  if (report.review.length > 0) {
+    lines.push(`review candidates (${report.review.length}, conf 0.3-0.7):`)
+    lines.push(...report.review.map(row => `  ${row.raw_line}`))
+  }
+  if (report.disagreements.length > 0) {
+    lines.push(`alias disagreements (${report.disagreements.length}):`)
+    for (const disagreement of report.disagreements) {
+      lines.push(`  ${disagreement.about} across ${disagreement.entities.join(', ')}:`)
+      lines.push(...disagreement.rows.map(row => `    ${row.raw_line}`))
+    }
+  }
+  const confidence = coverage.averageConfidence === null ?
+    '' :
+    `; avg conf ${Math.round(coverage.averageConfidence * 100)}%, ${coverage.lowConfidence} low (< 0.3)`
+  lines.push(
+    `coverage: ${coverage.rows} row(s), ${coverage.facts} fact(s) — ` +
+    `${coverage.current} current, ${coverage.retracted} retracted, ${coverage.negated} negated` +
+    `${confidence}; ${coverage.entities} entities, ${coverage.typedEntities} typed`
+  )
+  return `${lines.join('\n')}\n`
+}
+
+export const checkCommand = (argv: readonly string[]): Output => {
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      stale: { type: 'string' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: false
+  })
+  const staleDays = values.stale === undefined ? defaultStaleDays : Number(values.stale)
+  if (!Number.isFinite(staleDays) || staleDays < 0) {
+    return fail(`cave check: --stale expects a non-negative number of days, got ${JSON.stringify(values.stale)}\n`)
+  }
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    const report = caveCheck(store, { staleDays })
+    const out = values.json === true ?
+      `${JSON.stringify(report, undefined, 2)}\n` :
+      renderReport(report, staleDays)
+    // Violations fail the check (spec §20.2); the other sections are advisory.
+    return { code: report.violations.length > 0 ? 1 : 0, out, err: '' }
   } finally {
     store.close()
   }
@@ -396,6 +500,8 @@ export const cave = (argv: readonly string[]): Output => {
         return importCommand(rest)
       case 'query':
         return queryCommand(rest)
+      case 'check':
+        return checkCommand(rest)
       case 'export':
         return exportCommand(rest)
       case 'demo':

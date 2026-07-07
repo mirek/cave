@@ -69,6 +69,13 @@ export const next = (now: () => number = Date.now): string => {
   return at(ms, lastSeq, rand)
 }
 
+/**
+ * @returns the unix millisecond timestamp encoded in a UUIDv7's first
+ * 48 bits — how transaction ids answer *when* (spec §9.1, §20.2 staleness).
+ */
+export const msOf = (id: string): number =>
+  Number.parseInt(id.slice(0, 8) + id.slice(9, 13), 16)
+
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
 /** @returns `true` if `s` is a well-formed UUIDv7 string. */
