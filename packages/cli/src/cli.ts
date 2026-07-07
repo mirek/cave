@@ -44,8 +44,8 @@ export const usage = `cave — Compressed Atomic Verb Expressions
 Usage:
   cave parse [file...] [--json]            lint CAVE text (stdin when no file)
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
-  cave add [--db <path>] [file...]         ingest into a store [--strict] [--no-prelude]
-  cave import [--db <path>] [file...]      restore/merge from CAVE text (same as add)
+  cave add [--db <path>] [file...]         ingest into a store [--strict] [--no-prelude] [--no-src]
+  cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
   cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--no-prelude]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
@@ -97,21 +97,24 @@ Examples:
   add: `cave add — ingest CAVE text into a knowledge database
 
 Usage:
-  cave add [--db <path>] [file...] [--strict] [--no-prelude]
+  cave add [--db <path>] [file...] [--strict] [--no-prelude] [--no-src]
 
 Options:
   ${dbHelp}
   --strict       reject the whole ingest on any problem
   --no-prelude   open the store without the standard verb registry
+  --no-src       do not stamp actor provenance on appended claims
 
-Reads stdin when no file (or \`-\`) is given.
+Reads stdin when no file (or \`-\`) is given. Claims that carry no @src:
+context are stamped @src:cli (spec §9.5); use \`cave import\` to replay
+exported text without stamping.
 
 Examples:
   cave add --db k.db notes.cave
   echo 'auth USES jwt @ 90%' | cave add
   cave add --db k.db --strict reviewed.cave`,
 
-  import: `cave import — restore/merge a database from CAVE text (same as add)
+  import: `cave import — restore/merge a database from CAVE text (add without @src: stamping)
 
 Usage:
   cave import [--db <path>] [file...] [--strict] [--no-prelude]
@@ -123,7 +126,9 @@ Options:
 
 Canonical CAVE text is the interchange format (spec §2.2): importing a
 file written by \`cave export\` replays its claims append-only, preserving
-the belief series, qualifier edges and in-band declarations.
+the belief series, qualifier edges and in-band declarations. Unlike
+\`cave add\`, import never stamps actor provenance — replayed claims must
+keep the claim keys they were exported with (spec §9.5).
 
 Examples:
   cave export --db old.db --out backup.cave
@@ -228,20 +233,31 @@ export const highlightCommand = async (argv: readonly string[]): Promise<Output>
   return ok(ansi(input))
 }
 
-const ingestCommand = (name: string) => (argv: readonly string[]): Output => {
+/**
+ * Shared by `add` and `import`; the difference is actor provenance
+ * (spec §9.5). `add` records knowledge authored now, so claims without a
+ * `@src:` context are stamped `@src:cli` (`--no-src` opts out); `import`
+ * replays interchange text, which must preserve claim keys as exported,
+ * so it never stamps.
+ */
+const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
       db: { type: 'string' },
       strict: { type: 'boolean' },
-      'no-prelude': { type: 'boolean' }
+      'no-prelude': { type: 'boolean' },
+      ...name === 'add' ? { 'no-src': { type: 'boolean' } } : {}
     },
     allowPositionals: true
   })
   const input = readInput(positionals)
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const result = store.ingest(input, { strict: values.strict === true })
+    const result = store.ingest(input, {
+      strict: values.strict === true,
+      ...name === 'add' && values['no-src'] !== true ? { source: 'cli' } : {}
+    })
     const problems = result.problems
       .map(problem => `line ${problem.line}: ${problem.message}`)
       .join('\n')
@@ -261,13 +277,15 @@ export const addCommand = ingestCommand('add')
 
 /**
  * `cave import` — restore/merge a knowledge database from CAVE text files.
- * Identical to `add` by design: canonical CAVE text *is* the interchange
+ * `add` minus provenance stamping: canonical CAVE text *is* the interchange
  * format (spec §2.2), so importing a file exported with `cave export`
- * replays its claims append-only. What the text round trip preserves:
- * every claim with metadata, full belief-series order (rows export in tx
- * order and re-ingest with fresh monotonic tx ids), qualifier/grouping
- * edges, and in-band registry declarations. Original tx timestamps are
- * re-minted — the text format carries no transaction identity.
+ * replays its claims append-only — and because contexts are part of claim
+ * identity, replay must not add a `@src:` stamp (spec §9.5). What the text
+ * round trip preserves: every claim with metadata, full belief-series order
+ * (rows export in tx order and re-ingest with fresh monotonic tx ids),
+ * qualifier/grouping edges, and in-band registry declarations. Original tx
+ * timestamps are re-minted — the text format carries no transaction
+ * identity.
  */
 export const importCommand = ingestCommand('import')
 

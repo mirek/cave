@@ -77,6 +77,15 @@ Package READMEs document local decisions; these are the global ones:
   rows, claim keys and bindings are never rewritten to a canonical name —
   aliased entities keep separate belief series, and disagreements surface
   side by side instead of merging silently.
+- **Actor provenance stamps in the store, surfaces choose the actor**
+  (§9.5): `store.ingest`/`insertResult` take `{ source }` and stamp
+  `@src:<source>` on claims without a `src:` context *before* keying, so
+  the same fact from different actors keeps separate belief series
+  (§9.4). `cave add` passes `cli`, the MCP server `agent/<client-name>`
+  (from the initialize handshake; `--src`/`--no-src` override), stdout
+  ingest `ingest/<batch-digest>` (content-derived for key-stable
+  re-runs) — and `cave import` passes nothing, because interchange
+  replay must preserve exported claim keys.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

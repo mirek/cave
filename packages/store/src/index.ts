@@ -15,4 +15,4 @@
 export * as Row from './row.ts'
 export * as Schema from './schema.ts'
 export { defaultDbPath, open } from './store.ts'
-export type { ForwardFact, IngestResult, ReverseFact, Store, TraverseOptions } from './store.ts'
+export type { AppendOptions, ForwardFact, IngestResult, ReverseFact, Store, TraverseOptions } from './store.ts'

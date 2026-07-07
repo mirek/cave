@@ -33,8 +33,8 @@ Summary of the gaps:
   engine (Draft §17.4) is the single largest functional hole.
 - **Act** — the entire kinetic layer (governed writes, side effects,
   automation) is missing.
-- **Trust** — actor provenance, evals, serving scope, and a human read
-  surface are missing.
+- **Trust** — actor provenance shipped in 0.7.0; evals, serving scope,
+  and a human read surface are missing.
 - **Distribute** — two CAVE stores cannot merge; everything needed for
   sync already exists in the data model, unused.
 
@@ -48,8 +48,9 @@ foundations the roadmap builds on rather than replaces:
    event under a stable claim key, `MAX(tx)` = current, history never
    destroyed, provenance in `@src:` contexts — every fact is a "stack of
    cards" recording what, when, and where it came from, reconstructable
-   as of any past moment. The storage already supports this; it just
-   isn't *surfaced* (no as-of query API, no actor stamp).
+   as of any past moment. The storage already supports this; the actor
+   stamp shipped in 0.7.0 (§9.5), leaving the as-of query API (item 6)
+   as the unsurfaced part.
 2. **Reversible entity resolution is nearly free.** Merging two names
    for the same entity destructively is the classic mistake; CAVE's
    append-only model pre-solves it: merge = append `dupe ALIAS
@@ -128,7 +129,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | As-of reconstruction | `history(key)`, `WHERE tx > date`; data fully supports it | partial | an as-of resolver (`cave query --as-of <date>`) — pure SQL over existing rows |
 | Contradiction-resolution policy | latest-tx-per-key only | missing | §9.4 promises resolution via source reliability, precedence, context — configurable and explicit, so human corrections outrank ingest re-runs |
 | Source-span provenance | `@src:` names a source, file-level | partial | a `@src:file#L10-L20` span convention — cheap, and it lets a claim answer "which sentence produced you" |
-| Schema-change review | schema edits are ordinary in-band appends | missing | verb/`REVERSE`/topic mutations need actor stamping + reviewable text diffs — today any MCP client can silently redefine a verb and change the meaning of existing queries |
+| Schema-change review | schema edits are ordinary in-band appends; since 0.7.0 stamped with the appending actor (§9.5) | partial | actor stamping makes verb/`REVERSE`/topic mutations attributable; the reviewable-diff workflow is the branch/review convention (item 15) |
 | Typed client generation | none | missing | once schema-as-claims exists: generate typed TypeScript query helpers from the store's own schema claims |
 
 ### Conclude — derived knowledge
@@ -153,7 +154,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
-| Actor provenance (who appended this) | tx gives when/what; `raw_line` gives as-written | partial | auto-stamped `@src:` actor context on MCP/ingest/CLI appends completes the who/when/what audit triad |
+| Actor provenance (who appended this) | auto-stamped `@src:` actor contexts on MCP/ingest/CLI appends (§9.5) + tx (when) + `raw_line` (as written) | exists | shipped in 0.7.0 (item 2) |
 | Extraction/query evals | none (unit tests cover code, not extraction quality) | missing | golden-fixture harness; without it, ingest prompt changes are unfalsifiable |
 | Serving scope | MCP serves the whole store read-write to any client | missing | `--read-only` and per-tool enable flags — the minimum viable agent permission boundary |
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
@@ -199,7 +200,15 @@ extend an existing one.
    Auto-stamp `@src:agent/<name>` / `@src:cli` / `@src:ingest/<digest>`
    on appends that don't already carry a source context. Completes the
    who/when/what audit triad; also the gate that makes in-band schema
-   changes (verb redefinitions) attributable and reviewable.
+   changes (verb redefinitions) attributable and reviewable. —
+   **Shipped in 0.7.0** (spec §9.5): the store stamps before keying (so
+   actors keep separate belief series, §9.4), `cave add` stamps
+   `@src:cli` (`--no-src` opts out), the MCP server stamps
+   `@src:agent/<client-name>` from the initialize handshake
+   (`--src`/`--no-src` override), stdout-mode ingest stamps
+   `@src:ingest/<batch-digest>` (content-derived, key-stable across
+   re-runs), and `cave import` never stamps — interchange replay
+   preserves exported claim keys.
 3. **`@cavelang/shape` — expectations as claims + `cave check`.**
    Shape declarations in-band using a dedicated meta-verb (not `NEEDS`,
    which is a domain verb — collision with ordinary dependency claims),

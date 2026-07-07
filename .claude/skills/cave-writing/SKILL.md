@@ -386,6 +386,8 @@ Recommended context prefixes:
 
 Bare contexts are allowed: `memory-leak EXISTS @production`. Multiple contexts per claim are allowed.
 
+Append surfaces auto-stamp actor provenance onto claims that carry no `@src:` context — `@src:cli`, `@src:agent/<client>`, `@src:ingest/<digest>` (§9.5); a written `@src:` always wins over the stamp.
+
 The **episodic/semantic distinction stays implicit**: episodes are just claims with `@time:` / `@src:` contexts; semantic knowledge is claims without event anchoring. No explicit layering — a deliberate rejection of added machinery (§19.3).
 
 ### 6.2 Tags — flat and scoped

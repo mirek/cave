@@ -45,13 +45,20 @@ store.exportText({ current: true })          // canonical CAVE text back out
   matching widens, stored names come back untouched, and disagreeing
   belief series surface side by side rather than merging silently. Unmerge
   is retraction — `dupe ALIAS canonical @ 0%`.
+- **Actor provenance is caller-supplied** (§9.5): `ingest`/`insertResult`
+  accept `{ source }` and stamp `@src:<source>` on every appended claim
+  that carries no `src:` context — *before* the claim key is computed, so
+  the stamp is part of claim identity and the same fact asserted by
+  different actors keeps separate belief series (§9.4). A written `@src:`
+  always wins; `raw_line` stays as authored. Interchange replay (`cave
+  import`) passes no source, preserving exported keys.
 
 ## API
 
 | Method | Spec | Purpose |
 |---|---|---|
-| `ingest(text, {strict})` | §13.4 | parse → canonicalize → append; lenient by default |
-| `insertResult(result)` | | append a pre-canonicalized `@cavelang/canonical` result |
+| `ingest(text, {strict, source})` | §13.4 | parse → canonicalize → append; lenient by default |
+| `insertResult(result, {source})` | | append a pre-canonicalized `@cavelang/canonical` result |
 | `currentBeliefs({minConf})` | §13.5 | latest row per key |
 | `currentBelief(key)` / `history(key)` | §9.1 | one fact's belief series |
 | `claimsAbout(entity, {aliases})` | §13.5 | both directions, all rows |
@@ -96,5 +103,7 @@ Covers the §9.1 belief series, §5.5 one-fact-two-names invariants
 (unified belief through either name, negation riding the row, no
 materialized inverses), every §13.5 query, the §13.6 alias closure
 (merge, unmerge by retraction, opt-in traversal, union semantics), the
-§11.2 topic reads, edge persistence, registry rebuild across reopen,
-transactional strict ingest and export round-trips.
+§9.5 provenance stamping (written `@src:` wins, per-actor series,
+cross-actor retraction, stamped round-trips), the §11.2 topic reads,
+edge persistence, registry rebuild across reopen, transactional strict
+ingest and export round-trips.

@@ -28,11 +28,11 @@ Every command answers `--help` with its options and examples (also
 | Command | Flags | Behavior |
 |---|---|---|
 | `parse [file…]` | `--json` | Lint (stdin by default). Exit 1 when diagnostics exist; `--json` dumps the AST document. |
-| `add [--db p] [file…]` | `--strict`, `--no-prelude` | Ingest. Lenient by default (problems on stderr, valid lines land); `--strict` rolls back on any problem; `--no-prelude` starts from an empty registry instead of the standard §5.5 pairs. |
-| `import [--db p] [file…]` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — same operation as `add`, because canonical text *is* the interchange format. |
+| `add [--db p] [file…]` | `--strict`, `--no-prelude`, `--no-src` | Ingest. Lenient by default (problems on stderr, valid lines land); `--strict` rolls back on any problem; `--no-prelude` starts from an empty registry instead of the standard §5.5 pairs. Claims without a `@src:` context are stamped `@src:cli` (spec §9.5); `--no-src` opts out. |
+| `import [--db p] [file…]` | `--strict`, `--no-prelude` | Restore/merge a database from CAVE text — `add` minus provenance stamping, because canonical text *is* the interchange format and replayed claims must keep their exported claim keys (spec §9.5). |
 | `query [--db p] <pattern…>` | `--json`, `--all`, `--no-prelude` | CAVE-Q. Extra positionals join as lines, so `WHERE` filters ride as separate arguments. Bindings print as `?x = value`; fully bound patterns print the matched raw line (or the pattern itself for transitive matches, which carry no row). `--no-prelude` aligns the read-time registry with a store written via `add --no-prelude`. |
 | `export [--db p]` | `--out <file>`, `--current`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. Stdout by default; `--out` writes a file and reports the claim count. |
-| `mcp [--db p]` | `--no-prelude` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. |
+| `mcp [--db p]` | `--no-prelude`, `--src <ctx>`, `--no-src` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — tools for add/query/search/about/neighbors/reconstruct/export/lint, with the §22 spec card as server instructions. Appends are stamped `@src:agent/<client-name>` (spec §9.5); `--src` replaces the stamp, `--no-src` disables it. |
 | `ingest [--db p] <globs/urls…>` | see `cave ingest --help` | LLM-driven ingestion of files and web pages (fetched and readability-extracted) through any headless agent (see [`@cavelang/ingest`](../ingest)): batching, instructions markdown, hybrid knowledge context, MCP or stdout agents, incremental digests, `--plan` NDJSON for SDK drivers. |
 | `demo` | | The cave-loop multi-hop recovery demo (§18). |
 | `version` | | Print the cave version. |

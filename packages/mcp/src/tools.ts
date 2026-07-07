@@ -23,11 +23,20 @@ import type { Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import { reconstruct, heuristicPolicy, type CaveStore } from '@cavelang/loop'
 
+/** Per-connection state the server threads into tool calls. */
+export type ToolContext = {
+  /**
+   * Actor provenance stamp for appends (spec §9.5), without the `src:`
+   * prefix — e.g. `agent/claude-code`. `undefined` disables stamping.
+   */
+  readonly source?: string
+}
+
 export type Tool = {
   readonly name: string
   readonly description: string
   readonly inputSchema: object
-  readonly run: (store: Store, args: Record<string, unknown>) => string
+  readonly run: (store: Store, args: Record<string, unknown>, context: ToolContext) => string
 }
 
 const text = (value: unknown, name: string): string => {
@@ -81,7 +90,9 @@ export const tools: readonly Tool[] = [
     name: 'cave_add',
     description: 'Append CAVE claims to the knowledge database. Input is CAVE text ' +
       '(one claim per line, e.g. "auth/middleware USES jwt @ 90%"). Lenient by default — ' +
-      'invalid lines are reported and skipped; set strict to reject the whole batch instead.',
+      'invalid lines are reported and skipped; set strict to reject the whole batch instead. ' +
+      'Claims without a @src: context are stamped with the connected agent\'s source ' +
+      'context (spec §9.5).',
     inputSchema: {
       type: 'object',
       required: ['text'],
@@ -90,8 +101,11 @@ export const tools: readonly Tool[] = [
         strict: { type: 'boolean', description: 'reject the whole batch on any problem' }
       }
     },
-    run: (store, args) => {
-      const result = store.ingest(text(args['text'], 'text'), { strict: args['strict'] === true })
+    run: (store, args, context) => {
+      const result = store.ingest(text(args['text'], 'text'), {
+        strict: args['strict'] === true,
+        ...context.source === undefined ? {} : { source: context.source }
+      })
       const problems = result.problems.map(problem => `line ${problem.line}: ${problem.message}`)
       return [
         `added ${result.ids.length} claim(s), ${result.edges} edge(s)`,
