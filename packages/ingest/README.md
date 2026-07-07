@@ -117,6 +117,12 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
 - **Provenance as claims** rather than a sidecar state file — the store
   remains the single source of truth, and digest history is queryable
   (`?f HAS ingest-digest: ?d`).
+- **Extraction output carries actor provenance** (spec §9.5). The
+  extraction rules ask the model for per-file `@src:path` anchors; claims
+  arriving without one are stamped anyway — in MCP mode by the `cave mcp`
+  server (`@src:agent/<client-name>`), in stdout mode by the orchestrator
+  (`@src:ingest/<digest>`, digested over the batch's `path digest`
+  manifest, so re-running unchanged content keeps the same claim keys).
 - **Failed batches record nothing**, so a re-run retries exactly the
   files that didn't make it.
 

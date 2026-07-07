@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { open } from '@cavelang/store'
-import { createServer, instructions, tools } from '@cavelang/mcp'
+import { agentSource, createServer, instructions, tools } from '@cavelang/mcp'
 
 type Response = {
   jsonrpc: '2.0'
@@ -140,6 +140,48 @@ test('cave_lint and cave_export', () => {
   assert.match(current, /state: b/)
   assert.doesNotMatch(current, /state: a/)
   store.close()
+})
+
+test('cave_add stamps agent provenance from the initialize client name (spec §9.5)', () => {
+  const store = open()
+  const server = createServer(store)
+  server.handle(request(20, 'initialize', {
+    protocolVersion: '2025-06-18',
+    capabilities: {},
+    clientInfo: { name: 'Claude Code', version: '2.0' }
+  }))
+  call(server, 21, 'cave_add', { text: 'auth USES jwt' })
+  const [stamped] = store.currentBeliefs()
+  assert.deepEqual(store.toClaim(stamped!).contexts, ['src:agent/claude-code'])
+  call(server, 22, 'cave_add', { text: 'api USES jwt @src:design-doc' })
+  const written = store.currentBeliefs().find(row => row.subject === 'api')
+  assert.deepEqual(store.toClaim(written!).contexts, ['src:design-doc'], 'a written @src: wins')
+  store.close()
+})
+
+test('cave_add stamps plain agent before initialize; options override (spec §9.5)', () => {
+  const unnamed = open()
+  call(createServer(unnamed), 23, 'cave_add', { text: 'a USES b' })
+  assert.deepEqual(unnamed.toClaim(unnamed.currentBeliefs()[0]!).contexts, ['src:agent'])
+  unnamed.close()
+
+  const explicit = open()
+  call(createServer(explicit, { source: 'pipeline/nightly' }), 24, 'cave_add', { text: 'a USES b' })
+  assert.deepEqual(explicit.toClaim(explicit.currentBeliefs()[0]!).contexts, ['src:pipeline/nightly'])
+  explicit.close()
+
+  const disabled = open()
+  call(createServer(disabled, { source: false }), 25, 'cave_add', { text: 'a USES b' })
+  assert.deepEqual(disabled.toClaim(disabled.currentBeliefs()[0]!).contexts, [])
+  disabled.close()
+})
+
+test('agentSource normalizes client names into context-safe stamps (spec §9.5)', () => {
+  assert.equal(agentSource('Claude Code'), 'agent/claude-code')
+  assert.equal(agentSource('copilot-cli'), 'agent/copilot-cli')
+  assert.equal(agentSource(undefined), 'agent')
+  assert.equal(agentSource('   '), 'agent')
+  assert.equal(agentSource('Weird!!Name (beta)'), 'agent/weirdname-beta')
 })
 
 test('tool errors surface as isError results, not protocol failures', () => {

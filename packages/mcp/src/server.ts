@@ -18,6 +18,29 @@ import { Version } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
 import { byName, tools } from './tools.ts'
 
+export type ServerOptions = {
+  /**
+   * Actor provenance stamp for appends (spec §9.5), without the `src:`
+   * prefix. Default: `agent/<client-name>` from the initialize handshake,
+   * plain `agent` before or without one. `false` disables stamping.
+   */
+  readonly source?: string | false
+}
+
+/**
+ * @returns `agent/<name>` source context from an MCP client name —
+ * lowercased, whitespace to `-`, restricted to context-safe characters;
+ * plain `agent` when no usable name is known (spec §9.5).
+ */
+export const agentSource = (clientName: undefined | string): string => {
+  const name = (clientName ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9._/-]/g, '')
+  return name === '' ? 'agent' : `agent/${name}`
+}
+
 /** Protocol revision answered when the client's is not a string. */
 export const protocolVersion = '2025-06-18'
 
@@ -56,7 +79,10 @@ export const instructions = `${specCard}
 Extract knowledge with one claim per line via cave_add (validate with
 cave_lint first), ask questions with cave_query patterns (?x USES jwt),
 explore with cave_about / cave_neighbors, and use cave_reconstruct to pull
-everything related to a symptom or task before reasoning about it.`
+everything related to a symptom or task before reasoning about it.
+Claims you add without a @src: context are stamped with your agent source
+context; to update or retract a claim that carries a different @src:,
+restate it with that exact context.`
 
 type Id = string | number
 
@@ -85,9 +111,14 @@ const isId = (value: unknown): value is Id =>
 
 /**
  * @returns pure MCP dispatcher over an open store: message in, response
- * out (`undefined` for notifications).
+ * out (`undefined` for notifications). The client name captured from
+ * `initialize` becomes the default `agent/<name>` provenance stamp on
+ * appends (spec §9.5).
  */
-export const createServer = (store: Store) => {
+export const createServer = (store: Store, options: ServerOptions = {}) => {
+  let clientName: undefined | string
+  const source = (): undefined | string =>
+    options.source === false ? undefined : options.source ?? agentSource(clientName)
   const handle = (message: unknown): undefined | Response => {
     if (typeof message !== 'object' || message === null) {
       return failure(null, -32600, 'Invalid request')
@@ -104,6 +135,10 @@ export const createServer = (store: Store) => {
     switch (method) {
       case 'initialize': {
         const requested = (params as undefined | { protocolVersion?: unknown })?.protocolVersion
+        const name = (params as undefined | { clientInfo?: { name?: unknown } })?.clientInfo?.name
+        if (typeof name === 'string') {
+          clientName = name
+        }
         return result(id, {
           protocolVersion: typeof requested === 'string' ? requested : protocolVersion,
           capabilities: { tools: {} },
@@ -131,7 +166,8 @@ export const createServer = (store: Store) => {
           call.arguments as Record<string, unknown> :
           {}
         try {
-          const text = tool.run(store, args)
+          const stamp = source()
+          const text = tool.run(store, args, stamp === undefined ? {} : { source: stamp })
           return result(id, { content: [{ type: 'text', text }] })
         } catch (error) {
           const text = error instanceof Error ? error.message : String(error)
@@ -153,9 +189,10 @@ export const createServer = (store: Store) => {
 export const serve = (
   store: Store,
   input: NodeJS.ReadableStream,
-  output: NodeJS.WritableStream
+  output: NodeJS.WritableStream,
+  options: ServerOptions = {}
 ): Promise<void> => {
-  const server = createServer(store)
+  const server = createServer(store, options)
   return new Promise(resolve => {
     const lines = createInterface({ input })
     lines.on('line', line => {

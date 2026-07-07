@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13) — append-only belief evolution, claim keys, retraction and contradiction, CAVE-Q graph patterns and filters, SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries. Use when working on @cave/store, @cave/query, @cave/canonical, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries. Use when working on @cave/store, @cave/query, @cave/canonical, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -84,6 +84,38 @@ server IS NOT compromised @ 90% @src:forensics
 ```
 
 CAVE stores knowledge; it does **not** require global consistency at write time. A query engine resolves current belief using latest transaction, source reliability, confidence, context, and explicit precedence rules.
+
+### 9.5 Actor provenance
+
+Transaction ids answer *when*; `raw_line` answers *as written*. Actor
+provenance answers *who appended this*: append surfaces SHOULD stamp every
+claim that carries no `src:`-prefixed context with a source context naming
+the acting surface. Recommended forms:
+
+| Surface | Stamp |
+|---|---|
+| interactive CLI (`cave add`) | `@src:cli` |
+| MCP client append (`cave_add`) | `@src:agent/<client-name>` (from the MCP `initialize` handshake; `@src:agent` when unknown) |
+| deterministic/orchestrated ingestion | `@src:ingest/<digest>` (content-derived, so identical re-runs stay key-stable) |
+
+Rules:
+
+- A claim that already names a source (any `src:` context, e.g. extraction
+  anchors like `@src:path/to/file`) is never re-stamped — author-provided
+  provenance wins.
+- The stamp is applied **before the claim key is computed**. Contexts are
+  key components (§9.2), so the same fact asserted by different actors
+  keeps separate belief series — coexisting per §9.4, resolved at query
+  time, never silently overriding each other.
+- Interchange replay (`cave import` of canonical text) MUST NOT stamp:
+  replayed claims keep the claim keys they were exported with, or the
+  round trip would fork every unstamped series.
+- To supersede or retract another actor's claim, restate it *with that
+  claim's source context* (e.g. `x IS y @src:agent/claude @ 0%`) — the
+  explicit context suppresses the stamp and lands in the original series.
+- Stamps apply uniformly to every appended row, including qualifier
+  condition rows and in-band declarations (`REVERSE`, extension verbs) —
+  which is what makes schema changes attributable and reviewable.
 
 ---
 

@@ -35,6 +35,14 @@ export const prefix = (context: Context): undefined | Prefix => {
 export const format = (context: Context): string =>
   `@${context}`
 
+/** @returns `src:`-prefixed source context for an actor: `cli` → `src:cli`. */
+export const source = (actor: string): Context =>
+  `src:${actor}`
+
+/** @returns whether any context is a `src:` source context (spec §9.5). */
+export const hasSource = (contexts: readonly Context[]): boolean =>
+  contexts.some(context => prefix(context) === 'src')
+
 /**
  * @returns deduplicated contexts in original order. Claim keys use the
  * sorted form (see `Key`); emission preserves author order.

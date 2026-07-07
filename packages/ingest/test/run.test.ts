@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { open } from '@cavelang/store'
-import { run, writeMcpConfig } from '@cavelang/ingest'
+import { Files, run, writeMcpConfig } from '@cavelang/ingest'
 
 const withDir = (body: (dir: string) => Promise<void>): Promise<void> => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-run-'))
@@ -31,7 +31,17 @@ test('stdout mode with a function agent: extraction lands, digests recorded, rer
     assert.equal(report.added, 2)
     assert.equal(report.failed, 0)
     assert.match(prompts[0]!, /The auth middleware uses JWT tokens\./, 'embed inlines contents')
-    assert.equal(store.currentBeliefs().filter(row => row.verb === 'USES').length, 2)
+    const extracted = store.currentBeliefs().filter(row => row.verb === 'USES')
+    assert.equal(extracted.length, 2)
+    // Actor provenance (spec §9.5): stdout-mode appends carry the batch's
+    // content-derived ingest stamp.
+    const batch = [
+      { path: 'auth.md', digest: Files.digestOf('The auth middleware uses JWT tokens.') },
+      { path: 'billing.md', digest: Files.digestOf('Billing talks to stripe.') }
+    ]
+    for (const row of extracted) {
+      assert.deepEqual(store.toClaim(row).contexts, [`src:ingest/${Files.batchDigest(batch)}`])
+    }
 
     const again = await run(options)
     assert.equal(again.batches.length, 0, 'unchanged files are skipped')

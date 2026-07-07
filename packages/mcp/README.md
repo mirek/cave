@@ -33,6 +33,14 @@ connected model knows how to write CAVE claims without further prompting.
 store through the §18 store contract — the same multi-hop recovery as the
 demo, against persistent knowledge.
 
+## Actor provenance
+
+`cave_add` stamps `@src:agent/<client-name>` on appended claims that carry
+no `@src:` context (spec §9.5), naming the client from the `initialize`
+handshake (`@src:agent` before one arrives; a written `@src:` always
+wins). `--src <context>` replaces the stamp — useful for pipelines, e.g.
+`--src pipeline/nightly` — and `--no-src` disables stamping.
+
 ## Protocol
 
 Newline-delimited JSON-RPC 2.0 on stdio, implementing the tools-only MCP

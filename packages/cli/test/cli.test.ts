@@ -280,6 +280,37 @@ test('export --out writes a file; import restores the full belief history', () =
   })
 })
 
+test('add stamps @src:cli; --no-src opts out; import replays without stamping (spec §9.5)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'auth USES jwt\napi USES jwt @src:design-doc\n')
+    addCommand([file, '--db', db])
+    const exported = exportCommand(['--db', db])
+    assert.match(exported.out, /auth USES jwt @src:cli/)
+    assert.match(exported.out, /api USES jwt @src:design-doc(?!.*@src:cli)/, 'a written @src: wins')
+
+    const bare = join(dir, 'bare.db')
+    addCommand([file, '--db', bare, '--no-src'])
+    assert.match(exportCommand(['--db', bare]).out, /^auth USES jwt\n/)
+
+    // Interchange replay: importing the export re-creates the same claim
+    // keys — no second stamp on already-stamped (or deliberately bare) rows.
+    const backup = join(dir, 'backup.cave')
+    const restored = join(dir, 'restored.db')
+    exportCommand(['--db', db, '--out', backup])
+    importCommand([backup, '--db', restored])
+    const keys = (path: string): string[] => {
+      const store = open(path)
+      const rows = store.db.prepare('SELECT DISTINCT claim_key FROM cave_claim ORDER BY claim_key').all() as
+        { claim_key: string }[]
+      store.close()
+      return rows.map(row => row.claim_key)
+    }
+    assert.deepEqual(keys(restored), keys(db))
+  })
+})
+
 test('export --current --out backs up only current beliefs', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')

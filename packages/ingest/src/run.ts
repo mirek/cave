@@ -246,7 +246,10 @@ export const run = async (options: Options): Promise<Report> => {
         }
       }
       if (mode === 'stdout') {
-        const ingested = store.ingest(caveTextOf(output))
+        // Actor provenance (spec §9.5): mcp-mode appends are stamped by the
+        // MCP server; here the orchestrator appends, so it stamps — with the
+        // batch's content-derived digest, keeping re-runs key-stable.
+        const ingested = store.ingest(caveTextOf(output), { source: `ingest/${Files.batchDigest(files)}` })
         reports.push({
           files: paths,
           ok: true,

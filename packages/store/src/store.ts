@@ -8,11 +8,14 @@
  * - the verb registry is rebuilt from stored in-band declaration claims on
  *   open, so a reopened database keeps its inverse vocabulary;
  * - full-text search over subjects, objects, values, comments and raw
- *   lines via FTS5.
+ *   lines via FTS5;
+ * - appends can stamp actor provenance (spec §9.5): pass `source` and every
+ *   claim without a `src:` context gets `@src:<actor>` — applied before the
+ *   claim key is computed, so different actors keep separate belief series.
  */
 
 import { DatabaseSync } from 'node:sqlite'
-import { Claim, Key, Uuidv7, Verb } from '@cavelang/core'
+import { Claim, Context, Key, Uuidv7, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
@@ -52,6 +55,24 @@ export type IngestResult = {
   readonly edges: number
   readonly problems: readonly Canonical.Problem[]
 }
+
+export type AppendOptions = {
+  /**
+   * Actor provenance (spec §9.5): stamp `@src:<source>` on every appended
+   * claim that carries no `src:` context — e.g. `cli`, `agent/claude-code`,
+   * `ingest/93a01c626b3f`. Applied before the claim key is computed, so the
+   * stamp is part of claim identity; claims that already name a source keep
+   * it untouched. Omit for interchange replay (`cave import`), which must
+   * preserve claim keys as exported.
+   */
+  readonly source?: string
+}
+
+/** Stamps `@src:<source>` on a claim without a source context (spec §9.5). */
+const stampSource = (claim: Claim.t, source: undefined | string): Claim.t =>
+  source === undefined || Context.hasSource(claim.contexts) ?
+    claim :
+    { ...claim, contexts: [...claim.contexts, Context.source(source)] }
 
 export type ForwardFact = {
   /** Canonical (primary) verb. */
@@ -163,11 +184,11 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   }
 
   /** Appends a canonicalization result — one row per claim, per-row tx. */
-  const insertResult = (result: Canonical.Result): IngestResult =>
+  const insertResult = (result: Canonical.Result, options_: AppendOptions = {}): IngestResult =>
     transaction(() => {
       const ids: string[] = []
       for (const entry of result.claims) {
-        const claim = entry.claim
+        const claim = stampSource(entry.claim, options_.source)
         const id = Uuidv7.next()
         const columns = Row.toColumns(claim)
         const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine
@@ -238,15 +259,16 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /**
      * Parses, canonicalizes and appends CAVE text. Lenient by default —
      * problems are returned, valid lines still land (spec §1.6); pass
-     * `strict` to throw instead.
+     * `strict` to throw instead, `source` to stamp actor provenance
+     * (spec §9.5).
      */
-    ingest(text: string, options_: { strict?: boolean } = {}): IngestResult {
+    ingest(text: string, options_: { strict?: boolean } & AppendOptions = {}): IngestResult {
       const result = Canonical.canonicalizeText(text, registry)
       if (options_.strict === true && result.problems.length > 0) {
         const detail = result.problems.map(problem => `  line ${problem.line}: ${problem.message}`).join('\n')
         throw new Error(`CAVE ingest failed with ${result.problems.length} problem(s):\n${detail}`)
       }
-      return insertResult(result)
+      return insertResult(result, options_)
     },
 
     /** Appends an already-canonicalized result. */
