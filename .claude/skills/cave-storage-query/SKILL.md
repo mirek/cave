@@ -97,6 +97,7 @@ the acting surface. Recommended forms:
 | interactive CLI (`cave add`) | `@src:cli` |
 | MCP client append (`cave_add`) | `@src:agent/<client-name>` (from the MCP `initialize` handshake; `@src:agent` when unknown) |
 | deterministic/orchestrated ingestion | `@src:ingest/<digest>` (content-derived, so identical re-runs stay key-stable) |
+| structured record mapping (`cave connect`) | `@src:connect/<name>/<key>` per record (§23.2) — record identity is what lets a changed record retract claims it no longer yields |
 
 Rules:
 

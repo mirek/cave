@@ -20,13 +20,14 @@ Dependency order, bottom to top:
 | [`@cavelang/store`](packages/store) | §13 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5 |
 | [`@cavelang/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
 | [`@cavelang/shape`](packages/shape) | §20 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating |
+| [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / check / export / mcp / ingest / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / check / export / mcp / ingest / connect / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -94,6 +95,15 @@ Package READMEs document local decisions; these are the global ones:
   `transaction` and rolls back appends that introduce new violations —
   in-memory registry declarations included, so rolled-back claims can't
   leave vocabulary behind.
+- **Connect maps exactly and diffs by provenance** (§23):
+  `@cavelang/connect` substitutes record fields into CAVE-Q-style `?field`
+  slots textually and pushes the result through the ordinary
+  parse → canonicalize → append pipeline; each record's claims carry
+  `@src:connect/<name>/<key>` (so a changed record retracts what it no
+  longer yields), and `connect-digest` claims — computed over the
+  *instantiated* text — make re-runs row-level incremental. `--query` runs
+  a CAVE-Q pattern over the store + mapped claims inside a rolled-back
+  transaction: query-time federation without persisting.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

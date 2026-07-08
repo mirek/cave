@@ -54,6 +54,9 @@ importers:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
@@ -78,6 +81,24 @@ importers:
       '@cavelang/shape':
         specifier: workspace:*
         version: link:../shape
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+
+  packages/connect:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
       '@cavelang/store':
         specifier: workspace:*
         version: link:../store

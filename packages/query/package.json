@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/query",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "description": "CAVE-Q — graph-pattern queries (?x vars, wildcards, inverse verbs, transitive hops, WHERE filters) compiled to SQL.",
   "license": "CC0-1.0",

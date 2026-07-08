@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/parser",
+  "name": "@cavelang/connect",
   "version": "0.9.0",
   "type": "module",
-  "description": "CAVE text to AST parser built on @prelude/parser combinators.",
+  "description": "Deterministic structured ingestion (spec §23) — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with ?field variables into claims, with per-record digest incrementality, watch mode, and query-time overlay.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/parser"
+    "directory": "packages/connect"
   },
   "engines": {
     "node": ">=22.18"
@@ -41,7 +41,10 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
+    "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
-    "@prelude/parser": "^7.1.0"
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*"
   }
 }

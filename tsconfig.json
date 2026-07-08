@@ -8,6 +8,9 @@
       "path": "packages/cli"
     },
     {
+      "path": "packages/connect"
+    },
+    {
       "path": "packages/core"
     },
     {

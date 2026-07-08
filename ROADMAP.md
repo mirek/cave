@@ -22,9 +22,10 @@ the order to build it in.
 
 Summary of the gaps:
 
-- **Sense** — deterministic structured ingestion, continuous ingestion,
-  and query-time federation are missing; LLM ingestion (`cave ingest`)
-  exists.
+- **Sense** — deterministic structured ingestion, row-level
+  incrementality, continuous ingestion (`--watch`) and query-time overlay
+  shipped in 0.9.0 (`cave connect`, item 4); LLM ingestion
+  (`cave ingest`) exists.
 - **Model** — storage, belief evolution, inverses, query, alias closure
   (0.6.0), and shape expectations (0.8.0) exist and are CAVE's strongest
   layer; alias *discovery* and a contradiction-resolution policy are
@@ -112,10 +113,10 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
-| Deterministic structured ingestion | `cave ingest` (LLM extraction over files/globs/URLs) | partial | template-mapped, LLM-free path for CSV/JSON/SQLite/API sources — structured data deserves exact, repeatable, token-free conversion |
-| Incremental ingestion | content-digest skip claims (`HAS ingest-digest:`) | partial | digests are whole-file; per-record keys give row-level incrementality for structured sources |
-| Continuous ingestion (tail/stream/push) | none | missing | a watch/tail/listener mode appending claims as events arrive — scaled to one machine |
-| Query-time federation (no copying) | none | missing | read-only claim views over external local data (SQLite `ATTACH`, CSV) resolved at query time, so not everything must be extracted into the store |
+| Deterministic structured ingestion | `cave connect` (spec §23): CSV/TSV/JSON/JSONL/SQLite/URL records through mapping templates with `?field` variables, no LLM in the loop | exists | shipped in 0.9.0 (item 4) |
+| Incremental ingestion | per-record `connect-digest` claims (§23.2) + whole-file `ingest-digest` for LLM ingestion | exists | shipped in 0.9.0 (item 4); digests cover the instantiated text, so mapping changes re-fire |
+| Continuous ingestion (tail/stream/push) | `cave connect --watch` re-runs incrementally on file change | partial | push/listener sources (sockets, webhooks) remain out of scope for now |
+| Query-time federation (no copying) | `cave connect --query` (§23.3): map + CAVE-Q over the union + rollback, nothing persists | partial | shipped in 0.9.0 as a transaction overlay, not `ATTACH`d views — external data is re-mapped per query, fine at one-machine scale |
 
 ### Model — the semantic layer
 
@@ -237,7 +238,16 @@ extend an existing one.
    claims with no LLM in the loop; JSON/CSV/SQLite/API sources;
    **per-record digests** for row-level incrementality; `--watch` tail
    mode for continuous ingestion; read-only query-time views over local
-   external data (SQLite `ATTACH`).
+   external data (SQLite `ATTACH`). — **Shipped in 0.9.0** (spec §23):
+   CSV/TSV/JSON/JSONL/SQLite/URL sources; variable-free mapping blocks
+   append once as a prelude; per-record digests cover the *instantiated*
+   text (mapping changes re-fire) under `connect/<name>/<key>`; every
+   record claim is stamped `@src:connect/<name>/<key>` (§9.5), so
+   changed keyed records retract claims they no longer yield and
+   `--prune` retracts records that left the source; federation shipped
+   as `--query` — map + CAVE-Q over the union inside a rolled-back
+   transaction — rather than `ATTACH`d views (equivalent read semantics
+   at one-machine scale, no new query surface).
 5. **MCP serving scope** (`@cavelang/mcp`): `--read-only`,
    `--tools <list>`. Small; the minimum viable agent permission
    boundary.
