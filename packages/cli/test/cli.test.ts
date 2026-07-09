@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand, suggestAliasCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -572,6 +572,85 @@ test('check reports violations with exit 1 and satisfied shapes with exit 0 (spe
     assert.doesNotMatch(passing.out, /violations/)
   })
 })
+
+test('suggest-alias prints suggested claims that cave add accepts (spec §27)', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'jan PARENT-OF maria',
+      'maria PARENT-OF anna',
+      'grandma-maria HAS age: 90 yr'
+    ].join('\n'))
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const result = await suggestAliasCommand(['--db', db])
+    assert.equal(result.code, 0, result.err)
+    assert.match(result.out, /^grandma-maria ALIAS maria #suggested @ \d+% ; /)
+    // The printed text is ordinary CAVE — the review loop is a pipe.
+    const suggested = join(dir, 'suggested.cave')
+    writeFileSync(suggested, result.out)
+    assert.equal(addCommand(['--db', db, suggested]).code, 0)
+    // Decided now — nothing further to suggest.
+    const settled = await suggestAliasCommand(['--db', db])
+    assert.match(settled.out, /no alias suggestions/)
+  }))
+
+test('suggest-alias --write appends with @src:suggest/alias; --json carries signals (spec §27.3)', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'billing USES postgres\nanalytics USES postgresql\n')
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const json = JSON.parse((await suggestAliasCommand(['--db', db, '--json'])).out)
+    assert.equal(json.length, 1)
+    assert.ok(json[0].signals.some((signal: { kind: string }) => signal.kind === 'prefix'))
+    const written = await suggestAliasCommand(['--db', db, '--write'])
+    assert.equal(written.code, 0, written.err)
+    assert.match(written.out, /appended 1 suggested alias claim\(s\)/)
+    const store = open(db)
+    const rows = store.byTag('suggested')
+    assert.equal(rows.length, 1)
+    assert.ok(store.toClaim(rows[0]!).contexts.includes('src:suggest/alias'))
+    store.close()
+    // Idempotent by construction: the written pair has ALIAS history.
+    const again = await suggestAliasCommand(['--db', db, '--write'])
+    assert.match(again.out, /no alias suggestions/)
+  }))
+
+test('suggest-alias --agent judge filters; failures and bad flags fail cleanly (spec §27.4)', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'maria EXISTS',
+      'grandma-maria EXISTS',
+      'long-street EXISTS',
+      'Long_Street EXISTS'
+    ].join('\n'))
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const all = await suggestAliasCommand(['--db', db])
+    assert.equal(all.out.trimEnd().split('\n').length, 2)
+    // A judge confirming only S1 (the strongest — normalized equality).
+    const confirmFirst = await suggestAliasCommand(['--db', db, '--agent', `node -e "console.log('[1]')"`])
+    assert.equal(confirmFirst.code, 0, confirmFirst.err)
+    const lines = confirmFirst.out.trimEnd().split('\n')
+    assert.equal(lines.length, 1)
+    assert.match(lines[0]!, /[Ll]ong[-_]/)
+    const none = await suggestAliasCommand(['--db', db, '--agent', `node -e "console.log('[]')"`])
+    assert.match(none.out, /no alias suggestions/)
+    const failing = await suggestAliasCommand(['--db', db, '--agent', 'exit 5'])
+    assert.equal(failing.code, 1)
+    assert.match(failing.err, /agent exited with 5/)
+    const badMin = await suggestAliasCommand(['--db', db, '--min', 'high'])
+    assert.equal(badMin.code, 1)
+    assert.match(badMin.err, /--min expects a score/)
+    const badLimit = await suggestAliasCommand(['--db', db, '--limit', '0'])
+    assert.equal(badLimit.code, 1)
+    assert.match(badLimit.err, /--limit expects a positive integer/)
+    const help = await suggestAliasCommand(['--help'])
+    assert.equal(help.code, 0)
+    assert.match(help.out, /Usage:/)
+  }))
 
 test('check --json emits the full report; --stale validates (spec §20.2)', () => {
   withDir(dir => {

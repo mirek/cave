@@ -13,6 +13,7 @@
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
+ * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
  * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
@@ -32,7 +33,10 @@ import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { defaultDbPath, open } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
-import { check as caveCheck, defaultStaleDays, gatedIngest } from '@cavelang/shape'
+import {
+  check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
+  suggestAliases, writeSuggestions
+} from '@cavelang/shape'
 import type { Report, Violation } from '@cavelang/shape'
 import { declareRules, defaultMaxPasses, defaultMinConf, derive, listRules, retractRule } from '@cavelang/rules'
 import type { Declaration, DeriveReport } from '@cavelang/rules'
@@ -68,6 +72,7 @@ Usage:
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
+  cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
@@ -334,6 +339,50 @@ Examples:
   cave check --db k.db
   cave check --db k.db --stale 30
   cave check --db k.db --json | jq '.violations'`,
+
+  'suggest-alias': `cave suggest-alias — propose same-entity ALIAS candidates for review (spec §27)
+
+Usage:
+  cave suggest-alias [--db <path>] [options]
+
+Options:
+  ${dbHelp}
+  --min <s>            minimum evidence score, 0..1 or N% (default 60%)
+  --limit <n>          at most n suggestions, strongest first
+  --agent <template>   LLM judge filtering the candidates — the cave
+                       ingest/eval shell contract: the prompt (each pair
+                       with both sides' current claims) is piped to stdin
+                       and {prompt-file} is substituted; stdout replies
+                       with a JSON array of confirmed suggestion numbers
+  --timeout <seconds>  judge timeout (default 120)
+  --write              append the suggestions, stamped @src:suggest/alias,
+                       instead of only printing them
+  --json               print suggestions with scores and signals as JSON
+  --no-prelude         open the store without the standard verb registry
+
+Candidates come from string similarity (case/separator drift, segment
+containment, prefixes, typos) and shared rare attribute values; shared
+relations strengthen a candidate but never create one. Suggested claims
+are questions, not merges: confidence 30–50% puts them in cave check's
+review band, and a pair with any recorded ALIAS history — merged,
+rejected or unmerged — is never suggested again.
+
+Output is CAVE text: review it, edit it, pipe it into cave add — or
+--write it and review afterwards. A written suggestion is a positive
+claim, so the opt-in §13.6 closure links it until reviewed:
+
+  confirm   echo 'dupe ALIAS canonical' | cave add --db k.db
+  reject    echo 'dupe ALIAS canonical @src:suggest/alias @ 0%' | cave add --db k.db
+
+(rejection retracts the suggestion's own series — contexts are part of
+claim identity, §9.2, so a plain @ 0% append would start a new series
+and leave the suggested link standing).
+
+Examples:
+  cave suggest-alias --db k.db
+  cave suggest-alias --db k.db --min 80% --limit 10
+  cave suggest-alias --db k.db | cave add --db k.db
+  cave suggest-alias --db k.db --agent 'claude -p' --write`,
 
   export: `cave export — emit canonical CAVE text from a store
 
@@ -923,6 +972,75 @@ export const checkCommand = (argv: readonly string[]): Output => {
     return { code: report.violations.length > 0 ? 1 : 0, out, err: '' }
   } finally {
     store.close()
+  }
+}
+
+/**
+ * `cave suggest-alias` — alias discovery (spec §27): same-entity
+ * candidates as suggested `ALIAS` claims for review. Async (the optional
+ * judge runs a shell agent), so `main.ts` routes it separately, like
+ * `reconstruct`.
+ */
+export const suggestAliasCommand = async (argv: readonly string[]): Promise<Output> => {
+  try {
+    const { values } = parseArgs({
+      args: [...argv],
+      options: {
+        db: { type: 'string' },
+        min: { type: 'string' },
+        limit: { type: 'string' },
+        agent: { type: 'string' },
+        timeout: { type: 'string' },
+        write: { type: 'boolean' },
+        json: { type: 'boolean' },
+        'no-prelude': { type: 'boolean' },
+        help: { type: 'boolean', short: 'h' }
+      },
+      allowPositionals: false
+    })
+    if (values.help === true) {
+      return ok(`${commandHelp['suggest-alias']}\n`)
+    }
+    const minScore = values.min === undefined ?
+      defaultMinScore :
+      values.min.endsWith('%') ? Number(values.min.slice(0, -1)) / 100 : Number(values.min)
+    if (!Number.isFinite(minScore) || minScore < 0 || minScore > 1) {
+      return fail(`cave suggest-alias: --min expects a score in 0..1 or N%, got ${JSON.stringify(values.min)}\n`)
+    }
+    const limit = values.limit === undefined ? undefined : Number(values.limit)
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+      return fail(`cave suggest-alias: --limit expects a positive integer, got ${JSON.stringify(values.limit)}\n`)
+    }
+    const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
+    if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
+      return fail(`cave suggest-alias: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    }
+    const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+    try {
+      let suggestions = suggestAliases(store, { minScore, ...limit === undefined ? {} : { limit } })
+      if (values.agent !== undefined && suggestions.length > 0) {
+        const reply = await shellComplete(values.agent, timeoutSeconds === undefined ? {} : { timeoutSeconds })(
+          judgePrompt(store, suggestions)
+        )
+        suggestions = parseJudgeReply(reply, suggestions.length).map(index => suggestions[index]!)
+      }
+      if (values.json === true) {
+        return ok(`${JSON.stringify(suggestions, undefined, 2)}\n`)
+      }
+      if (suggestions.length === 0) {
+        return ok('no alias suggestions\n')
+      }
+      const lines = suggestions.map(suggestion => suggestion.line)
+      if (values.write === true) {
+        const { appended } = writeSuggestions(store, suggestions)
+        return ok(`${lines.join('\n')}\nappended ${appended} suggested alias claim(s)\n`)
+      }
+      return ok(`${lines.join('\n')}\n`)
+    } finally {
+      store.close()
+    }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   }
 }
 

@@ -256,6 +256,34 @@ suite: P 69% R 69% F1 69%; queries 60%
 
 Scoring is by claim key (actor stamps ignored, spec §9.5; inverse-direction writes match for free) plus value tolerance; misses, extras and failed query bindings are diagnosed per run, an optional `--judge` agent pairs naming drift into a parallel judged F1, and `--min 90%` turns the suite into a CI gate. Point a real agent at it the same way as `cave ingest` — `--agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"' --runs 3`. See [`@cavelang/eval`](packages/eval).
 
+### Naming drift is discoverable — `cave suggest-alias`
+
+The eval above *measures* drift; in a live store you want it *found*. Suppose later notes recorded claims about `grandma-maria` and a new baby, `little-jan`, into the family database. Discovery proposes same-entity candidates (spec §27):
+
+```
+$ pnpm exec cave suggest-alias --db family.db
+grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-maria
+little-jan ALIAS jan #suggested @ 35% ; segments of jan within little-jan
+```
+
+One is right, one is wrong — little-jan is named *after* his great-grandfather. Suggestions are questions, not merges: 30–50% confidence puts them in `cave check`'s review band, and both review moves are ordinary appends. A pair with any recorded `ALIAS` history — merged, rejected or unmerged — is never suggested again, so the decision sticks and the confirmed link immediately powers alias-closure reads:
+
+```
+$ printf 'grandma-maria ALIAS maria ; confirmed\nlittle-jan ALIAS NOT jan ; named after him\n' \
+    | pnpm exec cave add --db family.db
+added 2 claim(s), 0 edge(s)
+
+$ pnpm exec cave suggest-alias --db family.db
+no alias suggestions
+
+$ pnpm exec cave query --db family.db '?d CHILD-OF+ grandma-maria' --aliases
+?d = anna
+?d = little-jan
+?d = me
+```
+
+Candidates are scored by explainable signals — case/separator drift, segment containment, prefixes, typos, shared rare attribute values, with shared relations as a booster; the evidence rides in the comment. An optional `--agent 'claude -p'` judge filters candidates against each side's claims before anyone sees them, and `--write` appends the suggestions (stamped `@src:suggest/alias`) instead of printing. See [`@cavelang/shape`](packages/shape).
+
 ### Memory is reconstructed, not retrieved — `cave reconstruct`
 
 Querying answers the question you know to ask; reconstruction pulls in everything *related* — starting from a symptom, walking forward and inverse edges best-first, collecting claims as it goes (spec §18):
@@ -303,7 +331,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§26 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§27 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).
