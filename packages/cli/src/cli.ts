@@ -14,7 +14,8 @@
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
- * - `cave eval <suite...>` — golden-fixture extraction/query evals (async, routed in `main.ts`)
+ * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
+ * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async, routed in `main.ts`)
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
  * - `cave help [command]` — overview, or one command's help
@@ -36,7 +37,10 @@ import { declareRules, defaultMaxPasses, defaultMinConf, derive, listRules, retr
 import type { Declaration, DeriveReport } from '@cavelang/rules'
 import { act, declareActions, listActions, retractAction } from '@cavelang/act'
 import type { ActReport } from '@cavelang/act'
-import { Demo } from '@cavelang/loop'
+import {
+  Demo, heuristicPolicy, llmPolicy, reconstruct, reconstructAsync, shellComplete, sqliteStore
+} from '@cavelang/loop'
+import { emitClaim } from '@cavelang/canonical'
 
 export type Output = {
   readonly code: number
@@ -65,8 +69,9 @@ Usage:
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
-  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query evals (ROADMAP item 9)
+  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals (items 9, 10)
   cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec §23)
+  cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec §18) [--agent] [--query] [--trace]
   cave demo                                run the cave-loop reconstruction demo
   cave version                             print the cave version
   cave help [command]                      this text, or one command's options and examples
@@ -306,6 +311,36 @@ Examples:
   cave export --db k.db
   cave export --db k.db --out backup.cave
   cave export --db k.db --current --out snapshot.cave`,
+
+  reconstruct: `cave reconstruct — active memory reconstruction from seed cues (spec §18)
+
+Usage:
+  cave reconstruct [--db <path>] <seed...> [options]
+
+Options:
+  ${dbHelp}
+  --query <text>       what the reconstruction should answer, shown to the agent
+  --agent <template>   shell agent making the select/stop decision each step —
+                       the LLM policy: the prompt (collected claims + scored
+                       frontier) is piped to stdin and {prompt-file} is
+                       substituted; stdout replies with a cue name or STOP.
+                       Without --agent the deterministic heuristic runs.
+  --steps <n>          expansion budget (default 16)
+  --claims <n>         stop after collecting this many claims
+  --timeout <seconds>  per-step agent timeout (default 120)
+  --trace              prefix the expansion path as ; comment lines
+  --no-prelude         open the store without the standard verb registry
+
+Walks the graph from the seeds across forward and inverse edges,
+collecting related claims — the cave-loop policy over the store. Output
+is canonical CAVE text (the trace lines are comments), so it can be
+piped into cave add to seed another store.
+
+Examples:
+  cave reconstruct --db k.db reject-valid-tokens
+  cave reconstruct --db k.db reject-valid-tokens --trace --steps 8
+  cave reconstruct --db k.db symptom --query 'why do valid tokens get rejected?' \\
+    --agent 'claude -p'`,
 
   demo: `cave demo — run the cave-loop multi-hop reconstruction demo
 
@@ -818,6 +853,78 @@ export const exportCommand = (argv: readonly string[]): Output => {
     return ok(`exported ${claims} claim(s) to ${values.out}\n`)
   } finally {
     store.close()
+  }
+}
+
+/**
+ * `cave reconstruct` — the §18 loop over the store: heuristic policy by
+ * default (the eval baseline), the LLM policy over a shell-agent template
+ * with `--agent`. Async (the agent runs once per step), so `main.ts`
+ * routes it separately, like `connect`.
+ */
+export const reconstructCommand = async (argv: readonly string[]): Promise<Output> => {
+  try {
+    const { values, positionals } = parseArgs({
+      args: [...argv],
+      options: {
+        db: { type: 'string' },
+        query: { type: 'string' },
+        agent: { type: 'string' },
+        steps: { type: 'string' },
+        claims: { type: 'string' },
+        timeout: { type: 'string' },
+        trace: { type: 'boolean' },
+        'no-prelude': { type: 'boolean' },
+        help: { type: 'boolean', short: 'h' }
+      },
+      allowPositionals: true
+    })
+    if (values.help === true) {
+      return ok(`${commandHelp['reconstruct']}\n`)
+    }
+    if (positionals.length === 0) {
+      return fail('cave reconstruct: at least one seed entity is required\n')
+    }
+    const budgets: { maxSteps?: number, maxClaims?: number } = {}
+    for (const [flag, key] of [['steps', 'maxSteps'], ['claims', 'maxClaims']] as const) {
+      const raw = values[flag]
+      if (raw !== undefined) {
+        const value = Number(raw)
+        if (!Number.isInteger(value) || value < 1) {
+          return fail(`cave reconstruct: --${flag} must be a positive integer, got '${raw}'\n`)
+        }
+        budgets[key] = value
+      }
+    }
+    const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
+    if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
+      return fail(`cave reconstruct: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    }
+    const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+    try {
+      const graph = sqliteStore(store)
+      const result = values.agent === undefined ?
+        reconstruct(graph, heuristicPolicy(budgets), positionals) :
+        await reconstructAsync(
+          graph,
+          llmPolicy(
+            shellComplete(values.agent, timeoutSeconds === undefined ? {} : { timeoutSeconds }),
+            { ...values.query === undefined ? {} : { query: values.query }, ...budgets }
+          ),
+          positionals
+        )
+      const lines = [
+        ...values.trace === true ?
+          result.trace.map(step => `; ${step.step}. ${step.cue.entity} @ ${step.cue.score.toFixed(2)} +${step.collected} claim(s)`) :
+          [],
+        ...result.claims.map(claim => emitClaim(claim))
+      ]
+      return ok(lines.length === 0 ? '' : `${lines.join('\n')}\n`)
+    } finally {
+      store.close()
+    }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   }
 }
 

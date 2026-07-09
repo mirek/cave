@@ -242,6 +242,25 @@ suite: P 69% R 69% F1 69%; queries 60%
 
 Scoring is by claim key (actor stamps ignored, spec §9.5; inverse-direction writes match for free) plus value tolerance; misses, extras and failed query bindings are diagnosed per run, an optional `--judge` agent pairs naming drift into a parallel judged F1, and `--min 90%` turns the suite into a CI gate. Point a real agent at it the same way as `cave ingest` — `--agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"' --runs 3`. See [`@cavelang/eval`](packages/eval).
 
+### Memory is reconstructed, not retrieved — `cave reconstruct`
+
+Querying answers the question you know to ask; reconstruction pulls in everything *related* — starting from a symptom, walking forward and inverse edges best-first, collecting claims as it goes (spec §18):
+
+```
+$ pnpm exec cave reconstruct --db incident.db checkout/errors --trace
+; 1. checkout/errors @ 1.00 +3 claim(s)
+; 2. rollback @ 0.80 +0 claim(s)
+; 3. redis-cache/failover @ 0.68 +1 claim(s)
+; 4. config-push @ 0.46 +0 claim(s)
+; 5. cdn @ 0.24 +0 claim(s)
+cdn CAUSE checkout/errors @src:cli @ 30% ; first suspicion
+redis-cache/failover CAUSE checkout/errors @src:cli @ 85%
+rollback FIX checkout/errors @src:cli
+config-push CAUSE redis-cache/failover @src:cli @ 85%
+```
+
+By default a deterministic heuristic picks each expansion. With `--agent 'claude -p' --query 'what caused the checkout errors?'` an LLM makes the select/stop decision instead — one prompt per step showing the claims collected so far and the scored frontier (ROADMAP item 10). The heuristic is the *baseline*: reconstruction eval fixtures (`<stem>.loop.cave`, see [`examples/loop-eval`](examples/loop-eval)) score both policies with the same claim-key F1, so "does the model beat the heuristic" is two `cave eval` runs. See [`@cavelang/loop`](packages/loop).
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting

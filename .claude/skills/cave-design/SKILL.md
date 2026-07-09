@@ -266,13 +266,15 @@ Identifier  <- [a-zA-Z_][a-zA-Z0-9_-]*
 
 **`cave-loop`** (TypeScript, strict mode) implements Ji et al.'s Algorithm 1 as a functional reconstruction loop:
 
-- Injectable `CaveStore` and `Policy` interfaces
-- In-memory store with inverse-aware reverse traversal (built directly on §5.5 / §13.3)
-- A deterministic heuristic policy for dependency-free testing
-- A commented LLM-adapter sketch for the eventual LLM-driven policy
+- Injectable `CaveStore` and `Policy` interfaces (plus the `AsyncPolicy` twin, run by the async loop)
+- In-memory store with inverse-aware reverse traversal (built directly on §5.5 / §13.3), and a SQLite adapter over the §13 store — the same contract behind the MCP `cave_reconstruct` tool and the CLI `cave reconstruct` command
+- A deterministic heuristic policy for dependency-free testing — and the eval baseline every learned policy is measured against
+- The LLM-driven policy (ROADMAP item 10): per step, the model reads the query, the collected claims as canonical CAVE text and the scored frontier, and replies with the cue to expand or `STOP` — one completion per step (stop rides on select; budgets stay local), scoring stays the local heuristic arithmetic, and unparseable replies degrade to the strongest cue rather than ending the reconstruction. The model itself stays out-of-band (§19.5): a shell-agent command template (the `--agent` contract shared with `cave ingest`/`cave eval`) adapts any headless agent, and no LLM SDK enters the package
 - A runnable demo exercising the multi-hop recovery pattern central to the paper's thesis
 
 The store contract the language guarantees the agent: forward reads via the subject index, named inverse reads via the object index plus `inverse_of()`, current-belief resolution via claim keys, and topic expansion via `CONTAINS` in both directions.
+
+Policies are falsifiable through the evals harness (ROADMAP item 9): a reconstruction fixture (`<stem>.loop.cave` — seeds, optional query, budgets, all ordinary CAVE lines about the entity `loop`) scores what a policy collects against a golden by claim key; `cave eval` without an agent runs the heuristic baseline, with `--agent` the LLM policy — same budgets, same scoring, comparable like for like.
 
 ---
 

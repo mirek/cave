@@ -1,9 +1,9 @@
 # @cavelang/eval
 
-The evals harness (ROADMAP item 9): golden-fixture extraction and query
-evals as plain files. Without it, changes to ingestion prompts, agent
-choice or extraction instructions are unfalsifiable — `cave eval` makes
-them a number.
+The evals harness (ROADMAP items 9 and 10): golden-fixture extraction,
+query and reconstruction evals as plain files. Without it, changes to
+ingestion prompts, agent choice, extraction instructions or the loop
+policy are unfalsifiable — `cave eval` makes them a number.
 
 ```sh
 cave eval examples/eval --runs 3 \
@@ -50,6 +50,37 @@ does an invented one. Queries are where a fixture asserts usefulness
 (multi-hop questions the source only implies) independent of how the
 golden spelled each claim; `--aliases` lets agents that declared `ALIAS`
 links pass them despite naming drift.
+
+## Reconstruction cases (ROADMAP item 10)
+
+A `<stem>.loop.cave` sibling turns the case into a **reconstruction**
+eval of the §18 loop: the source is the *knowledge* (CAVE text), and the
+golden is the claims a good reconstruction collects from it. The loop
+file is ordinary CAVE about the entity `loop` — no new grammar:
+
+```cave
+loop SEEDS reject-valid-tokens          ; initial frontier, file order
+loop HAS query: `why are valid tokens rejected?`
+loop HAS steps: 12                      ; budgets for both policies
+loop HAS claims: 40
+```
+
+Without `--agent` the run is the **deterministic heuristic baseline**;
+with `--agent` the same seeds and budgets drive `llmPolicy` — the agent
+is asked once per step (prompt on stdin, `{prompt-file}` substituted) to
+pick the next cue or `STOP`. Scoring is the same claim-key comparison,
+so the two runs read like for like:
+
+```sh
+cave eval loop-suite/                       # heuristic baseline
+cave eval loop-suite/ --agent 'claude -p'   # the LLM policy vs that baseline
+```
+
+Query expectations run against **the reconstruction**, not the
+knowledge — they assert what the collected claims alone can answer. Loop
+fixtures self-check harder: seeds must appear in the knowledge, and
+every golden claim must exist in the knowledge (the loop selects claims;
+it cannot invent them). The run note records the expansion path.
 
 ## How a case runs
 
@@ -142,6 +173,12 @@ const report = await run({
   contract everywhere (`{prompt-file}`, `{mcp-config}`, `{db}`, stdin
   prompt), and no state leaks between runs or cases; the orchestrator's
   own `ingest-digest` bookkeeping is excluded from scoring.
+- **The baseline is a run, not a footnote** (item 10). Reconstruction
+  cases without an agent run the heuristic policy through the same
+  scoring, so "does the LLM policy beat the heuristic" is two commands
+  whose reports differ only in the policy — and `--agent` being optional
+  means extraction cases without one fail loudly per run instead of
+  being rejected up front.
 
 ## Tests
 
@@ -149,9 +186,13 @@ const report = await run({
 pnpm --filter @cavelang/eval test
 ```
 
-Suite discovery (sources, dotted stems, instructions precedence), the
-queries format end to end, scoring normalization (actor stamps, inverse
-writes, belief series, value tolerance), judge prompt/reply parsing, and
-full runs with function and shell agents: perfect and lossy extractions,
-run independence and failure accounting, judge upgrades, fixture
-self-check skips, `--keep`, and the `cave eval` argument surface.
+Suite discovery (sources, dotted stems, loop siblings, instructions
+precedence), the queries format end to end, scoring normalization (actor
+stamps, inverse writes, belief series, value tolerance), judge
+prompt/reply parsing, and full runs with function and shell agents:
+perfect and lossy extractions, run independence and failure accounting,
+judge upgrades, fixture self-check skips, `--keep`, the `cave eval`
+argument surface, and reconstruction cases — spec parsing, seed and
+reachability self-checks, the heuristic baseline, an LLM-policy run
+answering queries from the reconstruction alone, and loop-agent failure
+accounting.

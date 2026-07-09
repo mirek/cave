@@ -75,16 +75,36 @@ test('cave eval exits 1 on failed runs, unmet --min, and fixture problems', () =
     assert.match(skipped.stdout, /orphan: fixture problem\(s\) — skipped/)
   }))
 
+test('cave eval runs reconstruction cases without an agent — the heuristic baseline', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-eval-main-loop-'))
+  try {
+    writeFileSync(join(dir, 'incident.cave'), 'a CAUSE b\nc USES d')
+    writeFileSync(join(dir, 'incident.golden.cave'), 'a CAUSE b')
+    writeFileSync(join(dir, 'incident.loop.cave'), 'loop SEEDS b')
+    const baseline = evalCli([dir])
+    assert.equal(baseline.status, 0, baseline.stderr)
+    assert.match(baseline.stdout, /1 golden claim\(s\), reconstruction over incident\.cave/)
+    assert.match(baseline.stdout, /suite: P 100% R 100% F1 100%/)
+    const json = JSON.parse(evalCli([dir, '--json']).stdout) as Report
+    assert.equal(json.cases[0]!.kind, 'loop')
+    assert.match(json.cases[0]!.runs[0]!.note!, /expanded \d+ cue\(s\): b/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('cave eval validates its arguments', () =>
   withSuite(dir => {
     assert.equal(evalCli(['--help']).status, 0)
-    assert.match(evalCli(['--help']).stdout, /golden-fixture extraction and query evals/)
+    assert.match(evalCli(['--help']).stdout, /golden-fixture extraction, query and reconstruction evals/)
     const noSuite = evalCli(['--agent', 'cat'])
     assert.equal(noSuite.status, 1)
     assert.match(noSuite.stderr, /suite directories/)
+    // --agent is optional (reconstruction cases run the heuristic baseline),
+    // but an extraction case without one is a failed run.
     const noAgent = evalCli([dir])
     assert.equal(noAgent.status, 1)
-    assert.match(noAgent.stderr, /--agent is required/)
+    assert.match(noAgent.stdout, /FAILED — no agent configured/)
     assert.match(evalCli([dir, '--agent', 'cat', '--runs', '0']).stderr, /--runs/)
     assert.match(evalCli([dir, '--agent', 'cat', '--tolerance', '2']).stderr, /--tolerance/)
     assert.match(evalCli([dir, '--agent', 'cat', '--min', 'x']).stderr, /--min/)

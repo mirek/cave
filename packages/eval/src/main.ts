@@ -11,7 +11,8 @@ import type { Mean, Report, RunReport } from './run.ts'
 import { formatSolution } from './queries.ts'
 import type { Outcome } from './queries.ts'
 
-const usage = `cave eval — golden-fixture extraction and query evals (ROADMAP item 9)
+const usage = `cave eval — golden-fixture extraction, query and reconstruction evals
+(ROADMAP items 9 and 10)
 
 Usage:
   cave eval <suite-dir|golden-file...> --agent '<command>' [options]
@@ -25,10 +26,20 @@ each source into a fresh throwaway store; the result is scored against
 the golden by claim key (actor stamps ignored, spec §9.5) and value, and
 the store must answer the query expectations.
 
+A <stem>.loop.cave sibling makes the case a reconstruction (spec §18)
+eval instead: the source is the knowledge, the loop file declares seeds
+('loop SEEDS <entity>') and optional 'loop HAS query|steps|claims: …',
+and the golden is what the loop should collect. Without --agent the
+deterministic heuristic policy runs — the baseline; with --agent the LLM
+policy asks the agent to pick each expansion (prompt on stdin, reply on
+stdout), and the queries are answered by the reconstruction alone.
+
 Options:
-  --agent <template>     shell command run once per case run; the prompt is
-                         piped to stdin and {prompt-file}, {mcp-config}, {db}
-                         are substituted (the cave ingest contract)
+  --agent <template>     shell command run once per case run (extraction; the
+                         prompt is piped to stdin and {prompt-file},
+                         {mcp-config}, {db} are substituted — the cave ingest
+                         contract) or once per loop step (reconstruction);
+                         optional when every case is a reconstruction
   --judge <template>     LLM judge pairing semantically equivalent leftovers
                          after strict scoring; prompt on stdin/{prompt-file},
                          replies a JSON array of [golden, produced] pairs
@@ -51,7 +62,9 @@ Examples:
   cave eval suite/ --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
   cave eval suite/ --stdout --agent 'llm -m your-model' --runs 3
   cave eval suite/family-history.golden.cave --stdout --agent 'cat {prompt-file} | your-agent'
-  cave eval suite/ --stdout --agent your-agent --judge 'claude -p' --min 80%`
+  cave eval suite/ --stdout --agent your-agent --judge 'claude -p' --min 80%
+  cave eval loop-suite/                        # reconstruction baseline (heuristic)
+  cave eval loop-suite/ --agent 'claude -p' --runs 3   # the LLM policy vs that baseline`
 
 const percent = (value: number): string =>
   `${Math.round(value * 100)}%`
@@ -127,7 +140,8 @@ export const render = (report: Report): string => {
       continue
     }
     const queries = kase.queryCount === 0 ? '' : `, ${kase.queryCount} query(ies)`
-    lines.push(`${kase.name}: ${kase.golden} golden claim(s)${queries}, source ${kase.source}`)
+    const source = kase.kind === 'loop' ? `reconstruction over ${kase.source}` : `source ${kase.source}`
+    lines.push(`${kase.name}: ${kase.golden} golden claim(s)${queries}, ${source}`)
     kase.runs.forEach((run_, index) => {
       lines.push(...renderRun(run_, index + 1, kase.runs.length, kase.queryCount))
     })
@@ -185,10 +199,6 @@ export const runEval = async (argv: readonly string[]): Promise<number> => {
     process.stderr.write(`cave eval: suite directories (or golden files) are required\n\n${usage}\n`)
     return 1
   }
-  if (values.agent === undefined) {
-    process.stderr.write('cave eval: --agent is required\n')
-    return 1
-  }
   const runs = values.runs === undefined ? undefined : Number(values.runs)
   if (runs !== undefined && (!Number.isInteger(runs) || runs < 1)) {
     process.stderr.write(`cave eval: --runs must be a positive integer, got '${values.runs}'\n`)
@@ -212,7 +222,7 @@ export const runEval = async (argv: readonly string[]): Promise<number> => {
   const mode: Mode = values.stdout === true ? 'stdout' : 'mcp'
   const report = await run({
     suites: positionals,
-    agent: values.agent,
+    ...values.agent === undefined ? {} : { agent: values.agent },
     mode,
     embed: values['no-embed'] !== true,
     aliases: values.aliases === true,

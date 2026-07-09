@@ -25,7 +25,7 @@ import { parseDocument } from '@cavelang/parser'
 import { emitClaim } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
-import { reconstruct, heuristicPolicy, type CaveStore } from '@cavelang/loop'
+import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
 import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
 
 /** Per-connection state the server threads into tool calls. */
@@ -84,34 +84,6 @@ const aboutLines = (store: Store, entity: string, aliases: boolean): string[] =>
     .filter(row => names.has(row.subject) || (row.object !== null && names.has(row.object)))
     .map(row => emitClaim(store.toClaim(row)))
 }
-
-/** `@cavelang/loop` store contract over the SQLite store (spec §18). */
-const loopStore = (store: Store): CaveStore => ({
-  forward: entity =>
-    store.forward(entity).map(fact => ({
-      from: entity,
-      to: fact.target,
-      verb: fact.verb,
-      rel: fact.verb,
-      conf: fact.row.conf,
-      claim: store.toClaim(fact.row)
-    })),
-  reverse: entity =>
-    store.reverse(entity).map(fact => ({
-      from: entity,
-      to: fact.source,
-      verb: fact.verb,
-      ...fact.rel === undefined ? {} : { rel: fact.rel },
-      conf: fact.row.conf,
-      claim: store.toClaim(fact.row)
-    })),
-  claimsAbout: entity =>
-    store.currentBeliefs()
-      .filter(row => row.subject === entity || row.object === entity)
-      .map(row => store.toClaim(row)),
-  expandTopic: topic => store.topicMembers(topic),
-  topicsOf: entity => store.topicsOf(entity)
-})
 
 export const tools: readonly Tool[] = [
   {
@@ -262,7 +234,7 @@ export const tools: readonly Tool[] = [
         ...typeof args['maxSteps'] === 'number' ? { maxSteps: args['maxSteps'] } : {},
         ...typeof args['maxClaims'] === 'number' ? { maxClaims: args['maxClaims'] } : {}
       }
-      const { claims, trace } = reconstruct(loopStore(store), heuristicPolicy(options), seeds)
+      const { claims, trace } = reconstruct(sqliteStore(store), heuristicPolicy(options), seeds)
       return [
         `expanded ${trace.length} cue(s): ${trace.map(step => step.cue.entity).join(' → ') || 'none'}`,
         ...claims.map(claim => emitClaim(claim))

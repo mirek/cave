@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -276,6 +276,83 @@ test('demo narrates the multi-hop recovery', () => {
   assert.equal(result.code, 0)
   assert.match(result.out, /reconstructed claims:/)
   assert.match(result.out, /FIX token-expiry/)
+})
+
+const withDirAsync = async (body: (dir: string) => Promise<void>): Promise<void> => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
+    await body(dir)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+const reconstructKnowledge = [
+  'auth/middleware HAS bug: token-expiry',
+  'token-expiry CAUSE reject-valid-tokens',
+  'topic/auth-hardening CONTAINS token-expiry',
+  'unrelated/service USES postgres'
+].join('\n')
+
+test('reconstruct walks the store from seed cues; --trace lines are comments', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, reconstructKnowledge)
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const result = await reconstructCommand(['--db', db, 'reject-valid-tokens', '--trace'])
+    assert.equal(result.code, 0, result.err)
+    assert.match(result.out, /; 1\. reject-valid-tokens @ 1\.00/)
+    assert.match(result.out, /token-expiry CAUSE reject-valid-tokens/)
+    assert.match(result.out, /topic\/auth-hardening CONTAINS token-expiry/)
+    assert.doesNotMatch(result.out, /unrelated\/service/)
+  }))
+
+test('reconstruct --agent drives the LLM policy through a shell agent', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, reconstructKnowledge)
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    // The agent expands the strongest offered cue every step, like the
+    // heuristic; the prompt lists cues strongest first.
+    const script = join(dir, 'agent.js')
+    writeFileSync(script, [
+      `let d = ''`,
+      `process.stdin.on('data', c => d += c).on('end', () => {`,
+      `  const lines = d.split('\\n')`,
+      `  const at = lines.findIndex(line => line.startsWith('Frontier cues'))`,
+      `  const first = (lines[at + 1] ?? '').split(' @ ')[0]`,
+      `  process.stdout.write(first === '' ? 'STOP' : first)`,
+      `})`
+    ].join('\n'))
+    const llm = await reconstructCommand([
+      '--db', db, 'reject-valid-tokens', '--agent', `node ${script}`, '--query', 'why?'
+    ])
+    assert.equal(llm.code, 0, llm.err)
+    const baseline = await reconstructCommand(['--db', db, 'reject-valid-tokens'])
+    assert.equal(llm.out, baseline.out, 'strongest-cue agent matches the heuristic baseline')
+
+    const failing = await reconstructCommand(['--db', db, 'reject-valid-tokens', '--agent', 'exit 5'])
+    assert.equal(failing.code, 1)
+    assert.match(failing.err, /agent exited with 5/)
+  }))
+
+test('reconstruct validates its arguments', async () => {
+  const noSeeds = await reconstructCommand([])
+  assert.equal(noSeeds.code, 1)
+  assert.match(noSeeds.err, /at least one seed/)
+  const badSteps = await reconstructCommand(['seed', '--steps', '0'])
+  assert.equal(badSteps.code, 1)
+  assert.match(badSteps.err, /--steps must be a positive integer/)
+  const badTimeout = await reconstructCommand(['seed', '--timeout=0'])
+  assert.equal(badTimeout.code, 1)
+  assert.match(badTimeout.err, /--timeout/)
+  const parseError = await reconstructCommand(['seed', '--timeout', '-1'])
+  assert.equal(parseError.code, 1, 'parseArgs errors fail cleanly instead of throwing')
+  const help = await reconstructCommand(['--help'])
+  assert.equal(help.code, 0)
+  assert.match(help.out, /Usage:/)
 })
 
 test('fully-bound transitive query confirms the match instead of crashing', () => {

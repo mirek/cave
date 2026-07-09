@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** `cave` binary entry point — see `cli.ts` for the command implementations. */
 
-import { cave, highlightCommand } from './cli.ts'
+import { cave, highlightCommand, reconstructCommand } from './cli.ts'
 
 const write = (code: number, out: string, err: string): void => {
   if (out !== '') {
@@ -34,6 +34,10 @@ if (argv[0] === 'mcp') {
   // Async (URL sources fetch) and potentially long-running (--watch).
   const { runConnect } = await import('@cavelang/connect')
   process.exitCode = await runConnect(argv.slice(1))
+} else if (argv[0] === 'reconstruct') {
+  // Async: the LLM policy runs a shell agent once per step.
+  const { code, out, err } = await reconstructCommand(argv.slice(1))
+  write(code, out, err)
 } else if (argv[0] === 'highlight' && !argv.includes('--help') && !argv.includes('-h')) {
   // Async (grammar WASM loads on first use); --help stays on the sync path.
   const { code, out, err } = await highlightCommand(argv.slice(1))

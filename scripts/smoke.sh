@@ -39,6 +39,16 @@ echo "==> cave derive fires rules and records lineage (spec §24)"
   echo "error: cave derive did not derive grandparenthood" >&2
   exit 1
 }
+echo "==> cave reconstruct walks the graph from a seed cue (spec §18)"
+"$cave" reconstruct checkout/errors --db "$tmp/smoke.db" | grep -q 'rollback FIX checkout/errors' || {
+  echo "error: cave reconstruct did not surface the fix" >&2
+  exit 1
+}
+echo "==> cave eval reconstruction baseline (ROADMAP item 10)"
+"$cave" eval "$root/examples/loop-eval" | grep -q 'F1 100%' || {
+  echo "error: the loop-eval heuristic baseline is not perfect" >&2
+  exit 1
+}
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

@@ -1,0 +1,7 @@
+; What a good reconstruction of the checkout incident collects, starting
+; from the symptom: both causal hypotheses, the confirmed chain one hop
+; further, and the fix — not the unrelated billing thread.
+cdn CAUSE checkout/errors @ 30%
+redis-cache/failover CAUSE checkout/errors @ 85%
+config-push CAUSE redis-cache/failover @ 85%
+rollback FIX checkout/errors

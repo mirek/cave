@@ -31,6 +31,29 @@ pnpm exec cave eval examples/eval --runs 3 \
 examples/eval --stdout --agent 'cat family-history.golden.cave'` — the
 "agent" reads the golden back, scoring F1 100% with every query green.)
 
+## [`loop-eval/`](loop-eval)
+
+The incident knowledge as a *reconstruction* fixture (ROADMAP item 10,
+spec §18): `postmortem.loop.cave` seeds the loop at the symptom
+(`loop SEEDS checkout/errors`, plus a query and a step budget),
+`postmortem.golden.cave` is what a good reconstruction collects — the
+causal chain and the fix, not the unrelated billing thread — and the
+queries must be answered by the reconstruction alone.
+
+```sh
+# the deterministic heuristic baseline — no agent, no tokens
+pnpm exec cave eval examples/loop-eval
+#   postmortem: 4 golden claim(s), 2 query(ies), reconstruction over postmortem.cave
+#     run 1/1: 4 claim(s) — 4 matched; P 100% R 100% F1 100%; queries 2/2
+
+# the LLM policy: the agent picks each expansion (or STOP), one prompt per step
+pnpm exec cave eval examples/loop-eval --runs 3 --agent 'claude -p'
+```
+
+The same loop runs interactively over any store:
+`pnpm exec cave reconstruct --db incident.db checkout/errors --trace`
+(add `--agent 'claude -p' --query '…'` for model-driven selection).
+
 ## [`incident/`](incident)
 
 A production-incident postmortem: a service dependency chain, competing
