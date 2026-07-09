@@ -224,6 +224,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/fusion':
+        specifier: workspace:*
+        version: link:../fusion
       '@cavelang/loop':
         specifier: workspace:*
         version: link:../loop
@@ -233,6 +236,9 @@ importers:
       '@cavelang/query':
         specifier: workspace:*
         version: link:../query
+      '@cavelang/rules':
+        specifier: workspace:*
+        version: link:../rules
       '@cavelang/store':
         specifier: workspace:*
         version: link:../store

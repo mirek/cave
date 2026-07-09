@@ -34,12 +34,14 @@ Summary of the gaps:
   layer; alias *discovery* is missing.
 - **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
-  tx watermark; derived computation beyond rules (named MCP tools,
-  automation) is still ahead.
+  tx watermark; named computation tools shipped in 0.17.0 (`cave_fuse`,
+  `cave_derive`, item 12); event-driven automation (item 16) is still
+  ahead.
 - **Act** — governed writes and side effects shipped in 0.13.0
   (`cave act`, item 8): in-band action templates with validated CAVE-Q
   preconditions, generated `act_<name>` MCP tools, out-of-band hooks;
-  event-driven automation (item 16) remains.
+  named computation shipped in 0.17.0 (`cave_fuse`/`cave_derive`,
+  item 12); event-driven automation (item 16) remains.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
   0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9); a human
   read surface is missing.
@@ -159,7 +161,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 |---|---|---|---|
 | Governed writes (actions) | `cave act` (spec §25): named action templates declared in-band, parameters validated, CAVE-Q preconditions checked against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default; served as generated `act_<name>` MCP tools | exists | shipped in 0.13.0 (item 8) |
 | Side effects / writeback | `HAS hook:` names a config-declared shell template (`--hooks`, §25.4) fired after commit with the appended claims on stdin | exists | shipped in 0.13.0 (item 8); the claim names the hook, the command never enters the store |
-| Named computation | fusion/loop are pure libraries, not invocable by name | partial | expose fusion/derivation as named MCP tools (`cave_fuse`, …) so agents delegate computation instead of doing arithmetic in tokens |
+| Named computation | `cave_fuse` / `cave_derive` MCP tools: §10.1 fusion and §24 derivation invocable by name | exists | shipped in 0.17.0 (item 12); agents delegate computation instead of doing arithmetic in tokens |
 | Event-driven automation | none | missing | a long-running loop firing rules/actions/hooks/agent prompts when new claims match patterns — closes sense → decide → act → record unattended |
 
 ### Trust — provenance, quality, scope
@@ -286,7 +288,8 @@ extend an existing one.
 knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
 (item 8) in 0.13.0, the evals harness (item 9) in 0.14.0, the LLM loop
 policy (item 10) in 0.15.0, the contradiction-resolution policy
-(item 11) in 0.16.0; named computation tools (item 12) are next.*
+(item 11) in 0.16.0, named computation tools (item 12) in 0.17.0;
+alias discovery (item 13) is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -407,7 +410,21 @@ policy (item 10) in 0.15.0, the contradiction-resolution policy
     and `store.contested()`, the feed fusion combines instead of picks.
 12. **Named computation tools** (`@cavelang/mcp`): expose fusion and
     derivation as MCP tools (`cave_fuse`, `cave_derive`) so agents
-    delegate math instead of doing it in tokens.
+    delegate math instead of doing it in tokens. — **Shipped in 0.17.0**:
+    `cave_fuse` runs §10.1 precision-weighted fusion over independent
+    estimates of one quantity — one claim key modulo `@src:` contexts
+    (§26.1's group identity, widened through the alias closure under
+    `aliases`) and one unit, guarded loudly — selected by CAVE-Q
+    `pattern`, by entity (`about`, the only reach into metric `IS`
+    series, whose values CAVE-Q variables never bind) or as literal
+    `text` fused without touching the store; denials, retracted series
+    and claims without numeric `+/-` uncertainty are skipped, and the
+    posterior returns as a writable CAVE value plus exact mean/sigma.
+    `cave_derive` fires the store's in-band rules with the `cave derive`
+    options (`dryRun`/`full`/`aliases`/`minConf`/`maxPasses`) — rules
+    are declared through ordinary `cave_add` appends, so declare → fire
+    never leaves the protocol; it writes, so `--read-only` drops it
+    (`cave_fuse` computes without writing and survives).
 13. **Alias discovery** (`cave suggest-alias`, in `@cavelang/shape` or
     `store`): propose same-entity candidates by string/graph similarity,
     optional LLM judge, emitting *suggested* `ALIAS` claims at low

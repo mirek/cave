@@ -88,8 +88,10 @@ export const instructionsFor = (served: readonly Tool[], options: { actions?: bo
       [`extract knowledge with one claim per line via cave_add${has('cave_lint') ? ' (validate with cave_lint first)' : ''}`] :
       has('cave_lint') ? ['validate CAVE text with cave_lint'] : [],
     ...has('cave_query') ? ['ask questions with cave_query patterns (?x USES jwt)'] : [],
+    ...has('cave_fuse') ? ['delegate combining numeric estimates to cave_fuse (Bayesian fusion) instead of averaging in tokens'] : [],
     ...explore.length > 0 ? [`explore with ${explore.join(' / ')}`] : [],
-    ...has('cave_reconstruct') ? ['use cave_reconstruct to pull everything related to a symptom or task before reasoning about it'] : []
+    ...has('cave_reconstruct') ? ['use cave_reconstruct to pull everything related to a symptom or task before reasoning about it'] : [],
+    ...has('cave_derive') ? ['fire the stored rules with cave_derive so derived knowledge materializes with lineage'] : []
   ]
   const last = clauses.length - 1
   const guidance = [

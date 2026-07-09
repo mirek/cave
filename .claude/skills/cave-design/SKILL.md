@@ -90,6 +90,8 @@ For normally distributed estimates with `+/- Δ` at kσ: σ = Δ/k, precision = 
 
 Worked: A gives σ=1.5B, w=0.444×0.60=0.267; B gives σ=0.25B, w=16.0×0.95=15.2. Posterior μ ≈ 19.97B, σ ≈ 0.25B. The filing dominates — more precise and higher confidence.
 
+The engine serves this computation by name: the MCP `cave_fuse` tool (ROADMAP item 12) fuses estimates selected by CAVE-Q pattern, by entity (`about` — the reach into metric `IS` series, whose values CAVE-Q variables never bind), or from literal CAVE lines, so agents delegate the arithmetic instead of doing it in tokens. Fused estimates must agree on one quantity — one claim key modulo `@src:` contexts (§26.1's group identity, widened through the §13.6 alias closure on request) — and one unit; selections that span quantities or mix units fail loudly.
+
 ### 10.2 Conditional confidence (noisy-AND)
 
 ```cave

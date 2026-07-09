@@ -20,8 +20,8 @@ Usage:
 Options:
   --db <path>      database file (default: $CAVE_DB, or cave.db)
   --no-prelude     open the store without the standard verb registry
-  --read-only      serve only tools that never write (drops cave_add and
-                   the generated act_<name> action tools)
+  --read-only      serve only tools that never write (drops cave_add,
+                   cave_derive and the generated act_<name> action tools)
   --tools <list>   serve only these tools (comma-separated); --read-only
                    still drops writing tools from the list; act_<name>
                    entries scope whichever actions exist at call time

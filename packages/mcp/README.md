@@ -22,10 +22,12 @@ connected model knows how to write CAVE claims without further prompting.
 |---|---|
 | `cave_add` | append CAVE text (extraction output); lenient, `strict` opt-in |
 | `cave_query` | CAVE-Q patterns (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3) and `resolve` (§26 winners only) opt-ins |
+| `cave_fuse` | Bayesian fusion of numeric estimates (§10.1) — named computation over a CAVE-Q `pattern`, an entity's current claims (`about`), or literal `text` |
 | `cave_search` | FTS over claims, values, comments |
 | `cave_about` | current claims about an entity, both directions, canonical lines; `aliases` / `resolve` opt-ins |
 | `cave_neighbors` | named forward + inverse edges (§13.3) for graph walking; `aliases` / `resolve` opt-ins |
 | `cave_reconstruct` | cave-loop active reconstruction from seed cues (§18) — pull everything related to a symptom before reasoning |
+| `cave_derive` | fire the stored rules (§24) — named computation; `dryRun`, `full`, `aliases`, `minConf`, `maxPasses` |
 | `cave_export` | canonical text backup (`current` for beliefs only) |
 | `cave_lint` | validate CAVE text without storing |
 
@@ -35,10 +37,31 @@ recovery as the demo, against persistent knowledge. An MCP client is
 itself the model, so it can drive selection by hand via `cave_neighbors`;
 the packaged LLM-driven policy lives in `cave reconstruct --agent`.
 
+## Named computation
+
+`cave_fuse` and `cave_derive` (ROADMAP item 12) expose the engine's
+computation by name, so agents delegate math instead of doing arithmetic
+in tokens. `cave_fuse` runs §10.1 precision-weighted fusion over
+independent estimates of **one quantity** — one claim key modulo `@src:`
+contexts (§26.1's group identity, widened by the alias closure under
+`aliases`), one unit — selected three ways: a CAVE-Q `pattern`
+(`openai HAS revenue: ?v`), an entity name (`about: revenue`, the only
+reach into metric `IS` series, whose values CAVE-Q variables never
+bind), or literal `text` that never touches the store. It reports the
+contributing estimates, the posterior as a writable CAVE value
+(`19.97B USD/yr +/- 508.5M USD/yr (2σ)`) and the exact mean/sigma.
+Selections that span several quantities or mix units fail loudly instead
+of averaging nonsense. `cave_derive` fires the store's in-band rules
+(§24) with the same options as `cave derive` — declare rules through
+`cave_add`, preview with `dryRun`, and re-runs stay idempotent and
+watermark-incremental — so the declare → fire loop never leaves the
+protocol.
+
 ## Serving scope
 
 The full surface is read-write. `--read-only` serves only tools that
-never write (drops `cave_add`); `--tools <list>` serves only the named
+never write (drops `cave_add` and `cave_derive`; `cave_fuse` computes
+without writing and survives); `--tools <list>` serves only the named
 tools (comma-separated). Each flag can only narrow, so the two compose
 as an intersection — `--read-only` still drops writing tools that
 `--tools` lists:
