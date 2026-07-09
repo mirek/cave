@@ -64,29 +64,33 @@ test('tools/list exposes the full engine surface with schemas', () => {
   }[]
   assert.deepEqual(
     listed.map(tool => tool.name),
-    ['cave_add', 'cave_query', 'cave_search', 'cave_about', 'cave_neighbors',
-      'cave_reconstruct', 'cave_export', 'cave_lint']
+    ['cave_add', 'cave_query', 'cave_fuse', 'cave_search', 'cave_about', 'cave_neighbors',
+      'cave_reconstruct', 'cave_derive', 'cave_export', 'cave_lint']
   )
   for (const tool of listed) {
     assert.equal(tool.inputSchema.type, 'object', tool.name)
     assert.ok(tool.description.length > 20, tool.name)
-    // Read tools advertise it (MCP tool annotations); cave_add stays at
-    // the protocol defaults.
-    assert.deepEqual(tool.annotations, tool.name === 'cave_add' ? undefined : { readOnlyHint: true }, tool.name)
+    // Read tools advertise it (MCP tool annotations); the writing tools
+    // stay at the protocol defaults.
+    const writes = tool.name === 'cave_add' || tool.name === 'cave_derive'
+    assert.deepEqual(tool.annotations, writes ? undefined : { readOnlyHint: true }, tool.name)
   }
   assert.equal(listed.length, tools.length)
   store.close()
 })
 
-test('read-only scope drops cave_add from list, call and instructions', () => {
+test('read-only scope drops cave_add and cave_derive from list, call and instructions', () => {
   const store = open()
   store.ingest('auth USES jwt')
   const server = createServer(store, { readOnly: true })
   const listed = (server.handle(request(40, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
-  assert.equal(listed.length, tools.length - 1)
-  assert.ok(!listed.some(tool => tool.name === 'cave_add'))
+  assert.equal(listed.length, tools.length - 2)
+  assert.ok(!listed.some(tool => tool.name === 'cave_add' || tool.name === 'cave_derive'))
+  assert.ok(listed.some(tool => tool.name === 'cave_fuse'), 'fusion never writes — it survives read-only')
   const denied = server.handle(request(41, 'tools/call', { name: 'cave_add', arguments: { text: 'a USES b' } })) as Response
   assert.equal(denied.error?.code, -32602, 'hidden tools are indistinguishable from nonexistent')
+  const deniedDerive = server.handle(request(44, 'tools/call', { name: 'cave_derive', arguments: {} })) as Response
+  assert.equal(deniedDerive.error?.code, -32602)
   assert.equal(store.currentBeliefs().length, 1, 'nothing was appended')
   const queried = call(server, 42, 'cave_query', { pattern: '?x USES jwt' })
   assert.match(contentText(queried), /\?x = auth/, 'read tools still work')
@@ -124,11 +128,16 @@ test('a scope that names unknown tools or serves nothing fails loudly', () => {
 test('instructionsFor mentions only served tools and covers the full surface', () => {
   assert.equal(instructionsFor(tools, { actions: true }), instructions)
   assert.match(instructions, /cave_reconstruct/)
+  assert.match(instructions, /cave_fuse/, 'the full surface advertises named computation')
+  assert.match(instructions, /cave_derive/)
   assert.match(instructions, /act_<name>/, 'the default surface serves action tools (spec §25.5)')
   const queryOnly = instructionsFor(scopedTools({ tools: ['cave_query'] }))
   assert.match(queryOnly, /cave_query patterns/)
-  assert.doesNotMatch(queryOnly, /cave_add|cave_about|cave_reconstruct/)
+  assert.doesNotMatch(queryOnly, /cave_add|cave_about|cave_reconstruct|cave_fuse|cave_derive/)
   assert.match(queryOnly, /read-only/)
+  const fuseOnly = instructionsFor(scopedTools({ tools: ['cave_fuse'] }))
+  assert.match(fuseOnly, /cave_fuse \(Bayesian fusion\)/)
+  assert.match(fuseOnly, /read-only/, 'fusion alone is a read surface')
   const lintOnly = instructionsFor(scopedTools({ tools: ['cave_lint', 'cave_export'] }))
   assert.match(lintOnly, /Validate CAVE text with cave_lint\./)
   assert.doesNotMatch(lintOnly, /cave_add/)
@@ -160,6 +169,89 @@ test('cave_query asOf resolves beliefs at a past tx (spec §12.3)', () => {
   assert.equal(contentText(call(server, 50, 'cave_query', { pattern: 'server IS compromised' })), 'no matches')
   const then = contentText(call(server, 51, 'cave_query', { pattern: 'server IS compromised', asOf: boundary }))
   assert.match(then, /server IS compromised @ 60%/)
+  store.close()
+})
+
+test('cave_fuse fuses the spec §10.1 worked example — pattern, about and text agree', () => {
+  const store = open()
+  store.ingest('openai HAS revenue: 18B USD/yr +/- 3B USD/yr @ 60% @src:analyst\n' +
+    'openai HAS revenue: 20B USD/yr +/- 0.5B USD/yr @ 95% @src:filing\n' +
+    'openai HAS ceo: sam-altman')
+  const server = createServer(store)
+  const fused = contentText(call(server, 70, 'cave_fuse', { pattern: 'openai HAS revenue: ?v' }))
+  assert.match(fused, /fused 2 estimate\(s\)/)
+  assert.match(fused, /18B USD\/yr \+\/- 3B USD\/yr/, 'contributing estimates are listed')
+  assert.match(fused, /posterior: 19\.97B USD\/yr \+\/- 508\.5M USD\/yr \(2σ\)/, 'the filing dominates (spec §10.1)')
+  assert.match(fused, /mean 19965517241\.\d+, sigma 254273813\.\d+/, 'exact numbers ride along')
+
+  // The metric form of the same example — `revenue IS 20B USD/yr …` — is
+  // invisible to CAVE-Q variables (metric values never bind), so the
+  // about selector reaches it by subject.
+  const metrics = open()
+  metrics.ingest('revenue IS 18B USD/yr +/- 3B USD/yr @ 60% @src:analyst\n' +
+    'revenue IS 20B USD/yr +/- 0.5B USD/yr @ 95% @src:filing')
+  const aboutFused = contentText(call(createServer(metrics), 71, 'cave_fuse', { about: 'revenue' }))
+  assert.match(aboutFused, /posterior: 19\.97B USD\/yr/)
+
+  // Literal text never touches the store: same math, no matching rows.
+  const empty = open()
+  const textFused = contentText(call(createServer(empty), 72, 'cave_fuse', {
+    text: 'revenue IS 18B USD/yr +/- 3B USD/yr @ 60%\nrevenue IS 20B USD/yr +/- 0.5B USD/yr @ 95%'
+  }))
+  assert.match(textFused, /posterior: 19\.97B USD\/yr/)
+  assert.equal(empty.currentBeliefs().length, 0)
+  metrics.close()
+  empty.close()
+  store.close()
+})
+
+test('cave_fuse guards: one selector, one quantity, one unit', () => {
+  const store = open()
+  store.ingest('openai HAS revenue: 20B USD/yr +/- 0.5B USD/yr @ 95%\n' +
+    'openai HAS employees: 3000 +/- 500 @ 80%')
+  const server = createServer(store)
+  const both = call(server, 75, 'cave_fuse', { pattern: '?x HAS revenue: ?v', text: 'a IS 1 +/- 1' })
+  assert.equal(both.result?.['isError'], true)
+  assert.match(contentText(both), /exactly one of pattern/)
+  const neither = call(server, 76, 'cave_fuse', {})
+  assert.equal(neither.result?.['isError'], true)
+  const spans = call(server, 77, 'cave_fuse', { about: 'openai' })
+  assert.equal(spans.result?.['isError'], true)
+  assert.match(contentText(spans), /cannot fuse across 2 quantities/)
+  assert.match(contentText(spans), /HAS employees: 3000/, 'each quantity shows one example claim')
+  const mixed = call(server, 78, 'cave_fuse', { text: 'x IS 10 ms +/- 2 ms\nx IS 1 s +/- 0.1 s' })
+  assert.equal(mixed.result?.['isError'], true)
+  assert.match(contentText(mixed), /cannot fuse mixed units: ms, s/)
+  const anchored = call(server, 79, 'cave_fuse', { about: 'openai', asOf: '2026-01-01' })
+  assert.equal(anchored.result?.['isError'], true)
+  assert.match(contentText(anchored), /asOf composes with pattern only/)
+  store.close()
+})
+
+test('cave_fuse skips denials, retractions and non-estimates; aliases widen the quantity (spec §13.6)', () => {
+  const store = open()
+  store.ingest('m IS 10 ms +/- 2 ms @src:a\nm IS 20 ms +/- 2 ms @src:b\nm IS NOT 99 ms +/- 1 ms @src:c')
+  store.ingest('m IS 10 ms +/- 2 ms @src:a @ 0% ; retracted')
+  const server = createServer(store)
+  const fused = contentText(call(server, 80, 'cave_fuse', { about: 'm' }))
+  assert.match(fused, /fused 1 estimate\(s\)/, 'the denial and the retracted series contribute nothing')
+  assert.match(fused, /posterior: 20 ms \+\/- 2 ms \(2σ\)/, 'full-confidence single estimate round-trips')
+
+  const none = contentText(call(server, 81, 'cave_fuse', { pattern: '?x IS ?y' }))
+  assert.equal(none, 'nothing to fuse: no matching claims')
+  const bare = call(server, 82, 'cave_fuse', { text: 'service HAS owner: alice' })
+  assert.match(contentText(bare), /nothing to fuse: none of the 1 claim\(s\)/)
+
+  const aliased = open()
+  aliased.ingest('rev ALIAS revenue\nrev IS 18B USD/yr +/- 3B USD/yr @ 60%\nrevenue IS 20B USD/yr +/- 0.5B USD/yr @ 95%')
+  const aliasServer = createServer(aliased)
+  const split = call(aliasServer, 83, 'cave_fuse', { about: 'revenue', aliases: true })
+  assert.notEqual(split.result?.['isError'], true, 'the closure joins the two series into one quantity')
+  assert.match(contentText(split), /fused 2 estimate\(s\)/)
+  assert.match(contentText(split), /posterior: 19\.97B USD\/yr/)
+  const strict = call(aliasServer, 84, 'cave_fuse', { about: 'revenue' })
+  assert.match(contentText(strict), /fused 1 estimate\(s\)/, 'without aliases only the named series contributes')
+  aliased.close()
   store.close()
 })
 
@@ -225,6 +317,42 @@ test('cave_reconstruct performs multi-hop recovery over the sqlite store (spec �
   assert.match(text, /FIX token-expiry/)
   assert.match(text, /HAS bug: token-expiry/)
   assert.doesNotMatch(text, /unrelated\/service/)
+  store.close()
+})
+
+test('cave_derive fires rules declared through cave_add, incrementally (spec §24)', () => {
+  const store = open()
+  const server = createServer(store)
+  assert.match(contentText(call(server, 90, 'cave_derive', {})), /^no rules declared/)
+
+  call(server, 91, 'cave_add', {
+    text: 'a NEEDS b\nb NEEDS c\nrule/needs HAS rule: `?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z` ; transitive needs'
+  })
+  const preview = contentText(call(server, 92, 'cave_derive', { dryRun: true }))
+  assert.match(preview, /rule\/needs: 1 solution\(s\), \+1 appended/)
+  assert.match(preview, /transitive needs/, 'the rule label rides along')
+  assert.match(preview, /derived \(dry run\): \+1 appended/)
+  assert.equal(contentText(call(server, 93, 'cave_query', { pattern: 'a NEEDS c' })), 'no matches',
+    'a dry run persists nothing')
+
+  const fired = contentText(call(server, 94, 'cave_derive', {}))
+  assert.match(fired, /derived: \+1 appended, 0 updated, 0 retracted, 1 unchanged/)
+  assert.match(contentText(call(server, 95, 'cave_query', { pattern: 'a NEEDS c' })), /a NEEDS c/)
+  const derived = store.currentBeliefs().find(row => row.subject === 'a' && row.object === 'c')
+  assert.ok(derived !== undefined)
+  assert.match(store.toClaim(derived).contexts[0] ?? '', /^src:rule\/[0-9a-f]+$/,
+    'derived rows carry rule provenance (spec §24.3)')
+
+  const again = contentText(call(server, 96, 'cave_derive', {}))
+  assert.match(again, /rule\/needs: unchanged premises, skipped/, 'watermark incrementality (spec §24.4)')
+  const refire = contentText(call(server, 97, 'cave_derive', { full: true }))
+  assert.match(refire, /1 unchanged/, 'a full re-fire is idempotent')
+
+  const badConf = call(server, 98, 'cave_derive', { minConf: 2 })
+  assert.equal(badConf.result?.['isError'], true)
+  assert.match(contentText(badConf), /minConf must be a number in 0\.\.1/)
+  const badPasses = call(server, 99, 'cave_derive', { maxPasses: 0 })
+  assert.equal(badPasses.result?.['isError'], true)
   store.close()
 })
 

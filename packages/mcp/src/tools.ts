@@ -6,10 +6,12 @@
  * |---|---|
  * | `cave_add` | append CAVE text (extraction output) to the store |
  * | `cave_query` | run a CAVE-Q pattern (spec §12) |
+ * | `cave_fuse` | Bayesian fusion of numeric estimates (§10.1) — named computation |
  * | `cave_search` | full-text search over claims and comments |
  * | `cave_about` | current claims about an entity, both directions |
  * | `cave_neighbors` | named forward + inverse edges of an entity (§13.3) |
  * | `cave_reconstruct` | cave-loop active reconstruction from seed cues (§18) |
+ * | `cave_derive` | fire the stored rules (§24) — named computation |
  * | `cave_export` | canonical CAVE text of the store |
  * | `cave_lint` | parse text and report diagnostics without storing |
  *
@@ -21,10 +23,13 @@
  * the minimum viable agent permission boundary.
  */
 
+import { Claim, Key, Multiplier } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
-import { emitClaim } from '@cavelang/canonical'
+import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
+import { estimateOf, fuse } from '@cavelang/fusion'
+import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
 import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
 
@@ -85,6 +90,87 @@ const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boo
   return rows
     .filter(row => names.has(row.subject) || (row.object !== null && names.has(row.object)))
     .map(row => emitClaim(store.toClaim(row)))
+}
+
+/** Unit of the numeric value a claim carries, when it carries one. */
+const unitOf = (claim: Claim.t): undefined | string =>
+  claim.payload.kind === 'attribute' ? claim.payload.value.unit :
+  claim.payload.kind === 'metric' ? claim.payload.value.unit :
+  undefined
+
+/**
+ * Multiplier-compacted rendering of a fused number, 4 significant digits:
+ * `19965517241` → `19.97B` (spec §7.1 multipliers, largest that fits).
+ */
+const compactNumber = (n: number): string => {
+  for (const [letter, factor] of Object.entries(Multiplier.factors)) {
+    if (Math.abs(n) >= factor) {
+      return `${Number((n / factor).toPrecision(4))}${letter}`
+    }
+  }
+  return `${Number(n.toPrecision(4))}`
+}
+
+/** Compact number with its unit as CAVE writes values: `19.97B USD/yr`, `94.5%`. */
+const withUnit = (n: number, unit: undefined | string): string =>
+  `${compactNumber(n)}${unit === undefined ? '' : unit === '%' ? '%' : ` ${unit}`}`
+
+/**
+ * The §26 quantity of a claim — its claim key modulo `src:` contexts, the
+ * resolution-group identity of "one fact, several voices". Fusion only
+ * makes sense within one quantity (spec §10.1). `representative` widens
+ * the group through the alias closure (spec §26.1's smallest-member
+ * canonicalization) — the subject suffices, because only attribute and
+ * metric payloads carry estimates.
+ */
+const quantityOf = (claim: Claim.t, representative: (name: string) => string): string => {
+  const [subject, verb, , payload, contexts] =
+    JSON.parse(Key.of(claim)) as [string, string, number, string, string[]]
+  return JSON.stringify([
+    subject.startsWith('e:') ? `e:${representative(subject.slice(2))}` : subject,
+    verb,
+    payload,
+    contexts.filter(context => !context.startsWith('src:'))
+  ])
+}
+
+/**
+ * The claims `cave_fuse` considers: matched store rows (`pattern`, deduped
+ * — one row may solve a pattern several ways), current claims an entity
+ * is the subject of (`about` — the only reach into metric `IS` series,
+ * which CAVE-Q variables cannot bind), or literal CAVE text that never
+ * touches the store (`text`). Exactly one selector, so the answer's
+ * provenance is unambiguous.
+ */
+const selectFuseClaims = (store: Store, args: Record<string, unknown>): Claim.t[] => {
+  const selectors = (['pattern', 'about', 'text'] as const).filter(name => typeof args[name] === 'string')
+  const selector = selectors.length === 1 ? selectors[0] : undefined
+  if (selector === undefined) {
+    throw new Error('provide exactly one of pattern (CAVE-Q over the store), about (an entity name) or text (literal CAVE lines)')
+  }
+  if (typeof args['asOf'] === 'string' && selector !== 'pattern') {
+    throw new Error('asOf composes with pattern only')
+  }
+  if (selector === 'pattern') {
+    const matches = caveQuery(store, text(args['pattern'], 'pattern'), {
+      aliases: args['aliases'] === true,
+      ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {}
+    })
+    const rows = new Map(matches.flatMap(match => match.row === undefined ? [] : [[match.row.id, match.row] as const]))
+    return [...rows.values()].map(row => store.toClaim(row))
+  }
+  if (selector === 'about') {
+    const entity = text(args['about'], 'about')
+    const names = new Set(args['aliases'] === true ? store.aliasesOf(entity) : [entity])
+    return store.currentBeliefs()
+      .filter(row => names.has(row.subject) && row.conf > 0)
+      .map(row => store.toClaim(row))
+  }
+  const result = canonicalizeText(text(args['text'], 'text'), store.registry())
+  if (result.problems.length > 0) {
+    throw new Error(result.problems.map(problem => `line ${problem.line}: ${problem.message}`).join('\n'))
+  }
+  return result.claims.map(entry => entry.claim)
 }
 
 export const tools: readonly Tool[] = [
@@ -151,6 +237,70 @@ export const tools: readonly Tool[] = [
         const line = match.row === undefined ? undefined : match.row.raw_line
         return bindings === '' ? line ?? 'match' : line === undefined ? bindings : `${bindings}  ; ${line}`
       }).join('\n')
+    }
+  },
+  {
+    name: 'cave_fuse',
+    description: 'Bayesian fusion of independent numeric estimates of one quantity (spec §10.1) — ' +
+      'delegate the precision-weighted math instead of doing arithmetic in tokens. Select the ' +
+      'estimates with a CAVE-Q pattern (e.g. "openai HAS revenue: ?v" — the same fact from ' +
+      'several sources), with about (an entity name — reaches metric series like "revenue IS ' +
+      '20B USD/yr +/- 0.5B USD/yr"), or as literal CAVE text lines. Only positive claims with a ' +
+      'numeric value and +/- uncertainty carry an estimate (σ = Δ/k, spec §7.2); confidence ' +
+      'weights precision. Returns the posterior mean and sigma plus a value ready to write back.',
+    writes: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pattern: { type: 'string', description: 'CAVE-Q pattern selecting the store rows to fuse (exactly one of pattern/about/text)' },
+        about: { type: 'string', description: 'entity whose current claims carry the estimates (exactly one of pattern/about/text)' },
+        text: { type: 'string', description: 'CAVE lines carrying the estimates, fused without touching the store (exactly one of pattern/about/text)' },
+        aliases: { type: 'boolean', description: 'pattern/about match through the alias closure (spec §13.6)' },
+        asOf: { type: 'string', description: 'fuse the estimates believed at a past moment (spec §12.3): a date, timestamp or transaction id; pattern only' }
+      }
+    },
+    run: (store, args) => {
+      const claims = selectFuseClaims(store, args)
+      const estimates = claims.flatMap(claim => {
+        const estimate = estimateOf(claim)
+        return claim.negated || estimate === undefined || !((estimate.conf ?? 1) > 0) ? [] : [{ claim, estimate }]
+      })
+      if (estimates.length === 0) {
+        return claims.length === 0 ?
+          'nothing to fuse: no matching claims' :
+          `nothing to fuse: none of the ${claims.length} claim(s) carries a positive numeric estimate with +/- uncertainty`
+      }
+      const representative = args['aliases'] === true ?
+        (name: string): string => store.aliasesOf(name).reduce((min, candidate) => candidate < min ? candidate : min) :
+        (name: string): string => name
+      const quantities = new Map<string, Claim.t>()
+      for (const { claim } of estimates) {
+        const quantity = quantityOf(claim, representative)
+        if (!quantities.has(quantity)) {
+          quantities.set(quantity, claim)
+        }
+      }
+      if (quantities.size > 1) {
+        throw new Error([
+          `cannot fuse across ${quantities.size} quantities — spec §10.1 fuses independent estimates ` +
+          'of one quantity (one claim key modulo @src: contexts); narrow the selection. Found:',
+          ...[...quantities.values()].map(claim => `  ${emitClaim(claim)}`)
+        ].join('\n'))
+      }
+      const units = [...new Set(estimates.map(({ claim }) => unitOf(claim) ?? ''))].sort()
+      if (units.length > 1) {
+        throw new Error('cannot fuse mixed units: ' +
+          `${units.map(unit => unit === '' ? '(none)' : unit).join(', ')} — convert the estimates to one unit first`)
+      }
+      const posterior = fuse(estimates.map(({ estimate }) => estimate))!
+      const unit = units[0] === '' ? undefined : units[0]
+      const skipped = claims.length - estimates.length
+      return [
+        `fused ${estimates.length} estimate(s)${skipped > 0 ? `, skipped ${skipped} without a positive numeric +/- estimate` : ''}:`,
+        ...estimates.map(({ claim }) => `  ${emitClaim(claim)}`),
+        `posterior: ${withUnit(posterior.mean, unit)} +/- ${withUnit(2 * posterior.sigma, unit)} (2σ)` +
+        ` ; mean ${posterior.mean}, sigma ${posterior.sigma}`
+      ].join('\n')
     }
   },
   {
@@ -245,6 +395,63 @@ export const tools: readonly Tool[] = [
       return [
         `expanded ${trace.length} cue(s): ${trace.map(step => step.cue.entity).join(' → ') || 'none'}`,
         ...claims.map(claim => emitClaim(claim))
+      ].join('\n')
+    }
+  },
+  {
+    name: 'cave_derive',
+    description: 'Fire the rules declared in the knowledge database (spec §24): forward chaining ' +
+      'over current beliefs. Derived claims append with @src:rule/<digest> provenance, BECAUSE ' +
+      'edges to their premise rows and VIA to the rule; confidence is noisy-AND; re-runs are ' +
+      'idempotent and incremental by tx watermark, and retracting a premise retracts dependents. ' +
+      'Declare rules first as ordinary claims via cave_add, e.g. ' +
+      'rule/needs HAS rule: `?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z`. ' +
+      'Set dryRun to preview without appending.',
+    writes: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dryRun: { type: 'boolean', description: 'evaluate inside a rolled-back transaction; report only, append nothing' },
+        full: { type: 'boolean', description: 'ignore stored watermarks — re-fire every rule (spec §24.4)' },
+        aliases: { type: 'boolean', description: 'premises match through the alias closure (spec §13.6)' },
+        minConf: { type: 'number', description: 'conclusions below this confidence are not asserted (default 0.05)' },
+        maxPasses: { type: 'number', description: 'fixpoint guard — maximum evaluation passes (default 20)' }
+      }
+    },
+    run: (store, args) => {
+      const minConf = args['minConf']
+      if (minConf !== undefined && (typeof minConf !== 'number' || !Number.isFinite(minConf) || minConf < 0 || minConf > 1)) {
+        throw new Error('minConf must be a number in 0..1')
+      }
+      const maxPasses = args['maxPasses']
+      if (maxPasses !== undefined && (typeof maxPasses !== 'number' || !Number.isInteger(maxPasses) || maxPasses < 1)) {
+        throw new Error('maxPasses must be a positive integer')
+      }
+      const dryRun = args['dryRun'] === true
+      const report = derive(store, {
+        dryRun,
+        full: args['full'] === true,
+        aliases: args['aliases'] === true,
+        ...minConf === undefined ? {} : { minConf },
+        ...maxPasses === undefined ? {} : { maxPasses }
+      })
+      if (report.rules.length === 0 && report.problems.length === 0) {
+        return 'no rules declared — declare one with cave_add: rule/<name> HAS rule: `premises => conclusion`'
+      }
+      return [
+        ...report.problems.map(problem => `${problem.subject}: ${problem.problems.join('; ')}`),
+        ...report.rules.flatMap(rule => [
+          `${rule.subject}: ` +
+          (rule.fired ?
+            `${rule.solutions} solution(s), +${rule.appended} appended, ${rule.updated} updated, ` +
+            `${rule.retracted} retracted, ${rule.unchanged} unchanged` :
+            'unchanged premises, skipped') +
+          (rule.label === undefined ? '' : ` ; ${rule.label}`),
+          ...rule.problems.map(problem => `  ${problem}`)
+        ]),
+        ...report.notes.map(note => `note: ${note}`),
+        `derived${dryRun ? ' (dry run)' : ''}: +${report.appended} appended, ${report.updated} updated, ` +
+        `${report.retracted} retracted, ${report.unchanged} unchanged (${report.passes} pass(es))`
       ].join('\n')
     }
   },

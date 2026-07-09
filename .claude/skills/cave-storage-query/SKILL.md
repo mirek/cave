@@ -620,6 +620,12 @@ When several solutions conclude the same claim key in one firing, the
 never claim more than the best single one, and cyclic premise graphs
 converge. Conclusions below a floor (default 5%) are not asserted.
 
+Surfaces: `cave derive`, and the MCP `cave_derive` tool (ROADMAP
+item 12) with the same semantics (`dryRun`, `full`, `aliases`,
+`minConf`, `maxPasses`). Rules are ordinary claims, so an agent declares
+them through `cave_add` and fires them without leaving the protocol;
+the tool writes, so a `--read-only` serving scope drops it.
+
 ### 24.3 What a derivation appends
 
 A derived claim is an ordinary append with three §9/§13 obligations:

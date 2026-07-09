@@ -51,6 +51,10 @@ test('cave mcp speaks MCP over stdio end to end', async () => {
     assert.match(text(added), /added 1 claim/)
     const queried = await rpc('tools/call', { name: 'cave_query', arguments: { pattern: '?x USES jwt' } })
     assert.match(text(queried), /\?x = auth/)
+    const fused = await rpc('tools/call', { name: 'cave_fuse', arguments: {
+      text: 'revenue IS 18B USD/yr +/- 3B USD/yr @ 60%\nrevenue IS 20B USD/yr +/- 0.5B USD/yr @ 95%'
+    } })
+    assert.match(text(fused), /posterior: 19\.97B USD\/yr/, 'named computation over stdio (spec §10.1)')
 
     child.stdin.end()
     const code = await new Promise<number | null>(resolve => child.on('close', resolve))
