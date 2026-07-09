@@ -10,22 +10,25 @@
   ],
   "references": [
     {
-      "path": "../act"
-    },
-    {
       "path": "../canonical"
     },
     {
-      "path": "../core"
+      "path": "../connect"
     },
     {
-      "path": "../loop"
+      "path": "../core"
     },
     {
       "path": "../parser"
     },
     {
       "path": "../query"
+    },
+    {
+      "path": "../rules"
+    },
+    {
+      "path": "../shape"
     },
     {
       "path": "../store"

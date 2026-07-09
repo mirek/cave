@@ -40,6 +40,33 @@ importers:
         specifier: ^5.8.0
         version: 5.9.3
 
+  packages/act:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cavelang/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@cavelang/shape':
+        specifier: workspace:*
+        version: link:../shape
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/canonical:
     dependencies:
       '@cavelang/core':
@@ -51,6 +78,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@cavelang/act':
+        specifier: workspace:*
+        version: link:../act
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -158,6 +188,9 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@cavelang/act':
+        specifier: workspace:*
+        version: link:../act
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical

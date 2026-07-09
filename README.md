@@ -180,6 +180,36 @@ re-runs are idempotent and skip rules nothing new could affect, and when a
 premise is later retracted the conclusions it supported are retracted with
 it — `cave derive` again to propagate. See [`@cavelang/rules`](packages/rules).
 
+### Decisions execute as governed writes — `cave act`
+
+Rules conclude on their own; **actions** put the write in the caller's
+hands, governed (spec §25). An action is the same one-line shape with
+parameters — bare `?name` segments the caller supplies — declared in-band
+under a stable name:
+
+```cave
+action/record-birth HAS action: `?parent, ?child, ?parent EXISTS => ?parent PARENT-OF ?child` ; record a birth in the family tree
+```
+
+```
+$ pnpm exec cave act --db family.db record-birth parent=anna child=little-jan
+executed action/record-birth: +1 appended, 0 updated, 0 unchanged (1 solution(s))
+  appended: anna PARENT-OF little-jan
+```
+
+Executing validates the parameters, checks every precondition against
+current belief (no match → nothing is appended), then appends the effects
+atomically — stamped `@src:action/<name>`, linked `BECAUSE` to the
+precondition rows and `VIA` to the declaration, idempotent on re-run, and
+gated on the store's `EXPECTS` shapes by default (§20.3's mechanism at its
+second enforcement point). `cave mcp` serves every declared action as a
+generated `act_<name>` tool, so agents get a governed write vocabulary
+instead of freeform appends — and a declared hook name
+(`HAS hook: notify`) can fire an out-of-band, config-declared shell
+template after commit, carrying the decision to the outside world
+(the claim names the hook; the command never lives in the store). See
+[`@cavelang/act`](packages/act).
+
 ### Structured data needs no LLM — `cave connect`
 
 CSV/JSON/SQLite records deserve exact, repeatable, token-free conversion. `cave connect` maps them through an ordinary CAVE document whose `?field` variables stand for record fields — same input, same claims, every time:
@@ -199,7 +229,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (expectations, rules, actions, evals, sync), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (evals, resolution policy, automation, sync), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -209,7 +239,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 
@@ -219,7 +249,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§25 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

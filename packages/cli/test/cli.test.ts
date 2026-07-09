@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -502,5 +502,123 @@ test('add --check rolls back appends that introduce violations (spec §20.3)', (
     const accepted = addCommand(['--db', db, '--check', good])
     assert.equal(accepted.code, 0)
     assert.match(accepted.out, /added 2 claim\(s\)/)
+  })
+})
+
+test('act: declare + execute + list + retract (spec §25)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const actions = join(dir, 'actions.cave')
+    writeFileSync(actions, [
+      'action/mark-deployed HAS action: `?service, ?version, ?service IS service => ?service HAS deployed-version: ?version` ; record a deployment',
+      'action/mark-deployed/service IS param ; the service that was deployed',
+      'api IS service'
+    ].join('\n'))
+    const declared = actCommand(['--db', db, '--declare', actions])
+    assert.equal(declared.code, 0, declared.err)
+    assert.match(declared.out, /declared 1 action\(s\)/)
+
+    const executed = actCommand(['--db', db, 'mark-deployed', 'service=api', 'version=1.2.3'])
+    assert.equal(executed.code, 0, executed.err)
+    assert.match(executed.out, /\+1 appended/)
+    assert.match(executed.out, /appended: api HAS deployed-version: 1\.2\.3/)
+    const queried = queryCommand(['--db', db, 'api HAS deployed-version: ?v'])
+    assert.match(queried.out, /\?v = 1\.2\.3/)
+
+    const listed = actCommand(['--db', db, '--list'])
+    assert.match(listed.out, /action\/mark-deployed/)
+    assert.match(listed.out, /\?service — the service that was deployed/)
+
+    // A failed precondition appends nothing and exits 1.
+    const failed = actCommand(['--db', db, 'mark-deployed', 'service=ghost', 'version=1'])
+    assert.equal(failed.code, 1)
+    assert.match(failed.err, /precondition failed/)
+
+    const retracted = actCommand(['--db', db, '--retract', 'mark-deployed'])
+    assert.equal(retracted.code, 0)
+    const gone = actCommand(['--db', db, 'mark-deployed', 'service=api', 'version=2'])
+    assert.equal(gone.code, 1)
+    assert.match(gone.err, /no current action/)
+    // Recorded effects survive the retraction (spec §25.1).
+    assert.match(queryCommand(['--db', db, 'api HAS deployed-version: ?v']).out, /1\.2\.3/)
+  })
+})
+
+test('act --dry-run persists nothing; act --json reports; bad pairs rejected', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const seed = join(dir, 'seed.cave')
+    writeFileSync(seed, 'action/open-window HAS action: `=> maintenance-window EXISTS`\n')
+    assert.equal(actCommand(['--db', db, '--declare', seed]).code, 0)
+
+    const dry = actCommand(['--db', db, 'open-window', '--dry-run'])
+    assert.equal(dry.code, 0, dry.err)
+    assert.match(dry.out, /\(dry run\)/)
+    assert.match(queryCommand(['--db', db, 'maintenance-window EXISTS']).out, /no matches/)
+
+    const json = actCommand(['--db', db, 'open-window', '--json'])
+    assert.equal(json.code, 0)
+    const report = JSON.parse(json.out) as { ok: boolean, appended: number }
+    assert.equal(report.ok, true)
+    assert.equal(report.appended, 1)
+
+    const bad = actCommand(['--db', db, 'open-window', 'not-a-pair'])
+    assert.equal(bad.code, 1)
+    assert.match(bad.err, /expected param=value/)
+  })
+})
+
+test('act --hooks fires the named hook with claims on stdin (spec §25.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const seed = join(dir, 'seed.cave')
+    const hooks = join(dir, 'hooks.json')
+    const out = join(dir, 'hook-output.txt')
+    writeFileSync(seed, [
+      'action/announce HAS action: `?what => bulletin CONTAINS ?what`',
+      'action/announce HAS hook: post'
+    ].join('\n'))
+    const script = 'const fs=require(\'fs\');fs.writeFileSync(process.argv[1],fs.readFileSync(0,\'utf8\'))'
+    writeFileSync(hooks, JSON.stringify({ post: `node -e "${script}" ${out}` }))
+    assert.equal(actCommand(['--db', db, '--declare', seed]).code, 0)
+
+    const executed = actCommand(['--db', db, 'announce', 'what=launch', '--hooks', hooks])
+    assert.equal(executed.code, 0, executed.err)
+    assert.match(executed.out, /hook post: ok/)
+    assert.match(readFileSync(out, 'utf8'), /bulletin CONTAINS launch/)
+
+    // A named-but-unconfigured hook is a note, not an error (spec §25.4).
+    const unconfigured = actCommand(['--db', db, 'announce', 'what=retro'])
+    assert.equal(unconfigured.code, 0)
+    assert.match(unconfigured.out, /hook post: not fired \(not configured\)/)
+
+    // A failing hook keeps the claims and carries the exit code.
+    writeFileSync(hooks, JSON.stringify({ post: 'node -e "process.exit(3)"' }))
+    const failing = actCommand(['--db', db, 'announce', 'what=ga', '--hooks', hooks])
+    assert.equal(failing.code, 1)
+    assert.match(failing.out, /hook post: hook exited with 3/)
+    assert.match(queryCommand(['--db', db, 'bulletin CONTAINS ?w']).out, /ga/)
+  })
+})
+
+test('act --no-check skips the shape gate; the gate rejects by default (spec §25.3)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const seed = join(dir, 'seed.cave')
+    writeFileSync(seed, [
+      'service EXPECTS owner',
+      'action/enroll HAS action: `?name => ?name IS service`'
+    ].join('\n'))
+    assert.equal(actCommand(['--db', db, '--declare', seed]).code, 0)
+
+    const rejectedRun = actCommand(['--db', db, 'enroll', 'name=cache'])
+    assert.equal(rejectedRun.code, 1)
+    assert.match(rejectedRun.err, /shape gate/)
+    assert.match(rejectedRun.err, /cache missing attribute owner/)
+    assert.match(queryCommand(['--db', db, 'cache IS service']).out, /no matches/)
+
+    const unchecked = actCommand(['--db', db, 'enroll', 'name=cache', '--no-check'])
+    assert.equal(unchecked.code, 0, unchecked.err)
+    assert.match(queryCommand(['--db', db, 'cache IS service']).out, /cache IS service/)
   })
 })

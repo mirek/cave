@@ -15,5 +15,5 @@
 
 export { check, defaultStaleDays, evaluate, expectations } from './check.ts'
 export type { Coverage, Disagreement, Evaluation, Expectation, Options, Report, Stale, Violation } from './check.ts'
-export { gatedIngest } from './gate.ts'
+export { gatedIngest, violationKey } from './gate.ts'
 export type { GateResult } from './gate.ts'

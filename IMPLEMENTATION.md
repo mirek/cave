@@ -23,12 +23,13 @@ Dependency order, bottom to top:
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
+| [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
-| [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools; `--read-only` / `--tools <list>` serving scope |
+| [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / check / export / mcp / ingest / connect / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / connect / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -115,6 +116,20 @@ Package READMEs document local decisions; these are the global ones:
   new row could affect, idempotency makes re-fires append nothing, and
   support is recomputed per firing so retracting a premise retracts the
   dependent chain — mutually-supporting cycles included.
+- **Actions are named rules the caller fires; hooks stay out-of-band**
+  (§25): `@cavelang/act` reuses the §24.1 line shape under
+  `action/<name> HAS action: `…`` — bare `?param` segments declare
+  caller-supplied bindings, premises gate (no solution → nothing appends,
+  no noisy-AND — an action is the caller's assertion), effects append
+  atomically with `@src:action/<name>` stamps and `BECAUSE`/`VIA`
+  lineage, inside the §20.3 shape gate by default. Identity is the
+  *name*: one evolving declaration series per subject, resolved
+  newest-across-actor-series. Executable side effects never enter the
+  store — the claim names a hook, the shell template lives in config
+  (`--hooks`), runs strictly after commit with shell-quoted placeholders
+  and the appended claims on stdin, and its failure is reported, never
+  rolled back. `cave mcp` generates one `act_<name>` tool per current
+  action, recomputed per `tools/list`.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

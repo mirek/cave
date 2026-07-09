@@ -122,8 +122,9 @@ test('a scope that names unknown tools or serves nothing fails loudly', () => {
 })
 
 test('instructionsFor mentions only served tools and covers the full surface', () => {
-  assert.equal(instructionsFor(tools), instructions)
+  assert.equal(instructionsFor(tools, { actions: true }), instructions)
   assert.match(instructions, /cave_reconstruct/)
+  assert.match(instructions, /act_<name>/, 'the default surface serves action tools (spec §25.5)')
   const queryOnly = instructionsFor(scopedTools({ tools: ['cave_query'] }))
   assert.match(queryOnly, /cave_query patterns/)
   assert.doesNotMatch(queryOnly, /cave_add|cave_about|cave_reconstruct/)
@@ -271,5 +272,74 @@ test('tool errors surface as isError results, not protocol failures', () => {
   assert.equal(unknownTool.error?.code, -32602)
   const strict = call(server, 17, 'cave_add', { text: 'a uses b', strict: true })
   assert.equal(strict.result?.['isError'], true)
+  store.close()
+})
+
+const deployAction =
+  'action/mark-deployed HAS action: `?service, ?version, ?service IS service => ' +
+  '?service HAS deployed-version: ?version` ; record a deployment\n' +
+  'action/mark-deployed/service IS param ; the service that was deployed\n' +
+  'action/mark-deployed/version IS param ; the version now running\n'
+
+test('actions are served as generated act_<name> tools (spec §25.5)', () => {
+  const store = open()
+  store.ingest(`api IS service\n${deployAction}`)
+  const server = createServer(store)
+  const listed = (server.handle(request(60, 'tools/list')) as Response).result?.['tools'] as {
+    name: string, description: string,
+    inputSchema: { required: string[], properties: Record<string, { type: string, description?: string }> }
+  }[]
+  const tool = listed.find(candidate => candidate.name === 'act_mark-deployed')
+  assert.ok(tool, 'the declared action is served')
+  assert.match(tool.description, /record a deployment/)
+  assert.match(tool.description, /Governed write/)
+  assert.deepEqual(tool.inputSchema.required, ['service', 'version'])
+  assert.equal(tool.inputSchema.properties['service']!.description, 'the service that was deployed')
+
+  const executed = call(server, 61, 'act_mark-deployed', { service: 'api', version: '1.2.3' })
+  assert.notEqual(executed.result?.['isError'], true)
+  assert.match(contentText(executed), /\+1 appended/)
+  assert.match(contentText(call(server, 62, 'cave_about', { entity: 'api' })), /deployed-version: 1\.2\.3/)
+
+  // A failed precondition is a tool error, not a write.
+  const failed = call(server, 63, 'act_mark-deployed', { service: 'ghost', version: '1' })
+  assert.equal(failed.result?.['isError'], true)
+  assert.match(contentText(failed), /precondition failed/)
+  store.close()
+})
+
+test('an action declared mid-session appears without reconnecting (spec §25.5)', () => {
+  const store = open()
+  const server = createServer(store)
+  const before = (server.handle(request(65, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.ok(!before.some(tool => tool.name.startsWith('act_')))
+  call(server, 66, 'cave_add', { text: 'action/open-window HAS action: `=> maintenance-window EXISTS`' })
+  const after = (server.handle(request(67, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.ok(after.some(tool => tool.name === 'act_open-window'))
+  assert.match(contentText(call(server, 68, 'act_open-window', {})), /\+1 appended/)
+  store.close()
+})
+
+test('scope composition covers action tools (spec §25.5)', () => {
+  const store = open()
+  store.ingest(`api IS service\n${deployAction}`)
+
+  // --read-only drops every action tool: they write.
+  const readOnly = createServer(store, { readOnly: true })
+  const roTools = (readOnly.handle(request(70, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.ok(!roTools.some(tool => tool.name.startsWith('act_')))
+  const denied = readOnly.handle(request(71, 'tools/call', { name: 'act_mark-deployed', arguments: {} })) as Response
+  assert.equal(denied.error?.code, -32602)
+
+  // --tools may name action tools; unnamed ones are hidden.
+  const scoped = createServer(store, { tools: ['cave_query', 'act_mark-deployed'] })
+  const scopedList = (scoped.handle(request(72, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.deepEqual(scopedList.map(tool => tool.name), ['cave_query', 'act_mark-deployed'])
+
+  // An act_-only scope is valid — validated at call time, not startup.
+  const actOnly = createServer(store, { tools: ['act_mark-deployed'] })
+  const actOnlyList = (actOnly.handle(request(73, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.deepEqual(actOnlyList.map(tool => tool.name), ['act_mark-deployed'])
+  assert.match(contentText(call(actOnly, 74, 'act_mark-deployed', { service: 'api', version: '2' })), /\+1 appended/)
   store.close()
 })

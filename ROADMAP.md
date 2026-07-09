@@ -34,8 +34,10 @@ Summary of the gaps:
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
   tx watermark; derived computation beyond rules (named MCP tools,
   automation) is still ahead.
-- **Act** — the entire kinetic layer (governed writes, side effects,
-  automation) is missing.
+- **Act** — governed writes and side effects shipped in 0.13.0
+  (`cave act`, item 8): in-band action templates with validated CAVE-Q
+  preconditions, generated `act_<name>` MCP tools, out-of-band hooks;
+  event-driven automation (item 16) remains.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
   0.10.0; evals and a human read surface are missing.
 - **Distribute** — two CAVE stores cannot merge; everything needed for
@@ -150,8 +152,8 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
-| Governed writes (actions) | `cave_add` / `cave add` — raw ungoverned append | missing | named action templates with declared parameters and CAVE-Q preconditions; agents get a governed write vocabulary instead of freeform appends |
-| Side effects / writeback | none | missing | out-of-band hooks (config-declared shell templates, like `--agent`) fired on action execution — a decision recorded in CAVE should be able to reach the outside world |
+| Governed writes (actions) | `cave act` (spec §25): named action templates declared in-band, parameters validated, CAVE-Q preconditions checked against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default; served as generated `act_<name>` MCP tools | exists | shipped in 0.13.0 (item 8) |
+| Side effects / writeback | `HAS hook:` names a config-declared shell template (`--hooks`, §25.4) fired after commit with the appended claims on stdin | exists | shipped in 0.13.0 (item 8); the claim names the hook, the command never enters the store |
 | Named computation | fusion/loop are pure libraries, not invocable by name | partial | expose fusion/derivation as named MCP tools (`cave_fuse`, …) so agents delegate computation instead of doing arithmetic in tokens |
 | Event-driven automation | none | missing | a long-running loop firing rules/actions/hooks/agent prompts when new claims match patterns — closes sense → decide → act → record unattended |
 
@@ -276,8 +278,8 @@ extend an existing one.
 ### Phase 2 — the kinetic layer and the rules engine
 
 *CAVE stops being read-only memory; knowledge starts producing
-knowledge. The rules engine (item 7) shipped in 0.12.0; the kinetic
-layer is next.*
+knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
+(item 8) in 0.13.0; the evals harness is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -310,7 +312,22 @@ layer is next.*
    (shell template, the `--agent` pattern pointed outward; the claim may
    *name* a hook, never contain one). Exposed as generated MCP tools:
    agents get a governed write vocabulary with human-confirmable
-   execution.
+   execution. — **Shipped in 0.13.0** (spec §25): the declaration is the
+   §24.1 line shape under a stable name (`action/<name> HAS action:
+   `…``) with bare `?param` segments declaring caller-supplied bindings
+   and a comma-separated effect list; premises gate — no solution, no
+   append, and effect confidence is the template's own (an action is the
+   caller's assertion, not an inference — no noisy-AND); effects append
+   atomically, stamped `@src:action/<name>` with `BECAUSE`/`VIA` lineage,
+   idempotent on re-run, inside the §20.3 shape gate by default (the
+   promised second enforcement point); hooks are named in-band
+   (`HAS hook:`), defined out-of-band (`--hooks hooks.json`,
+   `$CAVE_HOOKS`), fire strictly after commit with shell-quoted
+   placeholders and the appended claims on stdin, and never roll back
+   recorded knowledge; `cave mcp` serves one generated `act_<name>` tool
+   per current action, recomputed per `tools/list`, composing with the
+   0.10.0 serving scope (`--read-only` drops them; `act_`-prefixed
+   `--tools` entries resolve at call time).
 9. **`@cavelang/eval` — the evals harness.** Fixtures as plain files:
    source text + golden `.cave` for extraction; CAVE-Q + expected
    bindings for query. Run N times against any `--agent`; score by
