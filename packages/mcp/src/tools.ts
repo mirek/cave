@@ -26,6 +26,7 @@ import { emitClaim } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import { reconstruct, heuristicPolicy, type CaveStore } from '@cavelang/loop'
+import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
 
 /** Per-connection state the server threads into tool calls. */
 export type ToolContext = {
@@ -34,6 +35,8 @@ export type ToolContext = {
    * prefix — e.g. `agent/claude-code`. `undefined` disables stamping.
    */
   readonly source?: string
+  /** Out-of-band hook command templates for action tools (spec §25.4). */
+  readonly hooks?: Readonly<Record<string, string>>
 }
 
 export type Tool = {
@@ -303,21 +306,114 @@ export const tools: readonly Tool[] = [
 export const byName: ReadonlyMap<string, Tool> =
   new Map(tools.map(tool => [tool.name, tool]))
 
+/** Tool-name prefix of generated action tools (spec §25.5). */
+export const actToolPrefix = 'act_'
+
 /**
- * @returns the tool surface actually served under a scope: `tools` (when
- * given) narrowed to writers-excluded under `readOnly`. Throws on names
- * that exist nowhere and on a scope that serves nothing — a misconfigured
- * permission boundary must fail loudly, not serve quietly.
+ * MCP tool name of an action: `act_` plus the action name with
+ * characters outside the MCP tool alphabet mapped to `_`
+ * (`team/promote` → `act_team_promote`).
+ */
+export const actToolName = (action: string): string =>
+  `${actToolPrefix}${action.replaceAll(/[^A-Za-z0-9_-]/g, '_')}`
+
+const renderReport = (report: ActReport): string => {
+  if (!report.ok) {
+    const violations = (report.violations ?? []).map(violation =>
+      `  ${violation.entity} missing ${violation.expectation.kind} ${violation.expectation.name}`)
+    return [`${report.action}: ${report.error}`, ...violations].join('\n')
+  }
+  const lines = [
+    `executed ${report.subject}${report.dryRun ? ' (dry run)' : ''}: ` +
+    `+${report.appended} appended, ${report.updated} updated, ${report.unchanged} unchanged`,
+    ...report.effects.map(effect => `  ${effect.outcome}: ${effect.line}`)
+  ]
+  if (report.hook !== undefined) {
+    lines.push(report.hook.fired ?
+      `hook ${report.hook.name}: ${report.hook.error ?? 'ok'}` :
+      `hook ${report.hook.name}: not fired (${report.hook.note})`)
+  }
+  return lines.join('\n')
+}
+
+/** One generated tool per current positive action (spec §25.5). */
+const actionTool = (action: ListedAction): Tool => ({
+  name: actToolName(action.name),
+  description: `${action.description ?? `Execute the ${action.name} action`}. ` +
+    'Governed write (spec §25): preconditions are validated against current belief, ' +
+    'effects append atomically with provenance and lineage; a failed precondition ' +
+    `appends nothing. Body: \`${action.text}\`` +
+    (action.hook === undefined ? '' : ` — names the out-of-band hook "${action.hook}"`) + '.',
+  writes: true,
+  inputSchema: {
+    type: 'object',
+    required: [...action.params.map(param => param.name)],
+    properties: Object.fromEntries(action.params.map(param => [
+      param.name,
+      { type: 'string', ...param.doc === undefined ? {} : { description: param.doc } }
+    ]))
+  },
+  run: (store, args, context) => {
+    const report = act(store, action.name, args, {
+      ...context.hooks === undefined ? {} : { hooks: context.hooks }
+    })
+    const text = renderReport(report)
+    if (!report.ok || report.hook?.error !== undefined) {
+      throw new Error(text)
+    }
+    return text
+  }
+})
+
+/**
+ * @returns the generated action tools of the store's current positive
+ * declarations (spec §25.5), computed per call so an action declared
+ * mid-session appears without reconnecting. Actions whose stored body
+ * does not parse are skipped, as are name collisions after MCP-alphabet
+ * mapping (first declaration wins).
+ */
+export const actionTools = (store: Store): Tool[] => {
+  const generated = new Map<string, Tool>()
+  for (const action of listActions(store)) {
+    if (!action.ok) {
+      continue
+    }
+    const tool = actionTool(action)
+    if (!generated.has(tool.name)) {
+      generated.set(tool.name, tool)
+    }
+  }
+  return [...generated.values()]
+}
+
+/**
+ * @returns the action tools served under a scope (spec §25.5): none when
+ * `readOnly` (they all write), and only the listed names under `tools` —
+ * an `act_`-prefixed scope entry is validated here, at call time, because
+ * it scopes whichever actions exist when asked.
+ */
+export const scopedActionTools = (store: Store, scope: Scope = {}): Tool[] =>
+  scope.readOnly === true ?
+    [] :
+    actionTools(store).filter(tool => scope.tools === undefined || scope.tools.includes(tool.name))
+
+/**
+ * @returns the static tool surface actually served under a scope: `tools`
+ * (when given) narrowed to writers-excluded under `readOnly`. Throws on
+ * names that exist nowhere and on a scope that serves nothing — a
+ * misconfigured permission boundary must fail loudly, not serve quietly.
+ * `act_`-prefixed names pass through: they scope generated action tools
+ * (spec §25.5), resolved against the store at call time.
  */
 export const scopedTools = (scope: Scope = {}): readonly Tool[] => {
-  const unknown = (scope.tools ?? []).filter(name => !byName.has(name))
+  const unknown = (scope.tools ?? []).filter(name => !byName.has(name) && !name.startsWith(actToolPrefix))
   if (unknown.length > 0) {
-    throw new Error(`unknown tool(s): ${unknown.join(', ')} — available: ${tools.map(tool => tool.name).join(', ')}`)
+    throw new Error(`unknown tool(s): ${unknown.join(', ')} — available: ${tools.map(tool => tool.name).join(', ')}, act_<action>`)
   }
   const served = tools.filter(tool =>
     (scope.tools === undefined || scope.tools.includes(tool.name)) &&
     (scope.readOnly !== true || !tool.writes))
-  if (served.length === 0) {
+  if (served.length === 0 && !(scope.tools ?? []).some(name => name.startsWith(actToolPrefix))) {
     throw new Error('the requested scope serves no tools')
   }
   return served

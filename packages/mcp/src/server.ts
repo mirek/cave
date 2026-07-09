@@ -16,7 +16,7 @@
 import { createInterface } from 'node:readline'
 import { Version } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
-import { scopedTools, tools, type Scope, type Tool } from './tools.ts'
+import { actToolPrefix, scopedActionTools, scopedTools, tools, type Scope, type Tool } from './tools.ts'
 
 export type ServerOptions = Scope & {
   /**
@@ -25,6 +25,8 @@ export type ServerOptions = Scope & {
    * plain `agent` before or without one. `false` disables stamping.
    */
   readonly source?: string | false
+  /** Out-of-band hook command templates for action tools (spec §25.4). */
+  readonly hooks?: Readonly<Record<string, string>>
 }
 
 /**
@@ -74,9 +76,11 @@ by adding the same claim with new confidence; retract with @ 0%.`
  * Server instructions for a served tool surface — the card plus tool
  * guidance mentioning only tools actually served, so a connected model is
  * never pointed at a tool the scope hides. A surface with no writing tool
- * says so outright.
+ * says so outright. `actions` marks a scope that (also) serves generated
+ * action tools (spec §25.5) — a write surface even when no static tool
+ * writes.
  */
-export const instructionsFor = (served: readonly Tool[]): string => {
+export const instructionsFor = (served: readonly Tool[], options: { actions?: boolean } = {}): string => {
   const has = (name: string): boolean => served.some(tool => tool.name === name)
   const explore = ['cave_about', 'cave_neighbors'].filter(has)
   const clauses = [
@@ -97,17 +101,24 @@ export const instructionsFor = (served: readonly Tool[]): string => {
       'context; to update or retract a claim that carries a different @src:,\n' +
       'restate it with that exact context.'
     ] : [],
-    ...served.some(tool => tool.writes) ? [] :
+    ...options.actions === true ? [
+      'Actions declared in the knowledge database are served as act_<name>\n' +
+      'tools (spec §25) — a governed write vocabulary: parameters validated,\n' +
+      'preconditions checked against current belief, effects appended\n' +
+      `atomically with provenance. Prefer them over ${has('cave_add') ? 'cave_add' : 'freeform appends'} when one fits.`
+    ] : [],
+    ...served.some(tool => tool.writes) || options.actions === true ? [] :
       ['This server is read-only: no tool writes to the knowledge database.']
   ].join('\n')
   return guidance === '' ? specCard : `${specCard}\n\n${guidance}`
 }
 
 /**
- * Server instructions for the full tool surface, so a connected model
- * knows how to write CAVE without reading the full specification.
+ * Server instructions for the full default surface — every static tool
+ * plus generated action tools (spec §25.5) — so a connected model knows
+ * how to write CAVE without reading the full specification.
  */
-export const instructions = instructionsFor(tools)
+export const instructions = instructionsFor(tools, { actions: true })
 
 type Id = string | number
 
@@ -145,7 +156,14 @@ const isId = (value: unknown): value is Id =>
 export const createServer = (store: Store, options: ServerOptions = {}) => {
   const served = scopedTools(options)
   const servedByName = new Map(served.map(tool => [tool.name, tool]))
-  const servedInstructions = instructionsFor(served)
+  // Action tools are generated from the store's current declarations per
+  // request (spec §25.5) — an action declared mid-session appears in the
+  // next tools/list without reconnecting.
+  const actionsPossible = options.readOnly !== true &&
+    (options.tools === undefined || options.tools.some(name => name.startsWith(actToolPrefix)))
+  const actServed = (): Tool[] =>
+    actionsPossible ? scopedActionTools(store, options) : []
+  const servedInstructions = instructionsFor(served, { actions: actionsPossible })
   let clientName: undefined | string
   const source = (): undefined | string =>
     options.source === false ? undefined : options.source ?? agentSource(clientName)
@@ -180,7 +198,7 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
         return result(id, {})
       case 'tools/list':
         return result(id, {
-          tools: served.map(tool => ({
+          tools: [...served, ...actServed()].map(tool => ({
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
@@ -189,7 +207,10 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
         })
       case 'tools/call': {
         const call = (params ?? {}) as { name?: unknown, arguments?: unknown }
-        const tool = typeof call.name === 'string' ? servedByName.get(call.name) : undefined
+        const tool = typeof call.name === 'string' ?
+          servedByName.get(call.name) ??
+            (call.name.startsWith(actToolPrefix) ? actServed().find(candidate => candidate.name === call.name) : undefined) :
+          undefined
         if (tool === undefined) {
           return failure(id, -32602, `Unknown tool: ${String(call.name)}`)
         }
@@ -198,7 +219,10 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
           {}
         try {
           const stamp = source()
-          const text = tool.run(store, args, stamp === undefined ? {} : { source: stamp })
+          const text = tool.run(store, args, {
+            ...stamp === undefined ? {} : { source: stamp },
+            ...options.hooks === undefined ? {} : { hooks: options.hooks }
+          })
           return result(id, { content: [{ type: 'text', text }] })
         } catch (error) {
           const text = error instanceof Error ? error.message : String(error)

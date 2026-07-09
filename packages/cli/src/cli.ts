@@ -10,6 +10,7 @@
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`)
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
+ * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
@@ -32,6 +33,8 @@ import { check as caveCheck, defaultStaleDays, gatedIngest } from '@cavelang/sha
 import type { Report, Violation } from '@cavelang/shape'
 import { declareRules, defaultMaxPasses, defaultMinConf, derive, listRules, retractRule } from '@cavelang/rules'
 import type { Declaration, DeriveReport } from '@cavelang/rules'
+import { act, declareActions, listActions, retractAction } from '@cavelang/act'
+import type { ActReport } from '@cavelang/act'
 import { Demo } from '@cavelang/loop'
 
 export type Output = {
@@ -55,6 +58,8 @@ Usage:
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
   cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
+  cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
+  cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
@@ -214,6 +219,54 @@ Examples:
   cave derive --db k.db --dry-run --json
   cave derive --db k.db --list
   cave derive --db k.db --retract 4a0bb974f43c`,
+
+  act: `cave act — execute, declare, list and retract actions (spec §25)
+
+Usage:
+  cave act [--db <path>] <name> [param=value...] [--dry-run] [--no-check]
+           [--aliases] [--hooks <file>] [--json] [--no-prelude]
+  cave act [--db <path>] --declare [file...]
+  cave act [--db <path>] --list [--json]
+  cave act [--db <path>] --retract <name>
+
+Options:
+  ${dbHelp}
+  --dry-run      validate and report inside a rolled-back transaction;
+                 hooks never fire
+  --no-check     skip the shape gate (spec §25.3) — by default an
+                 execution that introduces new EXPECTS violations is
+                 rolled back
+  --aliases      preconditions match through the alias closure (spec §13.6)
+  --hooks <file> JSON file of out-of-band hook command templates,
+                 name → shell template (spec §25.4); default: $CAVE_HOOKS
+  --declare      declare the actions of CAVE documents (stdin when no
+                 file); other lines are prelude, ingested first
+  --list         print the store's current actions and exit
+  --retract <n>  retract an action's declaration (effects of past
+                 executions stay recorded) and exit
+  --json         emit the report as JSON
+  --no-prelude   open the store without the standard verb registry
+
+An action is a named, governed write template (spec §25):
+
+  action/mark-deployed HAS action: \`?service, ?version,
+    ?service IS service => ?service HAS deployed-version: ?version\`
+
+Executing validates the parameters, checks each precondition against
+current belief (a premise with no match fails the action — nothing is
+appended), then appends the effects atomically, stamped
+@src:action/<name> with BECAUSE/VIA lineage. Re-runs are idempotent. A
+declared hook (action/<name> HAS hook: <hook>) runs after commit when
+the configuration defines it — {action} and {param} placeholders are
+shell-quoted, the appended claims arrive on stdin.
+
+Examples:
+  cave act --db k.db --declare actions.cave
+  cave act --db k.db mark-deployed service=api-gateway version=1.2.3
+  cave act --db k.db mark-deployed service=api version=2 --dry-run
+  cave act --db k.db mark-deployed service=api version=2 --hooks hooks.json
+  cave act --db k.db --list
+  cave act --db k.db --retract mark-deployed`,
 
   check: `cave check — knowledge health report (spec §20)
 
@@ -546,6 +599,138 @@ export const deriveCommand = (argv: readonly string[]): Output => {
   }
 }
 
+/**
+ * Loads a hooks configuration file (spec §25.4): a JSON object mapping
+ * hook names to shell command templates.
+ */
+const readHooks = (path: string): Record<string, string> => {
+  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
+      Object.values(parsed).some(value => typeof value !== 'string')) {
+    throw new Error(`${path}: hooks must be a JSON object of name → shell template strings`)
+  }
+  return parsed as Record<string, string>
+}
+
+/** Text rendering of a spec §25.2 execution report. */
+const renderActReport = (report: ActReport): { lines: string[], code: number } => {
+  if (!report.ok) {
+    const lines = [`cave act: ${report.error}`]
+    for (const violation of report.violations ?? []) {
+      lines.push(`  ${formatViolation(violation)}`)
+    }
+    return { lines, code: 1 }
+  }
+  const lines = [
+    `executed ${report.subject}${report.dryRun ? ' (dry run)' : ''}: ` +
+    `+${report.appended} appended, ${report.updated} updated, ${report.unchanged} unchanged ` +
+    `(${report.solutions} solution(s))`,
+    ...report.effects.map(effect => `  ${effect.outcome}: ${effect.line}`)
+  ]
+  let code = 0
+  if (report.hook !== undefined) {
+    if (!report.hook.fired) {
+      lines.push(`hook ${report.hook.name}: not fired (${report.hook.note})`)
+    } else if (report.hook.error === undefined) {
+      lines.push(`hook ${report.hook.name}: ok`)
+    } else {
+      // The claims committed before the hook ran (spec §25.4) — the
+      // failure is reported, and the exit code carries it.
+      lines.push(`hook ${report.hook.name}: ${report.hook.error}`)
+      code = 1
+    }
+  }
+  return { lines, code }
+}
+
+export const actCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      declare: { type: 'boolean' },
+      list: { type: 'boolean' },
+      retract: { type: 'string' },
+      'dry-run': { type: 'boolean' },
+      'no-check': { type: 'boolean' },
+      aliases: { type: 'boolean' },
+      hooks: { type: 'string' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: true
+  })
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    if (values.declare === true) {
+      const declaration = declareActions(store, readInput(positionals))
+      const err = declaration.problems.map(problem => `line ${problem.line}: ${problem.message}`)
+      const out = `declared ${declaration.declared} action(s)` +
+        (declaration.unchanged > 0 ? `, ${declaration.unchanged} unchanged` : '') +
+        (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : '')
+      return {
+        code: declaration.problems.length > 0 ? 1 : 0,
+        out: `${out}\n`,
+        err: err.length === 0 ? '' : `${err.join('\n')}\n`
+      }
+    }
+    if (values.list === true) {
+      const actions = listActions(store)
+      if (values.json === true) {
+        return ok(`${JSON.stringify(actions, undefined, 2)}\n`)
+      }
+      if (actions.length === 0) {
+        return ok('no actions\n')
+      }
+      const lines = actions.flatMap(action => [
+        `${action.subject} \`${action.text}\`${action.description === undefined ? '' : ` ; ${action.description}`}`,
+        ...action.params.map(param => `  ?${param.name}${param.doc === undefined ? '' : ` — ${param.doc}`}`),
+        ...action.hook === undefined ? [] : [`  hook: ${action.hook}`],
+        ...action.ok ? [] : [`  problems: ${action.problems.join('; ')}`]
+      ])
+      return ok(`${lines.join('\n')}\n`)
+    }
+    if (values.retract !== undefined) {
+      const outcome = retractAction(store, values.retract)
+      if (!outcome.ok) {
+        return fail(`cave act: ${outcome.error}\n`)
+      }
+      return ok(`retracted ${outcome.subject} — effects of past executions stay recorded (spec §25.1)\n`)
+    }
+
+    const [name, ...pairs] = positionals
+    if (name === undefined) {
+      return fail('cave act: an action name is required — or --declare, --list, --retract (spec §25.2)\n')
+    }
+    const args: Record<string, string> = {}
+    for (const pair of pairs) {
+      const at = pair.indexOf('=')
+      if (at <= 0) {
+        return fail(`cave act: expected param=value, got ${JSON.stringify(pair)}\n`)
+      }
+      args[pair.slice(0, at)] = pair.slice(at + 1)
+    }
+    const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
+    const report = act(store, name, args, {
+      dryRun: values['dry-run'] === true,
+      check: values['no-check'] !== true,
+      aliases: values.aliases === true,
+      ...hooksPath === undefined ? {} : { hooks: readHooks(hooksPath) }
+    })
+    if (values.json === true) {
+      return { code: report.ok && report.hook?.error === undefined ? 0 : 1, out: `${JSON.stringify(report, undefined, 2)}\n`, err: '' }
+    }
+    const { lines, code } = renderActReport(report)
+    return report.ok ?
+      { code, out: `${lines.join('\n')}\n`, err: '' } :
+      { code, out: '', err: `${lines.join('\n')}\n` }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
 /** Text rendering of the §20.2 report: always shape + coverage, non-empty advisory sections. */
 const renderReport = (report: Report, staleDays: number): string => {
   const lines: string[] = []
@@ -677,6 +862,8 @@ export const cave = (argv: readonly string[]): Output => {
         return queryCommand(rest)
       case 'derive':
         return deriveCommand(rest)
+      case 'act':
+        return actCommand(rest)
       case 'check':
         return checkCommand(rest)
       case 'export':

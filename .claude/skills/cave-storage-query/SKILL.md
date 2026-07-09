@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§25) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -676,3 +676,166 @@ One boundary stated honestly: hops inside a transitive (`VERB+`)
 premise are walked over stored edges without suspension, so a derived
 edge can keep supporting a *path* while its own support is being
 re-established; `--full` recomputes everything from source beliefs.
+
+---
+
+## 25. Actions — the Governed Write Path
+
+Rules (§24) conclude on their own; nothing yet lets a *caller* — a human
+at the CLI, an agent over MCP — record a decision through a named,
+validated write instead of a freeform append. This section commits
+**actions**: write templates declared in-band, gated on current belief,
+executed atomically, optionally reaching the outside world through
+out-of-band hooks.
+
+### 25.1 The action declaration
+
+An action is declared exactly like a rule (§24.1) — one ordinary
+attribute claim whose value is the action's **body**:
+
+```cave
+action/mark-deployed HAS action: `?service, ?version, ?service IS service => ?service HAS deployed-version: ?version` ; record that a service version reached production
+```
+
+The body reuses the §24.1 rule line — `left => right`, `=>` the only
+special token, split outside `"…"` and `` `…` `` literals — with three
+action-only deltas (additive, and confined to the `action` attribute;
+rule lines are unchanged):
+
+- a left segment that is a **bare variable** (`?service`) declares a
+  **parameter** — a binding the caller supplies at execution. Everything
+  else on the left is a §24.1 premise, verbatim: CAVE-Q patterns
+  (inverse verbs, `VERB+`, `NOT` matching explicitly negated claims —
+  still no negation-as-failure, `@ctx` / `#tag` filters) and
+  `?var op value` constraints. Constraints may test parameters as well
+  as pattern-bound variables. The left side may also be empty — a
+  parameterless, unconditional template;
+- the **right side is a comma-separated list** of one or more **effect
+  templates** — ordinary claim lines whose subject, object, or value
+  slots may be variables. Each effect's metadata rides along (`@ctx`,
+  `#tag`, `!`); its `@ N%` is the confidence the effect is asserted with
+  (default 100%). Variables cannot name attributes;
+- an effect variable must be a parameter or bound by a pattern premise;
+  `_` is not allowed. A parameter needs no other mention — one used only
+  by the action's hook (§25.4) is legal.
+
+Naming: the subject is `action/<name>` by convention, and the *name* —
+not a content digest — is the identity: redeclaring appends to the same
+claim key, so an action has exactly one current definition and its
+evolution is an ordinary belief series (§9.1). Retraction (`… @ 0%`)
+disables the action; effects of past executions are recorded knowledge
+and are **not** retracted with it — they were true when executed
+(contrast §24.5, where a derivation's justification is its rule).
+
+The declaration comment is the action's description. Two optional
+companion claim shapes refine it — documentation and reference only,
+never semantics:
+
+```cave
+action/mark-deployed/service IS param ; the service that was deployed
+action/mark-deployed/version IS param ; the version now running
+action/mark-deployed HAS hook: deploy-notify
+```
+
+`action/<name>/<param> IS param` documents a parameter (its comment is
+the description, surfaced by `cave act --list` and MCP schemas);
+`HAS hook:` **names** an out-of-band hook (§25.4). Like rule text, an
+action body is pure data — it can only ever describe claims to append —
+which is why it may live in-band where executable content must not
+(§19.5); the hook *name* is in-band, the hook *command* never is.
+
+### 25.2 Execution
+
+`cave act <name> param=value …` (or the generated MCP tool, §25.5):
+
+1. The current positive `action/<name> HAS action:` declaration is
+   resolved and its body parsed.
+2. Arguments are validated: every parameter supplied, no unknown names.
+   Values format exactly like §23.1 record fields — token-safe atoms
+   verbatim, anything else as a quoted literal, numbers and dates bare
+   in payload position; formatting never invents names.
+3. Premises evaluate left to right over **current, positive,
+   non-retracted** beliefs with parameters pre-bound — each pattern is
+   specialized by the bindings so far and runs as an ordinary CAVE-Q
+   query (§24.2's join), so inverse verbs cost nothing and the alias
+   closure (§13.6) applies when opted in. **A premise with no solution
+   fails the action**: nothing is appended, and the report names the
+   first premise that found no match. This is precondition validation.
+4. Premise-bound variables used in effects must bind **uniquely** across
+   the surviving solutions — an ambiguous binding fails the action
+   (contrast §24.2, where a rule fires once per solution: an action
+   executes once, deterministically, or not at all).
+5. Effects instantiate through the ordinary canonicalization pipeline
+   (§13.4) and append **atomically** — one transaction, all or nothing;
+   any canonicalization problem rolls the whole execution back. Effect
+   confidence is the template's own — **not** noisy-AND over premise
+   rows (§24.2): an action is the caller's assertion, and its premises
+   are gates, not evidence.
+6. Appended rows carry the §24.3 obligations: stamped
+   `@src:action/<name>` (§9.5; a template naming its own `src:` wins),
+   `BECAUSE` edges to the premise rows of the justifying solution (the
+   first, when several survive) and a `VIA` edge to the declaration
+   row. Executions by different callers land in one belief series per
+   effect key — the action, not the caller, is the acting surface.
+7. Execution is **idempotent** (§24.4's convention): an effect equal to
+   its current belief — same key, value, confidence — appends nothing
+   and reports `unchanged`.
+
+### 25.3 The gate — second enforcement point
+
+§20.3 promised it: execution runs inside the shape gate **by default** —
+effects append and the store re-checks its `EXPECTS` declarations in one
+transaction, rolled back when the append introduces violations that were
+not present before. Pre-existing violations never block. One mechanism,
+two enforcement points: `cave add --check` opts *in*, actions opt *out*
+(`--no-check`) — the governed path is governed until told otherwise.
+
+### 25.4 Hooks — reaching the outside world
+
+A decision recorded in CAVE should be able to reach the outside world;
+executable content must never live in the store (§19.5). Hooks resolve
+the tension by construction: the action claim **names** a hook, and the
+command template lives out-of-band in configuration —
+
+```json
+{ "deploy-notify": "curl -sf -X POST https://ops.example/deploys -d @-" }
+```
+
+— supplied per run (`cave act --hooks hooks.json`, `cave mcp --hooks`,
+or `$CAVE_HOOKS`). After an execution **commits** having appended or
+updated at least one claim, a named-and-configured hook's template runs
+as a shell command: `{action}` and `{<param>}` placeholders substitute
+first — every value **shell-quoted**, never spliced raw — and the
+appended claims arrive as canonical CAVE text on stdin (the data
+channel; placeholders are for routing).
+
+Hook outcomes are honest and asymmetric by design:
+
+- the store never lies: the hook runs strictly *after* commit, and a
+  failing hook cannot un-happen recorded knowledge — the failure is
+  *reported* (nonzero exit; `isError` over MCP) with the claims intact;
+- a hook that is named but not configured is reported as not fired —
+  running without hook configuration is a legitimate, side-effect-free
+  mode, not an error;
+- idempotent no-op executions (nothing appended, nothing updated) and
+  dry runs never fire hooks — a watch loop must not re-notify the world
+  about claims that did not change.
+
+### 25.5 Serving — the governed write vocabulary
+
+`cave mcp` generates one tool per current positive action —
+`act_<name>` (the name after `action/`, characters outside the MCP tool
+alphabet mapped to `_`) — description from the declaration comment plus
+its parameters, preconditions and effects; input schema from the
+parameters (`IS param` comments as property descriptions, all
+required). The served set is computed per `tools/list`, so an action
+declared mid-session appears without reconnecting.
+
+Serving scope (0.10.0) composes unchanged: action tools write, so
+`--read-only` drops them all; `--tools` may list them by name, and an
+`act_`-prefixed scope entry is validated at call time rather than
+startup — it scopes whichever actions exist when asked. Agents get
+exactly the write vocabulary the operator serves — parameters, validated
+preconditions, atomic appends, provenance — instead of freeform
+`cave_add`; MCP clients surface the calls through their ordinary
+tool-permission prompts, which is where a human confirms.

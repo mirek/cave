@@ -291,11 +291,13 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
 
 /**
  * Specializes a pattern under partial bindings: bound variables become
- * terms, so each join step runs an ordinary CAVE-Q query.
+ * terms, so each join step runs an ordinary CAVE-Q query. Shared with
+ * `@cavelang/act`, whose premise evaluation is the same left-to-right
+ * join with parameters pre-bound (spec §25.2).
  * @returns `undefined` when a verb variable is bound to a non-verb —
  * no row can match.
  */
-const specialize = (pattern: Pattern.t, bindings: Readonly<Record<string, string>>): undefined | Pattern.t => {
+export const specialize = (pattern: Pattern.t, bindings: Readonly<Record<string, string>>): undefined | Pattern.t => {
   const slot = (candidate: Pattern.Slot): Pattern.Slot =>
     candidate.kind === 'var' && bindings[candidate.name] !== undefined ?
       { kind: 'term', text: bindings[candidate.name]! } :
@@ -316,7 +318,7 @@ const specialize = (pattern: Pattern.t, bindings: Readonly<Record<string, string
 }
 
 /** Evaluates a `?var op value` constraint against the variable's binding. */
-const satisfies = (bound: undefined | string, op: Rule.ConstraintOp, literal: Value.t): boolean => {
+export const satisfies = (bound: undefined | string, op: Rule.ConstraintOp, literal: Value.t): boolean => {
   if (bound === undefined) {
     return false
   }
@@ -352,7 +354,7 @@ const satisfies = (bound: undefined | string, op: Rule.ConstraintOp, literal: Va
  * literal — except number/date values in payload position, which the
  * pipeline classifies as metrics.
  */
-const boundTerm = (bound: string, position: 'subject' | 'payload'): Claim.Term => {
+export const boundTerm = (bound: string, position: 'subject' | 'payload'): Claim.Term => {
   const term = Row.parseTerm(bound)
   if (term.kind !== 'entity') {
     return term

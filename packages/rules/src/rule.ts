@@ -59,8 +59,10 @@ export const digestOf = (content: string): string =>
 /**
  * Positions of `needle` occurrences that sit outside `"…"` and `` `…` ``
  * literals — `=>` or `,` inside a quoted term never split the rule.
+ * Shared with `@cavelang/act`, whose action bodies split the same way
+ * (spec §25.1).
  */
-const topLevel = (text: string, needle: string): number[] => {
+export const topLevel = (text: string, needle: string): number[] => {
   const positions: number[] = []
   let quote: undefined | string
   for (let i = 0; i < text.length; i++) {
@@ -99,14 +101,14 @@ const formatToken = (token: Token.t): string => {
 }
 
 /** Single-spaced token text of one rule segment — the normalization unit. */
-const normalizeSegment = (segment: string): string =>
+export const normalizeSegment = (segment: string): string =>
   Token.tokenize(segment).map(formatToken).join(' ')
 
 const isVariableToken = (text: string): boolean =>
   text.startsWith('?') && text.length > 1
 
 /** Variables a pattern binds — the names its slots introduce. */
-const patternVariables = (pattern: Pattern.t): string[] => {
+export const patternVariables = (pattern: Pattern.t): string[] => {
   const names: string[] = []
   if (pattern.subject.kind === 'var') {
     names.push(pattern.subject.name)
@@ -150,7 +152,13 @@ const conclusionVariables = (conclusion: Ast.Full): string[] => {
   return names
 }
 
-const parsePremise = (segment: string, bound: ReadonlySet<string>): { premise?: Premise, problem?: string } => {
+/**
+ * Parses one premise segment against the variables bound so far — a
+ * constraint (`?var op value`) or a CAVE-Q pattern. Shared with
+ * `@cavelang/act`, whose premises are §24.1 premises verbatim (spec
+ * §25.1); action parsing passes parameters in as already-bound.
+ */
+export const parsePremise = (segment: string, bound: ReadonlySet<string>): { premise?: Premise, problem?: string } => {
   const text = normalizeSegment(segment)
   if (text === '') {
     return { problem: 'empty premise — remove the extra comma' }

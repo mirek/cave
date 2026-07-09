@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/loop",
+  "name": "@cavelang/act",
   "version": "0.13.0",
   "type": "module",
-  "description": "cave-loop — active-reconstruction agent layer over the CAVE graph (spec §18, non-normative).",
+  "description": "CAVE action templates (spec §25) — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic templated appends with BECAUSE/VIA lineage, and out-of-band side-effect hooks.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/loop"
+    "directory": "packages/act"
   },
   "engines": {
     "node": ">=22.18"
@@ -37,12 +37,17 @@
   "scripts": {
     "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
-    "demo": "node --disable-warning=ExperimentalWarning src/demo.ts",
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },
   "dependencies": {
     "@cavelang/canonical": "workspace:*",
-    "@cavelang/core": "workspace:*"
+    "@cavelang/connect": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/rules": "workspace:*",
+    "@cavelang/shape": "workspace:*",
+    "@cavelang/store": "workspace:*"
   }
 }

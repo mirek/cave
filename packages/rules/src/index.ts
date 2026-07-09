@@ -17,7 +17,7 @@
  */
 
 export * as Rule from './rule.ts'
-export { derive, defaultMinConf, defaultMaxPasses, provenanceContext, ruleAttribute, ruleSubject, watermarkAttribute } from './engine.ts'
+export { boundTerm, derive, defaultMinConf, defaultMaxPasses, provenanceContext, ruleAttribute, ruleSubject, satisfies, specialize, watermarkAttribute } from './engine.ts'
 export type { DeriveOptions, DeriveReport, RuleOutcome, RuleProblem } from './engine.ts'
 export { declareRules, listRules, retractRule } from './declare.ts'
 export type { Declaration, ListedRule, Retraction } from './declare.ts'

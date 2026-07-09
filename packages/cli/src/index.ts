@@ -1,7 +1,7 @@
 /**
- * `@cavelang/cli` — the `cave` command (parse / add / query / derive / check / export / demo).
+ * `@cavelang/cli` — the `cave` command (parse / add / query / derive / act / check / export / demo).
  * Programmatic access to the same implementations lives here.
  */
 
-export { addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, usage, versionCommand } from './cli.ts'
+export { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, usage, versionCommand } from './cli.ts'
 export type { Output } from './cli.ts'

@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/mcp",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "type": "module",
   "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
   "license": "CC0-1.0",
@@ -46,6 +46,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
+    "@cavelang/act": "workspace:*",
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/loop": "workspace:*",
