@@ -32,6 +32,13 @@ echo "==> cave add / query / export round-trip"
 "$cave" query '?svc USES+ redis-cache' --db "$tmp/smoke.db" >/dev/null
 "$cave" check --db "$tmp/smoke.db" >/dev/null
 "$cave" export --db "$tmp/smoke.db" >/dev/null
+echo "==> cave derive fires rules and records lineage (spec §24)"
+"$cave" add "$root/examples/family-history/notes.cave" --db "$tmp/family.db"
+"$cave" derive "$root/examples/family-history/rules.cave" --db "$tmp/family.db" >/dev/null
+"$cave" query 'me GRANDCHILD-OF ?g' --db "$tmp/family.db" | grep -q 'maria' || {
+  echo "error: cave derive did not derive grandparenthood" >&2
+  exit 1
+}
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

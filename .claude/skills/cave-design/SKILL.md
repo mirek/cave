@@ -132,7 +132,7 @@ app CAUSE crash @hyp:deadlock @ 30%
 
 ## 17. Draft Layer — Unified Grammar (Variables, Reification, Rules, Temporal)
 
-**Status: Draft.** Fully designed; a PEG specification, `peggy` grammar file, and TypeScript AST/evaluator skeleton exist. Not yet committed to the normative spec — commitment is gated on the parser implementation proving the pieces out. Nothing here invalidates any normative line above.
+**Status: Draft, except §17.4.** Fully designed; a PEG specification, `peggy` grammar file, and TypeScript AST/evaluator skeleton exist. Commitment is gated on the parser implementation proving the pieces out — and the **rules subset (§17.4) passed that gate in 0.12.0**: `@cavelang/rules` parses and fires `premises => conclusion` lines, with the committed semantics (in-band storage, `BECAUSE`/`VIA` lineage, noisy-AND confidence, watermark incrementality, well-founded support) normative as spec §24 (`cave-storage-query` skill). Reification (§17.3), temporal values (§17.5) and variables in ordinary claim lines remain Draft. Nothing here invalidates any normative line above.
 
 ### 17.1 The binding-state insight
 
@@ -175,6 +175,8 @@ server CAUSE crash                 ; ≡  [server CAUSE crash] WHEN load > 1000 
 — which keeps the grammar context-free while preserving readable nesting, and gives the normative `cave_edge` qualifier semantics (§8.2) a precise algebraic reading. Reconciliation note: continuation lines (§8.3) are **not** reification — they desugar to sibling claims with inherited endpoints. The three-kind indentation taxonomy of §8 carries over unchanged.
 
 ### 17.4 Rules — `=>`
+
+**Committed as spec §24** (the `cave-storage-query` skill) and implemented by `@cavelang/rules` / `cave derive`; the text below is the original design sketch.
 
 Left side: comma-separated conjunction of patterns. Right side: the asserted triple. Rules are just triples with variables — same file, same graph, no separate parser path. `=>` is the only rule-specific token.
 

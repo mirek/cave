@@ -78,6 +78,9 @@ importers:
       '@cavelang/query':
         specifier: workspace:*
         version: link:../query
+      '@cavelang/rules':
+        specifier: workspace:*
+        version: link:../rules
       '@cavelang/shape':
         specifier: workspace:*
         version: link:../shape
@@ -194,6 +197,27 @@ importers:
       '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+
+  packages/rules:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/fusion':
+        specifier: workspace:*
+        version: link:../fusion
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
       '@cavelang/store':
         specifier: workspace:*
         version: link:../store

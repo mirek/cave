@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -536,3 +536,143 @@ Pre-existing violations never block: the gate compares, it does not
 demand a clean store. `cave add --check` is the first enforcement point;
 action preconditions (roadmap) reuse the identical mechanism — one
 mechanism, two enforcement points.
+
+---
+
+## 24. Rules and Derivation
+
+Everything before this section stores, checks, or asks; nothing
+*concludes*. This section commits the rules subset of the Draft unified
+grammar (§17.4) — the parser implementation proved it out, which is the
+gate §17 set for itself. Reification, temporal values and variables in
+ordinary claim lines remain Draft.
+
+### 24.1 The rule line
+
+```cave
+?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z
+?x HAS age: ?a, ?a < 18 => ?x NEEDS guardian
+?x PRECEDES ?event, ?x CONTAINS ?change => ?change CAUSE ?event @ 50%
+```
+
+`=>` is the only rule-specific token (§17.4). The left side is a
+comma-separated conjunction of **premises**; the right side is one
+ordinary claim line, the **conclusion**. A `=>` or `,` inside a `"…"` or
+`` `…` `` literal never splits the rule.
+
+A premise is either
+
+- a **pattern** — a CAVE-Q pattern (§12.1): `?var` variables, `_`
+  wildcards, `NOT` (matching explicitly negated claims — there is no
+  negation-as-failure), inverse verbs, transitive `VERB+` hops, and
+  inline `@ctx` / `#tag` filters all carry over unchanged; or
+- a **constraint** — `?var op value` with `op` one of
+  `= != < <= > >=`. Numeric comparison applies when both sides parse as
+  numbers (a unit on the constraint demands the same unit on the bound
+  value); `=` and `!=` otherwise compare text. A constraint's variable
+  MUST be bound by an earlier pattern premise.
+
+The conclusion parses as an ordinary claim whose subject, object, or
+value slots may be variables; every conclusion variable MUST be bound by
+some pattern premise, and `_` is not allowed. Conclusion metadata rides
+along (`@ctx`, `#tag`, `!`, `; comment`); its `@ N%` is the **rule
+confidence factor** (§24.2). A trailing comment is the rule's label.
+
+**Rules are stored in-band** as ordinary attribute claims, so derived
+claims can point lineage edges at them and rule lifecycle is ordinary
+belief evolution:
+
+```cave
+rule/9f30ac9be4dd HAS rule: `?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z` @src:cave-derive
+```
+
+Rule identity is the first 12 hex chars of SHA-256 over the rule's
+**normalized text** (tokens single-spaced, comment dropped) —
+whitespace variants of one rule share a digest, and re-declaring an
+unchanged rule appends nothing. Retraction (`… @ 0%`) disables the rule;
+`cave derive --retract` also retracts everything it derived. A rule is
+pure data — it can only ever append claims — which is why it may live
+in-band where executable content (hooks, agent commands) must not
+(§19.5); derivation still runs only when explicitly invoked.
+
+### 24.2 Firing — forward chaining over current beliefs
+
+`cave derive` fires every current positive rule to a fixpoint. Premises
+match **current, positive, non-retracted** beliefs (§12's defaults),
+joined left to right: each partial binding specializes the next pattern
+and runs it as an ordinary CAVE-Q query, so inverse verbs cost nothing
+and the alias closure (§13.6) applies when opted in. Transitive
+premises constrain bindings but contribute no premise row — no
+confidence, no lineage edge.
+
+Each solution instantiates the conclusion template and pushes it through
+the ordinary canonicalization pipeline (§13.4) — an inverse-verb
+conclusion lands in primary direction, on the same claim key either
+spelling would produce. Derived confidence is **noisy-AND under an
+explicit independence assumption** (§10.2):
+
+```text
+conf = rule-conf × Π premise-row-conf
+```
+
+When several solutions conclude the same claim key in one firing, the
+**strongest derivation wins** — max, not accumulation: many weak paths
+never claim more than the best single one, and cyclic premise graphs
+converge. Conclusions below a floor (default 5%) are not asserted.
+
+### 24.3 What a derivation appends
+
+A derived claim is an ordinary append with three §9/§13 obligations:
+
+- **actor provenance** (§9.5): stamped `@src:rule/<digest>` (unless the
+  conclusion template names its own `src:`), so a rule's output is one
+  belief series per conclusion, separate from any hand-written series
+  about the same fact — coexisting per §9.4, never silently overriding;
+- **lineage** (`cave_edge`, §13.2): `BECAUSE` edges to the *specific
+  premise rows* that fired, and a `VIA` edge to the rule's declaration
+  row — evidence and mechanism, in the roles §8.2 already defines.
+  Canonical export renders the whole derivation tree as indented
+  qualifier lines, and import replays it;
+- **append-only belief evolution** (§9.1): a re-derivation with changed
+  premise confidence appends a new row to the same series; history
+  survives.
+
+### 24.4 Idempotency and incrementality
+
+Re-running `cave derive` on an unchanged store appends **nothing** — a
+conclusion equal to its current belief (same key, value, confidence) is
+skipped, so watch loops never accrete identical claims.
+
+Firing is **incremental by transaction watermark**: after a run, each
+fired rule records the highest transaction it accounted for, in-band:
+
+```cave
+rule/9f30ac9be4dd HAS derive-watermark: 019f47ba-8f72-7000-… @src:cave-derive
+```
+
+A later run re-fires a rule only when some row recorded after its
+watermark could extend a premise match — a *shape* test
+(subject/verb/object/attribute/negation plus context and tag
+membership) that deliberately ignores confidence and currency, so a
+retraction row re-fires the rules its claim used to feed. Over-matching
+costs a wasted evaluation; under-matching would be a missed conclusion,
+so ambiguity resolves toward firing. `--full` ignores watermarks.
+
+### 24.5 Support — retraction propagates
+
+A derivation's justification must not outlive its premises. On every
+firing the rule's support is recomputed from scratch: previously derived
+claims the rule no longer concludes are retracted `@ 0%` (with the
+standard comment convention), and while a fired rule's earlier
+derivations are being re-established they are invisible to premise
+matching unless re-supported. The consequence is well-founded support —
+retracting a premise retracts the dependent chain, across rules, and
+mutually-supporting derivation cycles cannot keep each other alive.
+Retractions are ordinary appends, so cascades settle inside the same
+run's fixpoint loop, and `--retract <rule>` retracts the rule's whole
+output the same way.
+
+One boundary stated honestly: hops inside a transitive (`VERB+`)
+premise are walked over stored edges without suspension, so a derived
+edge can keep supporting a *path* while its own support is being
+re-established; `--full` recomputes everything from source beliefs.

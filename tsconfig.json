@@ -35,6 +35,9 @@
       "path": "packages/query"
     },
     {
+      "path": "packages/rules"
+    },
+    {
       "path": "packages/shape"
     },
     {

@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addCommand, cave, checkCommand, commandHelp, demoCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
+import { addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -143,6 +143,64 @@ test('bound patterns with no variables print matched raw lines', () => {
     const bound = queryCommand(['auth USES jwt', '--db', db])
     assert.equal(bound.out, 'auth USES jwt\n')
     assert.equal(queryCommand(['auth USES sessions', '--db', db]).out, 'no matches\n')
+  })
+})
+
+test('derive: declare + fire + list + retract (spec §24)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const facts = join(dir, 'facts.cave')
+    writeFileSync(facts, 'a NEEDS b @ 80%\nb NEEDS c @ 90%\n')
+    addCommand([facts, '--db', db])
+    const rules = join(dir, 'rules.cave')
+    writeFileSync(rules, '?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z ; transitive needs\n')
+
+    const first = deriveCommand([rules, '--db', db])
+    assert.equal(first.code, 0, first.err)
+    assert.match(first.out, /declared 1 rule/)
+    assert.match(first.out, /\+1 appended/)
+    assert.equal(queryCommand(['a NEEDS c', '--db', db]).out, 'a NEEDS c @ 72%\n')
+
+    // No positional fires the stored rules; nothing new → watermark skip.
+    const again = deriveCommand(['--db', db])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /unchanged premises, skipped/)
+
+    const listed = deriveCommand(['--db', db, '--list'])
+    assert.match(listed.out, /rule\/[0-9a-f]{12} `\?x NEEDS \?y, \?y NEEDS \?z => \?x NEEDS \?z` ; transitive needs/)
+
+    const digest = /rule\/([0-9a-f]{12})/.exec(listed.out)![1]!
+    const retracted = deriveCommand(['--db', db, '--retract', digest])
+    assert.equal(retracted.code, 0)
+    assert.match(retracted.out, /1 derived claim/)
+    assert.equal(queryCommand(['a NEEDS c', '--db', db]).out, 'no matches\n')
+    assert.equal(deriveCommand(['--db', db, '--list']).out, 'no rules\n')
+  })
+})
+
+test('derive --dry-run reports without writing; problems set the exit code', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const facts = join(dir, 'facts.cave')
+    writeFileSync(facts, 'a NEEDS b\nb NEEDS c\n')
+    addCommand([facts, '--db', db])
+    const rules = join(dir, 'rules.cave')
+    writeFileSync(rules, '?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z\n')
+
+    const dry = deriveCommand([rules, '--db', db, '--dry-run', '--json'])
+    assert.equal(dry.code, 0)
+    assert.equal(JSON.parse(dry.out).appended, 1)
+    assert.equal(queryCommand(['a NEEDS c', '--db', db]).out, 'no matches\n', 'dry run persisted nothing')
+    assert.equal(deriveCommand(['--db', db, '--list']).out, 'no rules\n', 'not even the declaration')
+
+    const bad = join(dir, 'bad.cave')
+    writeFileSync(bad, '?x NEEDS ?y => ?x NEEDS ?unbound\n')
+    const rejected = deriveCommand([bad, '--db', db])
+    assert.equal(rejected.code, 0, 'declaration problems are reported, valid rules still fire')
+    assert.match(rejected.err, /\?unbound is not bound/)
+
+    assert.equal(deriveCommand(['--db', db, '--min-conf', 'high']).code, 1)
+    assert.equal(deriveCommand(['--db', db, '--retract', 'nonexistent']).code, 1)
   })
 })
 

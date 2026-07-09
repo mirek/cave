@@ -9,6 +9,7 @@
  * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`)
+ * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
@@ -29,6 +30,8 @@ import { defaultDbPath, open } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import { check as caveCheck, defaultStaleDays, gatedIngest } from '@cavelang/shape'
 import type { Report, Violation } from '@cavelang/shape'
+import { declareRules, defaultMaxPasses, defaultMinConf, derive, listRules, retractRule } from '@cavelang/rules'
+import type { Declaration, DeriveReport } from '@cavelang/rules'
 import { Demo } from '@cavelang/loop'
 
 export type Output = {
@@ -51,6 +54,7 @@ Usage:
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
   cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
+  cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
@@ -170,6 +174,46 @@ Examples:
   cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db 'server IS compromised' --as-of 2026-01-15
   cave query --db k.db '?x ?verb ?y @production' --json`,
+
+  derive: `cave derive — declare and fire rules (spec §24)
+
+Usage:
+  cave derive [--db <path>] [rules.cave...] [--dry-run] [--full] [--aliases]
+              [--min-conf <p>] [--max-passes <n>] [--json] [--no-prelude]
+  cave derive [--db <path>] --list
+  cave derive [--db <path>] --retract <digest|subject>
+
+Options:
+  ${dbHelp}
+  --dry-run      compute and report inside a rolled-back transaction
+  --full         ignore stored watermarks — re-fire every rule (spec §24.4)
+  --aliases      premises match through the alias closure (spec §13.6)
+  --min-conf <p> do not assert conclusions below this confidence
+                 (0..1 or N%, default ${defaultMinConf})
+  --max-passes <n> fixpoint guard (default ${defaultMaxPasses})
+  --list         print the store's current rules and exit
+  --retract <r>  retract a rule (digest, unambiguous prefix, or subject)
+                 together with everything it derived, and exit
+  --json         emit the report as JSON
+  --no-prelude   open the store without the standard verb registry
+
+Rule files are CAVE documents whose \`premises => conclusion\` lines are
+rules (spec §24.1); other lines — verb declarations the rules need — are
+prelude, ingested first. Rules are stored in-band as
+\`rule/<digest> HAS rule: \\\`…\\\`\` claims, so \`cave derive\` with no file
+fires whatever the store already knows. Derived claims are stamped
+@src:rule/<digest>, carry BECAUSE edges to their premise rows and a VIA
+edge to the rule, and update append-only: re-runs are idempotent and
+watermark-incremental, and conclusions whose premises no longer hold are
+retracted (spec §24.2–§24.5).
+
+Examples:
+  cave derive --db k.db rules.cave
+  cave derive --db k.db
+  echo '?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z' | cave derive --db k.db -
+  cave derive --db k.db --dry-run --json
+  cave derive --db k.db --list
+  cave derive --db k.db --retract 4a0bb974f43c`,
 
   check: `cave check — knowledge health report (spec §20)
 
@@ -382,6 +426,126 @@ export const queryCommand = (argv: readonly string[]): Output => {
   }
 }
 
+export const deriveCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      'dry-run': { type: 'boolean' },
+      full: { type: 'boolean' },
+      aliases: { type: 'boolean' },
+      'min-conf': { type: 'string' },
+      'max-passes': { type: 'string' },
+      list: { type: 'boolean' },
+      retract: { type: 'string' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: true
+  })
+  const minConf = values['min-conf'] === undefined ?
+    undefined :
+    values['min-conf'].endsWith('%') ? Number(values['min-conf'].slice(0, -1)) / 100 : Number(values['min-conf'])
+  if (minConf !== undefined && (!Number.isFinite(minConf) || minConf < 0 || minConf > 1)) {
+    return fail(`cave derive: --min-conf expects a confidence in 0..1 or N%, got ${JSON.stringify(values['min-conf'])}\n`)
+  }
+  const maxPasses = values['max-passes'] === undefined ? undefined : Number(values['max-passes'])
+  if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
+    return fail(`cave derive: --max-passes expects a positive integer, got ${JSON.stringify(values['max-passes'])}\n`)
+  }
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    if (values.list === true) {
+      const rules = listRules(store)
+      if (values.json === true) {
+        return ok(`${JSON.stringify(rules, undefined, 2)}\n`)
+      }
+      if (rules.length === 0) {
+        return ok('no rules\n')
+      }
+      const lines = rules.map(rule =>
+        `${rule.subject} \`${rule.text}\`${rule.label === undefined ? '' : ` ; ${rule.label}`}` +
+        (rule.ok ? '' : `\n  problems: ${rule.problems.join('; ')}`))
+      return ok(`${lines.join('\n')}\n`)
+    }
+    if (values.retract !== undefined) {
+      const outcome = retractRule(store, values.retract)
+      if (!outcome.ok) {
+        return fail(`cave derive: ${outcome.error}\n`)
+      }
+      return ok(`retracted ${outcome.subjects.join(', ')} and ${outcome.derived} derived claim(s)\n`)
+    }
+
+    const err: string[] = []
+    const out: string[] = []
+    // Unlike parse/add, no positional means "fire the stored rules", never
+    // stdin — pass `-` to read a rule file from stdin explicitly.
+    const input = positionals.length > 0 ? readInput(positionals) : undefined
+    const options = {
+      full: values.full === true,
+      aliases: values.aliases === true,
+      ...minConf === undefined ? {} : { minConf },
+      ...maxPasses === undefined ? {} : { maxPasses }
+    }
+    let declaration: undefined | Declaration
+    let report: DeriveReport
+    if (values['dry-run'] === true) {
+      // A dry run persists nothing — rule declarations from the file
+      // included, so declare + fire share one rolled-back transaction.
+      const rolledBack = Symbol('cave derive --dry-run')
+      let outcome: undefined | { declaration?: Declaration, report: DeriveReport }
+      try {
+        store.transaction(() => {
+          outcome = {
+            ...input === undefined ? {} : { declaration: declareRules(store, input) },
+            report: derive(store, options)
+          }
+          throw rolledBack
+        })
+      } catch (error) {
+        if (error !== rolledBack) {
+          throw error
+        }
+      }
+      declaration = outcome!.declaration
+      report = outcome!.report
+    } else {
+      declaration = input === undefined ? undefined : declareRules(store, input)
+      report = derive(store, options)
+    }
+    if (declaration !== undefined) {
+      err.push(...declaration.problems.map(problem => `rules line ${problem.line}: ${problem.message}`))
+      out.push(`declared ${declaration.declared} rule(s)` +
+        (declaration.unchanged > 0 ? `, ${declaration.unchanged} unchanged` : '') +
+        (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : ''))
+    }
+    if (values.json === true) {
+      return { code: report.problems.length > 0 ? 1 : 0, out: `${JSON.stringify(report, undefined, 2)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
+    }
+    for (const problem of report.problems) {
+      err.push(`${problem.subject}: ${problem.problems.join('; ')}`)
+    }
+    for (const rule of report.rules) {
+      const state = rule.fired ?
+        `${rule.solutions} solution(s), +${rule.appended} appended, ${rule.updated} updated, ${rule.retracted} retracted, ${rule.unchanged} unchanged` :
+        'unchanged premises, skipped'
+      out.push(`${rule.subject}: ${state}${rule.label === undefined ? '' : ` ; ${rule.label}`}`)
+      err.push(...rule.problems.map(problem => `${rule.subject}: ${problem}`))
+    }
+    out.push(...report.notes.map(note => `note: ${note}`))
+    out.push(
+      `derived${values['dry-run'] === true ? ' (dry run)' : ''}: ` +
+      `+${report.appended} appended, ${report.updated} updated, ${report.retracted} retracted, ` +
+      `${report.unchanged} unchanged (${report.passes} pass(es))`)
+    const hasProblems = report.problems.length > 0 || report.rules.some(rule => rule.problems.length > 0)
+    return { code: hasProblems ? 1 : 0, out: `${out.join('\n')}\n`, err: err.length === 0 ? '' : `${err.join('\n')}\n` }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
 /** Text rendering of the §20.2 report: always shape + coverage, non-empty advisory sections. */
 const renderReport = (report: Report, staleDays: number): string => {
   const lines: string[] = []
@@ -511,6 +675,8 @@ export const cave = (argv: readonly string[]): Output => {
         return importCommand(rest)
       case 'query':
         return queryCommand(rest)
+      case 'derive':
+        return deriveCommand(rest)
       case 'check':
         return checkCommand(rest)
       case 'export':
