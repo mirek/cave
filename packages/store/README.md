@@ -52,6 +52,19 @@ store.exportText({ current: true })          // canonical CAVE text back out
   different actors keeps separate belief series (§9.4). A written `@src:`
   always wins; `raw_line` stays as authored. Interchange replay (`cave
   import`) passes no source, preserving exported keys.
+- **Contradiction resolution is opt-in** (§26): `{ resolve: true }` on
+  traversal reads only the winners — coexisting series about one fact
+  (claim key modulo `src:` contexts and polarity) collapse to the row the
+  policy picks: precedence class (max over the row's sources), then
+  reliability-weighted confidence (min over sources), then tx. The policy
+  merges a built-in ladder (`cli` 4 > `agent`/`action` 3 > root 2 >
+  `rule` 1) with in-band `source/<name> HAS precedence:` /
+  `HAS reliability:` claims, matched to `src:` contexts by longest
+  segment prefix; the declarations themselves resolve under the built-ins
+  alone, so ingested text cannot self-elevate. Winners come back
+  verbatim — resolution filters, it never rewrites — and it composes with
+  `aliases`, which widens groups through the closure (the §13.6
+  pick-a-winner story).
 
 ## API
 
@@ -61,6 +74,9 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `insertResult(result, {source})` | | append a pre-canonicalized `@cavelang/canonical` result |
 | `currentBeliefs({minConf})` | §13.5 | latest row per key |
 | `currentBelief(key)` / `history(key)` | §9.1 | one fact's belief series |
+| `resolvedBeliefs({aliases})` | §26 | one winner per resolution group |
+| `contested({aliases})` | §26.4 | contested groups, candidates ranked winner-first — the fusion feed |
+| `resolutionPolicy()` | §26.3 | effective policy: built-ins merged with in-band declarations |
 | `claimsAbout(entity, {aliases})` | §13.5 | both directions, all rows |
 | `forward(entity)` / `reverse(entity)` | §13.3 | named traversal, inverse-aware |
 | `aliasesOf(entity)` | §13.6 | the entity's alias closure |
@@ -104,6 +120,9 @@ Covers the §9.1 belief series, §5.5 one-fact-two-names invariants
 materialized inverses), every §13.5 query, the §13.6 alias closure
 (merge, unmerge by retraction, opt-in traversal, union semantics), the
 §9.5 provenance stamping (written `@src:` wins, per-actor series,
-cross-actor retraction, stamped round-trips), the §11.2 topic reads,
-edge persistence, registry rebuild across reopen, transactional strict
-ingest and export round-trips.
+cross-actor retraction, stamped round-trips), the §26 resolution policy
+(human-over-ingest precedence, reliability weighting, longest-prefix
+specificity, polarity contests, no self-elevation, alias-widened
+groups, contested ranking), the §11.2 topic reads, edge persistence,
+registry rebuild across reopen, transactional strict ingest and export
+round-trips.

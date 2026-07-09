@@ -17,8 +17,8 @@ Dependency order, bottom to top:
 | [`@cavelang/core`](packages/core) | §2, §6, §7, §9 | Domain model: claims, values/units/multipliers, uncertainty, confidence, tags, contexts, claim keys, monotonic UUIDv7 |
 | [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
-| [`@cavelang/store`](packages/store) | §13 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5 |
-| [`@cavelang/query`](packages/query) | §12 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters |
+| [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
+| [`@cavelang/query`](packages/query) | §12, §26 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching |
 | [`@cavelang/shape`](packages/shape) | §20 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating |
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
@@ -30,7 +30,7 @@ Dependency order, bottom to top:
 | [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / export / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -156,6 +156,18 @@ Package READMEs document local decisions; these are the global ones:
   ordinary CAVE lines about the entity `loop`) score either policy's
   reconstruction by claim key, answering queries from the reconstruction
   alone.
+- **Resolution is a read mode; the policy is knowledge** (§26): contested
+  facts — one fact asserted by several §9.5-forked series, or opposite
+  polarity — group by claim key modulo `src:` contexts and negation
+  (computed in SQL from the stored key's JSON, so `resolve` composes with
+  `asOf` and the alias closure mechanically), and one window ranks
+  candidates by precedence class (max over sources), reliability-weighted
+  confidence (min over sources), then tx. Precedence and reliability are
+  in-band `source/<name> HAS …` claims matched by longest segment prefix
+  over a built-in ladder (cli > agent/action > root > rule); the policy
+  claims themselves resolve under the built-ins alone, so ingested text
+  cannot self-elevate. Winners are stored rows returned verbatim —
+  nothing is rewritten, and unresolved reads keep §9.4 coexistence.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

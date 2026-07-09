@@ -28,9 +28,10 @@ Summary of the gaps:
   shipped in 0.9.0 (`cave connect`, item 4); LLM ingestion
   (`cave ingest`) exists.
 - **Model** — storage, belief evolution, inverses, query, alias closure
-  (0.6.0), shape expectations (0.8.0), and as-of reconstruction (0.11.0)
-  exist and are CAVE's strongest layer; alias *discovery* and a
-  contradiction-resolution policy are missing.
+  (0.6.0), shape expectations (0.8.0), as-of reconstruction (0.11.0),
+  and the contradiction-resolution policy (0.16.0, item 11 — human
+  corrections outrank ingest re-runs) exist and are CAVE's strongest
+  layer; alias *discovery* is missing.
 - **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
   tx watermark; derived computation beyond rules (named MCP tools,
@@ -108,7 +109,9 @@ One overclaim to avoid: human-corrections-outrank-machine-ingest does
 **not** fall out of latest-tx resolution alone. Latest-tx makes the most
 *recent* claim win, not the *human's* — an ingest re-run after a manual
 correction silently re-overrides it. That requires an explicit
-resolution policy (roadmap item 11).
+resolution policy — shipped in 0.16.0 as spec §26 (item 11): resolved
+reads compare precedence class before recency, so the human-tier series
+survives the re-run.
 
 ## 2. Capability gaps
 
@@ -136,7 +139,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreements surfaced by `cave check` since 0.8.0 (item 3) |
 | Entity resolution: match discovery | none | missing | candidate suggestion (`cave suggest-alias`) — under LLM extraction, naming drift makes *discovery*, not merge mechanics, the bottleneck |
 | As-of reconstruction | `cave query --as-of` (spec §12.3): current-belief resolution at a past date, timestamp or tx | exists | shipped in 0.11.0 (item 6) |
-| Contradiction-resolution policy | latest-tx-per-key only | missing | §9.4 promises resolution via source reliability, precedence, context — configurable and explicit, so human corrections outrank ingest re-runs |
+| Contradiction-resolution policy | opt-in resolved reads (spec §26): precedence classes over §9.5 stamp families, in-band `source/<name>` reliability/precedence claims, longest-prefix specificity, tx tiebreak | exists | shipped in 0.16.0 (item 11); human corrections outrank ingest re-runs |
 | Source-span provenance | `@src:` names a source, file-level | partial | a `@src:file#L10-L20` span convention — cheap, and it lets a claim answer "which sentence produced you" |
 | Schema-change review | schema edits are ordinary in-band appends; since 0.7.0 stamped with the appending actor (§9.5) | partial | actor stamping makes verb/`REVERSE`/topic mutations attributable; the reviewable-diff workflow is the branch/review convention (item 15) |
 | Typed client generation | none | missing | once schema-as-claims exists: generate typed TypeScript query helpers from the store's own schema claims |
@@ -282,8 +285,8 @@ extend an existing one.
 *CAVE stops being read-only memory; knowledge starts producing
 knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
 (item 8) in 0.13.0, the evals harness (item 9) in 0.14.0, the LLM loop
-policy (item 10) in 0.15.0; the contradiction-resolution policy
-(item 11) is next.*
+policy (item 10) in 0.15.0, the contradiction-resolution policy
+(item 11) in 0.16.0; named computation tools (item 12) are next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -381,7 +384,27 @@ policy (item 10) in 0.15.0; the contradiction-resolution policy
     configurable resolution beyond latest-tx — precedence classes (human
     correction outranks ingest re-run), source reliability, context
     specificity. §9.4 promises this; nothing implements it, and item 1's
-    alias closure plus fusion both need it.
+    alias closure plus fusion both need it. — **Shipped in 0.16.0**
+    (spec §26): resolution is a strictly opt-in read mode — §9.4
+    coexistence stays the default and nothing is ever rewritten. Current
+    rows group by claim key modulo `src:` contexts and polarity (same
+    fact, different voices; `@production` vs `@staging` never contest);
+    the winner compares precedence class (max over the row's sources),
+    then reliability-weighted confidence (min over sources), then tx —
+    so recency still rules within a tier and within a series. The policy
+    is knowledge: in-band `source/<name> HAS precedence:` /
+    `HAS reliability:` claims matched to `src:` contexts by longest
+    segment prefix (the §9.4 "context" dimension) over a built-in ladder
+    (cli 4 > agent/action 3 > everything 2 > rule 1); policy claims
+    themselves resolve under the built-ins alone, so an ingested
+    document can never elevate its own batch. Surfaced as
+    `cave query --resolve`, `query({ resolve })`, the `resolve` opt-in
+    on store traversal and the MCP query/about/neighbors tools —
+    composing with `aliases` (groups widen through the closure, closing
+    the §13.6 pick-a-winner gap) and `--as-of` (candidates and policy
+    reconstruct at the boundary) — plus `cave resolve` listing contested
+    facts with ranked candidates (`--policy` for the effective table)
+    and `store.contested()`, the feed fusion combines instead of picks.
 12. **Named computation tools** (`@cavelang/mcp`): expose fusion and
     derivation as MCP tools (`cave_fuse`, `cave_derive`) so agents
     delegate math instead of doing it in tokens.
@@ -432,7 +455,7 @@ Flagged here so they are decided deliberately, not implied by code.
    invariant breaks. If rows are re-stamped on merge, repeated syncs
    lose idempotency. Candidate middle path: keep origin tx for identity
    but record the merge as claims (`store/b SYNCED-INTO store/a
-   @time:…`) and let the resolution policy (roadmap item 11) treat
+   @time:…`) and let the resolution policy (spec §26, shipped as item 11) treat
    provenance, not raw tx, as the tiebreaker across origins. The
    interchange format must carry tx (an additive canonical-text
    extension or sidecar). This decision *is* the design work of item 14.

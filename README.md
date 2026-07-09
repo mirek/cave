@@ -112,6 +112,20 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.
 ?y = 1931
 ```
 
+**Or let the store pick a winner.** The three sources still coexist — one fact, three voices. `cave resolve` shows the contest as the resolution policy (spec §26) ranks it — precedence class, reliability-weighted confidence, then recency — and `--resolve` on any query matches only the winners:
+
+```
+$ pnpm exec cave resolve --db family.db
+jan HAS birth-year: 1931 @src:birth-certificate @ 95% ; class 2, effective 95%
+  over jan HAS birth-year: 1931 @src:cousin @ 40% ; class 2, effective 40%
+  over jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one ; class 2, effective 5%
+
+$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' --resolve
+?y = 1931
+```
+
+The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts a source in-band — and a built-in precedence ladder makes a human correction (`@src:cli`) outrank a machine ingest re-run, whatever landed last.
+
 The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it).
 
 ### Let an LLM write the claims — `cave ingest`
@@ -289,7 +303,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§25 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§26 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

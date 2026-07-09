@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§25) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§26) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -83,7 +83,7 @@ server IS compromised @ 60% @src:scanner-a
 server IS NOT compromised @ 90% @src:forensics
 ```
 
-CAVE stores knowledge; it does **not** require global consistency at write time. A query engine resolves current belief using latest transaction, source reliability, confidence, context, and explicit precedence rules.
+CAVE stores knowledge; it does **not** require global consistency at write time. A query engine resolves current belief using latest transaction, source reliability, confidence, context, and explicit precedence rules — the resolution policy, defined in §26.
 
 ### 9.5 Actor provenance
 
@@ -839,3 +839,169 @@ exactly the write vocabulary the operator serves — parameters, validated
 preconditions, atomic appends, provenance — instead of freeform
 `cave_add`; MCP clients surface the calls through their ordinary
 tool-permission prompts, which is where a human confirms.
+
+---
+
+## 26. Contradiction Resolution
+
+§9.4 tolerates contradictions at write time and promises the other half:
+"a query engine resolves current belief using latest transaction, source
+reliability, confidence, context, and explicit precedence rules". Until
+now only latest-tx-per-key existed — which resolves *within* one belief
+series but says nothing when several series assert the same fact: actor
+stamps fork series on purpose (§9.5), content sources fork them by
+authorship, negation forks them by polarity, and aliased names keep
+separate series by design (§13.6). Latest-tx across those series would
+make the most *recent* claim win, not the most *trusted* — an ingest
+re-run after a manual correction would silently re-override it. This
+section commits the **resolution policy**: an explicit, configurable
+rule for picking one winner per fact among coexisting current beliefs.
+
+Resolution is a **read mode**, strictly opt-in. Default reads keep §9.4
+coexistence untouched — contradictions remain visible data; nothing is
+ever rewritten, merged, or deleted. A resolved read filters, it does not
+edit: the winner is a stored row, returned verbatim.
+
+### 26.1 The resolution group — one fact, many voices
+
+Rows compete only when they answer the same question. The **resolution
+group** of a current row is its claim key (§9.2) with
+
+- every `src:` context **removed** — sources say *who* asserted the
+  fact, not *which* fact it is; and
+- the negation flag **dropped** — `server IS compromised` and
+  `server IS NOT compromised` are opposite answers to one question, the
+  §9.4 example (§9.3's "assert the opposite — stronger").
+
+Everything else stays: subject, verb, payload part (the object of a
+relation, the attribute name of an attribute claim), and the non-source
+contexts. Claims scoped to different non-source contexts
+(`@production` vs `@staging`) are *different facts*, never contested
+against each other; claims differing only in source or polarity are one
+contested fact.
+
+Under the alias closure (§13.6, opt-in as everywhere), groups widen:
+subject and relation-object entities resolve to their closure group, so
+`postgres HAS version: 14 @src:a` and `postgresql HAS version: 15
+@src:b` contest one group. The winner still keeps its stored spelling —
+union-of-rows semantics carry over; resolution picks among rows, it
+never rewrites names.
+
+**Candidates** are the current row (latest tx) of each series in the
+group, excluding retracted rows: a series at `@ 0%` has no current
+support (§9.3) and neither wins nor blocks. Negated rows are candidates —
+polarity is the contest. A group whose candidates are all retracted
+resolves to *unknown*: no row survives.
+
+### 26.2 The policy — precedence, reliability, recency
+
+Among a group's candidates the winner is decided by comparing, in
+order:
+
+1. **Precedence class** — an integer per source, higher outranks. A
+   row's class is the **maximum** over its `src:` contexts' classes (a
+   claim is as authoritative as its strongest backer); a row with no
+   source context takes the root class.
+2. **Effective confidence** — the row's stored confidence times its
+   **reliability**, a `0..1` weight per source (default `1`). A row's
+   reliability is the **minimum** over its `src:` contexts' weights (a
+   chain of provenance is as reliable as its weakest link). The stored
+   row is returned unmodified — reliability ranks, it never rewrites
+   `conf`.
+3. **Latest transaction** — the §9.1 rule, now the tiebreaker. Two
+   candidates never tie beyond it (tx is unique per row).
+
+The class hierarchy is why a human correction survives an ingest
+re-run: the re-run appends a newer row in the machine-tier series, but
+the human-tier series outranks it regardless of recency. Recency still
+governs *within* a tier — and within one series, exactly as before.
+
+### 26.3 Declaring the policy — `source/…` claims
+
+Precedence and reliability are knowledge about sources, so they are
+declared **in-band** as ordinary attribute claims, no new syntax. The
+subject is the source context's name under the `source/` entity prefix
+(context `src:cli` ↔ entity `source/cli`; the bare entity `source` is
+the root, covering every source and unstamped rows):
+
+```cave
+source/cli HAS precedence: 4              ; the built-in default ladder,
+source/agent HAS precedence: 3            ; written out — declaring it
+source/action HAS precedence: 3           ; is redundant
+source HAS precedence: 2
+source/rule HAS precedence: 1
+
+source/scanner-a HAS reliability: 60%     ; discount one scanner
+source/ingest HAS reliability: 80%        ; discount all LLM ingestion
+```
+
+**Matching is by path prefix, most specific declaration wins** — the
+§9.4 "context" dimension made concrete: a context `src:ingest/93a0`
+takes its reliability from `source/ingest/93a0` if declared, else
+`source/ingest`, else `source` (the root), else the built-in default.
+Prefixes are whole `/`-separated segments; precedence and reliability
+match independently (the most specific declaration *of each dimension*
+applies).
+
+**Built-in defaults** (overridable by declaring the same subject):
+
+| Entity | Covers | Precedence |
+|---|---|---|
+| `source/cli` | `src:cli` — a human at the CLI (§9.5) | 4 |
+| `source/agent` | `src:agent/*` — MCP client appends | 3 |
+| `source/action` | `src:action/*` — governed writes (§25) | 3 |
+| `source` (root) | every other source — content sources, `src:connect/*`, `src:ingest/*` — and rows with no source | 2 |
+| `source/rule` | `src:rule/*` — derived claims (§24) | 1 |
+
+No reliability is built in — absent declarations, every source weighs
+`1` and candidates compare on raw confidence.
+
+Declarations are ordinary claims: they evolve append-only, retract with
+`@ 0%` (falling back to the next-most-specific match), and are stamped
+with their appending actor (§9.5). **Policy claims themselves resolve
+under the built-in ladder alone** — bootstrapping must end somewhere,
+and this is where: when two actors declare `source/ingest HAS
+precedence:` differently, the built-in classes of *their* sources
+decide (a `@src:cli` declaration beats a `@src:ingest/…` one), then
+confidence, then tx. An ingested document can therefore never elevate
+its own batch above the humans and agents it is answerable to, unless
+nothing above its tier has spoken. Reliability values accept `N%` or
+`0..1`; declarations whose value does not parse as a number in range —
+or whose precedence is not a number — are ignored.
+
+One §9.5 caveat carries over honestly: provenance is *claimed*, not
+proven — the explicit-context supersede path (writing into another
+actor's series by naming its `src:` context) also lands in that
+series' precedence class. The history records exactly who wrote what;
+resolution trusts the recorded contexts.
+
+### 26.4 Surfaces
+
+- `cave query --resolve` / `query(store, pattern, { resolve: true })` /
+  the MCP `cave_query` tool's `resolve` parameter: the pattern matches
+  over resolved winners instead of all current beliefs. A positive
+  pattern whose fact resolved to a negated winner matches nothing — the
+  overridden assertion is invisible, which is the §9.4 payoff.
+  Composes with `aliases` (groups widen through the closure, §26.1) and
+  `asOf` (candidates, policy declarations and the closure all
+  reconstruct at the boundary, §12.3); incompatible with `all`, which
+  asks for the unresolved history.
+- Store traversal (`forward`, `reverse`, topic reads) and the MCP
+  `cave_about` / `cave_neighbors` tools accept the same `resolve`
+  opt-in.
+- `store.resolvedBeliefs()` — the winners, one row per group;
+  `store.contested()` — groups where more than one candidate spoke,
+  each candidate scored (class, effective confidence) and ranked, the
+  fusion feed (§10.1 fuses a contested group's numeric estimates
+  instead of picking);
+  `store.resolutionPolicy()` — the effective merged policy entries.
+- `cave resolve` — the human view of the same: contested facts with
+  their ranked candidates, `--policy` for the effective policy table.
+
+In SQL terms, resolution is one window over §13.5's current-belief
+query — rank per group by class, effective confidence, tx — with the
+group key computed from `claim_key` (drop the negation element, filter
+`src:` members from the context array) and the class/reliability of a
+row looked up by longest-prefix match over the declared-or-built-in
+entries. Retraction, negation and §12 filters then apply to the
+surviving winners exactly as they always did.
