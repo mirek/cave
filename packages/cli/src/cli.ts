@@ -8,7 +8,8 @@
  * - `cave parse [file]` — lint / dump the AST (`--json`)
  * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
- * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`)
+ * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`, `--resolve`)
+ * - `cave resolve [--db <path>]` — contested facts under the §26 policy (`--aliases`, `--policy`, `--json`)
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
@@ -61,7 +62,8 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
-  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
+  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--resolve] [--no-prelude]
+  cave resolve [--db <path>]               contested facts + winners (spec §26) [--aliases] [--policy] [--json]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
@@ -162,7 +164,7 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--resolve] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -172,6 +174,11 @@ Options:
   --as-of <t>    resolve beliefs as of a past moment (spec §12.3): a date
                  (whole day included), a timestamp (whole second), or a
                  transaction id — rows recorded later are invisible
+  --resolve      match resolved winners only (spec §26): contested facts —
+                 same fact from several sources, or opposite polarity —
+                 collapse to the row the resolution policy picks
+                 (precedence class, reliability-weighted confidence, tx);
+                 incompatible with --all
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -185,7 +192,39 @@ Examples:
   cave query --db k.db 'terrier EXTENDS+ animal'
   cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db 'server IS compromised' --as-of 2026-01-15
+  cave query --db k.db 'service HAS owner: ?who' --resolve
   cave query --db k.db '?x ?verb ?y @production' --json`,
+
+  resolve: `cave resolve — contested facts and their winners (spec §26)
+
+Usage:
+  cave resolve [--db <path>] [--aliases] [--policy] [--json] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --aliases      widen resolution groups through current ALIAS claims
+                 (spec §13.6) — aliased names contest one fact
+  --policy       print the effective resolution policy instead: the
+                 built-in precedence ladder merged with in-band
+                 source/<name> HAS precedence: / HAS reliability: claims
+  --json         emit the report as JSON
+  --no-prelude   open the store without the standard verb registry
+
+Lists every fact more than one belief series currently speaks about —
+same fact from different sources (§9.5 actor stamps, content sources)
+or opposite polarity — with the candidates ranked as the resolution
+policy sees them: precedence class first, reliability-weighted
+confidence second, latest transaction last. The winner is what
+\`cave query --resolve\` matches; the rest are invisible there. Declare
+policy overrides in-band, e.g.:
+
+  source/scanner-a HAS reliability: 60%
+  source/ingest HAS precedence: 1
+
+Examples:
+  cave resolve --db k.db
+  cave resolve --db k.db --aliases
+  cave resolve --db k.db --policy`,
 
   derive: `cave derive — declare and fire rules (spec §24)
 
@@ -479,6 +518,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       all: { type: 'boolean' },
       aliases: { type: 'boolean' },
       'as-of': { type: 'string' },
+      resolve: { type: 'boolean' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
@@ -492,6 +532,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
     const matches = caveQuery(store, pattern, {
       all: values.all === true,
       aliases: values.aliases === true,
+      resolve: values.resolve === true,
       ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] }
     })
     if (values.json === true) {
@@ -508,6 +549,60 @@ export const queryCommand = (argv: readonly string[]): Output => {
       // additionally carry no row — confirm with the pattern itself.
       return bindings !== '' ? bindings : match.row?.raw_line ?? pattern.split('\n')[0]!
     })
+    return ok(`${lines.join('\n')}\n`)
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+/**
+ * `cave resolve` — the human view of contradiction resolution (spec §26.4):
+ * contested facts with their candidates ranked as the policy sees them,
+ * or the effective policy itself under `--policy`.
+ */
+export const resolveCommand = (argv: readonly string[]): Output => {
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      aliases: { type: 'boolean' },
+      policy: { type: 'boolean' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: false
+  })
+  const percent = (value: number): string => `${Math.round(value * 1000) / 10}%`
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    if (values.policy === true) {
+      const policy = store.resolutionPolicy()
+      if (values.json === true) {
+        return ok(`${JSON.stringify(policy, undefined, 2)}\n`)
+      }
+      const width = Math.max(...policy.map(entry => entry.prefix.length + 7))
+      const lines = policy.map(entry => {
+        const subject = entry.prefix === '' ? 'source' : `source/${entry.prefix}`
+        const dimensions = [
+          ...entry.precedence === undefined ? [] : [`precedence ${entry.precedence}`],
+          ...entry.reliability === undefined ? [] : [`reliability ${percent(entry.reliability)}`]
+        ]
+        return `${subject.padEnd(width)}  ${dimensions.join(', ')}`
+      })
+      return ok(`${lines.join('\n')}\n`)
+    }
+    const contested = store.contested({ aliases: values.aliases === true })
+    if (values.json === true) {
+      return ok(`${JSON.stringify(contested, undefined, 2)}\n`)
+    }
+    if (contested.length === 0) {
+      return ok('no contested facts\n')
+    }
+    const lines = contested.flatMap(group =>
+      group.rows.map((row, at) =>
+        `${at === 0 ? '' : '  over '}${row.raw_line} ; class ${row.res_class}, effective ${percent(row.res_conf)}`))
     return ok(`${lines.join('\n')}\n`)
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
@@ -969,6 +1064,8 @@ export const cave = (argv: readonly string[]): Output => {
         return importCommand(rest)
       case 'query':
         return queryCommand(rest)
+      case 'resolve':
+        return resolveCommand(rest)
       case 'derive':
         return deriveCommand(rest)
       case 'act':

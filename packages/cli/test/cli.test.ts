@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -131,6 +131,51 @@ test('query --as-of resolves beliefs at a past tx (spec §12.3)', () => {
     const invalid = queryCommand(['server IS compromised', '--db', db, '--as-of', 'yesterday'])
     assert.equal(invalid.code, 1)
     assert.match(invalid.err, /as-of boundary/)
+  })
+})
+
+test('query --resolve matches winners only — a cli correction survives the re-run (spec §26.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const ingested = join(dir, 'ingested.cave')
+    writeFileSync(ingested, 'service HAS owner: alice @src:ingest/93a0\n')
+    const correction = join(dir, 'correction.cave')
+    writeFileSync(correction, 'service HAS owner: bob\n') // stamped @src:cli
+    addCommand([ingested, '--db', db])
+    addCommand([correction, '--db', db])
+    addCommand([ingested, '--db', db]) // the re-run — newest tx, machine tier
+    const plain = queryCommand(['service HAS owner: ?who', '--db', db])
+    assert.deepEqual(plain.out.trim().split('\n').sort(), ['?who = alice', '?who = bob'])
+    const resolved = queryCommand(['service HAS owner: ?who', '--db', db, '--resolve'])
+    assert.equal(resolved.out, '?who = bob\n')
+    const conflict = queryCommand(['?x IS ?y', '--db', db, '--resolve', '--all'])
+    assert.equal(conflict.code, 1)
+    assert.match(conflict.err, /incompatible with all/)
+  })
+})
+
+test('resolve lists contested facts winner-first, and the effective policy (spec §26.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'service HAS owner: alice @src:ingest/93a0',
+      'service HAS owner: bob',
+      'lonely IS fact'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+    const report = resolveCommand(['--db', db])
+    assert.equal(report.code, 0)
+    const [winner, loser, ...more] = report.out.trim().split('\n')
+    assert.match(winner!, /^service HAS owner: bob ; class 4, effective 100%$/)
+    assert.match(loser!, /^ {2}over service HAS owner: alice @src:ingest\/93a0 ; class 2, effective 100%$/)
+    assert.deepEqual(more, [], 'uncontested facts are not listed')
+    const policy = resolveCommand(['--db', db, '--policy'])
+    assert.match(policy.out, /source\/cli\s+precedence 4/)
+    assert.match(policy.out, /^source\s+precedence 2/m)
+    const empty = join(dir, 'empty.db')
+    open(empty).close()
+    assert.equal(resolveCommand(['--db', empty]).out, 'no contested facts\n')
   })
 })
 

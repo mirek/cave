@@ -11,12 +11,17 @@
  *   lines via FTS5;
  * - appends can stamp actor provenance (spec §9.5): pass `source` and every
  *   claim without a `src:` context gets `@src:<actor>` — applied before the
- *   claim key is computed, so different actors keep separate belief series.
+ *   claim key is computed, so different actors keep separate belief series;
+ * - contradiction resolution (spec §26): coexisting series about one fact
+ *   resolve to one winner by precedence class, reliability-weighted
+ *   confidence and tx — `resolvedBeliefs`, `contested`, and the `resolve`
+ *   traversal opt-in.
  */
 
 import { DatabaseSync } from 'node:sqlite'
 import { Claim, Context, Key, Uuidv7, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
+import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
 
@@ -29,24 +34,43 @@ JOIN (
 `
 
 /**
- * Alias closure (spec §13.6): current positive `ALIAS` claims as undirected
- * edges (`ALIAS` has no `REVERSE`, so each written direction is its own
- * claim key — both assert the same link), walked recursively from a seed
- * entity. Retraction unmerges: `a ALIAS b @ 0%` drops that direction's edge.
- * The seed is the query's single positional parameter.
+ * Alias edges (spec §13.6): current positive `ALIAS` claims read as
+ * undirected (`ALIAS` has no `REVERSE`, so each written direction is its
+ * own claim key — both assert the same link). Retraction unmerges:
+ * `a ALIAS b @ 0%` drops that direction's edge.
  */
-const aliasClosureSql = `
-WITH RECURSIVE alias_edge(a, b) AS (
+const aliasEdgeSql = `alias_edge(a, b) AS (
   SELECT c.subject, c.object FROM (${currentSql}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
   UNION
   SELECT c.object, c.subject FROM (${currentSql}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-), alias_closure(name) AS (
+)`
+
+/**
+ * The closure walked from a seed entity — the seed is the query's first
+ * positional parameter. Requires `alias_edge` in scope.
+ */
+const aliasSeedSql = `alias_closure(name) AS (
   SELECT ?
   UNION
   SELECT e.b FROM alias_closure s JOIN alias_edge e ON e.a = s.name
-)
+)`
+
+/**
+ * The full transitive closure as ordered pairs — every two names currently
+ * believed to denote one entity. Resolution grouping widens through it
+ * (spec §26.1). Requires `alias_edge` in scope.
+ */
+const aliasPairSql = `alias_pair(a, b) AS (
+  SELECT a, b FROM alias_edge
+  UNION
+  SELECT p.a, e.b FROM alias_pair p JOIN alias_edge e ON e.a = p.b
+)`
+
+/** Seeded alias closure (spec §13.6), ready to prefix a SELECT. */
+const aliasClosureSql = `
+WITH RECURSIVE ${aliasEdgeSql}, ${aliasSeedSql}
 `
 
 export type IngestResult = {
@@ -101,6 +125,14 @@ export type TraverseOptions = {
    * Union-of-rows: matching widens, returned rows keep their stored names.
    */
   readonly aliases?: boolean
+  /**
+   * Traverse resolved winners only (spec §26, default `false`): when
+   * several series assert one fact — actor stamps, content sources,
+   * polarity — the resolution policy picks one and the rest are
+   * invisible. Composes with `aliases`, which widens resolution groups
+   * through the closure.
+   */
+  readonly resolve?: boolean
 }
 
 export type Store = ReturnType<typeof open>
@@ -262,7 +294,24 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     options.aliases === true ? `${column} IN (SELECT name FROM alias_closure)` : `${column} = ?`
 
   const withAliases = (options: TraverseOptions): string =>
-    options.aliases === true ? aliasClosureSql : ''
+    options.aliases === true ?
+      // Resolution grouping needs the pair closure too (spec §26.1).
+      (options.resolve === true ?
+        `\nWITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}, ${aliasSeedSql}\n` :
+        aliasClosureSql) :
+      ''
+
+  const readPolicy = (): Resolve.Entry[] =>
+    Resolve.readPolicy(db, currentSql)
+
+  /**
+   * Row universe of a traversal: current beliefs, or the §26 resolved
+   * winners among them when `resolve` is set.
+   */
+  const universe = (options: TraverseOptions): string =>
+    options.resolve === true ?
+      Resolve.resolvedSql(readPolicy(), currentSql, { aliases: options.aliases === true }) :
+      currentSql
 
   return {
     /** Raw database handle — used by `@cavelang/query`; treat as read-only. */
@@ -318,6 +367,53 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     },
 
     /**
+     * The effective resolution policy (spec §26.3): the built-in ladder
+     * merged with current in-band `source[/<path>] HAS precedence:` /
+     * `HAS reliability:` declarations, sorted by prefix.
+     */
+    resolutionPolicy(): Resolve.Entry[] {
+      return readPolicy()
+    },
+
+    /**
+     * Resolved current beliefs (spec §26): one winner per resolution
+     * group — coexisting series about one fact (actor stamps, content
+     * sources, polarity) collapse to the row the policy picks; the rest
+     * are invisible. Oldest first, rows returned verbatim. With
+     * `aliases`, groups widen through the alias closure (spec §26.1).
+     */
+    resolvedBeliefs(options_: { aliases?: boolean } = {}): Row.t[] {
+      const aliases = options_.aliases === true
+      const prefix = aliases ? `WITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}\n` : ''
+      return rows(`${prefix}SELECT * FROM (${Resolve.resolvedSql(readPolicy(), currentSql, { aliases })}) ORDER BY tx`)
+    },
+
+    /**
+     * Contested facts (spec §26.4): resolution groups where more than one
+     * candidate currently speaks, each candidate scored (`res_class`,
+     * `res_conf`) and ranked — the winner first. The feed for fusion
+     * (§10.1 combines a contested group's numeric estimates instead of
+     * picking) and for the `cave resolve` view.
+     */
+    contested(options_: { aliases?: boolean } = {}): Resolve.Contested[] {
+      const aliases = options_.aliases === true
+      const prefix = aliases ? `WITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}\n` : ''
+      const ranked = rows(
+        `${prefix}SELECT * FROM (${Resolve.rankedSql(readPolicy(), currentSql, { aliases })}) ORDER BY res_group, res_rank`
+      ) as Resolve.Ranked[]
+      const groups: { group: string, rows: Resolve.Ranked[] }[] = []
+      for (const row of ranked) {
+        const last = groups[groups.length - 1]
+        if (last !== undefined && last.group === row.res_group) {
+          last.rows.push(row)
+        } else {
+          groups.push({ group: row.res_group, rows: [row] })
+        }
+      }
+      return groups.filter(group => group.rows.length > 1)
+    },
+
+    /**
      * The alias closure of an entity (spec §13.6): the entity itself plus
      * every name reachable through current positive `ALIAS` claims, read as
      * undirected edges. Unmerge is retraction — appending `a ALIAS b @ 0%`
@@ -344,7 +440,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Forward reads: current relational facts with `entity` as subject (spec §13.3). */
     forward(entity: string, options_: TraverseOptions = {}): ForwardFact[] {
       return rows(
-        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('subject', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => ({ verb: row.verb, target: row.object!, row }))
     },
@@ -356,7 +452,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      */
     reverse(entity: string, options_: TraverseOptions = {}): ReverseFact[] {
       return rows(
-        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('object', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => {
         const rel = Canonical.Registry.inverseOf(registry, row.verb)
@@ -385,7 +481,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Members of a topic — forward `CONTAINS` traversal (spec §11.2). */
     topicMembers(topic: string, options_: TraverseOptions = {}): string[] {
       return rows(
-        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('subject', options_)} AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
         topic
       ).map(row => row.object!)
     },
@@ -393,7 +489,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Topics containing an entity — the inverse `CONTAINS` read (spec §11.2). */
     topicsOf(entity: string, options_: TraverseOptions = {}): string[] {
       return rows(
-        `${withAliases(options_)} SELECT * FROM (${currentSql}) WHERE ${entityMatch('object', options_)} AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
+        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
         entity
       ).map(row => row.subject)
     },

@@ -21,10 +21,10 @@ connected model knows how to write CAVE claims without further prompting.
 | Tool | Purpose |
 |---|---|
 | `cave_add` | append CAVE text (extraction output); lenient, `strict` opt-in |
-| `cave_query` | CAVE-Q patterns (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs |
+| `cave_query` | CAVE-Q patterns (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3) and `resolve` (§26 winners only) opt-ins |
 | `cave_search` | FTS over claims, values, comments |
-| `cave_about` | current claims about an entity, both directions, canonical lines |
-| `cave_neighbors` | named forward + inverse edges (§13.3) for graph walking |
+| `cave_about` | current claims about an entity, both directions, canonical lines; `aliases` / `resolve` opt-ins |
+| `cave_neighbors` | named forward + inverse edges (§13.3) for graph walking; `aliases` / `resolve` opt-ins |
 | `cave_reconstruct` | cave-loop active reconstruction from seed cues (§18) — pull everything related to a symptom before reasoning |
 | `cave_export` | canonical text backup (`current` for beliefs only) |
 | `cave_lint` | validate CAVE text without storing |

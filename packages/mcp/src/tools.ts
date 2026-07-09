@@ -76,11 +76,13 @@ const text = (value: unknown, name: string): string => {
 
 /**
  * Current claims mentioning `entity` on either endpoint, as canonical
- * lines — through the alias closure (spec §13.6) when asked.
+ * lines — through the alias closure (spec §13.6) when asked, restricted
+ * to the §26 resolved winners when asked.
  */
-const aboutLines = (store: Store, entity: string, aliases: boolean): string[] => {
+const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boolean): string[] => {
   const names = new Set(aliases ? store.aliasesOf(entity) : [entity])
-  return store.currentBeliefs()
+  const rows = resolve ? store.resolvedBeliefs({ aliases }) : store.currentBeliefs()
+  return rows
     .filter(row => names.has(row.subject) || (row.object !== null && names.has(row.object)))
     .map(row => emitClaim(store.toClaim(row)))
 }
@@ -128,13 +130,15 @@ export const tools: readonly Tool[] = [
         pattern: { type: 'string', description: 'CAVE-Q pattern; WHERE filters on following lines' },
         all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' },
         aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' },
-        asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' }
+        asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' },
+        resolve: { type: 'boolean', description: 'match resolved winners only (spec §26): contested facts — one fact from several sources, or opposite polarity — collapse to the row the resolution policy picks; incompatible with all' }
       }
     },
     run: (store, args) => {
       const matches = caveQuery(store, text(args['pattern'], 'pattern'), {
         all: args['all'] === true,
         aliases: args['aliases'] === true,
+        resolve: args['resolve'] === true,
         ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {}
       })
       if (matches.length === 0) {
@@ -177,11 +181,13 @@ export const tools: readonly Tool[] = [
       required: ['entity'],
       properties: {
         entity: { type: 'string', description: 'entity name, e.g. auth/middleware' },
-        aliases: { type: 'boolean', description: 'include claims about aliased names (current ALIAS claims, spec §13.6)' }
+        aliases: { type: 'boolean', description: 'include claims about aliased names (current ALIAS claims, spec §13.6)' },
+        resolve: { type: 'boolean', description: 'restrict to resolved winners (spec §26): contested facts collapse to the row the resolution policy picks' }
       }
     },
     run: (store, args) =>
-      aboutLines(store, text(args['entity'], 'entity'), args['aliases'] === true).join('\n') || 'no claims'
+      aboutLines(store, text(args['entity'], 'entity'), args['aliases'] === true, args['resolve'] === true)
+        .join('\n') || 'no claims'
   },
   {
     name: 'cave_neighbors',
@@ -193,12 +199,13 @@ export const tools: readonly Tool[] = [
       required: ['entity'],
       properties: {
         entity: { type: 'string' },
-        aliases: { type: 'boolean', description: 'include edges of aliased names (current ALIAS claims, spec §13.6)' }
+        aliases: { type: 'boolean', description: 'include edges of aliased names (current ALIAS claims, spec §13.6)' },
+        resolve: { type: 'boolean', description: 'walk resolved winners only (spec §26): contested edges collapse to the row the resolution policy picks' }
       }
     },
     run: (store, args) => {
       const entity = text(args['entity'], 'entity')
-      const options = { aliases: args['aliases'] === true }
+      const options = { aliases: args['aliases'] === true, resolve: args['resolve'] === true }
       // Endpoints print as stored — under aliases a matched row may name
       // an aliased spelling, and union semantics never rewrites it.
       const forward = store.forward(entity, options)

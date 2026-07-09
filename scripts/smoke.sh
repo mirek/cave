@@ -39,6 +39,15 @@ echo "==> cave derive fires rules and records lineage (spec §24)"
   echo "error: cave derive did not derive grandparenthood" >&2
   exit 1
 }
+echo "==> cave resolve ranks the contested birth year (spec §26)"
+"$cave" resolve --db "$tmp/family.db" | grep -q 'over jan HAS birth-year: 1931 @src:cousin' || {
+  echo "error: cave resolve did not rank the contested birth year" >&2
+  exit 1
+}
+"$cave" query 'jan HAS birth-year: ?y' --resolve --db "$tmp/family.db" | grep -q '?y = 1932' || {
+  echo "error: cave query --resolve did not pick the winner" >&2
+  exit 1
+}
 echo "==> cave reconstruct walks the graph from a seed cue (spec §18)"
 "$cave" reconstruct checkout/errors --db "$tmp/smoke.db" | grep -q 'rollback FIX checkout/errors' || {
   echo "error: cave reconstruct did not surface the fix" >&2

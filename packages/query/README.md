@@ -19,6 +19,7 @@ query(store, 'terrier EXTENDS+ animal') // transitive
 
 query(store, '?x USES postgres', { aliases: true }) // + rows about aliased names (§13.6)
 query(store, 'server IS compromised', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
+query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only — one row per contested fact
 ```
 
 ## Pattern language (§12.1)
@@ -83,6 +84,15 @@ covers one second.
   transaction id (that append included). The alias closure and transitive
   hops reconstruct at the same instant; `{ all: true }` composes as
   full-history-up-to-the-boundary.
+- **`{ resolve: true }` matches resolved winners only** (§26): coexisting
+  series about one fact — §9.5 actor stamps, content sources, opposite
+  polarity — collapse to the row the resolution policy picks (precedence
+  class, reliability-weighted confidence, tx), so a positive pattern
+  whose fact resolved to a negated winner matches nothing and transitive
+  hops walk only winning edges. Composes with `aliases` (groups widen
+  through the closure) and `asOf` (candidates and the in-band policy
+  declarations reconstruct at the boundary); incompatible with
+  `{ all: true }`, which asks for the unresolved history.
 
 ## Tests
 
@@ -94,6 +104,8 @@ Every §12.1 example pattern and every §12.2 filter runs against a live
 in-memory store, including inverse and transitive-inverse cases,
 current-vs-history semantics, negated patterns, the §13.6 alias
 closure (term widening, transitive hops across aliases, unmerge by
-retraction, value/attribute exemption) and §12.3 as-of resolution
+retraction, value/attribute exemption), §12.3 as-of resolution
 (tx/date/timestamp boundaries, later retraction, as-of alias closure
-and transitive edges).
+and transitive edges) and §26 winners-only matching (ingest re-runs vs
+human corrections, polarity suppression, reliability steering,
+resolved transitive paths, composition with aliases and as-of).

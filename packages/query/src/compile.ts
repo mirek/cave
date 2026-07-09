@@ -2,8 +2,10 @@
  * CAVE-Q → SQL compilation (spec §12).
  *
  * Patterns run over *current beliefs* by default — the latest transaction
- * per claim key (spec §9.1) — pass `all` to match the full history, or
- * `asOf` to resolve the belief state at a past moment (spec §12.3).
+ * per claim key (spec §9.1) — pass `all` to match the full history,
+ * `asOf` to resolve the belief state at a past moment (spec §12.3), or
+ * `resolve` to match only the winners the §26 contradiction-resolution
+ * policy picks among contested facts.
  * Inverse verbs compile to the same physical query as their primary
  * (spec §12.1): `?x PART-OF monorepo` and `monorepo CONTAINS ?x` produce
  * identical SQL against canonical rows, with the pattern's subject binding
@@ -15,6 +17,7 @@
 
 import { Uuidv7, Value } from '@cavelang/core'
 import { Registry } from '@cavelang/canonical'
+import { Resolve } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 import * as Pattern from './pattern.ts'
 
@@ -44,6 +47,16 @@ export type Options = {
    * matches the full history up to the boundary.
    */
   readonly asOf?: string
+  /**
+   * Match resolved winners only (spec §26): when several series assert
+   * one fact — actor stamps, content sources, polarity — the resolution
+   * policy (precedence class, reliability-weighted confidence, tx)
+   * picks one and the rest are invisible. A positive pattern whose fact
+   * resolved to a negated winner matches nothing. Composes with
+   * `aliases` (groups widen through the closure) and `asOf` (candidates
+   * and policy reconstruct at the boundary); incompatible with `all`.
+   */
+  readonly resolve?: boolean
 }
 
 /**
@@ -90,6 +103,24 @@ JOIN (
 `
 
 /**
+ * Row universe a pattern matches over: the full history under `all`,
+ * current beliefs by default, or the §26 resolved winners among them
+ * under `resolve` — each reconstructed at the `asOf` boundary when one
+ * is set. With `resolve` + `aliases` the winners' group keys widen
+ * through the closure, so the compiled statement must have the
+ * `alias_pair` CTE in scope — which the alias plumbing already provides.
+ */
+const baseSql = (options: Options, policy: undefined | readonly Resolve.Entry[]): string => {
+  if (options.resolve === true) {
+    if (options.all === true) {
+      throw new Error('CAVE-Q: resolve picks winners among current beliefs — incompatible with all (spec §26.4)')
+    }
+    return Resolve.resolvedSql(policy ?? Resolve.builtins, currentSql(options.asOf), { aliases: options.aliases === true })
+  }
+  return options.all === true ? `SELECT * FROM ${claimsSql(options.asOf)}` : currentSql(options.asOf)
+}
+
+/**
  * Alias closure CTEs (spec §13.6): `alias_edge` is the current positive
  * `ALIAS` claims symmetrized (each written direction is its own claim key —
  * both assert the same undirected link); `alias_pair` its transitive
@@ -123,7 +154,7 @@ type Compiled = {
   readonly transitive: boolean
 }
 
-const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Compiled => {
+const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
   // Inverse resolution (spec §12.1): swap the pattern's endpoint slots and
   // query the primary verb.
   let verb = pattern.verb
@@ -144,7 +175,7 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
   }
 
   if (verb.kind === 'verb' && verb.transitive) {
-    return compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options)
+    return compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options, policy)
   }
 
   const aliases = options.aliases === true
@@ -300,7 +331,7 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
     conditions.push('c.conf > 0')
   }
 
-  const base = options.all === true ? `SELECT * FROM ${claimsSql(options.asOf)}` : currentSql(options.asOf)
+  const base = baseSql(options, policy)
   const withClause = aliases ? `WITH RECURSIVE ${aliasPairSql(options.asOf)} ` : ''
   const sql = `${withClause}SELECT c.* FROM (${base}) c WHERE ${conditions.join(' AND ')} ORDER BY c.tx`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
@@ -318,14 +349,15 @@ const compileTransitive = (
   verb: string,
   subjectSlot: Pattern.Slot,
   objectSlot: undefined | Pattern.Slot,
-  options: Options
+  options: Options,
+  policy?: readonly Resolve.Entry[]
 ): Compiled => {
   if (pattern.negated || pattern.filters.length > 0 || pattern.contexts.length > 0 || pattern.tags.length > 0 ||
       pattern.payload.kind === 'attribute') {
     throw new Error('CAVE-Q: transitive patterns support subject/object slots only (spec §12.1)')
   }
   const aliases = options.aliases === true
-  const base = options.all === true ? `SELECT * FROM ${claimsSql(options.asOf)}` : currentSql(options.asOf)
+  const base = baseSql(options, policy)
   /** Endpoint equality: exact, or alias-equal under the closure (spec §13.6). */
   const same = (left: string, right: string): string =>
     aliases ? aliasSame(left, right) : `${left} = ${right}`
@@ -398,7 +430,12 @@ export const query = (store: Store, input: string, options: Options = {}): Match
  * between joins) rather than as text.
  */
 export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] => {
-  const compiled = compile(pattern, store.registry(), options)
+  // The effective policy is read per query so an as-of query reads the
+  // in-band declarations as of its boundary (spec §26.3, §12.3).
+  const policy = options.resolve === true ?
+    Resolve.readPolicy(store.db, currentSql(options.asOf)) :
+    undefined
+  const compiled = compile(pattern, store.registry(), options, policy)
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
   if (compiled.transitive && options.aliases === true) {
     // Distinct (src, dst) pairs can repeat a binding set when an endpoint

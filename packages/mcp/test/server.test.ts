@@ -190,6 +190,26 @@ test('cave_query, cave_about and cave_neighbors resolve aliases on request (spec
   store.close()
 })
 
+test('cave_query, cave_about and cave_neighbors resolve contested facts on request (spec §26.4)', () => {
+  const store = open()
+  store.ingest('service HAS owner: alice\nauth USES jwt @ 60%', { source: 'ingest/93a0' })
+  store.ingest('service HAS owner: bob\nauth USES NOT jwt @ 90%', { source: 'cli' })
+  const server = createServer(store)
+  const plain = contentText(call(server, 60, 'cave_query', { pattern: 'service HAS owner: ?who' }))
+  assert.match(plain, /\?who = alice/)
+  assert.match(plain, /\?who = bob/)
+  const resolved = contentText(call(server, 61, 'cave_query', { pattern: 'service HAS owner: ?who', resolve: true }))
+  assert.equal(resolved, '?who = bob  ; service HAS owner: bob', 'the human-tier series wins')
+  const conflict = call(server, 62, 'cave_query', { pattern: '?x IS ?y', resolve: true, all: true })
+  assert.equal(conflict.result?.['isError'], true)
+  const about = contentText(call(server, 63, 'cave_about', { entity: 'service', resolve: true }))
+  assert.match(about, /owner: bob/)
+  assert.doesNotMatch(about, /alice/, 'the overridden series is invisible')
+  const neighbors = contentText(call(server, 64, 'cave_neighbors', { entity: 'auth', resolve: true }))
+  assert.equal(neighbors, 'no edges', 'the denial wins its group — the positive edge is gone')
+  store.close()
+})
+
 test('cave_reconstruct performs multi-hop recovery over the sqlite store (spec §18)', () => {
   const store = open()
   store.ingest([

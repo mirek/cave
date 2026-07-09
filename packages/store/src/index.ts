@@ -12,6 +12,7 @@
  * ```
  */
 
+export * as Resolve from './resolve.ts'
 export * as Row from './row.ts'
 export * as Schema from './schema.ts'
 export { defaultDbPath, open } from './store.ts'
