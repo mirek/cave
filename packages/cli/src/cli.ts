@@ -8,7 +8,7 @@
  * - `cave parse [file]` — lint / dump the AST (`--json`)
  * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
- * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`)
+ * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
@@ -50,7 +50,7 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
-  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--no-prelude]
+  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
@@ -146,13 +146,16 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--no-prelude]
 
 Options:
   ${dbHelp}
   --json         emit matches as JSON
   --all          match all beliefs, not just current ones
   --aliases      resolve entities through current ALIAS claims (spec §13.6)
+  --as-of <t>    resolve beliefs as of a past moment (spec §12.3): a date
+                 (whole day included), a timestamp (whole second), or a
+                 transaction id — rows recorded later are invisible
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -165,6 +168,7 @@ Examples:
   cave query --db k.db '?cause CAUSE app/crash' 'WHERE conf >= 0.5'
   cave query --db k.db 'terrier EXTENDS+ animal'
   cave query --db k.db '?x USES postgres' --aliases
+  cave query --db k.db 'server IS compromised' --as-of 2026-01-15
   cave query --db k.db '?x ?verb ?y @production' --json`,
 
   check: `cave check — knowledge health report (spec §20)
@@ -340,6 +344,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       json: { type: 'boolean' },
       all: { type: 'boolean' },
       aliases: { type: 'boolean' },
+      'as-of': { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
@@ -350,7 +355,11 @@ export const queryCommand = (argv: readonly string[]): Output => {
   const pattern = positionals.join('\n')
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const matches = caveQuery(store, pattern, { all: values.all === true, aliases: values.aliases === true })
+    const matches = caveQuery(store, pattern, {
+      all: values.all === true,
+      aliases: values.aliases === true,
+      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] }
+    })
     if (values.json === true) {
       return ok(`${JSON.stringify(matches, undefined, 2)}\n`)
     }

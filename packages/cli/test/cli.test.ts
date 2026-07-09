@@ -112,6 +112,28 @@ test('query --aliases resolves entities through current ALIAS claims (spec §13.
   })
 })
 
+test('query --as-of resolves beliefs at a past tx (spec §12.3)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const first = join(dir, 'first.cave')
+    writeFileSync(first, 'server IS compromised @ 60%\n')
+    addCommand([first, '--db', db])
+    const store = open(db)
+    const boundary = store.claimsAbout('server')[0]!.tx
+    store.close()
+    const retraction = join(dir, 'retraction.cave')
+    writeFileSync(retraction, 'server IS compromised @ 0% ; clean scan\n')
+    addCommand([retraction, '--db', db])
+    assert.equal(queryCommand(['server IS compromised', '--db', db]).out, 'no matches\n')
+    const then = queryCommand(['server IS compromised', '--db', db, '--as-of', boundary])
+    assert.equal(then.code, 0)
+    assert.match(then.out, /server IS compromised/)
+    const invalid = queryCommand(['server IS compromised', '--db', db, '--as-of', 'yesterday'])
+    assert.equal(invalid.code, 1)
+    assert.match(invalid.err, /as-of boundary/)
+  })
+})
+
 test('bound patterns with no variables print matched raw lines', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')

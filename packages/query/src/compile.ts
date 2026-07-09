@@ -2,7 +2,8 @@
  * CAVE-Q → SQL compilation (spec §12).
  *
  * Patterns run over *current beliefs* by default — the latest transaction
- * per claim key (spec §9.1) — pass `all` to match the full history.
+ * per claim key (spec §9.1) — pass `all` to match the full history, or
+ * `asOf` to resolve the belief state at a past moment (spec §12.3).
  * Inverse verbs compile to the same physical query as their primary
  * (spec §12.1): `?x PART-OF monorepo` and `monorepo CONTAINS ?x` produce
  * identical SQL against canonical rows, with the pattern's subject binding
@@ -33,13 +34,58 @@ export type Options = {
    * names untouched.
    */
   readonly aliases?: boolean
+  /**
+   * Resolve beliefs as of a past moment (spec §12.3): a date
+   * (`2026-01-15`, the whole UTC day included), a timestamp (the whole
+   * second included), or an exact transaction id (UUIDv7, included).
+   * Rows recorded after the boundary are invisible — current-belief
+   * resolution, the alias closure and transitive hops all reconstruct
+   * the belief state at that boundary. Composes with `all`, which then
+   * matches the full history up to the boundary.
+   */
+  readonly asOf?: string
 }
 
-const currentSql = `
+/**
+ * UUIDv7 interval `[lo, hi)` for a tx filter value: a bare date covers the
+ * whole UTC day, a timestamp covers one second. Interval semantics keep
+ * adjacent operators distinguishable (`<=` includes the boundary day that
+ * `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
+ */
+const txBounds = (text: string, label = 'tx date'): { lo: string, hi: string } => {
+  const hasTime = text.includes('T')
+  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
+  if (Number.isNaN(start)) {
+    throw new Error(`CAVE-Q: cannot parse ${label} ${JSON.stringify(text)}`)
+  }
+  const end = start + (hasTime ? 1_000 : 86_400_000)
+  return { lo: Uuidv7.at(start, 0, new Uint8Array(8)), hi: Uuidv7.at(end, 0, new Uint8Array(8)) }
+}
+
+/**
+ * SQL tx condition for an as-of boundary (spec §12.3). A UUIDv7 names an
+ * exact transaction, included — belief as of that append; a date or
+ * timestamp is inclusive of the whole named day/second, the same interval
+ * semantics as `WHERE tx <=` (§12.2). Both forms inline as literals: the
+ * id is shape-validated hex-and-dashes and the interval bound comes from
+ * `Uuidv7.at` — no free-form text reaches the SQL, and a literal keeps
+ * the fragment embeddable in CTEs that positional parameters would
+ * complicate.
+ */
+const asOfCondition = (asOf: string): string => {
+  const id = asOf.toLowerCase()
+  return Uuidv7.is(id) ? `tx <= '${id}'` : `tx < '${txBounds(asOf, 'as-of boundary').hi}'`
+}
+
+/** Row universe under resolution: every appended row, or only rows recorded up to the as-of boundary. */
+const claimsSql = (asOf: undefined | string): string =>
+  asOf === undefined ? 'cave_claim' : `(SELECT * FROM cave_claim WHERE ${asOfCondition(asOf)})`
+
+const currentSql = (asOf: undefined | string): string => `
 SELECT c.* FROM cave_claim c
 JOIN (
   SELECT claim_key, MAX(tx) AS max_tx
-  FROM cave_claim GROUP BY claim_key
+  FROM ${claimsSql(asOf)} GROUP BY claim_key
 ) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
 `
 
@@ -50,13 +96,15 @@ JOIN (
  * closure — every ordered pair of names currently believed to denote one
  * entity. Resolution always reads *current* beliefs, even under `all`:
  * the closure is entity resolution as believed now, not as believed when
- * a row landed.
+ * a row landed — except under `asOf`, where "now" is the boundary itself
+ * and the closure reconstructs entity resolution as believed then
+ * (spec §12.3).
  */
-const aliasPairSql = `alias_edge(a, b) AS (
-  SELECT c.subject, c.object FROM (${currentSql}) c
+const aliasPairSql = (asOf: undefined | string): string => `alias_edge(a, b) AS (
+  SELECT c.subject, c.object FROM (${currentSql(asOf)}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
   UNION
-  SELECT c.object, c.subject FROM (${currentSql}) c
+  SELECT c.object, c.subject FROM (${currentSql(asOf)}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
 ), alias_pair(a, b) AS (
   SELECT a, b FROM alias_edge
@@ -67,22 +115,6 @@ const aliasPairSql = `alias_edge(a, b) AS (
 /** SQL for "these two expressions name the same entity" under the closure. */
 const aliasSame = (left: string, right: string): string =>
   `(${left} = ${right} OR EXISTS (SELECT 1 FROM alias_pair p WHERE p.a = ${left} AND p.b = ${right}))`
-
-/**
- * UUIDv7 interval `[lo, hi)` for a tx filter value: a bare date covers the
- * whole UTC day, a timestamp covers one second. Interval semantics keep
- * adjacent operators distinguishable (`<=` includes the boundary day that
- * `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
- */
-const txBounds = (text: string): { lo: string, hi: string } => {
-  const hasTime = text.includes('T')
-  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(start)) {
-    throw new Error(`CAVE-Q: cannot parse tx date ${JSON.stringify(text)}`)
-  }
-  const end = start + (hasTime ? 1_000 : 86_400_000)
-  return { lo: Uuidv7.at(start, 0, new Uint8Array(8)), hi: Uuidv7.at(end, 0, new Uint8Array(8)) }
-}
 
 type Compiled = {
   readonly sql: string
@@ -268,8 +300,8 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options): Co
     conditions.push('c.conf > 0')
   }
 
-  const base = options.all === true ? 'SELECT * FROM cave_claim' : currentSql
-  const withClause = aliases ? `WITH RECURSIVE ${aliasPairSql} ` : ''
+  const base = options.all === true ? `SELECT * FROM ${claimsSql(options.asOf)}` : currentSql(options.asOf)
+  const withClause = aliases ? `WITH RECURSIVE ${aliasPairSql(options.asOf)} ` : ''
   const sql = `${withClause}SELECT c.* FROM (${base}) c WHERE ${conditions.join(' AND ')} ORDER BY c.tx`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
     const bindings: Record<string, string> = {}
@@ -293,7 +325,7 @@ const compileTransitive = (
     throw new Error('CAVE-Q: transitive patterns support subject/object slots only (spec §12.1)')
   }
   const aliases = options.aliases === true
-  const base = options.all === true ? 'SELECT * FROM cave_claim' : currentSql
+  const base = options.all === true ? `SELECT * FROM ${claimsSql(options.asOf)}` : currentSql(options.asOf)
   /** Endpoint equality: exact, or alias-equal under the closure (spec §13.6). */
   const same = (left: string, right: string): string =>
     aliases ? aliasSame(left, right) : `${left} = ${right}`
@@ -320,7 +352,7 @@ const compileTransitive = (
     conditions.push(same('h.src', 'h.dst'))
   }
   const sql = `
-WITH RECURSIVE ${aliases ? `${aliasPairSql}, ` : ''}cur AS (
+WITH RECURSIVE ${aliases ? `${aliasPairSql(options.asOf)}, ` : ''}cur AS (
   SELECT c.subject AS src, c.object AS dst
   FROM (${base}) c
   WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
@@ -353,6 +385,7 @@ ORDER BY h.src, h.dst`
  * query(store, '?x USES jwt')
  * query(store, '?cause CAUSE app/crash\n  WHERE conf >= 0.7')
  * query(store, 'terrier EXTENDS+ animal')
+ * query(store, 'server IS compromised', { asOf: '2026-01-15' })
  * ```
  */
 export const query = (store: Store, input: string, options: Options = {}): Match[] => {
