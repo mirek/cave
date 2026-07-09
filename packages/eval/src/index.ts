@@ -21,6 +21,7 @@
 export * as Suite from './suite.ts'
 export * as Score from './score.ts'
 export * as Queries from './queries.ts'
+export * as Loop from './loop.ts'
 export { judgePrompt, parsePairs } from './judge.ts'
 export { fixtureCount, run } from './run.ts'
 export type { Agent, CaseReport, Judge, Mean, Options, Report, RunReport } from './run.ts'

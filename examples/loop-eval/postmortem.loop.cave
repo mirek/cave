@@ -1,0 +1,6 @@
+; Reconstruction fixture (ROADMAP item 10, spec §18): starting from the
+; symptom, the loop should surface the causal chain and the fix without
+; wandering into the unrelated billing thread.
+loop SEEDS checkout/errors
+loop HAS query: `what caused Friday's checkout errors, and what fixed them?`
+loop HAS steps: 6

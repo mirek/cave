@@ -30,8 +30,10 @@ connected model knows how to write CAVE claims without further prompting.
 | `cave_lint` | validate CAVE text without storing |
 
 `cave_reconstruct` runs the `@cavelang/loop` heuristic policy over the SQLite
-store through the §18 store contract — the same multi-hop recovery as the
-demo, against persistent knowledge.
+store through the §18 store contract (`sqliteStore`) — the same multi-hop
+recovery as the demo, against persistent knowledge. An MCP client is
+itself the model, so it can drive selection by hand via `cave_neighbors`;
+the packaged LLM-driven policy lives in `cave reconstruct --agent`.
 
 ## Serving scope
 

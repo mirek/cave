@@ -152,6 +152,9 @@ importers:
       '@cavelang/ingest':
         specifier: workspace:*
         version: link:../ingest
+      '@cavelang/loop':
+        specifier: workspace:*
+        version: link:../loop
       '@cavelang/query':
         specifier: workspace:*
         version: link:../query
@@ -206,6 +209,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/mcp:
     dependencies:

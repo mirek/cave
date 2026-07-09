@@ -1,0 +1,20 @@
+; Friday's checkout incident — extracted 2026-07-03
+
+checkout USES payments
+payments USES auth/gateway
+auth/gateway USES redis-cache
+
+redis-cache HAS state: intermittent-failover @time:2026-07-03T13:50Z
+config-push CAUSE redis-cache/failover @ 85%
+
+checkout HAS p99-latency: ~4s @time:2026-07-03T14:05Z
+checkout HAS error-rate: 12% @time:2026-07-03T14:05Z
+
+cdn CAUSE checkout/errors @ 30% ; first suspicion
+redis-cache/failover CAUSE checkout/errors @ 85%
+  BECAUSE rollback-restored-latency
+
+rollback FIX checkout/errors
+checkout HAS p99-latency: ~180ms @time:2026-07-03T14:40Z
+
+double-charge EXISTS @support #billing @ 60% ; billing still investigating

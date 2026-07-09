@@ -19,6 +19,9 @@
       "path": "../ingest"
     },
     {
+      "path": "../loop"
+    },
+    {
       "path": "../query"
     },
     {

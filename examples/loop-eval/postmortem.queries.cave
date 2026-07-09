@@ -1,0 +1,6 @@
+; The reconstruction alone must answer the incident question.
+?cause CAUSE checkout/errors
+  WHERE conf >= 0.6
+  ?cause = redis-cache/failover
+?fix FIX checkout/errors
+  ?fix = rollback

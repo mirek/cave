@@ -17,6 +17,11 @@
  * `design.notes.md` still pairs with `design.notes.golden.cave`. Zero or
  * several candidates is a fixture problem, reported instead of guessed.
  *
+ * A `<stem>.loop.cave` sibling makes the case a *reconstruction* case
+ * (ROADMAP item 10): the source is the knowledge (CAVE text), the loop
+ * file declares seeds and budgets, and the golden is the expected
+ * reconstruction — see `loop.ts`.
+ *
  * Instructions resolve nearest-first: an explicit path (CLI `--instructions`)
  * beats `<stem>.instructions.md` beats the case directory's
  * `instructions.md` beats the suite root's.
@@ -27,6 +32,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path'
 
 export const goldenSuffix = '.golden.cave'
 export const queriesSuffix = '.queries.cave'
+export const loopSuffix = '.loop.cave'
 export const instructionsSuffix = '.instructions.md'
 
 /** Suite-shared instructions file name. */
@@ -35,12 +41,17 @@ export const sharedInstructions = 'instructions.md'
 export type Case = {
   /** Display name — the golden's path relative to `cwd`, suffix dropped. */
   readonly name: string
-  /** Absolute source file the agent extracts from. */
+  /**
+   * Absolute source file: what the agent extracts from — or, for a
+   * reconstruction case, the knowledge the loop runs over.
+   */
   readonly source: string
   /** Absolute golden `.cave` path. */
   readonly golden: string
   /** Absolute queries file path, when the case has one. */
   readonly queries?: string
+  /** Absolute loop file path — present on reconstruction cases (item 10). */
+  readonly loop?: string
   /** Absolute instructions markdown path, when one resolves. */
   readonly instructions?: string
 }
@@ -93,6 +104,7 @@ const caseOf = (
     return { problem: `${name}: ambiguous source — ${sources.map(source => basename(source)).join(', ')}` }
   }
   const queries = `${golden.slice(0, -goldenSuffix.length)}${queriesSuffix}`
+  const loop = `${golden.slice(0, -goldenSuffix.length)}${loopSuffix}`
   const instructions = instructionsOf(golden, root, explicit)
   return {
     kase: {
@@ -100,6 +112,7 @@ const caseOf = (
       source: sources[0]!,
       golden,
       ...existsSync(queries) ? { queries } : {},
+      ...existsSync(loop) ? { loop } : {},
       ...instructions === undefined ? {} : { instructions }
     }
   }

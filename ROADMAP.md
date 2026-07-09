@@ -3,7 +3,8 @@
 CAVE today is a language, a store, a query engine, and an agent toolkit:
 text parses to claims, claims accumulate append-only in SQLite, CAVE-Q
 asks questions across inverse verbs and transitive hops, fusion combines
-uncertain estimates, `cave ingest` lets an LLM write the claims, and
+uncertain estimates, `cave ingest` lets an LLM write the claims,
+`cave reconstruct` lets one drive memory reconstruction over them, and
 `cave mcp` serves the whole engine to any agent.
 
 The destination is larger: a **complete knowledge loop on one machine** —
@@ -163,7 +164,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
 | Actor provenance (who appended this) | auto-stamped `@src:` actor contexts on MCP/ingest/CLI appends (§9.5) + tx (when) + `raw_line` (as written) | exists | shipped in 0.7.0 (item 2) |
-| Extraction/query evals | `cave eval` (item 9): golden-fixture suites as plain files, N runs against any `--agent`, claim-key scoring + value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate | exists | shipped in 0.14.0 (item 9); ingest prompt changes are now falsifiable |
+| Extraction/query evals | `cave eval` (item 9): golden-fixture suites as plain files, N runs against any `--agent`, claim-key scoring + value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (item 10) score loop policies against the heuristic baseline | exists | shipped in 0.14.0 (item 9) and 0.15.0 (item 10); ingest prompt and loop policy changes are now falsifiable |
 | Serving scope | `cave mcp --read-only` / `--tools <list>` narrow the served tool surface; hidden tools are absent from `tools/list` and unknown to `tools/call` | exists | shipped in 0.10.0 (item 5) |
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
 | Redaction / forgetting | none — append-only forever; retraction `@ 0%` leaves text in `raw_line` and every export | missing | an explicit stance (open decision 3): accidentally ingested secrets/PII need `cave redact` as a declared, exceptional history rewrite — or documented permanence |
@@ -280,8 +281,9 @@ extend an existing one.
 
 *CAVE stops being read-only memory; knowledge starts producing
 knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
-(item 8) in 0.13.0, the evals harness (item 9) in 0.14.0; the LLM loop
-policy — with item 9 as its eval baseline — is next.*
+(item 8) in 0.13.0, the evals harness (item 9) in 0.14.0, the LLM loop
+policy (item 10) in 0.15.0; the contradiction-resolution policy
+(item 11) is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -353,7 +355,28 @@ policy — with item 9 as its eval baseline — is next.*
    CI on judged-or-strict F1 and the query pass rate.
 10. **LLM loop policy** (`@cavelang/loop`): implement the `llm.ts`
     `AsyncPolicy` sketch via the shell-agent template, with the
-    heuristic policy as the eval baseline (via item 9).
+    heuristic policy as the eval baseline (via item 9). — **Shipped in
+    0.15.0**: `reconstructAsync` runs the same loop with awaited
+    decisions (one shared step core, identical traces); `llmPolicy`
+    spends one completion per step — the model reads the query, the
+    collected claims as canonical CAVE and the scored frontier, and
+    replies with the next cue or `STOP` (stop rides on select; budgets
+    stay local and free; scoring stays the heuristic arithmetic —
+    models are better spent on select/stop); replies parse leniently
+    and degrade to the strongest cue, while agent *errors* propagate as
+    failures; `shellComplete` adapts any shell-agent command (the
+    `cave ingest`/`cave eval` `--agent` contract: prompt on stdin,
+    `{prompt-file}`, reply on stdout), so no LLM SDK enters the package
+    (§19.5); the §18 SQLite adapter moved in-package (`sqliteStore`,
+    shared by MCP's `cave_reconstruct` and the new
+    `cave reconstruct [--agent … --query … --trace]`); and the baseline
+    is machinery, not a footnote — eval *reconstruction cases*
+    (`<stem>.loop.cave`: `loop SEEDS <entity>`, optional
+    `query`/`steps`/`claims` attributes, plain CAVE) score any policy
+    against a golden by claim key, with queries answered by the
+    reconstruction alone and fixtures self-checking that seeds and
+    golden claims exist in the knowledge — `cave eval loop-suite/` is
+    the heuristic baseline, `--agent` the LLM policy, like for like.
 11. **Contradiction-resolution policy** (`@cavelang/store`/`query`):
     configurable resolution beyond latest-tx — precedence classes (human
     correction outranks ingest re-run), source reliability, context

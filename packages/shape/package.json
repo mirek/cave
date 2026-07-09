@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/shape",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "type": "module",
   "description": "CAVE shape expectations and knowledge health (spec §20) — EXPECTS declarations checked against the EXTENDS taxonomy, staleness, review candidates, alias disagreements, coverage, write gating.",
   "license": "CC0-1.0",

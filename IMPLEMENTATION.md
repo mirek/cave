@@ -24,13 +24,13 @@ Dependency order, bottom to top:
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
-| [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
+| [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
-| [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP item 9): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate |
+| [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / eval / connect / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -142,6 +142,20 @@ Package READMEs document local decisions; these are the global ones:
   are exact solution sets written as `cave query` prints them; fixtures
   self-check against their own goldens before any agent run, and the
   optional judge only ever adds a parallel judged score.
+- **The LLM loop policy spends the model on select/stop only**
+  (ROADMAP item 10, spec §18): `llmPolicy` sends one completion per
+  step — the query, the collected claims as canonical CAVE, the scored
+  frontier — and the reply is the next cue or `STOP` (stop rides on
+  select; the `done` budget check costs nothing). Edge scoring stays the
+  heuristic arithmetic, so prompt scores mean the same under both
+  policies; lenient reply parsing degrades to the strongest cue while
+  agent *errors* propagate as failures. The model stays out-of-band
+  (§19.5) behind `shellComplete` — the `cave ingest`/`cave eval`
+  `--agent` shell-template contract — and the heuristic baseline is
+  runnable machinery: eval reconstruction cases (`<stem>.loop.cave`,
+  ordinary CAVE lines about the entity `loop`) score either policy's
+  reconstruction by claim key, answering queries from the reconstruction
+  alone.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).
@@ -155,4 +169,6 @@ Package READMEs document local decisions; these are the global ones:
   variables in core grammar, reification `[S V O]` and temporal values
   remain *not implemented*, as speced ("commitment is gated on the parser
   implementation"). CAVE-Q's `?x` layer (§12) is implemented.
-- **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`.
+- **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`,
+  including the LLM-driven policy over shell-agent templates
+  (ROADMAP item 10) with the heuristic policy as its eval baseline.
