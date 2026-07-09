@@ -18,6 +18,7 @@ query(store, '?x PART-OF monorepo')     // inverse verb → same physical query
 query(store, 'terrier EXTENDS+ animal') // transitive
 
 query(store, '?x USES postgres', { aliases: true }) // + rows about aliased names (§13.6)
+query(store, 'server IS compromised', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
 ```
 
 ## Pattern language (§12.1)
@@ -74,6 +75,14 @@ covers one second.
   keep stored names untouched (union-of-rows, never silent merging). The
   closure always reads current beliefs, even under `{ all: true }`.
   Values, attribute names and verbs are not entities and never resolve.
+- **`{ asOf }` resolves beliefs as of a past moment** (§12.3): only rows
+  recorded up to the boundary participate, then resolution proceeds as
+  usual — so a claim retracted later is still believed at the boundary,
+  and one first recorded later is unknown. The boundary is a date (whole
+  UTC day included), a timestamp (whole second included), or a
+  transaction id (that append included). The alias closure and transitive
+  hops reconstruct at the same instant; `{ all: true }` composes as
+  full-history-up-to-the-boundary.
 
 ## Tests
 
@@ -83,6 +92,8 @@ pnpm --filter @cavelang/query test
 
 Every §12.1 example pattern and every §12.2 filter runs against a live
 in-memory store, including inverse and transitive-inverse cases,
-current-vs-history semantics, negated patterns and the §13.6 alias
+current-vs-history semantics, negated patterns, the §13.6 alias
 closure (term widening, transitive hops across aliases, unmerge by
-retraction, value/attribute exemption).
+retraction, value/attribute exemption) and §12.3 as-of resolution
+(tx/date/timestamp boundaries, later retraction, as-of alias closure
+and transitive edges).

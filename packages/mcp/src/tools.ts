@@ -152,11 +152,16 @@ export const tools: readonly Tool[] = [
       properties: {
         pattern: { type: 'string', description: 'CAVE-Q pattern; WHERE filters on following lines' },
         all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' },
-        aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' }
+        aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' },
+        asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' }
       }
     },
     run: (store, args) => {
-      const matches = caveQuery(store, text(args['pattern'], 'pattern'), { all: args['all'] === true, aliases: args['aliases'] === true })
+      const matches = caveQuery(store, text(args['pattern'], 'pattern'), {
+        all: args['all'] === true,
+        aliases: args['aliases'] === true,
+        ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {}
+      })
       if (matches.length === 0) {
         return 'no matches'
       }

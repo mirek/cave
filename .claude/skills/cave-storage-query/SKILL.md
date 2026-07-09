@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -151,6 +151,40 @@ WHERE tag = security
 WHERE context = production
 WHERE value > 1000 req/s
 WHERE tx > 2026-01-01
+```
+
+### 12.3 As-of resolution
+
+Current belief (§9.1) is latest-tx-per-key over every appended row. An
+**as-of query** runs the same resolution over only the rows recorded up
+to a past boundary — the belief state as it stood at that moment,
+reconstructed from rows that already exist (append-only storage needs no
+snapshots). The boundary is one of
+
+- a **date** — `2026-01-15` — inclusive of the whole UTC day, matching
+  `WHERE tx <=` interval semantics (§12.2);
+- a **timestamp** — `2026-01-15T10:30:00Z` — inclusive of that second;
+- a **transaction id** — a UUIDv7 — inclusive of exactly that append.
+
+Rows recorded after the boundary are invisible: a claim retracted later
+is still believed at the boundary, a claim first recorded later is
+unknown. Everything the engine resolves moves to the same instant — the
+alias closure (§13.6) is computed from as-of current beliefs (entity
+resolution as believed *then*; an un-anchored query uses *now*), and
+transitive hops walk as-of edges. Matching the full history composes:
+under `all` the query sees every row up to the boundary instead of
+resolving to one per key.
+
+Surfaces: `cave query --as-of <boundary>`, `query(store, pattern,
+{ asOf })`, and the `cave_query` MCP tool's `asOf` parameter. In SQL, the
+§13.5 current-belief query with the group restricted:
+
+```sql
+SELECT c.* FROM cave_claim c
+JOIN (
+  SELECT claim_key, MAX(tx) AS max_tx
+  FROM cave_claim WHERE tx <= :boundary GROUP BY claim_key
+) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx;
 ```
 
 ---

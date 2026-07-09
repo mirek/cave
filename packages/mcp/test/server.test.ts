@@ -150,6 +150,18 @@ test('cave_add → cave_query round trip through the protocol', () => {
   store.close()
 })
 
+test('cave_query asOf resolves beliefs at a past tx (spec §12.3)', () => {
+  const store = open()
+  store.ingest('server IS compromised @ 60%')
+  const boundary = store.claimsAbout('server')[0]!.tx
+  store.ingest('server IS compromised @ 0% ; clean scan')
+  const server = createServer(store)
+  assert.equal(contentText(call(server, 50, 'cave_query', { pattern: 'server IS compromised' })), 'no matches')
+  const then = contentText(call(server, 51, 'cave_query', { pattern: 'server IS compromised', asOf: boundary }))
+  assert.match(then, /server IS compromised @ 60%/)
+  store.close()
+})
+
 test('cave_about, cave_neighbors and cave_search read the graph', () => {
   const store = open()
   store.ingest('monorepo CONTAINS packages/api\nauth USES jwt ; json web tokens')

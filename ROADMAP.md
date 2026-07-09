@@ -27,9 +27,9 @@ Summary of the gaps:
   shipped in 0.9.0 (`cave connect`, item 4); LLM ingestion
   (`cave ingest`) exists.
 - **Model** — storage, belief evolution, inverses, query, alias closure
-  (0.6.0), and shape expectations (0.8.0) exist and are CAVE's strongest
-  layer; alias *discovery* and a contradiction-resolution policy are
-  missing.
+  (0.6.0), shape expectations (0.8.0), and as-of reconstruction (0.11.0)
+  exist and are CAVE's strongest layer; alias *discovery* and a
+  contradiction-resolution policy are missing.
 - **Conclude** — nothing in a CAVE store was ever *derived*; the rules
   engine (Draft §17.4) is the single largest functional hole.
 - **Act** — the entire kinetic layer (governed writes, side effects,
@@ -50,8 +50,8 @@ foundations the roadmap builds on rather than replaces:
    destroyed, provenance in `@src:` contexts — every fact is a "stack of
    cards" recording what, when, and where it came from, reconstructable
    as of any past moment. The storage already supports this; the actor
-   stamp shipped in 0.7.0 (§9.5), leaving the as-of query API (item 6)
-   as the unsurfaced part.
+   stamp shipped in 0.7.0 (§9.5) and the as-of query API in 0.11.0
+   (item 6, spec §12.3).
 2. **Reversible entity resolution is nearly free.** Merging two names
    for the same entity destructively is the classic mistake; CAVE's
    append-only model pre-solves it: merge = append `dupe ALIAS
@@ -128,7 +128,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Shape polymorphism | `EXPECTS` binds shape declarations to the `EXTENDS` taxonomy (spec §20.1) | exists | shipped in 0.8.0 (item 3) |
 | Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreements surfaced by `cave check` since 0.8.0 (item 3) |
 | Entity resolution: match discovery | none | missing | candidate suggestion (`cave suggest-alias`) — under LLM extraction, naming drift makes *discovery*, not merge mechanics, the bottleneck |
-| As-of reconstruction | `history(key)`, `WHERE tx > date`; data fully supports it | partial | an as-of resolver (`cave query --as-of <date>`) — pure SQL over existing rows |
+| As-of reconstruction | `cave query --as-of` (spec §12.3): current-belief resolution at a past date, timestamp or tx | exists | shipped in 0.11.0 (item 6) |
 | Contradiction-resolution policy | latest-tx-per-key only | missing | §9.4 promises resolution via source reliability, precedence, context — configurable and explicit, so human corrections outrank ingest re-runs |
 | Source-span provenance | `@src:` names a source, file-level | partial | a `@src:file#L10-L20` span convention — cheap, and it lets a claim answer "which sentence produced you" |
 | Schema-change review | schema edits are ordinary in-band appends; since 0.7.0 stamped with the appending actor (§9.5) | partial | actor stamping makes verb/`REVERSE`/topic mutations attributable; the reviewable-diff workflow is the branch/review convention (item 15) |
@@ -261,7 +261,14 @@ extend an existing one.
    database is opened.
 6. **As-of queries** (`@cavelang/query`): `cave query --as-of <date>` —
    current-belief resolution at a past tx, reconstructed from rows that
-   already exist.
+   already exist. — **Shipped in 0.11.0** (spec §12.3): the boundary is
+   a date (whole UTC day included, mirroring `WHERE tx <=` interval
+   semantics), a timestamp (whole second), or an exact transaction id;
+   resolution, the alias closure and transitive hops all reconstruct at
+   the boundary — a claim retracted later is still believed there, one
+   recorded later is unknown — and `--all` composes as
+   history-up-to-the-boundary. Surfaced as `cave query --as-of`,
+   `query({ asOf })` and the MCP `cave_query` tool's `asOf` parameter.
 
 ### Phase 2 — the kinetic layer and the rules engine
 

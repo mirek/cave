@@ -8,6 +8,7 @@
  * query(store, '?x HAS bug: ?bug #security')
  * query(store, '?x PART-OF monorepo')            // inverse verbs compile to canonical rows
  * query(store, 'terrier EXTENDS+ animal')        // transitive
+ * query(store, '?x IS live', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
  * ```
  */
 
