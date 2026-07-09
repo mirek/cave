@@ -30,8 +30,10 @@ Summary of the gaps:
   (0.6.0), shape expectations (0.8.0), and as-of reconstruction (0.11.0)
   exist and are CAVE's strongest layer; alias *discovery* and a
   contradiction-resolution policy are missing.
-- **Conclude** — nothing in a CAVE store was ever *derived*; the rules
-  engine (Draft §17.4) is the single largest functional hole.
+- **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
+  item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
+  tx watermark; derived computation beyond rules (named MCP tools,
+  automation) is still ahead.
 - **Act** — the entire kinetic layer (governed writes, side effects,
   automation) is missing.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
@@ -75,8 +77,9 @@ foundations the roadmap builds on rather than replaces:
    re-linking them for lineage. Draft §17.4 rules (`?x NEEDS ?y, ?y
    NEEDS ?z => ?x NEEDS ?z`) put the logic in the same line format, same
    store, same graph as the facts — and `BECAUSE` edges give
-   derived-claim lineage natively. Implementing rules buys transforms +
-   lineage + provenance in one stroke, diffable in git.
+   derived-claim lineage natively. Implementing rules bought transforms
+   + lineage + provenance in one stroke, diffable in git — shipped in
+   0.12.0 as spec §24 (item 7).
 6. **`cave mcp` is one governed definition for every consumer.** The
    spec card as server instructions, one tool surface for humans and
    agents alike — and because CAVE's schema is itself claims, an agent
@@ -138,9 +141,9 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
-| Rules / transforms | none (rules `=>` are Draft §17.4, unimplemented) | missing | forward-chaining rules engine deriving claims from patterns — CAVE's transform layer, already designed in the spec |
-| Incremental derivation | none — but the tx log is the required substrate | missing | derived computation resuming from a tx watermark instead of full recomputation |
-| Derivation lineage | `raw_line`, `@src:` contexts, `BECAUSE`/`VIA` edges | partial | derived claims must link to premise claims + rule via `BECAUSE` edges; today lineage exists for sources, not for conclusions |
+| Rules / transforms | `cave derive` (spec §24): `premises => conclusion` forward chaining over current beliefs, rules stored in-band, noisy-AND confidence | exists | shipped in 0.12.0 (item 7) — Draft §17.4 proven out and committed |
+| Incremental derivation | per-rule `derive-watermark` claims (§24.4): a run skips rules no new row could affect; idempotent re-fires | exists | shipped in 0.12.0 (item 7) |
+| Derivation lineage | derived claims link `BECAUSE` to their specific premise rows and `VIA` to the rule (§24.3), on the existing `cave_edge` table; export renders the derivation tree | exists | shipped in 0.12.0 (item 7) |
 | Knowledge health checks | `cave check` (spec §20.2): violations, staleness, review candidates, alias disagreements, coverage; `cave add --check` write gating | exists | shipped in 0.8.0 (item 3) |
 
 ### Act — the kinetic layer
@@ -273,7 +276,8 @@ extend an existing one.
 ### Phase 2 — the kinetic layer and the rules engine
 
 *CAVE stops being read-only memory; knowledge starts producing
-knowledge.*
+knowledge. The rules engine (item 7) shipped in 0.12.0; the kinetic
+layer is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -286,7 +290,19 @@ knowledge.*
    equals current belief — otherwise a watch loop re-appends identical
    claims forever); premise retraction re-derives or retracts
    dependents. `cave derive`. One package delivers transforms + lineage
-   + incrementality and unblocks §17 commitment.
+   + incrementality and unblocks §17 commitment. — **Shipped in 0.12.0**
+   (spec §24, the §17.4 rules subset committed): rules are in-band
+   claims (`rule/<digest> HAS rule: `…``, digest over normalized text),
+   premises are ordinary CAVE-Q patterns (inverse verbs, `VERB+`,
+   `NOT`, `@ctx`/`#tag` — plus `?var op value` constraints) joined by
+   specializing patterns per binding; several derivations of one
+   conclusion keep the strongest (max, so cyclic graphs converge);
+   derived rows stamp `@src:rule/<digest>` (§9.5) and link `VIA` to the
+   rule row as well as `BECAUSE` to premise rows; support is recomputed
+   per firing with the rule's prior output suspended until re-supported,
+   so retraction cascades across rules and mutually-supporting cycles
+   die with their sources; `cave derive` declares rule files (non-rule
+   lines are prelude), fires, `--list`s and `--retract`s.
 8. **`@cavelang/act` — action templates.** Actions declared in-band
    (parameters and CAVE-Q preconditions as claims); executing = validate
    preconditions against current belief → append templated claims

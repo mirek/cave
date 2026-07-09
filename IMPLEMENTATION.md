@@ -22,12 +22,13 @@ Dependency order, bottom to top:
 | [`@cavelang/shape`](packages/shape) | §20 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating |
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
+| [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools; `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / check / export / mcp / ingest / connect / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / check / export / mcp / ingest / connect / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -104,6 +105,16 @@ Package READMEs document local decisions; these are the global ones:
   *instantiated* text — make re-runs row-level incremental. `--query` runs
   a CAVE-Q pattern over the store + mapped claims inside a rolled-back
   transaction: query-time federation without persisting.
+- **Rules are claims; derivations are appends** (§24): `@cavelang/rules`
+  stores each rule as `rule/<digest> HAS rule: `…`` (digest over
+  normalized text), joins premises by specializing CAVE-Q patterns per
+  binding, and appends conclusions stamped `@src:rule/<digest>` with
+  `BECAUSE` edges to the exact premise rows and a `VIA` edge to the rule.
+  Confidence is `@cavelang/fusion` noisy-AND (max across derivations of
+  one key); per-rule `derive-watermark` claims make re-runs skip rules no
+  new row could affect, idempotency makes re-fires append nothing, and
+  support is recomputed per firing so retracting a premise retracts the
+  dependent chain — mutually-supporting cycles included.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).
@@ -112,8 +123,9 @@ Package READMEs document local decisions; these are the global ones:
 
 - **Normative spec**: implemented, including legacy acceptance
   (colonless attributes parse, emitters always produce the colon form).
-- **Draft layer (§17)** — variables in core grammar, reification `[S V O]`,
-  rules `=>`, temporal values: *not implemented*, as speced ("commitment is
-  gated on the parser implementation"). CAVE-Q's `?x` layer (§12) is
-  implemented.
+- **Draft layer (§17)** — rules `=>` passed the parser gate and are
+  committed + implemented as §24 (`@cavelang/rules`, `cave derive`);
+  variables in core grammar, reification `[S V O]` and temporal values
+  remain *not implemented*, as speced ("commitment is gated on the parser
+  implementation"). CAVE-Q's `?x` layer (§12) is implemented.
 - **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`.

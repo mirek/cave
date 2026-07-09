@@ -1,0 +1,10 @@
+; Derivation rules for the family-history example (spec §24).
+; Declare and fire:  cave derive --db family.db examples/family-history/rules.cave
+;
+; Lines with `=>` are rules; everything else is prelude — vocabulary the
+; conclusions need, ingested once.
+
+GRANDPARENT-OF IS verb ; X is a grandparent of Y
+GRANDPARENT-OF REVERSE GRANDCHILD-OF
+
+?a PARENT-OF ?b, ?b PARENT-OF ?c => ?a GRANDPARENT-OF ?c ; two parent hops

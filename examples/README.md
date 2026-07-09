@@ -10,7 +10,8 @@ walkthrough were captured from actual runs.
 The main [README](../README.md#quick-start) walkthrough: notes from a
 birthday conversation become a queryable belief graph — transitive
 ancestor derivation, competing claims about a disputed birth year,
-append-only belief updates, and LLM-driven ingestion of the raw prose
+append-only belief updates, rule-derived grandparenthood with lineage
+(`rules.cave`, spec §24), and LLM-driven ingestion of the raw prose
 (`instructions.md` steers the agent's domain modeling).
 
 ## [`incident/`](incident)

@@ -141,6 +141,45 @@ $ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'
 
 (LLM output naturally varies run to run; the report above is one actual run. See [`@cavelang/ingest`](packages/ingest) for URL ingestion, batching, hybrid knowledge context, `--stdout` mode, and SDK drivers.)
 
+### Rules derive what nobody wrote — `cave derive`
+
+The transitive query above *asks* for the ancestor chain; a rule can
+*conclude* new claims and record them, with lineage. Rules are one-line
+`premises => conclusion` implications (spec §24) whose premises are
+ordinary CAVE-Q patterns — [`examples/family-history/rules.cave`](examples/family-history/rules.cave):
+
+```cave
+GRANDPARENT-OF IS verb ; X is a grandparent of Y
+GRANDPARENT-OF REVERSE GRANDCHILD-OF
+
+?a PARENT-OF ?b, ?b PARENT-OF ?c => ?a GRANDPARENT-OF ?c ; two parent hops
+```
+
+```
+$ pnpm exec cave derive --db family.db examples/family-history/rules.cave
+declared 1 rule(s), +2 prelude claim(s)
+rule/ecf351a4f3e7: 4 solution(s), +4 appended, 0 updated, 0 retracted, 0 unchanged ; two parent hops
+derived: +4 appended, 0 updated, 0 retracted, 0 unchanged (2 pass(es))
+
+$ pnpm exec cave query --db family.db 'me GRANDCHILD-OF ?g'
+?g = maria
+```
+
+Every derived claim records *why it is believed* — `BECAUSE` edges to the
+exact premise rows and a `VIA` edge to the rule, visible in the export:
+
+```cave
+jan GRANDPARENT-OF anna @src:rule/ecf351a4f3e7
+  BECAUSE jan PARENT-OF maria @src:cli
+  BECAUSE maria PARENT-OF anna @src:cli
+  VIA rule/ecf351a4f3e7 HAS rule: `?a PARENT-OF ?b, ?b PARENT-OF ?c => ?a GRANDPARENT-OF ?c` @src:cave-derive
+```
+
+Confidence composes (premises at 80% and 90% conclude at 72%, noisy-AND),
+re-runs are idempotent and skip rules nothing new could affect, and when a
+premise is later retracted the conclusions it supported are retracted with
+it — `cave derive` again to propagate. See [`@cavelang/rules`](packages/rules).
+
 ### Structured data needs no LLM — `cave connect`
 
 CSV/JSON/SQLite records deserve exact, repeatable, token-free conversion. `cave connect` maps them through an ordinary CAVE document whose `?field` variables stand for record fields — same input, same claims, every time:
@@ -170,7 +209,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 
@@ -180,7 +219,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

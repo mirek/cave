@@ -388,8 +388,16 @@ ORDER BY h.src, h.dst`
  * query(store, 'server IS compromised', { asOf: '2026-01-15' })
  * ```
  */
-export const query = (store: Store, input: string, options: Options = {}): Match[] => {
-  const pattern = Pattern.parse(input)
+export const query = (store: Store, input: string, options: Options = {}): Match[] =>
+  match(store, Pattern.parse(input), options)
+
+/**
+ * Runs an already-parsed pattern against a store — the programmatic
+ * entry point for callers that build or specialize patterns as values
+ * (the §24 rules engine substitutes bindings into premise patterns
+ * between joins) rather than as text.
+ */
+export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] => {
   const compiled = compile(pattern, store.registry(), options)
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
   if (compiled.transitive && options.aliases === true) {

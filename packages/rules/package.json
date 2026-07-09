@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/core",
+  "name": "@cavelang/rules",
   "version": "0.12.0",
   "type": "module",
-  "description": "CAVE domain model — claims, values, units, uncertainty, claim keys, UUIDv7 transactions.",
+  "description": "CAVE rules engine (spec §24) — forward-chaining `premises => conclusion` rules over current beliefs, with BECAUSE/VIA derivation lineage, noisy-AND confidence, tx-watermark incrementality and idempotent re-runs.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/core"
+    "directory": "packages/rules"
   },
   "engines": {
     "node": ">=22.18"
@@ -39,5 +39,13 @@
     "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/fusion": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*"
   }
 }

@@ -411,6 +411,22 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
         WHERE cave_fts MATCH ? ORDER BY c.tx DESC`, match)
     },
 
+    /**
+     * Appends edges between *existing* claim rows (spec §13.2) — the
+     * derivation-lineage path (§24.3): a derived row points `BECAUSE` at
+     * the specific premise rows that fired and `VIA` at the rule's
+     * declaration row. `insertResult` covers edges within one appended
+     * batch; this covers edges into rows that are already stored. Foreign
+     * keys reject unknown ids.
+     */
+    appendEdges(edges: readonly { parentId: string, role: Canonical.EdgeRole, childId: string }[]): void {
+      transaction(() => {
+        for (const edge of edges) {
+          insertEdge.run(edge.parentId, edge.role, edge.childId)
+        }
+      })
+    },
+
     /** Qualifier/grouping edges of a claim row (spec §13.2). */
     edgesOf(parentId: string): { role: string, child: Row.t }[] {
       return (db.prepare(`
