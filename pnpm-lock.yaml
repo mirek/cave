@@ -90,6 +90,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/eval':
+        specifier: workspace:*
+        version: link:../eval
       '@cavelang/highlight':
         specifier: workspace:*
         version: link:../highlight
@@ -137,6 +140,24 @@ importers:
         version: link:../store
 
   packages/core: {}
+
+  packages/eval:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/ingest':
+        specifier: workspace:*
+        version: link:../ingest
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/fusion:
     dependencies:

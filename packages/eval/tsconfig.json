@@ -10,43 +10,16 @@
   ],
   "references": [
     {
-      "path": "../act"
-    },
-    {
       "path": "../canonical"
-    },
-    {
-      "path": "../connect"
     },
     {
       "path": "../core"
     },
     {
-      "path": "../eval"
-    },
-    {
-      "path": "../highlight"
-    },
-    {
       "path": "../ingest"
     },
     {
-      "path": "../loop"
-    },
-    {
-      "path": "../mcp"
-    },
-    {
-      "path": "../parser"
-    },
-    {
       "path": "../query"
-    },
-    {
-      "path": "../rules"
-    },
-    {
-      "path": "../shape"
     },
     {
       "path": "../store"

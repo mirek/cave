@@ -14,6 +14,23 @@ append-only belief updates, rule-derived grandparenthood with lineage
 (`rules.cave`, spec §24), and LLM-driven ingestion of the raw prose
 (`instructions.md` steers the agent's domain modeling).
 
+## [`eval/`](eval)
+
+The family-history extraction as an eval fixture (ROADMAP item 9):
+`family-history.golden.cave` is the expected extraction of
+`family-history.md`, and `family-history.queries.cave` asserts the
+multi-hop questions the built store must answer — whatever the agent
+names things. Score any agent, N times:
+
+```sh
+pnpm exec cave eval examples/eval --runs 3 \
+  --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
+```
+
+(A deterministic dry run of the harness itself: `pnpm exec cave eval
+examples/eval --stdout --agent 'cat family-history.golden.cave'` — the
+"agent" reads the golden back, scoring F1 100% with every query green.)
+
 ## [`incident/`](incident)
 
 A production-incident postmortem: a service dependency chain, competing

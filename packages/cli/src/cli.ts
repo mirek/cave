@@ -14,6 +14,7 @@
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave export [--db <path>]` — canonical text out (`--current`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
+ * - `cave eval <suite...>` — golden-fixture extraction/query evals (async, routed in `main.ts`)
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
  * - `cave help [command]` — overview, or one command's help
@@ -64,6 +65,7 @@ Usage:
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
+  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query evals (ROADMAP item 9)
   cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec §23)
   cave demo                                run the cave-loop reconstruction demo
   cave version                             print the cave version
@@ -835,8 +837,8 @@ export const helpCommand = (argv: readonly string[]): Output => {
   if (text !== undefined) {
     return ok(`${text}\n`)
   }
-  // mcp, ingest and connect own their help (main.ts forwards `help X` to `X --help`).
-  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect') {
+  // mcp, ingest, connect and eval own their help (main.ts forwards `help X` to `X --help`).
+  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval') {
     return ok(`see: cave ${topic} --help\n`)
   }
   return fail(`cave help: unknown command ${JSON.stringify(topic)}\n\n${usage}\n`, 2)

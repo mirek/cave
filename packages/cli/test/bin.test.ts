@@ -25,6 +25,7 @@ test('binary: per-command help is discoverable', () => {
   assert.match(result.stdout, /Examples:/)
   assert.equal(run(['help', 'export']).status, 0)
   assert.match(run(['help', 'ingest']).stdout, /LLM-driven ingestion/)
+  assert.match(run(['help', 'eval']).stdout, /golden-fixture extraction and query evals/)
   assert.match(run(['mcp', '--help']).stdout, /MCP server on stdio/)
 })
 

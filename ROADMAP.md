@@ -39,7 +39,8 @@ Summary of the gaps:
   preconditions, generated `act_<name>` MCP tools, out-of-band hooks;
   event-driven automation (item 16) remains.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
-  0.10.0; evals and a human read surface are missing.
+  0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9); a human
+  read surface is missing.
 - **Distribute** — two CAVE stores cannot merge; everything needed for
   sync already exists in the data model, unused.
 
@@ -162,7 +163,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
 | Actor provenance (who appended this) | auto-stamped `@src:` actor contexts on MCP/ingest/CLI appends (§9.5) + tx (when) + `raw_line` (as written) | exists | shipped in 0.7.0 (item 2) |
-| Extraction/query evals | none (unit tests cover code, not extraction quality) | missing | golden-fixture harness; without it, ingest prompt changes are unfalsifiable |
+| Extraction/query evals | `cave eval` (item 9): golden-fixture suites as plain files, N runs against any `--agent`, claim-key scoring + value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate | exists | shipped in 0.14.0 (item 9); ingest prompt changes are now falsifiable |
 | Serving scope | `cave mcp --read-only` / `--tools <list>` narrow the served tool surface; hidden tools are absent from `tools/list` and unknown to `tools/call` | exists | shipped in 0.10.0 (item 5) |
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
 | Redaction / forgetting | none — append-only forever; retraction `@ 0%` leaves text in `raw_line` and every export | missing | an explicit stance (open decision 3): accidentally ingested secrets/PII need `cave redact` as a declared, exceptional history rewrite — or documented permanence |
@@ -279,7 +280,8 @@ extend an existing one.
 
 *CAVE stops being read-only memory; knowledge starts producing
 knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
-(item 8) in 0.13.0; the evals harness is next.*
+(item 8) in 0.13.0, the evals harness (item 9) in 0.14.0; the LLM loop
+policy — with item 9 as its eval baseline — is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -332,7 +334,23 @@ knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
    source text + golden `.cave` for extraction; CAVE-Q + expected
    bindings for query. Run N times against any `--agent`; score by
    claim-key match, value tolerance, optional LLM judge.
-   `cave eval suite/`.
+   `cave eval suite/`. — **Shipped in 0.14.0**: a case is
+   `<stem>.golden.cave` plus its single `<stem>.<ext>` source sibling,
+   optional `<stem>.queries.cave` (CAVE-Q patterns with expected
+   bindings written as `cave query` prints them — exact solution sets,
+   `none`, bare must-hold patterns) and nearest-first instructions;
+   each of `--runs` N opens a fresh throwaway store and drives the
+   agent through `@cavelang/ingest` (same mcp/`--stdout` protocols and
+   `--agent` contract), so N runs measure variance; both sides
+   canonicalize and strip §9.5 actor stamps before re-keying (content
+   sources like `@src:maria` stay identity; inverse writes score
+   against primary-direction goldens), matches need key + value
+   agreement (`--tolerance` relative, unit-strict), with misses, extras
+   and value-off diagnosed per run; fixtures self-check (the golden
+   must satisfy its own queries) before agent money is spent; the
+   optional `--judge` pairs semantically equivalent leftovers into a
+   parallel judged F1 that never moves the strict score; `--min` gates
+   CI on judged-or-strict F1 and the query pass rate.
 10. **LLM loop policy** (`@cavelang/loop`): implement the `llm.ts`
     `AsyncPolicy` sketch via the shell-agent template, with the
     heuristic policy as the eval baseline (via item 9).

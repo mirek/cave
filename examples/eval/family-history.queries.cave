@@ -1,0 +1,30 @@
+; Behavioral checks for the family-history extraction — multi-hop
+; questions the notes only imply. Solutions are written exactly as
+; `cave query` prints them; the harness self-checks that the golden
+; satisfies every expectation before any agent run is scored.
+
+?a PARENT-OF+ me
+  ?a = anna
+  ?a = helena
+  ?a = helena/father
+  ?a = jan
+  ?a = maria
+
+; same stored rows, read from the other end (PARENT-OF REVERSE CHILD-OF)
+?d CHILD-OF+ helena
+  ?d = anna
+  ?d = jan
+  ?d = maria
+  ?d = me
+
+; the believed birth year — the cousin's 40% claim must not pass the filter
+jan HAS birth-year: ?y
+  WHERE conf >= 0.6
+  ?y = 1932
+
+; the DNA result must be recorded (no expectations = the pattern must hold)
+piotr/branch IS related-family
+
+; and nobody is recorded as my child
+me PARENT-OF ?child
+  none
