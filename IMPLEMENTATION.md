@@ -27,9 +27,10 @@ Dependency order, bottom to top:
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy, heuristic policy, LLM sketch, multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/search/about/neighbors/reconstruct/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
+| [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP item 9): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / connect / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / derive / act / check / export / mcp / ingest / eval / connect / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -130,6 +131,17 @@ Package READMEs document local decisions; these are the global ones:
   and the appended claims on stdin, and its failure is reported, never
   rolled back. `cave mcp` generates one `act_<name>` tool per current
   action, recomputed per `tools/list`.
+- **Evals score normalized keys against self-checked fixtures**
+  (ROADMAP item 9): `@cavelang/eval` runs each case in a fresh throwaway
+  store through `@cavelang/ingest` (one agent contract everywhere), then
+  canonicalizes both golden and produced claims, strips §9.5 actor
+  stamps (`src:cli`, `src:agent/*`, `src:ingest/*`) before re-keying —
+  which surface wrote a claim must not move its key, while
+  fixture-authored content sources stay identity — and matches on
+  key + value (relative `--tolerance`, unit-strict). Query expectations
+  are exact solution sets written as `cave query` prints them; fixtures
+  self-check against their own goldens before any agent run, and the
+  optional judge only ever adds a parallel judged score.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

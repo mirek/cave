@@ -221,6 +221,27 @@ connect: 2 record(s): 2 mapped, 0 skipped (unchanged); +10 claim(s)
 
 Re-runs skip unchanged rows by per-record digest, changed rows retract the claims they no longer yield, `--watch` tails a file continuously, and `--query '?who WORKS-AT acme'` answers a CAVE-Q pattern over the union of store and source without persisting anything. See [`@cavelang/connect`](packages/connect) and spec §23.
 
+### Extraction quality is a number — `cave eval`
+
+Is a new ingestion prompt, model or instruction set better or worse? `cave eval` makes that falsifiable: fixtures are plain files — a source, its expected extraction (`.golden.cave`), and optional CAVE-Q expectations the built store must answer — and any agent runs against them N times in fresh throwaway stores. Here the "agent" is a `sed` that renames `maria`, simulating the naming drift real extractions suffer:
+
+```
+$ pnpm exec cave eval examples/eval --stdout \
+    --agent 'sed "s/maria/grandma-maria/g" family-history.golden.cave'
+eval: 1 case(s), 1 run(s) each
+examples/eval/family-history: 13 golden claim(s), 5 query(ies), source family-history.md
+  run 1/1: 13 claim(s) — 9 matched; P 69% R 69% F1 69%; queries 3/5
+    miss: maria PARENT-OF anna
+    extra: grandma-maria PARENT-OF anna
+    ...
+    query failed: ?a PARENT-OF+ me
+      missing ?a = maria
+      unexpected ?a = grandma-maria
+suite: P 69% R 69% F1 69%; queries 60%
+```
+
+Scoring is by claim key (actor stamps ignored, spec §9.5; inverse-direction writes match for free) plus value tolerance; misses, extras and failed query bindings are diagnosed per run, an optional `--judge` agent pairs naming drift into a parallel judged F1, and `--min 90%` turns the suite into a CI gate. Point a real agent at it the same way as `cave ingest` — `--agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"' --runs 3`. See [`@cavelang/eval`](packages/eval).
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting
@@ -229,7 +250,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (evals, resolution policy, automation, sync), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (resolution policy, automation, sync), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -239,7 +260,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `loop` → `mcp` → `ingest` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `loop` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 

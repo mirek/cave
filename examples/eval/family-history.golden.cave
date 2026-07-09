@@ -1,0 +1,19 @@
+; Grandma Maria's 90th birthday — family history notes, caved 2026-07-04
+
+PARENT-OF IS verb ; X is a parent of Y
+PARENT-OF REVERSE CHILD-OF
+
+helena/father PARENT-OF helena
+helena PARENT-OF jan
+jan PARENT-OF maria
+maria PARENT-OF anna
+anna PARENT-OF me
+
+jan HAS birthplace: Kraków @src:maria
+jan HAS birth-year: 1932 @src:maria @ 70%
+jan HAS birth-year: 1931 @src:cousin @ 40%
+
+helena HAS occupation: baker @loc:long-street
+helena/father IS war-1920-veteran @ 60% ; family lore, no papers
+
+piotr/branch IS related-family @src:dna-test @ 88%

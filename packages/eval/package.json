@@ -1,21 +1,20 @@
 {
-  "name": "@cavelang/mcp",
+  "name": "@cavelang/eval",
   "version": "0.14.0",
   "type": "module",
-  "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
+  "description": "CAVE evals harness (roadmap item 9) — golden-fixture extraction and query evals: plain-file suites, N runs against any agent, claim-key scoring with value tolerance, optional LLM judge.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/mcp"
+    "directory": "packages/eval"
   },
   "engines": {
     "node": ">=22.18"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./bin": "./src/bin.ts"
+    ".": "./src/index.ts"
   },
   "files": [
     "dist",
@@ -32,10 +31,6 @@
       ".": {
         "types": "./dist/src/index.d.ts",
         "default": "./dist/src/index.js"
-      },
-      "./bin": {
-        "types": "./dist/src/bin.d.ts",
-        "default": "./dist/src/bin.js"
       }
     }
   },
@@ -46,11 +41,9 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@cavelang/act": "workspace:*",
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
-    "@cavelang/loop": "workspace:*",
-    "@cavelang/parser": "workspace:*",
+    "@cavelang/ingest": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*"
   }

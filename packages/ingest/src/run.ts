@@ -146,7 +146,12 @@ export const selectBatches = async (store: Store, options: Options): Promise<{ s
 const claimCount = (store: Store): number =>
   (store.db.prepare('SELECT COUNT(*) AS n FROM cave_claim').get() as { n: number }).n
 
-const runShellAgent = (
+/**
+ * Runs one shell agent invocation: `{name}` placeholders substituted into
+ * the template, the prompt piped to stdin, stdout captured. Shared with
+ * `@cavelang/eval`, whose agents and judges follow the same contract.
+ */
+export const runShellAgent = (
   template: string,
   prompt: string,
   substitutions: Readonly<Record<string, string>>,

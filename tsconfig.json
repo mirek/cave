@@ -17,6 +17,9 @@
       "path": "packages/core"
     },
     {
+      "path": "packages/eval"
+    },
+    {
       "path": "packages/fusion"
     },
     {
