@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { open } from '@cavelang/store'
-import { agentSource, createServer, instructions, tools } from '@cavelang/mcp'
+import { agentSource, createServer, instructions, instructionsFor, scopedTools, tools } from '@cavelang/mcp'
 
 type Response = {
   jsonrpc: '2.0'
@@ -58,7 +58,10 @@ test('tools/list exposes the full engine surface with schemas', () => {
   const store = open()
   const server = createServer(store)
   const response = server.handle(request(4, 'tools/list')) as Response
-  const listed = response.result?.['tools'] as { name: string, description: string, inputSchema: { type: string } }[]
+  const listed = response.result?.['tools'] as {
+    name: string, description: string, inputSchema: { type: string },
+    annotations?: { readOnlyHint?: boolean }
+  }[]
   assert.deepEqual(
     listed.map(tool => tool.name),
     ['cave_add', 'cave_query', 'cave_search', 'cave_about', 'cave_neighbors',
@@ -67,9 +70,72 @@ test('tools/list exposes the full engine surface with schemas', () => {
   for (const tool of listed) {
     assert.equal(tool.inputSchema.type, 'object', tool.name)
     assert.ok(tool.description.length > 20, tool.name)
+    // Read tools advertise it (MCP tool annotations); cave_add stays at
+    // the protocol defaults.
+    assert.deepEqual(tool.annotations, tool.name === 'cave_add' ? undefined : { readOnlyHint: true }, tool.name)
   }
   assert.equal(listed.length, tools.length)
   store.close()
+})
+
+test('read-only scope drops cave_add from list, call and instructions', () => {
+  const store = open()
+  store.ingest('auth USES jwt')
+  const server = createServer(store, { readOnly: true })
+  const listed = (server.handle(request(40, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.equal(listed.length, tools.length - 1)
+  assert.ok(!listed.some(tool => tool.name === 'cave_add'))
+  const denied = server.handle(request(41, 'tools/call', { name: 'cave_add', arguments: { text: 'a USES b' } })) as Response
+  assert.equal(denied.error?.code, -32602, 'hidden tools are indistinguishable from nonexistent')
+  assert.equal(store.currentBeliefs().length, 1, 'nothing was appended')
+  const queried = call(server, 42, 'cave_query', { pattern: '?x USES jwt' })
+  assert.match(contentText(queried), /\?x = auth/, 'read tools still work')
+  const initialized = server.handle(request(43, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } })) as Response
+  const served = initialized.result?.['instructions'] as string
+  assert.doesNotMatch(served, /cave_add/)
+  assert.match(served, /read-only/)
+  store.close()
+})
+
+test('a tools list serves exactly the named tools; --read-only narrows it', () => {
+  const store = open()
+  store.ingest('auth USES jwt')
+  const server = createServer(store, { tools: ['cave_query', 'cave_about'] })
+  const listed = (server.handle(request(50, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.deepEqual(listed.map(tool => tool.name), ['cave_query', 'cave_about'])
+  const denied = server.handle(request(51, 'tools/call', { name: 'cave_export', arguments: {} })) as Response
+  assert.equal(denied.error?.code, -32602)
+  assert.match(contentText(call(server, 52, 'cave_about', { entity: 'auth' })), /auth USES jwt/)
+
+  const narrowed = createServer(store, { readOnly: true, tools: ['cave_add', 'cave_query'] })
+  const remaining = (narrowed.handle(request(53, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.deepEqual(remaining.map(tool => tool.name), ['cave_query'])
+  store.close()
+})
+
+test('a scope that names unknown tools or serves nothing fails loudly', () => {
+  assert.throws(() => scopedTools({ tools: ['cave_query', 'cave_nope'] }), /unknown tool\(s\): cave_nope/)
+  assert.throws(() => scopedTools({ readOnly: true, tools: ['cave_add'] }), /serves no tools/)
+  const store = open()
+  assert.throws(() => createServer(store, { tools: [] }), /serves no tools/)
+  store.close()
+})
+
+test('instructionsFor mentions only served tools and covers the full surface', () => {
+  assert.equal(instructionsFor(tools), instructions)
+  assert.match(instructions, /cave_reconstruct/)
+  const queryOnly = instructionsFor(scopedTools({ tools: ['cave_query'] }))
+  assert.match(queryOnly, /cave_query patterns/)
+  assert.doesNotMatch(queryOnly, /cave_add|cave_about|cave_reconstruct/)
+  assert.match(queryOnly, /read-only/)
+  const lintOnly = instructionsFor(scopedTools({ tools: ['cave_lint', 'cave_export'] }))
+  assert.match(lintOnly, /Validate CAVE text with cave_lint\./)
+  assert.doesNotMatch(lintOnly, /cave_add/)
+  const searchOnly = instructionsFor(scopedTools({ tools: ['cave_search'] }))
+  assert.match(searchOnly, /read-only/, 'no guidance clause still gets the read-only note')
+  // The full surface keeps the add guidance and stays silent on read-only.
+  assert.match(instructions, /stamped with your agent source/)
+  assert.doesNotMatch(instructions, /read-only/)
 })
 
 test('cave_add → cave_query round trip through the protocol', () => {

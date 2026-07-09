@@ -34,8 +34,8 @@ Summary of the gaps:
   engine (Draft §17.4) is the single largest functional hole.
 - **Act** — the entire kinetic layer (governed writes, side effects,
   automation) is missing.
-- **Trust** — actor provenance shipped in 0.7.0; evals, serving scope,
-  and a human read surface are missing.
+- **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
+  0.10.0; evals and a human read surface are missing.
 - **Distribute** — two CAVE stores cannot merge; everything needed for
   sync already exists in the data model, unused.
 
@@ -158,7 +158,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 |---|---|---|---|
 | Actor provenance (who appended this) | auto-stamped `@src:` actor contexts on MCP/ingest/CLI appends (§9.5) + tx (when) + `raw_line` (as written) | exists | shipped in 0.7.0 (item 2) |
 | Extraction/query evals | none (unit tests cover code, not extraction quality) | missing | golden-fixture harness; without it, ingest prompt changes are unfalsifiable |
-| Serving scope | MCP serves the whole store read-write to any client | missing | `--read-only` and per-tool enable flags — the minimum viable agent permission boundary |
+| Serving scope | `cave mcp --read-only` / `--tools <list>` narrow the served tool surface; hidden tools are absent from `tools/list` and unknown to `tools/call` | exists | shipped in 0.10.0 (item 5) |
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
 | Redaction / forgetting | none — append-only forever; retraction `@ 0%` leaves text in `raw_line` and every export | missing | an explicit stance (open decision 3): accidentally ingested secrets/PII need `cave redact` as a declared, exceptional history rewrite — or documented permanence |
 | Human read surface | `cave_about`, `claimsAbout`, traversal, FTS — API/MCP only | partial | the graph cannot be *looked at*; a minimal local browse surface, not an app builder |
@@ -250,7 +250,15 @@ extend an existing one.
    at one-machine scale, no new query surface).
 5. **MCP serving scope** (`@cavelang/mcp`): `--read-only`,
    `--tools <list>`. Small; the minimum viable agent permission
-   boundary.
+   boundary. — **Shipped in 0.10.0**: every tool declares whether it
+   writes; the flags compose by intersection (`--read-only` drops
+   writing tools even when `--tools` lists them); tools outside the
+   scope are absent from `tools/list` and indistinguishable from
+   nonexistent in `tools/call`; server instructions mention only served
+   tools, and a surface with no writing tool declares itself read-only;
+   read tools carry the MCP `readOnlyHint` annotation; a scope naming
+   unknown tools — or serving none — fails at startup, before the
+   database is opened.
 6. **As-of queries** (`@cavelang/query`): `cave query --as-of <date>` —
    current-belief resolution at a past tx, reconstructed from rows that
    already exist.

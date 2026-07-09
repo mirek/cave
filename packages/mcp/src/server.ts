@@ -16,9 +16,9 @@
 import { createInterface } from 'node:readline'
 import { Version } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
-import { byName, tools } from './tools.ts'
+import { scopedTools, tools, type Scope, type Tool } from './tools.ts'
 
-export type ServerOptions = {
+export type ServerOptions = Scope & {
   /**
    * Actor provenance stamp for appends (spec §9.5), without the `src:`
    * prefix. Default: `agent/<client-name>` from the initialize handshake,
@@ -71,18 +71,43 @@ Entities are kebab-case with / for scope (auth/middleware). @ctx = context
 by adding the same claim with new confidence; retract with @ 0%.`
 
 /**
- * Server instructions — the card plus tool guidance, so a connected model
+ * Server instructions for a served tool surface — the card plus tool
+ * guidance mentioning only tools actually served, so a connected model is
+ * never pointed at a tool the scope hides. A surface with no writing tool
+ * says so outright.
+ */
+export const instructionsFor = (served: readonly Tool[]): string => {
+  const has = (name: string): boolean => served.some(tool => tool.name === name)
+  const explore = ['cave_about', 'cave_neighbors'].filter(has)
+  const clauses = [
+    ...has('cave_add') ?
+      [`extract knowledge with one claim per line via cave_add${has('cave_lint') ? ' (validate with cave_lint first)' : ''}`] :
+      has('cave_lint') ? ['validate CAVE text with cave_lint'] : [],
+    ...has('cave_query') ? ['ask questions with cave_query patterns (?x USES jwt)'] : [],
+    ...explore.length > 0 ? [`explore with ${explore.join(' / ')}`] : [],
+    ...has('cave_reconstruct') ? ['use cave_reconstruct to pull everything related to a symptom or task before reasoning about it'] : []
+  ]
+  const last = clauses.length - 1
+  const guidance = [
+    ...clauses.length === 0 ? [] : [clauses
+      .map((clause, index) => index === 0 ? `${clause[0]!.toUpperCase()}${clause.slice(1)}` : index === last ? `and ${clause}` : clause)
+      .join(',\n') + '.'],
+    ...has('cave_add') ? [
+      'Claims you add without a @src: context are stamped with your agent source\n' +
+      'context; to update or retract a claim that carries a different @src:,\n' +
+      'restate it with that exact context.'
+    ] : [],
+    ...served.some(tool => tool.writes) ? [] :
+      ['This server is read-only: no tool writes to the knowledge database.']
+  ].join('\n')
+  return guidance === '' ? specCard : `${specCard}\n\n${guidance}`
+}
+
+/**
+ * Server instructions for the full tool surface, so a connected model
  * knows how to write CAVE without reading the full specification.
  */
-export const instructions = `${specCard}
-
-Extract knowledge with one claim per line via cave_add (validate with
-cave_lint first), ask questions with cave_query patterns (?x USES jwt),
-explore with cave_about / cave_neighbors, and use cave_reconstruct to pull
-everything related to a symptom or task before reasoning about it.
-Claims you add without a @src: context are stamped with your agent source
-context; to update or retract a claim that carries a different @src:,
-restate it with that exact context.`
+export const instructions = instructionsFor(tools)
 
 type Id = string | number
 
@@ -113,9 +138,14 @@ const isId = (value: unknown): value is Id =>
  * @returns pure MCP dispatcher over an open store: message in, response
  * out (`undefined` for notifications). The client name captured from
  * `initialize` becomes the default `agent/<name>` provenance stamp on
- * appends (spec §9.5).
+ * appends (spec §9.5). Serves the scoped tool surface — tools outside the
+ * scope are absent from `tools/list` and unknown to `tools/call`; throws
+ * when the scope names an unknown tool or serves none.
  */
 export const createServer = (store: Store, options: ServerOptions = {}) => {
+  const served = scopedTools(options)
+  const servedByName = new Map(served.map(tool => [tool.name, tool]))
+  const servedInstructions = instructionsFor(served)
   let clientName: undefined | string
   const source = (): undefined | string =>
     options.source === false ? undefined : options.source ?? agentSource(clientName)
@@ -143,22 +173,23 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
           protocolVersion: typeof requested === 'string' ? requested : protocolVersion,
           capabilities: { tools: {} },
           serverInfo,
-          instructions
+          instructions: servedInstructions
         })
       }
       case 'ping':
         return result(id, {})
       case 'tools/list':
         return result(id, {
-          tools: tools.map(tool => ({
+          tools: served.map(tool => ({
             name: tool.name,
             description: tool.description,
-            inputSchema: tool.inputSchema
+            inputSchema: tool.inputSchema,
+            ...tool.writes ? {} : { annotations: { readOnlyHint: true } }
           }))
         })
       case 'tools/call': {
         const call = (params ?? {}) as { name?: unknown, arguments?: unknown }
-        const tool = typeof call.name === 'string' ? byName.get(call.name) : undefined
+        const tool = typeof call.name === 'string' ? servedByName.get(call.name) : undefined
         if (tool === undefined) {
           return failure(id, -32602, `Unknown tool: ${String(call.name)}`)
         }

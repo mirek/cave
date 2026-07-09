@@ -9,10 +9,12 @@
  * Tools: cave_add, cave_query, cave_search, cave_about, cave_neighbors,
  * cave_reconstruct, cave_export, cave_lint. Server instructions carry the
  * spec §22 compact card so connected models can write CAVE directly.
+ * `--read-only` / `--tools <list>` narrow the served surface — the
+ * minimum viable agent permission boundary.
  */
 
-export { agentSource, createServer, serve, instructions, protocolVersion, serverInfo, specCard } from './server.ts'
+export { agentSource, createServer, serve, instructions, instructionsFor, protocolVersion, serverInfo, specCard } from './server.ts'
 export type { ServerOptions } from './server.ts'
 export { runMcp } from './main.ts'
-export { tools } from './tools.ts'
-export type { Tool, ToolContext } from './tools.ts'
+export { scopedTools, tools } from './tools.ts'
+export type { Scope, Tool, ToolContext } from './tools.ts'
