@@ -33,6 +33,27 @@ connected model knows how to write CAVE claims without further prompting.
 store through the §18 store contract — the same multi-hop recovery as the
 demo, against persistent knowledge.
 
+## Serving scope
+
+The full surface is read-write. `--read-only` serves only tools that
+never write (drops `cave_add`); `--tools <list>` serves only the named
+tools (comma-separated). Each flag can only narrow, so the two compose
+as an intersection — `--read-only` still drops writing tools that
+`--tools` lists:
+
+```
+cave mcp --db k.db --read-only
+cave mcp --db k.db --tools cave_query,cave_about,cave_search
+```
+
+Tools outside the scope are absent from `tools/list` and
+indistinguishable from nonexistent in `tools/call`; the server
+`instructions` mention only served tools, and a surface with no writing
+tool declares itself read-only. A scope that names an unknown tool, or
+serves nothing, fails at startup — before the database is opened. Read
+tools carry the MCP `readOnlyHint` annotation, so clients can treat
+them accordingly (e.g. auto-approve).
+
 ## Actor provenance
 
 `cave_add` stamps `@src:agent/<client-name>` on appended claims that carry
