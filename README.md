@@ -333,6 +333,27 @@ exist. Landing an approved branch is one more `cave sync`.
 
 See [`@cavelang/sync`](packages/sync) and spec §28.
 
+### The store reacts — `cave automate`
+
+Everything so far waits to be invoked. Automations close the loop (spec §29): an in-band declaration pairs a trigger pattern with steps, and new claims matching the trigger fire them — a governed action, an out-of-band hook, or an agent prompt whose CAVE reply is recorded:
+
+```cave
+automation/page-on-spike HAS automation: `?svc IS service, ?svc HAS error-rate: ?r, ?r > 0.05 => action/open-incident, hook/page, "investigate the spike on ?svc"` ; page and investigate error-rate spikes
+```
+
+```
+$ pnpm exec cave automate --db ops.db --hooks hooks.json --agent 'claude -p'
+watching (poll every 2s, ctrl-c to stop)
+automation/page-on-spike: fired 1 solution(s) ; page and investigate error-rate spikes
+  ?svc = checkout  ?r = 0.09
+    action/open-incident: ok (+1 appended, 0 updated, 0 unchanged)
+    hook/page: ok
+    "investigate the spike on ?svc": ok (+2 claim(s))
+settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracted
+```
+
+An automation is armed the moment it is declared — earlier rows are state, not events — and never wakes itself; rules (`cave derive`) fire incrementally in every cycle, so derived conclusions trigger automations and one automation's action effects trigger the next. Chains converge because every write path is idempotent, and firing records an in-band watermark *before* any step runs, so a re-run never re-notifies the world. `--once` makes it a cron job; with `cave connect --watch` feeding the other end, sense → model → conclude → act → record runs unattended on one machine. See [`@cavelang/automate`](packages/automate) and spec §29.
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting
@@ -341,7 +362,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (event-driven automation, the human read surface), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (the human read surface, reports with citations), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -361,7 +382,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§28 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§29 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

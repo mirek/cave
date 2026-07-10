@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§28) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§29) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1391,3 +1391,173 @@ git workflow, not a CAVE one. Divergence between the committed text
 and anyone's live store is bounded by the next sync, not prevented.
 Both are the right trade at CAVE's scale: one machine, one SQLite
 file, plain text as the escape hatch.
+
+---
+
+## 29. Automations — the Event-Driven Loop
+
+Every kinetic surface so far waits to be invoked: rules fire when
+`cave derive` runs (§24), actions when a caller executes them (§25),
+`cave connect --watch` re-maps when a *file* changes (§23). Nothing
+watches the *store*. This section commits **automations**: in-band
+declarations that pair a trigger pattern with named steps, and
+`cave automate`, the loop that evaluates them whenever belief changes —
+new claims matching patterns fire rules, actions, out-of-band hooks, or
+an agent prompt. With `connect --watch` feeding one end, sense → model →
+conclude → act → record closes on one machine, unattended.
+
+### 29.1 The automation declaration
+
+An automation is declared exactly like a rule (§24.1) and named exactly
+like an action (§25.1) — one ordinary attribute claim under a stable
+name, whose value is the **body**:
+
+```cave
+automation/page-on-spike HAS automation: `?svc IS service, ?svc HAS error-rate: ?r, ?r > 0.05 => action/open-incident, hook/page, "error rate reached ?r on ?svc — investigate and record findings"` ; page and investigate error-rate spikes
+```
+
+The body reuses the §24.1 rule line — `left => right`, `=>` the only
+special token, split outside `"…"` and `` `…` `` literals:
+
+- the **left side is the trigger**: §24.1 premises verbatim — CAVE-Q
+  patterns (inverse verbs, `VERB+`, `NOT` matching explicitly negated
+  claims — still no negation-as-failure, `@ctx` / `#tag` filters) and
+  `?var op value` constraints. At least one pattern premise is
+  required, and — unlike an action — a bare-variable segment is an
+  error: an automation has no caller, so every binding comes from the
+  trigger;
+- the **right side is a comma-separated list** of one or more
+  **steps**, each one of
+  - `action/<name>` — execute the §25 action, its parameters bound
+    from same-named trigger variables;
+  - `hook/<name>` — fire the out-of-band hook `<name>` from the same
+    §25.4 configuration actions use;
+  - a `"…"` or `` `…` `` literal — an **agent prompt template**, fired
+    through an out-of-band shell-agent command (§29.3).
+
+Like rule text and action bodies, an automation body is pure data —
+patterns, names and prose, never commands (§19.5): the hook *commands*
+and the agent *command* live in configuration; the claim only ever
+names or phrases what to run. Identity is the *name* (§25.1's rule):
+redeclaring appends to the same claim key, the newest current row
+across actor series is the definition, retraction (`… @ 0%`) disables
+the automation, and the declaration comment is its description.
+
+### 29.2 Triggering — solutions citing event rows
+
+The trigger evaluates exactly as rules and actions do: premises join
+left to right over **current, positive, non-retracted** beliefs
+(§24.2's join; the alias closure applies when opted in). What makes an
+automation *event-driven* is one extra test — a solution **fires** only
+when it cites at least one **event row**: a premise row newer than the
+automation's **watermark**, excluding
+
+- engine bookkeeping and declaration plumbing — rows carrying a
+  `src:cave-automate`, `src:cave-derive` or `src:cave-act` context —
+  which would otherwise wake automations forever (a watermark append
+  must not be an event); and
+- the automation's **own output** — rows stamped
+  `src:automation/<name>` (its agent replies, §29.3) or
+  `src:action/<x>` for any `action/<x>` among its steps (its own
+  effects). An automation is deaf to its own echo; *another*
+  automation's output triggers normally, which is how automations
+  chain.
+
+The watermark is an in-band bookkeeping claim, the §24.4 convention:
+
+```cave
+automation/page-on-spike HAS automate-watermark: 019f47ba-8f72-7000-… @src:cave-automate ; fired 1 solution(s), 3 step(s)
+```
+
+An automation with no watermark yet is **armed at its declaration
+row's transaction**: it watches from the moment it is declared,
+whether or not a loop was running — rows recorded before the
+declaration are state, never events. Because matching is over current
+beliefs, the semantics follow §12 throughout: a retraction fires
+nothing (the fact stops matching), an unchanged re-assertion appends
+no row and so fires nothing, a value update fires (the new row is the
+current row), and a solution built entirely from old rows is state,
+not an event. Transitive (`VERB+`) premises constrain bindings but
+contribute no premise row (§24.2), so they never trigger by
+themselves — pair them with a direct pattern.
+
+### 29.3 Firing — the watermark first, then the steps
+
+When at least one solution fires, the automation records the batch
+**before acting on it**: one watermark append (value = the highest
+transaction the evaluation could see; the comment carries the counts,
+so the watermark series is the firing log), then every step runs for
+each firing solution, in declaration order. The ordering is the §25.4
+asymmetry pointed the other way, stated honestly: a crash between the
+two loses that batch's outside-world steps instead of replaying them —
+re-runs must never re-notify the world, and the store never lies about
+what it accounted for. Step failures are reported (nonzero exit under
+`--once`), never fatal to the loop, and never roll back the watermark
+or other steps.
+
+- **`action/<name>`** executes the action under §25.2 semantics,
+  verbatim: arguments are the action's declared parameters bound from
+  same-named trigger variables (a parameter the trigger did not bind
+  fails the step); the action's own premises still gate; the §25.3
+  shape gate applies by default; effects are idempotent; the action's
+  own `HAS hook:` fires per §25.4. Nothing is bypassed — an automation
+  is just an unattended caller.
+- **`hook/<name>`** runs the named command template from the §25.4
+  hook configuration: `{automation}` and `{<var>}` placeholders
+  substitute shell-quoted (trigger bindings; unknown placeholders
+  stay), and the solution's premise rows arrive as canonical CAVE text
+  on stdin. A hook that is named but not configured is reported as not
+  fired — running without hook configuration is a legitimate,
+  side-effect-free mode (§25.4).
+- **a prompt literal** goes to the agent: bound `?var`s substitute
+  into the template (unbound `?tokens` pass through — prompts are
+  prose), and the engine wraps it with the automation's name and
+  description, the solution's premise rows as canonical CAVE, and
+  reply instructions. The agent is an out-of-band shell command — the
+  `cave ingest` / `cave eval` `--agent` contract (§19.5): prompt on
+  stdin and `{prompt-file}`, reply on stdout. The reply parses
+  leniently as CAVE and appends stamped `@src:automation/<name>`, with
+  the §24.4 idempotency convention applied per claim: a reply claim
+  equal to its current belief appends nothing, so an agent restating
+  its trigger cannot wake anything twice. No agent configured → the
+  step is reported as not fired; agent errors are step failures.
+
+### 29.4 The settle cycle
+
+One **cycle** runs passes until no automation fires (a `maxPasses`
+guard bounds runaways, §24.2's convention). Each pass first fires the
+store's rules — §24 derivation, incremental by its own watermarks, so
+a pass over an unchanged store costs almost nothing (`--no-derive`
+opts out) — then evaluates every current automation. Steps append; the
+next pass sees those rows; derived conclusions trigger automations and
+action effects trigger other automations. Chains converge because
+every write path is idempotent — derivation (§24.4), action effects
+(§25.2), the agent-reply guard (§29.3) — so belief stops changing
+unless something genuinely new keeps arriving; a pair of automations
+whose agents keep answering each other with fresh values is a design
+error the pass guard bounds per cycle, stated honestly, not prevented.
+
+### 29.5 Surfaces
+
+- `cave automate [--db <path>]` — the long-running loop: one settle
+  cycle at startup, then a cheap `MAX(tx)` poll every `--interval`
+  seconds (default 2) and a cycle whenever it moves. One machine, one
+  SQLite file — polling, not a bus, stated honestly.
+- `cave automate --once` — exactly one settle cycle, exit code
+  carrying step failures and declaration problems: cron replaces the
+  daemon.
+- `--declare [file…]` / `--list` / `--retract <name>` — the §25.1
+  lifecycle moves (non-declaration lines are prelude); declarations
+  are stamped `@src:cave-automate`.
+- `--hooks <file>` / `$CAVE_HOOKS` (§25.4, shared with actions),
+  `--agent <template>` + `--timeout` (the shell contract), `--aliases`
+  (§13.6 on premise matching), `--no-derive`, `--no-check` (forwarded
+  to action steps, §25.3), `--max-passes`, `--json`.
+- Programmatic: `@cavelang/automate` — `declareAutomations`,
+  `listAutomations`, `retractAutomation`, `settle(store, options)`
+  (one cycle, full report).
+- Deliberately **not** an MCP tool (§28.5's reasoning): the loop is a
+  process the operator runs, not a call an agent makes. The
+  *declarations*, though, are ordinary claims — an agent declares an
+  automation through `cave_add`, and a running loop serves it from the
+  next cycle without restarting.

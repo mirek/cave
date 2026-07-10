@@ -5,6 +5,9 @@
       "path": "packages/act"
     },
     {
+      "path": "packages/automate"
+    },
+    {
       "path": "packages/canonical"
     },
     {

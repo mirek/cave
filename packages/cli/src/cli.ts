@@ -12,6 +12,7 @@
  * - `cave resolve [--db <path>]` — contested facts under the §26 policy (`--aliases`, `--policy`, `--json`)
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
+ * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async, routed in `main.ts`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
@@ -74,6 +75,7 @@ Usage:
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
+  cave automate [--db <path>]              event-driven loop (spec §29): new claims fire rules/actions/hooks/agent prompts [--once]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
@@ -1274,8 +1276,8 @@ export const helpCommand = (argv: readonly string[]): Output => {
   if (text !== undefined) {
     return ok(`${text}\n`)
   }
-  // mcp, ingest, connect and eval own their help (main.ts forwards `help X` to `X --help`).
-  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval') {
+  // mcp, ingest, connect, eval and automate own their help (main.ts forwards `help X` to `X --help`).
+  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval' || topic === 'automate') {
     return ok(`see: cave ${topic} --help\n`)
   }
   return fail(`cave help: unknown command ${JSON.stringify(topic)}\n\n${usage}\n`, 2)
