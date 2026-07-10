@@ -5,6 +5,9 @@ import family from '../../../examples/family-history/notes.cave?raw'
 import incident from '../../../examples/incident/incident.cave?raw'
 import loop from '../../../examples/loop-eval/postmortem.cave?raw'
 import { CaveEditor } from '../components/CaveEditor.tsx'
+import { Badge } from '../components/ui/badge.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Card } from '../components/ui/card.tsx'
 import { initializeSqlite } from '../playground/sqlite-shim.ts'
 
 type Dataset = {
@@ -119,16 +122,16 @@ export const Playground = () => {
     <main className="playground">
       <section className="playground-intro">
         <div>
-          <div className="kicker"><i /> No server. No account. No data leaves this tab.</div>
-          <h1>The whole idea,<br /><em>running here.</em></h1>
+          <Badge variant="secondary">Local browser runtime</Badge>
+          <h1>CAVE playground</h1>
         </div>
         <p>
-          This is the production CAVE parser, canonicalizer, store, and query engine over SQLite compiled to WebAssembly.
-          Edit the claims, rebuild the database, then ask it something that was never written down.
+          This page runs the CAVE parser, canonicalizer, store, and query engine against SQLite compiled to WebAssembly.
+          Edit the claims, rebuild the database, and run a graph query. Data remains in this browser tab.
         </p>
       </section>
 
-      <section className="playground-toolbar">
+      <Card className="playground-toolbar">
         <label>
           <span>Sample dataset</span>
           <select value={datasetId} onChange={event => selectDataset(event.target.value)}>
@@ -137,15 +140,15 @@ export const Playground = () => {
         </label>
         <p>{datasets.find(item => item.id === datasetId)?.description}</p>
         <div className={`runtime-status ${status}`}><i /> {status === 'loading' ? 'Starting runtime' : status === 'ready' ? `${claimCount} current beliefs` : 'Runtime error'}</div>
-      </section>
+      </Card>
 
-      <section className="workbench">
+      <Card className="workbench">
         <div className="workbench-panel editor-panel">
           <header><div><span>01</span><strong>Claims</strong></div><small>dataset.cave</small></header>
           <CaveEditor value={source} onChange={event => setSource(event.target.value)} ariaLabel="CAVE claims" />
           <footer>
-            <button onClick={() => void rebuild()} disabled={status === 'loading'}>Rebuild database</button>
-            <button className="subtle" onClick={append} disabled={status !== 'ready'}>Append again</button>
+            <Button size="sm" onClick={() => void rebuild()} disabled={status === 'loading'}>Rebuild database</Button>
+            <Button size="sm" variant="outline" onClick={append} disabled={status !== 'ready'}>Append again</Button>
           </footer>
         </div>
 
@@ -153,7 +156,7 @@ export const Playground = () => {
           <div className="workbench-panel query-panel">
             <header><div><span>02</span><strong>CAVE-Q</strong></div><small>graph pattern</small></header>
             <div className="query-input"><span>?</span><input value={queryText} onChange={event => setQueryText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') runQuery() }} /></div>
-            <footer><button onClick={runQuery} disabled={status !== 'ready'}>Run query <span>⌘ ↵</span></button></footer>
+            <footer><Button size="sm" onClick={runQuery} disabled={status !== 'ready'}>Run query</Button></footer>
           </div>
 
           <div className="workbench-panel output-panel">
@@ -161,12 +164,12 @@ export const Playground = () => {
             <pre>{output}</pre>
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="playground-note">
-        <strong>Browser edition</strong>
-        <p>The database is ephemeral and isolated to this tab. Node-only surfaces such as filesystem ingest, shell hooks, and the HTTP server remain CLI features.</p>
-        <a href="#/docs/cli">See the complete CLI →</a>
+        <strong>Browser runtime</strong>
+        <p>The database is ephemeral and isolated to this tab. Filesystem ingest, shell hooks, and the HTTP server remain CLI features.</p>
+        <a href="#/docs/cli">CLI reference →</a>
       </div>
     </main>
   )
