@@ -49,10 +49,10 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
       <section className="hero">
         <div className="hero-copy">
           <Badge variant="secondary">CAVE language and runtime</Badge>
-          <h1>A text format for durable, queryable knowledge.</h1>
+          <h1>A plain-text knowledge representation with an append-only SQLite store.</h1>
           <p>
-            CAVE represents knowledge as atomic claims in plain text, stores revisions in SQLite,
-            and queries relationships with CAVE-Q. The source remains readable without the runtime.
+            CAVE records statements as atomic claims, retains revisions, and queries relationships with CAVE-Q.
+            The source format remains readable and editable without the runtime.
           </p>
           <div className="hero-actions">
             <Button size="lg" onClick={() => navigate('playground')}>Run the playground</Button>
@@ -85,12 +85,12 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
       </section>
 
       <section className="manifesto">
-        <div className="section-label">DESIGN</div>
+        <div className="section-label">DATA MODEL</div>
         <div>
-          <h2>Claims are the source of truth.</h2>
+          <h2>Claims are stored as primary records.</h2>
           <p>
-            CAVE stores small, composable claims rather than opaque vectors or platform-specific graph objects.
-            The source is text, the database is a SQLite file, and previous states remain available for inspection.
+            Each claim remains available as source text and as a structured SQLite record.
+            Derived graph edges and current beliefs can be rebuilt from the append-only history.
           </p>
         </div>
       </section>
@@ -109,8 +109,8 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
       <section className="loop-section">
         <div className="section-label">RUNTIME</div>
         <div className="loop-copy">
-          <h2>A small, inspectable pipeline.</h2>
-          <p>Parse claims, preserve history, resolve current beliefs, run graph queries, and retain provenance for each result.</p>
+          <h2>Runtime pipeline</h2>
+          <p>The runtime parses claims, stores history, resolves current beliefs, executes graph queries, and retains provenance for returned results.</p>
           <Button variant="link" onClick={() => navigate('docs/implementation')}>Read the implementation notes →</Button>
         </div>
         <Card className="loop-diagram" aria-label="Parse, store, resolve, query, audit">
@@ -127,7 +127,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
       <Card className="cta">
         <div>
           <Badge variant="outline">SQLite WebAssembly</Badge>
-          <h2>Use the browser playground.</h2>
+          <h2>Browser playground</h2>
         </div>
         <p>Edit a sample dataset, rebuild the in-memory store, and execute CAVE-Q without sending data to a server.</p>
         <Button size="lg" onClick={() => navigate('playground')}>Open playground</Button>
