@@ -58,6 +58,25 @@ echo "==> cave eval reconstruction baseline (ROADMAP item 10)"
   echo "error: the loop-eval heuristic baseline is not perfect" >&2
   exit 1
 }
+echo "==> cave sync merges stores by row identity (spec §28)"
+"$cave" sync --db "$tmp/merged.db" "$tmp/smoke.db" | grep -q 'SYNCED-INTO store/merged' || {
+  echo "error: cave sync did not record the merge" >&2
+  exit 1
+}
+"$cave" sync --db "$tmp/merged.db" "$tmp/family.db" >/dev/null
+"$cave" sync --db "$tmp/merged.db" "$tmp/smoke.db" | grep -q 'merged 0 claim(s)' || {
+  echo "error: cave sync re-run was not idempotent" >&2
+  exit 1
+}
+"$cave" export --db "$tmp/family.db" --tx | "$cave" sync --db "$tmp/roundtrip.db" - >/dev/null
+"$cave" export --db "$tmp/family.db" --tx | "$cave" sync --db "$tmp/roundtrip.db" - | grep -q 'merged 0 claim(s)' || {
+  echo "error: annotated text sync was not idempotent" >&2
+  exit 1
+}
+"$cave" query 'me GRANDCHILD-OF ?g' --db "$tmp/roundtrip.db" | grep -q 'maria' || {
+  echo "error: annotated text sync lost derived knowledge" >&2
+  exit 1
+}
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

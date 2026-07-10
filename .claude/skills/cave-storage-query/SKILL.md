@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§27) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§28) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1141,3 +1141,154 @@ raises a confidence and never writes.
 - `suggestAliases(store, { minScore?, limit? })`, `writeSuggestions`,
   `judgePrompt` / `parseJudgeReply` — the same engine programmatically
   (`@cavelang/shape`, beside the §20 health checks it feeds).
+
+---
+
+## 28. Store Merge
+
+Everything so far assumes one store. Knowledge does not: two machines,
+a laptop and a server, a store and its air-gapped copy each accumulate
+claims, and eventually one must absorb the other. §9.4 already made the
+hard part legal — coexisting contradictions are data, resolved at read
+time (§26) — so merging can never *conflict*. What was left open (the
+roadmap's open decision 1) is transaction semantics across stores: what
+happens to `tx`, and how identity survives the trip. This section
+decides both.
+
+### 28.1 Row identity — the id travels
+
+Every appended row is minted one UUIDv7 serving as both `id` and `tx`
+(§13.1). That value is the row's **global identity**: merging copies
+rows that are absent *by id* — verbatim, keeping `id`, `tx`,
+`claim_key`, `raw_line` and the side tables byte for byte — and skips
+rows whose id the target already has.
+
+Everything else follows from identity preservation:
+
+- **idempotent** — re-running a sync merges nothing;
+- **transitive** — after `b` absorbs `c`, syncing `b` into `a` carries
+  `c`'s rows under their original identity, and a later direct
+  `c → a` sync finds them present;
+- **bidirectional** — `a ← b` then `b ← a` converges both stores to the
+  same row set (each keeps its own bookkeeping series, §28.3);
+- **conflict-free by construction** — the same fact recorded
+  independently on both machines arrives as two rows in one belief
+  series (two ids, one claim key): asserted twice, which is what
+  happened. Nothing is rewritten; §26 resolution and §10.1 fusion apply
+  at read time exactly as within one store.
+
+Rows are never re-stamped on merge — re-minting ids would fork identity
+and break all four properties (re-syncs would duplicate every row).
+Actor provenance is likewise untouched: merge is interchange replay, so
+the §9.5 no-stamp rule applies. Per-row *machine* attribution is
+deliberately not recorded — `src:` stamps answer *who* asserted a
+claim, which is the dimension resolution ranks (§26.2); when machine
+identity matters, give each machine its own actor name (`cave mcp
+--src agent/laptop`, per-machine `source/<name>` policy claims) and it
+becomes ordinary provenance, ranked by the ordinary policy.
+
+### 28.2 The receive rule — the store is the monotonic authority
+
+§9.1's model assumes a single writer whose transaction ids only grow.
+Merged rows carry origin timestamps, so a store that just absorbed a
+fast-clocked machine holds rows *ahead* of its own wall clock — and a
+naive next append would sort **before** them, silently losing currency
+to the merged past. The fix generalizes §9.1's invariant from the
+writer to the store:
+
+> **Every append to a store receives a tx greater than every tx already
+> in it.**
+
+Implementations MUST apply the Lamport receive rule to the UUIDv7
+generator: opening a store observes its `MAX(tx)`, merging observes the
+maximum merged tx, and the generator never mints below what it has
+observed (same-millisecond appends increment the v7 sequence field).
+Consequences, stated honestly:
+
+- **local appends always win locally** — anything appended after a
+  merge is newer than everything merged, whatever the origin clocks
+  did;
+- **merged history interleaves by origin wall clock** — within one
+  belief series (same claim key, e.g. the same actor writing on two
+  machines), the merged past orders by origin timestamps, and clock
+  skew between machines skews that ordering. Cross-machine recency is
+  physical time, not causality; where trust should outrank recency,
+  that is precedence (§26.2), not tx;
+- **tx drifts ahead of the wall clock only under skew** — after
+  absorbing a future-stamped row, new appends mint just above it until
+  real time catches up. Staleness measures (§20.2) read such rows as
+  fresh; acceptable, bounded by the skew.
+
+### 28.3 The merge record — sync events are claims
+
+A merge that changed anything is knowledge, recorded in-band as an
+ordinary claim in the *target* store (the verb declared on first use,
+like every extension verb):
+
+```cave
+SYNCED-INTO IS verb ; an origin store's rows were merged into a target store
+store/laptop SYNCED-INTO store/main @src:sync ; +42 claim(s), +17 edge(s)
+```
+
+Store labels are supplied by the caller (defaulting to file basenames):
+CAVE stores have no intrinsic identity, and the label names the
+*relationship*, not a machine — one claim key per (origin, target)
+pair, whose belief series is the sync log (each effective merge appends
+one row; tx answers *when*, the comment carries the batch counts). The
+record is stamped `@src:sync` (§9.5, root precedence class under
+§26.3). A sync that merged nothing appends nothing — the §24.4
+idempotency convention; watch loops never accrete records.
+
+### 28.4 Interchange — transaction annotations
+
+Canonical text (§2.2) deliberately omits `tx`: interchange replay mints
+fresh ids, which is right for restoring and wrong for merging. The
+**transaction annotation** is the additive extension that lets text
+carry identity — a full-line comment immediately above each claim line,
+at the same indentation:
+
+```cave
+;@ 01980a5e-4c2d-7000-8a3f-2b1c9d4e5f60
+auth USES jwt @ 90% @src:cli
+  ;@ 01980a5e-4c2e-7000-b7d2-8e3a1f6c9b04
+  BECAUSE security-review
+```
+
+`cave export --tx` emits it; `cave sync` consumes it, replaying each
+annotated claim under its recorded id — present ids skip, absent ids
+insert, exactly §28.1 over text. Because comment lines are transparent
+to the grammar (§8), every existing consumer reads an annotated file
+unchanged, and plain `cave import` degrades gracefully to an ordinary
+tx-less replay. The extension is honest about its strictness the other
+way: `cave sync` of a text source requires **every** claim line
+annotated with a well-formed UUIDv7 — a half-annotated file would merge
+half a store idempotently and duplicate the rest on every re-run, so it
+is rejected whole (use `cave import` for plain text).
+
+A `--current` export with `--tx` is a *seed*: a snapshot whose rows
+keep their identity, so a store grown from it merges back into the
+original without duplication — the branch-and-merge workflow's opening
+move.
+
+### 28.5 Surfaces
+
+- `cave sync [--db <target>] <source> [--as <label>] [--into <label>]
+  [--dry-run] [--no-record] [--json]` — `<source>` is a CAVE store file
+  (detected by SQLite header), a `;@`-annotated canonical text file, or
+  `-` for annotated text on stdin. `--as`/`--into` override the origin
+  and target labels in the §28.3 record; `--no-record` suppresses it;
+  `--dry-run` computes the full report inside a rolled-back
+  transaction.
+- `cave export --tx [--current]` — §28.4 annotated canonical text.
+- Programmatic: `@cavelang/sync` — `syncDb(store, path, options)`,
+  `syncText(store, text, options)`, both returning
+  `{ merged, skipped, edges, record }`.
+- Sync is an operator command, deliberately not served over MCP: store
+  files are machine-local paths, and distribution is the operator's
+  concern — an agent's write surface stays the governed §25 vocabulary.
+
+Merging with the query layer: nothing changes. Current belief stays
+`MAX(tx)` per key (§13.5), as-of reconstruction works across merged
+history (§12.3, boundaries compare origin timestamps), and resolution
+(§26) arbitrates cross-actor contests exactly as before — the policy,
+not the merge, decides who outranks whom.

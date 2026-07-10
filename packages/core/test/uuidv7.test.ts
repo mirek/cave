@@ -49,3 +49,31 @@ test('msOf() recovers the encoded timestamp (spec §20.2 staleness)', () => {
   assert.equal(Uuidv7.msOf(Uuidv7.at(0, 0, rand)), 0)
   assert.equal(Uuidv7.msOf(Uuidv7.at(0xffff_ffff_ffff, 0, rand)), 0xffff_ffff_ffff)
 })
+
+test('observe() is the receive rule: next() outsorts every observed id (spec §28.2)', () => {
+  const rand = new Uint8Array([9, 8, 7, 6, 5, 4, 3, 2])
+  // Far ahead of both the wall clock and this file's earlier frozen mints.
+  const merged = Uuidv7.at(3_000_000_000_000, 0x0a0, rand)
+  Uuidv7.observe(merged)
+  const minted = Uuidv7.next()
+  assert.ok(minted > merged, `${minted} > ${merged}`)
+  assert.equal(Uuidv7.msOf(minted), 3_000_000_000_000, 'same millisecond, sequence bumped')
+
+  // Observing the past never lowers the floor.
+  Uuidv7.observe(Uuidv7.at(1_000, 0xfff, rand))
+  assert.ok(Uuidv7.next() > minted)
+
+  // Sequence exhaustion at the observed millisecond rolls forward.
+  Uuidv7.observe(Uuidv7.at(3_000_000_000_001, 0xfff, rand))
+  const rolled = Uuidv7.next(() => 0)
+  assert.equal(Uuidv7.msOf(rolled), 3_000_000_000_002)
+})
+
+test('observe() ignores ids that are not UUIDv7', () => {
+  const before = Uuidv7.next()
+  Uuidv7.observe('ffffffff-ffff-ffff-ffff-ffffffffffff') // v f, not v7
+  Uuidv7.observe('not an id')
+  const after = Uuidv7.next()
+  assert.ok(after > before)
+  assert.ok(Uuidv7.msOf(after) < 3_100_000_000_000, 'the malformed maxima left no trace')
+})

@@ -74,9 +74,12 @@ WITH RECURSIVE ${aliasEdgeSql}, ${aliasSeedSql}
 `
 
 export type IngestResult = {
-  /** ids of inserted claim rows, in document order. */
+  /** ids of the batch's claim rows, in document order — for a row skipped as already present (`ids` replay, spec §28.1), the existing id. */
   readonly ids: readonly string[]
+  /** Edges actually inserted (an identity replay skips edges already stored). */
   readonly edges: number
+  /** Rows skipped because their explicit id already exists (spec §28.1); always 0 without `ids`. */
+  readonly skipped: number
   readonly problems: readonly Canonical.Problem[]
 }
 
@@ -90,6 +93,15 @@ export type AppendOptions = {
    * preserve claim keys as exported.
    */
   readonly source?: string
+  /**
+   * Explicit row identity (spec §28.1), index-aligned with the result's
+   * claims: a claim with an id here is replayed under it — inserted with
+   * `id = tx = ids[i]` when absent, skipped when the store already has the
+   * row — and the generator observes it (spec §28.2). Claims without an
+   * entry mint fresh ids as usual. Edges deduplicate against stored edges
+   * in this mode, so replaying a sync export is idempotent end to end.
+   */
+  readonly ids?: readonly (undefined | string)[]
 }
 
 /** Stamps `@src:<source>` on a claim without a source context (spec §9.5). */
@@ -157,7 +169,16 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   db.exec('PRAGMA foreign_keys = ON')
   Schema.init(db)
 
-  let registry = options.registry ?? Canonical.standardRegistry
+  // The receive rule (spec §28.2): the store, not the wall clock, is the
+  // monotonic authority — every append outsorts every tx already stored,
+  // merged history from fast-clocked origins included.
+  const maxTx = db.prepare('SELECT MAX(tx) AS tx FROM cave_claim').get() as undefined | { tx: null | string }
+  if (maxTx?.tx != null) {
+    Uuidv7.observe(maxTx.tx)
+  }
+
+  const baseRegistry = options.registry ?? Canonical.standardRegistry
+  let registry = baseRegistry
 
   const insertClaim = db.prepare(`
     INSERT INTO cave_claim (
@@ -230,13 +251,29 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     }
   }
 
+  const claimExists = db.prepare('SELECT 1 FROM cave_claim WHERE id = ?')
+  const edgeExists = db.prepare('SELECT 1 FROM cave_edge WHERE parent_id = ? AND role = ? AND child_id = ?')
+
   /** Appends a canonicalization result — one row per claim, per-row tx. */
   const insertResult = (result: Canonical.Result, options_: AppendOptions = {}): IngestResult =>
     transaction(() => {
       const ids: string[] = []
-      for (const entry of result.claims) {
+      const replay = options_.ids !== undefined
+      let skipped = 0
+      result.claims.forEach((entry, index) => {
+        const explicit = options_.ids?.[index]
+        if (explicit !== undefined) {
+          // Identity replay (spec §28.1): the id is the row — present means
+          // merged already; either way subsequent mints outsort it (§28.2).
+          Uuidv7.observe(explicit)
+          if (claimExists.get(explicit) !== undefined) {
+            skipped += 1
+            ids.push(explicit)
+            return
+          }
+        }
         const claim = stampSource(entry.claim, options_.source)
-        const id = Uuidv7.next()
+        const id = explicit ?? Uuidv7.next()
         const columns = Row.toColumns(claim)
         const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine
         insertClaim.run(
@@ -259,12 +296,19 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
           columns.valueText, columns.comment, rawLine
         )
         ids.push(id)
-      }
+      })
+      let edges = 0
       for (const edge of result.edges) {
-        insertEdge.run(ids[edge.parent]!, edge.role, ids[edge.child]!)
+        const parentId = ids[edge.parent]!
+        const childId = ids[edge.child]!
+        if (replay && edgeExists.get(parentId, edge.role, childId) !== undefined) {
+          continue
+        }
+        insertEdge.run(parentId, edge.role, childId)
+        edges += 1
       }
       registry = result.registry
-      return { ids, edges: result.edges.length, problems: result.problems }
+      return { ids, edges, skipped, problems: result.problems }
     })
 
   const rows = (sql: string, ...params: (string | number)[]): Row.t[] =>
@@ -319,6 +363,17 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
 
     /** Current verb registry (input registry + stored + ingested declarations). */
     registry: (): Canonical.Registry.t => registry,
+
+    /**
+     * Rebuilds the registry from the base plus stored declarations — after
+     * rows arrive outside `ingest`/`insertResult` (a §28 merge writes
+     * through SQL), merged in-band declarations take effect without
+     * reopening.
+     */
+    reloadRegistry(): void {
+      registry = baseRegistry
+      rebuildRegistry()
+    },
 
     /**
      * Runs `body` atomically; throwing rolls everything back, including
@@ -536,7 +591,10 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
 
     /**
      * Emits the store as canonical CAVE text — all rows in transaction
-     * order, or only current beliefs with `current`.
+     * order, or only current beliefs with `current`. With `tx`, every
+     * claim line is preceded by its §28.4 transaction annotation
+     * (`;@ <tx>`), so the text carries row identity: `cave sync` replays
+     * it idempotently, plain `cave import` reads it unchanged.
      *
      * In current-only export an edge endpoint may be a superseded row;
      * dropping such edges would silently un-condition current claims and
@@ -544,7 +602,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      * endpoint resolves to the *current row of its claim key*, and the
      * resulting edges are deduplicated.
      */
-    exportText(options_: { current?: boolean } = {}): string {
+    exportText(options_: { current?: boolean, tx?: boolean } = {}): string {
       const current = options_.current === true
       const claimRows = current ?
         rows(`${currentSql} ORDER BY c.tx`) :
@@ -576,7 +634,10 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
         seen.add(dedupe)
         return [{ parent, role: edge.role, child }]
       })
-      return Canonical.emit({ claims, edges })
+      return Canonical.emit(
+        { claims, edges },
+        options_.tx === true ? { annotate: index => Canonical.txComment(claimRows[index]!.tx) } : {}
+      )
     },
 
     close(): void {

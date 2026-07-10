@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand, suggestAliasCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -821,5 +821,79 @@ test('act --no-check skips the shape gate; the gate rejects by default (spec §2
     const unchecked = actCommand(['--db', db, 'enroll', 'name=cache', '--no-check'])
     assert.equal(unchecked.code, 0, unchecked.err)
     assert.match(queryCommand(['--db', db, 'cache IS service']).out, /cache IS service/)
+  })
+})
+
+test('sync merges a store file, idempotently, and records the merge (spec §28)', () => {
+  withDir(dir => {
+    const a = join(dir, 'main.db')
+    const b = join(dir, 'laptop.db')
+    writeFileSync(join(dir, 'b.cave'), 'billing USES postgres @ 90%\n')
+    assert.equal(addCommand(['--db', b, join(dir, 'b.cave')]).code, 0)
+
+    const first = syncCommand(['--db', a, b])
+    assert.equal(first.code, 0, first.err)
+    assert.match(first.out, /merged 1 claim\(s\), 0 edge\(s\)/)
+    assert.match(first.out, /record: store\/laptop SYNCED-INTO store\/main/)
+    assert.match(queryCommand(['--db', a, 'billing USES postgres']).out, /billing USES postgres/)
+
+    const again = syncCommand(['--db', a, b])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /merged 0 claim\(s\), 0 edge\(s\), 1 already present/)
+    assert.doesNotMatch(again.out, /record:/)
+  })
+})
+
+test('sync --dry-run reports without writing; --json is machine-readable', () => {
+  withDir(dir => {
+    const a = join(dir, 'a.db')
+    const b = join(dir, 'b.db')
+    writeFileSync(join(dir, 'b.cave'), 'x NEEDS y\n')
+    assert.equal(addCommand(['--db', b, join(dir, 'b.cave')]).code, 0)
+
+    const dry = syncCommand(['--db', a, b, '--dry-run', '--json'])
+    assert.equal(dry.code, 0)
+    const report = JSON.parse(dry.out)
+    assert.equal(report.merged, 1)
+    assert.equal(report.dryRun, true)
+    assert.match(queryCommand(['--db', a, 'x NEEDS y']).out, /no matches/)
+  })
+})
+
+test('sync consumes cave export --tx text and validates plain text (spec §28.4)', () => {
+  withDir(dir => {
+    const a = join(dir, 'a.db')
+    const b = join(dir, 'b.db')
+    const notes = join(dir, 'notes.cave')
+    writeFileSync(notes, 'deploy CAUSE outage @ 70%\n  BECAUSE logs\n')
+    assert.equal(addCommand(['--db', a, notes]).code, 0)
+
+    const annotated = join(dir, 'a.tx.cave')
+    const exported = exportCommand(['--db', a, '--tx', '--out', annotated])
+    assert.equal(exported.code, 0)
+    assert.match(exported.out, /exported 2 claim\(s\)/, 'annotations are not counted as claims')
+    assert.match(readFileSync(annotated, 'utf8'), /^;@ [0-9a-f-]{36}\n/)
+
+    const synced = syncCommand(['--db', b, annotated, '--as', 'a', '--into', 'b'])
+    assert.equal(synced.code, 0, synced.err)
+    assert.match(synced.out, /merged 2 claim\(s\), 1 edge\(s\)/)
+    assert.match(synced.out, /record: store\/a SYNCED-INTO store\/b/)
+    assert.equal(syncCommand(['--db', b, annotated]).code, 0)
+
+    // Plain canonical text carries no identity — sync refuses, pointing at import.
+    const plain = syncCommand(['--db', b, notes])
+    assert.equal(plain.code, 1)
+    assert.match(plain.err, /without a transaction annotation/)
+    assert.match(plain.err, /cave import/)
+  })
+})
+
+test('sync validates its arguments and sources', () => {
+  withDir(dir => {
+    const a = join(dir, 'a.db')
+    assert.match(syncCommand(['--db', a]).err, /exactly one source/)
+    assert.match(syncCommand(['--db', a, 'missing.db']).err, /no such file/)
+    assert.match(commandHelp['sync']!, /row identity/)
+    assert.match(cave(['sync', '--help']).out, /merge/)
   })
 })

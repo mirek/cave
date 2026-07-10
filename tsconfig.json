@@ -48,6 +48,9 @@
     },
     {
       "path": "packages/store"
+    },
+    {
+      "path": "packages/sync"
     }
   ]
 }

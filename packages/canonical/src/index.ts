@@ -18,5 +18,6 @@
 export * as Registry from './registry.ts'
 export { canonicalize, canonicalizeText } from './canonicalize.ts'
 export type { Edge, EdgeRole, Entry, Problem, Result } from './canonicalize.ts'
-export { emit, emitClaim } from './emit.ts'
+export { emit, emitClaim, txComment, txOfLine } from './emit.ts'
+export type { EmitOptions } from './emit.ts'
 export { standardPrelude, standardRegistry } from './prelude.ts'

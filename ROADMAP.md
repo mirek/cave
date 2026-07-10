@@ -46,8 +46,10 @@ Summary of the gaps:
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
   0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9); a human
   read surface is missing.
-- **Distribute** — two CAVE stores cannot merge; everything needed for
-  sync already exists in the data model, unused.
+- **Distribute** — store merge shipped in 0.19.0 (`cave sync`, item 14 —
+  row identity, the tx receive rule, `--tx` annotated text interchange;
+  open decision 1 decided as spec §28); the documented branch/review
+  convention (item 15) remains.
 
 ## 1. What the architecture already gets right
 
@@ -181,8 +183,8 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
-| Multi-store sync | `cave export`/`import` round-trips one store; contradictions coexist by design | missing | `cave sync` merging append-only stores — the data model pre-solves conflicts; tx semantics are open decision 1 |
-| Branch/review workflow | plain-text export diffs under ordinary git | partial | a documented branch/merge convention (seeded store file + sync merge + PR review on canonical text) |
+| Multi-store sync | `cave sync` (spec §28): append-only stores merge by row identity — idempotent, transitive, conflict-free under §9.4 coexistence; store files or `;@`-annotated text (`cave export --tx`); in-band `SYNCED-INTO` merge records; the §28.2 tx receive rule | exists | shipped in 0.19.0 (item 14); open decision 1 decided |
+| Branch/review workflow | plain-text export diffs under ordinary git; `cave export --tx --current` seeds a store that merges back without duplication (§28.4) | partial | a documented branch/merge convention (seeded store file + sync merge + PR review on canonical text) |
 | Offline/air-gap operation | npm packages, no build step, single SQLite file, offline | exists | none — the canonical text export is the transferable atom |
 
 ## 3. Roadmap
@@ -291,7 +293,7 @@ knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
 policy (item 10) in 0.15.0, the contradiction-resolution policy
 (item 11) in 0.16.0, named computation tools (item 12) in 0.17.0,
 alias discovery (item 13) in 0.18.0 — phase 2 is complete; phase 3
-(store merge, item 14) is next.*
+began with store merge (item 14, 0.19.0).*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -453,13 +455,39 @@ alias discovery (item 13) in 0.18.0 — phase 2 is complete; phase 3
 
 ### Phase 3 — distribution and the closed loop
 
-*Many stores, running continuously, visible to humans.*
+*Many stores, running continuously, visible to humans. Store merge
+(item 14) shipped in 0.19.0; the branching convention (item 15) builds
+directly on it.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
     query time. Requires open decision 1 first: tx semantics across
     machines and a tx-carrying interchange extension (canonical text
-    deliberately omits tx today — an additive spec delta, per §19.5).
+    deliberately omits tx today — an additive spec delta, per §19.5). —
+    **Shipped in 0.19.0** (spec §28, deciding open decision 1): a row's
+    UUIDv7 (one value is both `id` and `tx`) is its global identity —
+    merge copies rows absent by id verbatim (side tables included) and
+    skips the rest, so sync is idempotent, transitive, bidirectional and
+    never re-stamps (§9.5 interchange replay); the same fact recorded on
+    both machines is two rows in one series, asserted twice. The §9.1
+    single-writer invariant generalizes to the store via the Lamport
+    receive rule: `MAX(tx)` observed at open and merge, so post-merge
+    appends outsort merged history whatever the origin clocks read —
+    merged history itself interleaves by origin wall clock, stated
+    honestly, with §26 precedence (not tx) the cross-actor arbiter.
+    Merges append in-band records (`store/<from> SYNCED-INTO
+    store/<into> @src:sync`, the verb declared on first use, nothing on
+    no-ops) whose belief series is the sync log. The interchange
+    extension is the `;@ <tx>` transaction annotation — a comment line
+    above each claim, transparent to the grammar: `cave export --tx`
+    emits it, `cave sync` replays it strictly (every claim annotated, no
+    repeats, whole-file rejection otherwise), plain `cave import`
+    degrades to an ordinary tx-less replay; `--current --tx` is the
+    seeding move for item 15. Surfaced as `cave sync <source>` (store
+    file, annotated text, or stdin; `--dry-run`, `--as`/`--into`,
+    `--no-record`) and `syncDb`/`syncText`/`syncFile`; deliberately not
+    an MCP tool — paths are machine-local and distribution is the
+    operator's concern.
 15. **Branching convention** (docs + `cave sync`): branch = separate
     store file seeded by export; merge = sync; review = git PR on
     canonical text. Accepts the full-copy divergence cost — fine at
@@ -485,17 +513,21 @@ alias discovery (item 13) in 0.18.0 — phase 2 is complete; phase 3
 
 Flagged here so they are decided deliberately, not implied by code.
 
-1. **Sync tx semantics.** If merged rows keep their origin tx,
-   `MAX(tx)` = current belief becomes cross-machine wall-clock
-   last-writer-wins (UUIDv7 encodes clock order, not causal order — skew
-   silently flips beliefs) and the single-writer monotonic-generator
-   invariant breaks. If rows are re-stamped on merge, repeated syncs
-   lose idempotency. Candidate middle path: keep origin tx for identity
-   but record the merge as claims (`store/b SYNCED-INTO store/a
-   @time:…`) and let the resolution policy (spec §26, shipped as item 11) treat
-   provenance, not raw tx, as the tiebreaker across origins. The
-   interchange format must carry tx (an additive canonical-text
-   extension or sidecar). This decision *is* the design work of item 14.
+1. **Sync tx semantics.** *Decided (0.19.0, spec §28): keep origin tx —
+   the row id is global identity — and generalize the monotonic-writer
+   invariant to the store.* If rows were re-stamped on merge, repeated
+   syncs would lose idempotency, so they never are; the skew horn is
+   answered by the Lamport receive rule (§28.2): the generator observes
+   a store's `MAX(tx)` at open and after merge, so every append outsorts
+   everything already stored — new local knowledge always wins locally,
+   and the wall-clock interleaving of *merged history* is stated
+   honestly rather than hidden (§26 precedence, not tx, arbitrates
+   cross-actor trust; per-machine attribution, when wanted, is actor
+   naming — `source/<name>` policy claims — not new identity machinery).
+   The merge is recorded as claims (`store/b SYNCED-INTO store/a
+   @src:sync`, one series per store pair). The interchange format
+   carries tx through the additive `;@ <tx>` comment-line annotation
+   (`cave export --tx`), which every pre-§28 reader ignores.
 2. **Alias closure vs claim-key identity.** *Decided (0.6.0, spec
    §13.6): union-of-rows.* Aliased entities keep separate belief series
    (claim keys embed the subject); closure widens matching at read time,
