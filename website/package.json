@@ -1,0 +1,32 @@
+{
+  "name": "@cavelang/website",
+  "version": "0.24.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "node --import ./test/register-sqlite-wasm.mjs --test test/runtime.test.ts"
+  },
+  "dependencies": {
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^5.8.0",
+    "vite": "^8.1.4"
+  }
+}
