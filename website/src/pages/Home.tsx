@@ -97,7 +97,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
 
       <section className="capabilities">
         {capabilities.map(item => (
-          <Card as={undefined} key={item.number} className="capability-card">
+          <Card key={item.number} className="capability-card">
             <span>{item.number}</span>
             <h3>{item.title}</h3>
             <p>{item.text}</p>
