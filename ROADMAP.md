@@ -47,9 +47,10 @@ Summary of the gaps:
   actions, hooks and agent prompts unattended) — with `connect --watch`,
   sense → decide → act → record closes on one machine.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
-  0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9), and the
+  0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9), the
   human read surface in 0.22.0 (`cave serve`, item 17 — the graph can
-  finally be *looked at*); reports with citations (item 18) remain.
+  finally be *looked at*), and reports with citations in 0.23.0
+  (`cave report`, item 18 — prose deliverables trace back to claims).
 - **Distribute** — store merge shipped in 0.19.0 (`cave sync`, item 14 —
   row identity, the tx receive rule, `--tx` annotated text interchange;
   open decision 1 decided as spec §28); the branching convention shipped
@@ -183,7 +184,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
 | Redaction / forgetting | none — append-only forever; retraction `@ 0%` leaves text in `raw_line` and every export | missing | an explicit stance (open decision 3): accidentally ingested secrets/PII need `cave redact` as a declared, exceptional history rewrite — or documented permanence |
 | Human read surface | `cave serve` (spec §30): one static, self-contained page — §20.2 coverage/frontier dashboard, entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, FTS search; read-only GET endpoints, localhost by default | exists | shipped in 0.22.0 (item 17) |
-| Reports with citations | `cave export` canonical text, persisted comments | partial | templated markdown from CAVE-Q results with claim keys as citations, so prose deliverables trace back to claims |
+| Reports with citations | `cave report` (spec §31): markdown templates with CAVE-Q query blocks and inline splices, every rendered fact footnoted with its claim's canonical line, date and claim key | exists | shipped in 0.23.0 (item 18) |
 
 ### Distribute — many stores
 
@@ -463,8 +464,9 @@ began with store merge (item 14, 0.19.0).*
 
 *Many stores, running continuously, visible to humans. Store merge
 (item 14) shipped in 0.19.0, the branching convention (item 15) in
-0.20.0, the closed loop (item 16) in 0.21.0 and the human read surface
-(item 17) in 0.22.0 — reports with citations (item 18) remain.*
+0.20.0, the closed loop (item 16) in 0.21.0, the human read surface
+(item 17) in 0.22.0 and reports with citations (item 18) in 0.23.0 —
+temporal values (item 19) remain, gated as the spec demands.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
@@ -570,7 +572,26 @@ began with store merge (item 14, 0.19.0).*
     human outside the loop.
 18. **`cave report`** (in `view` or `cli`): templated markdown from
     CAVE-Q results with claim keys as citations — prose deliverables
-    that trace back to claims.
+    that trace back to claims. — **Shipped in 0.23.0** (spec §31, in
+    `@cavelang/view` — the browsable surface and the printable one are
+    one read layer): a template is ordinary markdown with two live
+    constructs, everything else verbatim. A fenced `cave-q` block holds
+    a §12.1 pattern (plus `WHERE` lines) and a fragment rendered once
+    per solution with `?var` bindings substituted (unbound tokens pass
+    through, §29.3's prose convention; no fragment → each solution as
+    `cave query` prints it, as a cited bullet; no solutions → nothing,
+    the honest empty section). An inline `` `cave-q: …` `` splice takes
+    exactly one variable and one solution — no match or several is a
+    rendered, nonzero-exit *problem*, §25.2's determinism, with §26
+    resolution the documented fix (`--resolve` renders the winner).
+    Citations are markdown footnotes: `[^cN]` markers at the fragment's
+    `[^?]` placeholder (appended when absent; transitive solutions
+    carry no row, §24.2, and cite nothing), definitions at the end of
+    the document — the row's canonical line (§16's emitter, so §9.5
+    stamps stay visible), tx date and claim key, one per row, repeats
+    shared. `--aliases`/`--resolve`/`--as-of` forward to every query;
+    deliberately not an MCP tool (§28.5's reasoning — templates are
+    machine-local files, agents already read through `cave_query`).
 19. **Temporal values, §17.5 layer 2** (`parser`/`core`): trajectories
     (`20B -> 40B @2025..2028`) with interpolation in query — only after
     rules (item 7) proves the Draft grammar path, per the spec's own

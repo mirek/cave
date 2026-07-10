@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -895,5 +895,60 @@ test('sync validates its arguments and sources', () => {
     assert.match(syncCommand(['--db', a, 'missing.db']).err, /no such file/)
     assert.match(commandHelp['sync']!, /row identity/)
     assert.match(cave(['sync', '--help']).out, /merge/)
+  })
+})
+
+test('report renders cited markdown from a template (spec §31)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const claims = join(dir, 'k.cave')
+    writeFileSync(claims, [
+      'api-gateway IS service',
+      'checkout IS service',
+      'api-gateway HAS owner: platform-team',
+      'checkout HAS owner: payments-team',
+      'checkout HAS owner: shop-team @src:audit',
+      'acme HAS revenue: ~20B USD/yr @ 90%'
+    ].join('\n'))
+    assert.equal(addCommand([claims, '--db', db]).code, 0) // stamps @src:cli
+
+    const template = join(dir, 'weekly.md')
+    writeFileSync(template, [
+      '# Weekly',
+      '',
+      'Revenue: `cave-q: acme HAS revenue: ?v`.',
+      '',
+      '```cave-q',
+      '?svc HAS owner: ?who @src:cli',
+      '- **?svc** — ?who [^?]',
+      '```'
+    ].join('\n'))
+
+    const rendered = reportCommand([template, '--db', db])
+    assert.equal(rendered.code, 0, rendered.err)
+    assert.match(rendered.out, /Revenue: ~20B USD\/yr\[\^c1\]\./)
+    assert.match(rendered.out, /- \*\*api-gateway\*\* — platform-team \[\^c2\]/)
+    assert.match(rendered.out, /- \*\*checkout\*\* — payments-team \[\^c3\]/)
+    // Citations carry the canonical line (stamp visible), date and claim key.
+    assert.match(rendered.out, /\[\^c1\]: `acme HAS revenue: ~20B USD\/yr @src:cli @ 90%` — \d{4}-\d{2}-\d{2}, claim key `\[/)
+
+    // A contested fact is ambiguous inline; --resolve renders the §26 winner.
+    const inline = join(dir, 'owner.md')
+    writeFileSync(inline, 'Owner: `cave-q: checkout HAS owner: ?who`\n')
+    const ambiguous = reportCommand([inline, '--db', db])
+    assert.equal(ambiguous.code, 1)
+    assert.match(ambiguous.err, /template line 1: ambiguous.*--resolve/s)
+    assert.match(ambiguous.out, /\*\(ambiguous: 2 matches\)\*/)
+    const resolved = reportCommand([inline, '--db', db, '--resolve'])
+    assert.equal(resolved.code, 0, resolved.err)
+    assert.match(resolved.out, /Owner: payments-team\[\^c1\]/)
+
+    // --out writes the file and reports the citation count.
+    const out = join(dir, 'report.md')
+    const written = reportCommand([template, '--db', db, '--out', out])
+    assert.equal(written.code, 0)
+    assert.match(written.out, /rendered 3 citation\(s\) to /)
+    assert.match(readFileSync(out, 'utf8'), /\[\^c3\]:/)
+    assert.match(commandHelp['report']!, /claim key/)
   })
 })

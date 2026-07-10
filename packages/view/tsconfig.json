@@ -16,6 +16,9 @@
       "path": "../core"
     },
     {
+      "path": "../query"
+    },
+    {
       "path": "../shape"
     },
     {

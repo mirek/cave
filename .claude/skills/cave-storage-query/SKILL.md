@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§30) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, @cave/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§31) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints), reports (cave report — templated markdown from CAVE-Q query blocks and inline splices, claim keys as footnote citations). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, @cave/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1643,3 +1643,112 @@ reachable by clicking.
 - Deliberately **not** an MCP tool (§28.5's reasoning): agents read
   through `cave_query`/`cave_about`; the page is for the human outside
   the loop.
+
+## 31. Reports — Cited Deliverables (non-normative)
+
+`cave query` prints bindings; `cave export` prints claims; `cave serve`
+(§30) renders the graph. None of them produces the thing knowledge work
+actually ships: a *document* — a status report, an inventory, a briefing
+— whose every stated fact can be traced back to the claim that supports
+it. This section commits `cave report`: templated markdown rendered from
+CAVE-Q results, with claim keys as citations. Like §30 it is a
+convenience surface and non-normative throughout — every semantic it
+renders is defined elsewhere (§9, §12, §13.6, §26) — but the template
+contract below is fixed so templates stay portable.
+
+### 31.1 The template
+
+A report template is an ordinary markdown document. Two constructs bind
+it to the store; everything else — headings, prose, tables, hand-written
+footnotes, fenced code in any *other* language — passes through
+verbatim. The template is a document, not knowledge: it lives out of
+band as a file, like a §23 mapping or a hook configuration, never in the
+store.
+
+**A query block** is a fenced code block whose info string is `cave-q`:
+
+````markdown
+## Service ownership
+
+```cave-q
+?svc HAS owner: ?who
+- **?svc** is owned by ?who [^?]
+```
+````
+
+The block's first line is a CAVE-Q pattern (§12.1); immediately
+following lines starting with `WHERE` are filters (§12.2); everything
+after — leading blank lines dropped, the rest verbatim — is the
+**fragment**, a markdown template rendered once per solution with each
+`?var` replaced by that solution's binding (entities and values exactly
+as stored). The rendered instances replace the block, joined line by
+line, so a fragment shaped like a bullet renders a list, one shaped like
+`| ?svc | ?who [^?] |` renders table rows under a hand-written header,
+and one shaped like a paragraph (keep a trailing blank line) renders
+prose. An unbound `?token` passes through untouched — fragments are
+prose, the §29.3 convention — and a query with no solutions renders
+nothing, which is the honest shape of an empty section (a frontier
+report *wants* its violations block empty). A block with no fragment
+renders the default one: each solution as `cave query` prints it —
+bindings when the pattern has variables, the claim line otherwise —
+as a cited bullet.
+
+**An inline splice** is an inline code span `` `cave-q: <pattern>` ``
+for the single value a sentence needs:
+
+```markdown
+Revenue reached `cave-q: OpenAI HAS revenue: ?v` in the latest belief.
+```
+
+The pattern must bind **exactly one variable** and match **exactly one
+solution**; the span is replaced by the bound value followed by its
+citation. No match renders `*(no match)*`, several render
+`*(ambiguous: N matches)*` — both are report problems (nonzero exit):
+prose splices are deterministic or nothing, §25.2's principle. When
+several sources contest the fact, ambiguity is working as intended —
+resolution (§26) is the knob: `cave report --resolve` renders the
+policy's winner.
+
+### 31.2 Citations
+
+Every rendered solution that matched a stored row cites it. The marker
+is a markdown footnote reference — placed at the fragment's `[^?]`
+placeholder when present, appended to the fragment's last line
+otherwise (inline splices always append) — and the definitions land at
+the end of the document, one per cited row, repeats sharing a number:
+
+```markdown
+[^c1]: `auth/middleware USES jwt @ 90% @src:cli` — 2026-07-01, claim
+key `["e:auth/middleware","USES",0,"r:e:jwt",["src:cli"]]`
+```
+
+The definition is the row's **canonical line** (the §16 emitter over
+the stored columns and side tables — exactly what `cave export` prints,
+actor stamps included, so provenance a `raw_line` abbreviation would
+hide stays visible), the tx **date** (when), and the **claim key**
+(§9.2) — the identity of the belief series, so a reader can pull the
+full history behind any sentence (`cave query --all`, the §30
+timeline). Labels are `c1, c2, …` in order of first citation, a
+namespace hand-written footnotes won't collide with. Transitive
+(`VERB+`) solutions carry no row (§24.2's rule) and cite nothing —
+their `[^?]` placeholders are dropped.
+
+### 31.3 Surfaces
+
+- `cave report [--db <path>] [template.md …] [--out <file>]
+  [--aliases] [--resolve] [--as-of <t>] [--no-prelude]` — stdin when no
+  file; rendered markdown to stdout or `--out`. The query options are
+  the §12.3/§13.6/§26.4 opt-ins, applied to every query in the
+  template — resolution stays opt-in here exactly because it is opt-in
+  everywhere (§26). Problems (unparseable queries, empty or ambiguous
+  splices) are reported to stderr with template line numbers and exit 1;
+  the rendered document still emits, problems marked in place.
+- Programmatic: `report(store, template, options)` in `@cavelang/view`
+  (the §30 package — the browsable surface and the printable one are
+  one read layer) returning `{ markdown, problems }`.
+- Deliberately **not** an MCP tool (§28.5's reasoning): templates are
+  machine-local files, and an agent composing prose already reads
+  through `cave_query` — the report is the *human's* reproducible
+  deliverable: the template under version control, the store evolving,
+  `cave report` re-rendering the document from current belief on
+  demand.

@@ -365,6 +365,39 @@ serving family.db at http://127.0.0.1:2283/ (read-only, ctrl-c to stop)
 
 The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search covers everything, and every request reads the live store, so a running `cave automate` loop's appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §30.
 
+### Ship a document that cites its claims — `cave report`
+
+Query output is for you; a *deliverable* is for someone else — and it should say where every fact came from. `cave report` renders a markdown template against the store (spec §31): fenced `cave-q` blocks repeat a fragment per solution, inline `` `cave-q: …` `` splices drop a single value into prose, and every rendered fact carries a footnote citing the claim behind it — canonical line, date, claim key:
+
+````markdown
+Jan was born in `cave-q: jan HAS birth-year: ?y` in `cave-q: jan HAS birthplace: ?where`.
+
+## The ancestor line
+
+```cave-q
+?a PARENT-OF+ me
+- ?a is an ancestor
+```
+````
+
+```
+$ pnpm exec cave report --db family.db brief.md --resolve
+Jan was born in 1931[^c1] in Kraków[^c2].
+
+## The ancestor line
+
+- anna is an ancestor
+- helena is an ancestor
+- helena/father is an ancestor
+- jan is an ancestor
+- maria is an ancestor
+
+[^c1]: `jan HAS birth-year: 1931 @src:birth-certificate @ 95%` — 2026-07-10, claim key `["e:jan","HAS",0,"a:birth-year",["src:birth-certificate"]]`
+[^c2]: `jan HAS birthplace: Kraków @src:maria` — 2026-07-10, claim key `["e:jan","HAS",0,"a:birthplace",["src:maria"]]`
+```
+
+The birth year traces to the birth certificate, not to Grandma — three sources still coexist in the store, and the citation shows exactly which one the sentence stands on. An inline splice must be deterministic: when several sources contest a fact it reports *ambiguous* and exits nonzero, and `--resolve` (the spec §26 policy) is the fix. `--as-of` renders the report as belief stood at a past moment, and the template stays under version control while the store evolves. See [`@cavelang/view`](packages/view) and spec §31.
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting
@@ -373,7 +406,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (reports with citations, temporal values), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (temporal values), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -393,7 +426,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§30 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§31 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).
