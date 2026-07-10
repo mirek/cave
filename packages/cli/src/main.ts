@@ -13,9 +13,9 @@ const write = (code: number, out: string, err: string): void => {
   process.exitCode = code
 }
 
-// mcp, ingest, connect, eval and automate own their help text, so `cave help X` becomes `cave X --help`.
+// mcp, ingest, connect, eval, automate and serve own their help text, so `cave help X` becomes `cave X --help`.
 const raw = process.argv.slice(2)
-const argv = raw[0] === 'help' && (raw[1] === 'mcp' || raw[1] === 'ingest' || raw[1] === 'connect' || raw[1] === 'eval' || raw[1] === 'automate') ?
+const argv = raw[0] === 'help' && (raw[1] === 'mcp' || raw[1] === 'ingest' || raw[1] === 'connect' || raw[1] === 'eval' || raw[1] === 'automate' || raw[1] === 'serve') ?
   [raw[1], '--help'] :
   raw
 if (argv[0] === 'mcp') {
@@ -38,6 +38,10 @@ if (argv[0] === 'mcp') {
   // Async (prompt steps run a shell agent) and potentially long-running (the loop).
   const { runAutomate } = await import('@cavelang/automate')
   process.exitCode = await runAutomate(argv.slice(1))
+} else if (argv[0] === 'serve') {
+  // Long-running: the human read surface serves HTTP until interrupted.
+  const { runServe } = await import('@cavelang/view')
+  process.exitCode = await runServe(argv.slice(1))
 } else if (argv[0] === 'reconstruct') {
   // Async: the LLM policy runs a shell agent once per step.
   const { code, out, err } = await reconstructCommand(argv.slice(1))

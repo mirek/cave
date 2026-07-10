@@ -47,8 +47,9 @@ Summary of the gaps:
   actions, hooks and agent prompts unattended) — with `connect --watch`,
   sense → decide → act → record closes on one machine.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
-  0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9); a human
-  read surface is missing.
+  0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9), and the
+  human read surface in 0.22.0 (`cave serve`, item 17 — the graph can
+  finally be *looked at*); reports with citations (item 18) remain.
 - **Distribute** — store merge shipped in 0.19.0 (`cave sync`, item 14 —
   row identity, the tx receive rule, `--tx` annotated text interchange;
   open decision 1 decided as spec §28); the branching convention shipped
@@ -181,7 +182,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Serving scope | `cave mcp --read-only` / `--tools <list>` narrow the served tool surface; hidden tools are absent from `tools/list` and unknown to `tools/call` | exists | shipped in 0.10.0 (item 5) |
 | Sensitivity-aware export | `#tag` / `@ctx` could mark sensitivity by convention | missing | a lightweight `#sensitivity:` convention honored by export/serve filters |
 | Redaction / forgetting | none — append-only forever; retraction `@ 0%` leaves text in `raw_line` and every export | missing | an explicit stance (open decision 3): accidentally ingested secrets/PII need `cave redact` as a declared, exceptional history rewrite — or documented permanence |
-| Human read surface | `cave_about`, `claimsAbout`, traversal, FTS — API/MCP only | partial | the graph cannot be *looked at*; a minimal local browse surface, not an app builder |
+| Human read surface | `cave serve` (spec §30): one static, self-contained page — §20.2 coverage/frontier dashboard, entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, FTS search; read-only GET endpoints, localhost by default | exists | shipped in 0.22.0 (item 17) |
 | Reports with citations | `cave export` canonical text, persisted comments | partial | templated markdown from CAVE-Q results with claim keys as citations, so prose deliverables trace back to claims |
 
 ### Distribute — many stores
@@ -462,8 +463,8 @@ began with store merge (item 14, 0.19.0).*
 
 *Many stores, running continuously, visible to humans. Store merge
 (item 14) shipped in 0.19.0, the branching convention (item 15) in
-0.20.0 and the closed loop (item 16) in 0.21.0 — the human read surface
-(items 17–18) remains.*
+0.20.0, the closed loop (item 16) in 0.21.0 and the human read surface
+(item 17) in 0.22.0 — reports with citations (item 18) remain.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
@@ -543,7 +544,30 @@ began with store merge (item 14, 0.19.0).*
 17. **`@cavelang/view` — the human read surface.** `cave serve`: one
     static, self-contained HTML page over the store — entity 360, topic
     browse, belief-history timeline per claim key, `BECAUSE`-edge
-    lineage graph, coverage/frontier dashboard from `shape`.
+    lineage graph, coverage/frontier dashboard from `shape`. —
+    **Shipped in 0.22.0** (spec §30, non-normative — every semantic the
+    surface renders is defined elsewhere; what it adds is trust
+    properties): one HTML document, inline style and script, no
+    external resource (offline-friendly, CSP `default-src 'none'` with
+    self-only connections), claims rendered from *structured* row data
+    so no second grammar exists to drift (§16's single-source stance),
+    every entity name, claim key and row id a link onward. The
+    dashboard is the §20.2 report on a screen — coverage tiles, then
+    the frontier: violations, review candidates, stale beliefs, alias
+    disagreements; the entity 360 shows types, object-less facts, both
+    relation directions (declared inverses annotated, §13.3), topics,
+    the §13.6 closure on an explicit toggle, and the raw activity feed;
+    the belief timeline renders a claim key's §9.1 series with
+    confidence bars, retraction visible instead of destroyed; lineage
+    walks the §13.2 edge table both ways (*cites* — BECAUSE premises,
+    VIA rules, WHEN conditions; *cited by* — dependents), re-stating
+    repeated rows without children so §24.5 cycles terminate (§28.4's
+    convention). Read-only is structural — only GET/HEAD are answered,
+    no endpoint writes — every request reads the live store, and the
+    server binds 127.0.0.1 (port 2283, "cave" on a keypad) unless
+    `--host` widens it deliberately. Deliberately not an MCP tool:
+    agents read through `cave_query`/`cave_about`; the page is for the
+    human outside the loop.
 18. **`cave report`** (in `view` or `cli`): templated markdown from
     CAVE-Q results with claim keys as citations — prose deliverables
     that trace back to claims.

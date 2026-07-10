@@ -27,12 +27,13 @@ Dependency order, bottom to top:
 | [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule, re-statement replay and the §28.6 branching convention (text under git, checkout/land by sync, union merge driver) |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/automate`](packages/automate) | §29 | Automations — the event-driven loop: in-band `automation/<name>` declarations pair §24.1 trigger premises with steps (§25 actions, §25.4 hooks, agent prompts); solutions fire on rows newer than the automation's watermark, armed at declaration, deaf to their own echo; settle cycles interleave incremental derivation with trigger evaluation until quiescent |
+| [`@cavelang/view`](packages/view) | §30 | The human read surface — `cave serve`: one static, self-contained HTML page over the store (entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, §20.2 coverage/frontier dashboard, FTS search) behind read-only GET endpoints; view models are plain functions over a store |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` are named computation (§10.1 fusion, §24 derivation — ROADMAP item 12); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / suggest-alias / sync / export / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / suggest-alias / sync / export / serve / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -225,6 +226,16 @@ Package READMEs document local decisions; these are the global ones:
   `--hooks` configuration, prompt steps ride the `shellComplete` agent
   contract (§19.5 — commands stay out-of-band; the store names hooks
   and phrases prompts).
+- **The read surface reads, structurally** (§30): `@cavelang/view`'s
+  view models are plain functions over a store — nothing in the package
+  writes — and the server refuses every non-GET method, so read-only is
+  a property of the surface, not a discipline. The page is one static
+  HTML document (inline style and script, CSP `default-src 'none'` with
+  self-only connections): claims render from stored columns and side
+  tables, never by re-parsing text — the tree-sitter grammar stays the
+  single grammar source, and no client-side parser exists to drift —
+  while `raw_line` is shown where the authored text is the point.
+  Binding is `127.0.0.1` unless `--host` widens it deliberately.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/rules",
+  "name": "@cavelang/view",
   "version": "0.22.0",
   "type": "module",
-  "description": "CAVE rules engine (spec §24) — forward-chaining `premises => conclusion` rules over current beliefs, with BECAUSE/VIA derivation lineage, noisy-AND confidence, tx-watermark incrementality and idempotent re-runs.",
+  "description": "CAVE human read surface (spec §30) — cave serve: one static, self-contained HTML page over the store; entity 360, topic browse, belief-history timeline, BECAUSE-edge lineage, coverage/frontier dashboard.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/rules"
+    "directory": "packages/view"
   },
   "engines": {
     "node": ">=22.18"
@@ -43,9 +43,7 @@
   "dependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
-    "@cavelang/fusion": "workspace:*",
-    "@cavelang/parser": "workspace:*",
-    "@cavelang/query": "workspace:*",
+    "@cavelang/shape": "workspace:*",
     "@cavelang/store": "workspace:*"
   }
 }

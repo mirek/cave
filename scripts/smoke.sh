@@ -108,6 +108,28 @@ printf 'api IS overloaded\n' | "$cave" add --db "$tmp/auto.db" >/dev/null
   echo "error: cave automate re-run was not quiescent" >&2
   exit 1
 }
+echo "==> cave serve answers the page and the api, read-only (spec §30)"
+"$cave" serve --db "$tmp/family.db" --port 0 > "$tmp/serve.log" 2>&1 &
+serve_pid=$!
+for _ in $(seq 1 50); do
+  grep -q 'at http' "$tmp/serve.log" 2>/dev/null && break
+  sleep 0.1
+done
+serve_url="$(grep -o 'http://[^ ]*/' "$tmp/serve.log" | head -1)"
+[ -n "$serve_url" ] || { echo "error: cave serve did not print its URL" >&2; exit 1; }
+curl -sf "$serve_url" | grep -q '<!doctype html>' || {
+  echo "error: cave serve did not serve the page" >&2
+  exit 1
+}
+curl -sf "${serve_url}api/entity?name=jan" | grep -q 'birth-year' || {
+  echo "error: the entity endpoint did not answer" >&2
+  exit 1
+}
+if curl -sf -X POST "${serve_url}api/overview" >/dev/null 2>&1; then
+  echo "error: the read surface accepted a POST" >&2
+  exit 1
+fi
+kill "$serve_pid"
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

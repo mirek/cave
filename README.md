@@ -354,6 +354,17 @@ settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracte
 
 An automation is armed the moment it is declared — earlier rows are state, not events — and never wakes itself; rules (`cave derive`) fire incrementally in every cycle, so derived conclusions trigger automations and one automation's action effects trigger the next. Chains converge because every write path is idempotent, and firing records an in-band watermark *before* any step runs, so a re-run never re-notifies the world. `--once` makes it a cron job; with `cave connect --watch` feeding the other end, sense → model → conclude → act → record runs unattended on one machine. See [`@cavelang/automate`](packages/automate) and spec §29.
 
+### Look at it — `cave serve`
+
+Everything above serves programs. `cave serve` is for the person (spec §30): one static, self-contained HTML page over the store — no build step, no framework, no external resource, offline-friendly, and strictly read-only (GET only, localhost by default):
+
+```
+$ pnpm exec cave serve --db family.db
+serving family.db at http://127.0.0.1:2283/ (read-only, ctrl-c to stop)
+```
+
+The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search covers everything, and every request reads the live store, so a running `cave automate` loop's appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §30.
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting
@@ -362,7 +373,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (the human read surface, reports with citations), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (reports with citations, temporal values), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -372,7 +383,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `sync` → `loop` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `sync` → `loop` → `automate` → `view` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 
@@ -382,7 +393,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§29 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§30 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

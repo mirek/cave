@@ -34,6 +34,19 @@ printf '%s\n' \
  | cave mcp --db k.db 2>/dev/null
 ```
 
+The read surface (`cave serve`, spec §30) is verifiable headlessly:
+start it on `--port 0` in the background, scrape the printed URL from
+its log, then `curl` the page and the `/api/*` endpoints; the
+pre-installed Chromium (`--headless --screenshot=out.png <url>`)
+renders the page's client-side views for visual checks:
+
+```sh
+cave serve --db k.db --port 0 > serve.log 2>&1 &
+url=$(until grep -qo 'http://[^ ]*/' serve.log; do sleep 0.1; done; grep -o 'http://[^ ]*/' serve.log | head -1)
+curl -s "${url}api/overview"
+kill %1
+```
+
 Gotchas:
 
 - exit codes: check `$?` on the `cave` command directly — piping

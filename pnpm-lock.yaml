@@ -153,6 +153,9 @@ importers:
       '@cavelang/sync':
         specifier: workspace:*
         version: link:../sync
+      '@cavelang/view':
+        specifier: workspace:*
+        version: link:../view
 
   packages/connect:
     dependencies:
@@ -359,6 +362,21 @@ importers:
       tree-sitter-cli:
         specifier: ^0.26.10
         version: 0.26.10
+
+  packages/view:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/shape':
+        specifier: workspace:*
+        version: link:../shape
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
 
 packages:
 

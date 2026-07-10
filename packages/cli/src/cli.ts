@@ -17,6 +17,7 @@
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
  * - `cave export [--db <path>]` — canonical text out (`--current`, `--tx`)
+ * - `cave serve [--db <path>]` — the human read surface in a browser (spec §30; async, routed in `main.ts`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
  * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
  * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async, routed in `main.ts`)
@@ -80,6 +81,7 @@ Usage:
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--tx] [--no-prelude]
+  cave serve [--db <path>]                 browse the store in a browser (spec §30) [--port <n>] [--host <a>]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals (items 9, 10)
@@ -1276,8 +1278,8 @@ export const helpCommand = (argv: readonly string[]): Output => {
   if (text !== undefined) {
     return ok(`${text}\n`)
   }
-  // mcp, ingest, connect, eval and automate own their help (main.ts forwards `help X` to `X --help`).
-  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval' || topic === 'automate') {
+  // mcp, ingest, connect, eval, automate and serve own their help (main.ts forwards `help X` to `X --help`).
+  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval' || topic === 'automate' || topic === 'serve') {
     return ok(`see: cave ${topic} --help\n`)
   }
   return fail(`cave help: unknown command ${JSON.stringify(topic)}\n\n${usage}\n`, 2)
