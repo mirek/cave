@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +53,44 @@ test('binary: automate routes through main and settles once (spec §29.5)', () =
   assert.equal(again.status, 0)
   assert.match(again.stdout, /settled: 0 firing\(s\)/)
   rmSync(dir, { recursive: true, force: true })
+})
+
+test('binary: serve routes through main and answers over HTTP (spec §30.3)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  const db = join(dir, 'k.db')
+  assert.match(run(['serve', '--help']).stdout, /browse a CAVE store/)
+  assert.match(run(['help', 'serve']).stdout, /browse a CAVE store/)
+  assert.equal(run(['serve', '--db', db, '--port', 'nope']).status, 1)
+  assert.equal(run(['add', '--db', db], 'api IS hot\n').status, 0)
+
+  const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', main, 'serve', '--db', db, '--port', '0'])
+  try {
+    const url = await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('serve did not print its URL')), 15_000)
+      let seen = ''
+      child.stdout.on('data', chunk => {
+        seen += String(chunk)
+        const match = seen.match(/at (http:\/\/\S+\/)/)
+        if (match !== null) {
+          clearTimeout(timer)
+          resolve(match[1]!)
+        }
+      })
+      child.once('exit', () => {
+        clearTimeout(timer)
+        reject(new Error('serve exited before printing its URL'))
+      })
+    })
+    const page = await fetch(url)
+    assert.equal(page.status, 200)
+    assert.match(await page.text(), /<!doctype html>/)
+    const matches = await (await fetch(`${url}api/search?q=hot`)).json() as { subject: string }[]
+    assert.equal(matches.length, 1)
+    assert.equal(matches[0]!.subject, 'api')
+  } finally {
+    child.kill()
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('binary: parse reads stdin', () => {

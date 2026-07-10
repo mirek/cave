@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§29) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§30) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, @cave/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1561,3 +1561,85 @@ error the pass guard bounds per cycle, stated honestly, not prevented.
   *declarations*, though, are ordinary claims — an agent declares an
   automation through `cave_add`, and a running loop serves it from the
   next cycle without restarting.
+
+## 30. The Human Read Surface (non-normative)
+
+Everything before this section serves programs: CAVE-Q answers
+patterns, MCP serves agents, `cave export` emits text. Nothing lets a
+person *look at* the graph. This section commits `cave serve` — one
+static, self-contained HTML page over the store, strictly read-only —
+and, being a convenience surface, it is non-normative throughout: every
+semantic it renders is defined elsewhere (§9, §11–§13, §20, §24), and
+the view never reinterprets them. What it does promise is trust
+properties: read-only, local, self-contained.
+
+### 30.1 One page, no dependencies
+
+The page is a single HTML document with inline style and script — no
+build step, no framework, no external script, stylesheet, font or
+image, so it renders offline and a strict `Content-Security-Policy`
+(`default-src 'none'`, connections to self only) is enforceable: the
+browser can render the store but cannot call out anywhere. Claims
+render from *structured* row data — the stored columns plus context and
+tag side tables — never by re-parsing text, so no second grammar exists
+to drift out of sync (§16's single-source stance); the stored
+`raw_line` is shown where the authored text is itself the point. Every
+entity name, claim key and row id links onward: the whole store is
+reachable by clicking.
+
+### 30.2 The views
+
+- **Dashboard** — the §20.2 report rendered: coverage stats, then the
+  frontier — shape violations, review candidates (conf 0.3–0.7), stale
+  beliefs, alias disagreements — plus topics (subjects of current
+  positive `CONTAINS` claims, §11.2) and the latest appends. The §17.6
+  story on a screen: what is missing and what needs review, read from
+  the graph itself.
+- **Entity 360** — one name's current picture: its types (current
+  positive `IS` objects), object-less facts (attributes, metrics, bare
+  existence), relations in both directions — stored rows shown
+  verbatim, with the declared inverse name annotated on the object side
+  (§13.3) — topics, and the §13.6 alias closure on an explicit toggle
+  (opt-in here because it is opt-in everywhere). Underneath, the
+  activity feed: the newest rows about the name, superseded and
+  retracted included.
+- **Belief history** — one claim key's series (§9.1), oldest first,
+  with per-row confidence, provenance and timestamps: the "stack of
+  cards" as a timeline. The last row is current belief; retraction and
+  supersession are visible instead of destroyed.
+- **Lineage** — the §13.2 edge table walked both ways from one row:
+  *cites* (outgoing `BECAUSE` premises, `VIA` rules, `WHEN`
+  conditions — why this is believed, §24.3) and *cited by* (incoming
+  edges — what depends on it). Edges form a graph and the render is a
+  tree, reconciled exactly as §28.4 reconciles export: a row reached
+  again re-states without children, so shared premises and §24.5
+  support cycles terminate.
+- **Search** — the store's FTS5 index (§13.1) over subjects, objects,
+  values, comments and raw lines, newest first.
+
+### 30.3 Surfaces and the read-only promise
+
+- `cave serve [--db <path>] [--port <n>] [--host <a>]` — serves until
+  interrupted; the default port is 2283 ("cave" on a phone keypad).
+- The JSON the page reads is plain GET endpoints (`/api/overview`,
+  `/api/entity?name=`, `/api/topic?name=`, `/api/history?key=`,
+  `/api/lineage?id=`, `/api/search?q=`, with `&aliases=1` where the
+  closure applies) — scriptable with `curl`, though CAVE-Q (§12) stays
+  the query language; the endpoints only ever serve the §30.2 views.
+- **Read-only, structurally**: only GET/HEAD are answered (anything
+  else is 405) and no endpoint writes — recording knowledge stays with
+  `cave add`, the MCP tools and the kinetic layer (§24, §25, §29).
+  Every request reads the live store, so a running `cave automate`
+  loop's appends show on the next refresh.
+- **Local by default**: binds `127.0.0.1` — the store is one person's
+  knowledge on one machine; `--host` widens deliberately, and what it
+  shares is the whole store, read-only. There is no authentication
+  layer and none is planned (multi-tenant access control is a
+  permanent non-goal) — wider serving belongs behind the operator's
+  own transport.
+- Programmatic: `@cavelang/view` — `serve(store, options)` plus the
+  view models (`overview`, `entity`, `topic`, `history`, `lineage`,
+  `search`) as plain functions over a store, no server needed.
+- Deliberately **not** an MCP tool (§28.5's reasoning): agents read
+  through `cave_query`/`cave_about`; the page is for the human outside
+  the loop.

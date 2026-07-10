@@ -54,6 +54,9 @@
     },
     {
       "path": "packages/sync"
+    },
+    {
+      "path": "packages/view"
     }
   ]
 }
