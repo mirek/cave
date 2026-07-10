@@ -15,6 +15,8 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "tsc -b",
+    "site:dev": "pnpm --filter @cavelang/website dev",
+    "site:build": "pnpm --filter @cavelang/website build",
     "watch": "tsc -b --watch --preserveWatchOutput",
     "clean": "rm -rf packages/*/dist",
     "test": "pnpm -r --workspace-concurrency=1 test",

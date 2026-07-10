@@ -34,3 +34,6 @@ jobs:
       - run: pnpm build
 
       - run: pnpm test
+
+      - name: Build website
+        run: pnpm site:build
