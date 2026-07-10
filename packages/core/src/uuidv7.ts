@@ -10,8 +10,6 @@
  * clock never produces a smaller id.
  */
 
-import { randomFillSync } from 'node:crypto'
-
 const hex = (n: number, digits: number): string =>
   n.toString(16).padStart(digits, '0')
 
@@ -65,7 +63,9 @@ export const next = (now: () => number = Date.now): string => {
   }
   lastMs = ms
   const rand = new Uint8Array(8)
-  randomFillSync(rand)
+  // Web Crypto is available in supported Node.js releases and browsers,
+  // keeping UUID generation portable without weakening randomness.
+  globalThis.crypto.getRandomValues(rand)
   return at(ms, lastSeq, rand)
 }
 
