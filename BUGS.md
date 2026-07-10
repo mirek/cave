@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## alias-literal-terms: alias closure treats literal terms as entities
-
-- **Source:** Merged PR review [#7](https://github.com/mirek/cave/pull/7)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`, `@cavelang/store`
-- **Relevant file:** `packages/query/src/compile.ts`
-
-### Summary
-
-The alias-edge CTE still accepts every positive `ALIAS` row with a non-null object. It does not exclude code/text literal encodings, despite alias closure being defined for entity terms.
-
-### Impact
-
-With aliases enabled, queries can widen through literal values and return unrelated rows.
-
-### Suggested fix
-
-Require both alias endpoints to be entity-form terms in query and store closure implementations.
-
 ## as-of-future-inverses: as-of queries use inverse declarations from the future
 
 - **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
@@ -536,6 +516,29 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## alias-literal-terms: alias closure treats literal terms as entities
+
+- **Source:** Merged PR review [#7](https://github.com/mirek/cave/pull/7)
+- **Severity:** Medium
+- **Status:** Fixed in 0.25.2; regression tests `literal terms are not entities: the closure never links through them` (`packages/query/test/alias.test.ts`) and `literal terms are not entities: closure and traversal skip them` (`packages/store/test/alias.test.ts`)
+- **Area:** `@cavelang/query`, `@cavelang/store`
+- **Relevant files:**
+  - `packages/query/src/compile.ts`
+  - `packages/store/src/store.ts`
+  - `packages/store/src/row.ts`
+
+### Summary
+
+Both alias-edge CTEs accepted every positive `ALIAS` row with a non-null object. They did not exclude code/text literal encodings, despite alias closure being defined for entity terms (spec §13.6: "The closure applies to entity positions only").
+
+### Impact
+
+With aliases enabled, queries could widen through literal values and return unrelated rows: two entities aliasing one `"…"`/`` `…` `` literal became transitive aliases of each other, and a pattern naming a literal matched rows about entities aliased to it. The store surfaces (`aliasesOf`, traversal, `claimsAbout`, resolution grouping) widened the same way.
+
+### Resolution
+
+The suggested fix: both alias endpoints must be entity-form terms. A shared SQL predicate — `Row.entityTermSql`, the stored-text dual of `Row.parseTerm` — excludes literal encodings from both `alias_edge` CTEs: the store's (feeding `aliasesOf`, traversal and §26 resolution grouping) and the query compiler's (feeding single-hop, transitive and `resolve` matching, which all widen through the same edge set). An `ALIAS` row with a literal endpoint now contributes no edge; entity-to-entity aliases in the same store still widen as before. The §13.6 reference CTE in the spec skill shows the entity-form condition.
 
 ## agent-shell-quoting: `cave ingest --agent` shell substitutions are unquoted
 

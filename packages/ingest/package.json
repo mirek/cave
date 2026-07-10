@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/ingest",
-  "version": "0.25.1",
+  "version": "0.25.2",
   "type": "module",
   "description": "LLM-driven knowledge ingestion — batch files and web pages (fetch + Readability) through any headless agent (claude, copilot, custom SDK scripts) into a CAVE database.",
   "license": "CC0-1.0",

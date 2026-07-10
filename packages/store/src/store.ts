@@ -37,14 +37,19 @@ JOIN (
  * Alias edges (spec §13.6): current positive `ALIAS` claims read as
  * undirected (`ALIAS` has no `REVERSE`, so each written direction is its
  * own claim key — both assert the same link). Retraction unmerges:
- * `a ALIAS b @ 0%` drops that direction's edge.
+ * `a ALIAS b @ 0%` drops that direction's edge. Both endpoints must be
+ * entity-form — the closure is defined for entity terms only, so a row
+ * naming a `"…"`/`` `…` `` literal contributes no edge and two entities
+ * aliasing one literal never link through it.
  */
 const aliasEdgeSql = `alias_edge(a, b) AS (
   SELECT c.subject, c.object FROM (${currentSql}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
   UNION
   SELECT c.object, c.subject FROM (${currentSql}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
 )`
 
 /**

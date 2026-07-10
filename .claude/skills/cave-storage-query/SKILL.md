@@ -402,18 +402,26 @@ Merge and unmerge are ordinary appends:
 - unmerge — retraction, `dupe ALIAS canonical @ 0%` (per written
   direction); both histories survive intact.
 
-Negated claims (`a ALIAS NOT b`) and retracted claims never link. The
-closure is computed from **current** beliefs even when a query runs over
-the full history — it is entity resolution as believed now. A recursive
-CTE over the symmetrized edge set implements it:
+Negated claims (`a ALIAS NOT b`), retracted claims, and claims with a
+literal endpoint never link: aliasing is defined for **entity terms
+only**, so an `ALIAS` row whose subject or object is a `"…"` text or
+`` `…` `` code literal contributes no edge — two entities aliasing one
+literal do not become aliases of each other. The closure is computed
+from **current** beliefs even when a query runs over the full history —
+it is entity resolution as believed now. A recursive CTE over the
+symmetrized edge set implements it (`entity_form(t)` excludes stored
+literal encodings — text that starts and ends with the same literal
+delimiter, backtick or double quote):
 
 ```sql
 WITH RECURSIVE alias_edge(a, b) AS (
   SELECT subject, object FROM current
   WHERE verb = 'ALIAS' AND negated = 0 AND conf > 0 AND object IS NOT NULL
+    AND entity_form(subject) AND entity_form(object)
   UNION
   SELECT object, subject FROM current
   WHERE verb = 'ALIAS' AND negated = 0 AND conf > 0 AND object IS NOT NULL
+    AND entity_form(subject) AND entity_form(object)
 ), alias_closure(name) AS (
   SELECT :entity
   UNION

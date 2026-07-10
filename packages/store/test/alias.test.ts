@@ -28,6 +28,27 @@ test('negated ALIAS never links (spec §13.6)', () => {
   store.close()
 })
 
+test('literal terms are not entities: closure and traversal skip them (spec §13.6)', () => {
+  const store = open()
+  store.ingest([
+    'error-a ALIAS "connection refused"',
+    'error-b ALIAS "connection refused"',
+    'error-a ALIAS err-a',
+    'retry-a ALIAS `retry()`',
+    'retry-b ALIAS `retry()`',
+    'error-a AFFECTS billing',
+    'error-b AFFECTS search'
+  ].join('\n'))
+  assert.deepEqual(store.aliasesOf('error-a'), ['error-a', 'err-a'],
+    'the literal name and anything reachable through it stay out')
+  assert.deepEqual(store.aliasesOf('error-b'), ['error-b'])
+  assert.deepEqual(store.aliasesOf('retry-a'), ['retry-a'], 'code literals never link either')
+  const affects = store.forward('error-a', { aliases: true })
+    .filter(fact => fact.verb === 'AFFECTS').map(fact => fact.target)
+  assert.deepEqual(affects, ['billing'], 'traversal does not widen through a shared literal')
+  store.close()
+})
+
 test('traversal matches through the closure only when opted in (spec §13.6)', () => {
   const store = open()
   store.ingest([
