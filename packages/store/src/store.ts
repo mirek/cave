@@ -94,6 +94,16 @@ export type AppendOptions = {
    */
   readonly source?: string
   /**
+   * Lifecycle stamping (spec §9.5): stamp `@src:<source>` even when the
+   * claim already names a source. Connect records, rule conclusions and
+   * action effects are found for retraction and attribution by their
+   * stamp, so an authored `src:` context must not displace it — both are
+   * kept (multi-source rows resolve per §26.3). The exact stamp context
+   * is never duplicated. Without this flag an authored source suppresses
+   * the stamp.
+   */
+  readonly lifecycle?: boolean
+  /**
    * Explicit row identity (spec §28.1), index-aligned with the result's
    * claims: a claim with an id here is replayed under it — inserted with
    * `id = tx = ids[i]` when absent, skipped when the store already has the
@@ -104,11 +114,19 @@ export type AppendOptions = {
   readonly ids?: readonly (undefined | string)[]
 }
 
-/** Stamps `@src:<source>` on a claim without a source context (spec §9.5). */
-const stampSource = (claim: Claim.t, source: undefined | string): Claim.t =>
-  source === undefined || Context.hasSource(claim.contexts) ?
+/**
+ * Stamps `@src:<source>` on a claim without a source context (spec §9.5);
+ * with `lifecycle`, on any claim not already carrying that exact stamp.
+ */
+const stampSource = (claim: Claim.t, source: undefined | string, lifecycle: boolean): Claim.t => {
+  if (source === undefined) {
+    return claim
+  }
+  const context = Context.source(source)
+  return claim.contexts.includes(context) || (!lifecycle && Context.hasSource(claim.contexts)) ?
     claim :
-    { ...claim, contexts: [...claim.contexts, Context.source(source)] }
+    { ...claim, contexts: [...claim.contexts, context] }
+}
 
 export type ForwardFact = {
   /** Canonical (primary) verb. */
@@ -272,7 +290,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
             return
           }
         }
-        const claim = stampSource(entry.claim, options_.source)
+        const claim = stampSource(entry.claim, options_.source, options_.lifecycle === true)
         const id = explicit ?? Uuidv7.next()
         const columns = Row.toColumns(claim)
         const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine

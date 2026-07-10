@@ -10,37 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## src-stamp-bypass: `connect` record provenance can be bypassed by explicit `@src:` contexts
-
-- **Source:** GPT-5.5 Thinking; merged PR reviews [#13](https://github.com/mirek/cave/pull/13) and [#14](https://github.com/mirek/cave/pull/14)
-- **Severity:** High
-- **Status:** Open
-- **Area:** `@cavelang/connect`, `@cavelang/rules`, `@cavelang/act`, `@cavelang/store`
-- **Relevant files:**
-  - `packages/connect/src/run.ts`
-  - `packages/connect/README.md`
-  - `packages/store/src/store.ts`
-  - `packages/rules/src/engine.ts`
-  - `packages/act/src/engine.ts`
-
-### Summary
-
-`connect` says every record-produced claim is auto-stamped with `@src:connect/<name>/<key>` so changed records can retract claims they no longer produce. Internally, `connect` calls `store.ingest(text, { source: subject })` and then retracts stale rows carrying `src:<subject>`.
-
-However, `store.ingest(..., { source })` only stamps a claim when the claim does **not** already contain a `src:` context. A mapping template can therefore include an explicit `@src:...` context and prevent the record lifecycle stamp from being applied. The same bypass exists for rule conclusions and action effects: their engines rely on `insertResult(..., { source })`, which also declines to add the mandatory rule/action source when any authored `src:` context already exists.
-
-### Impact
-
-Claims produced from such templates are not associated with the record stamp used by `retractStale`. If the source record changes or disappears, those claims may remain current instead of being retracted. This undermines the deterministic diff/retraction model for `connect`. Rule conclusions can survive premise or rule retraction because `suspend()`/`retractRule()` find them by the missing rule source. Action effects lose the mandatory execution attribution.
-
-### Suggested fix
-
-Prefer one of:
-
-1. Reject explicit `src:` contexts in record templates.
-2. Introduce separate internal lifecycle contexts for connect records, rules, and actions that are always applied and used for retraction/attribution.
-3. Add a store-level append option that forces an internal provenance/lifecycle context even when user-authored source contexts are already present.
-
 ## agent-shell-quoting: `cave ingest --agent` shell substitutions are unquoted
 
 - **Source:** GPT-5.5 Thinking
@@ -587,6 +556,33 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## src-stamp-bypass: `connect` record provenance can be bypassed by explicit `@src:` contexts
+
+- **Source:** GPT-5.5 Thinking; merged PR reviews [#13](https://github.com/mirek/cave/pull/13) and [#14](https://github.com/mirek/cave/pull/14)
+- **Severity:** High
+- **Status:** Fixed in 0.25.0; regression tests `an authored @src: context cannot bypass the record lifecycle stamp` (`packages/connect/test/run.test.ts`), `a conclusion naming its own @src: still carries the rule stamp — retraction propagates` and `--retract finds conclusions that name their own @src:` (`packages/rules/test/engine.test.ts`), `an effect naming its own @src: still carries execution attribution` (`packages/act/test/engine.test.ts`), and the two `lifecycle stamping …` tests in `packages/store/test/provenance.test.ts`
+- **Area:** `@cavelang/connect`, `@cavelang/rules`, `@cavelang/act`, `@cavelang/store`
+- **Relevant files:**
+  - `packages/connect/src/run.ts`
+  - `packages/connect/README.md`
+  - `packages/store/src/store.ts`
+  - `packages/rules/src/engine.ts`
+  - `packages/act/src/engine.ts`
+
+### Summary
+
+`connect` says every record-produced claim is auto-stamped with `@src:connect/<name>/<key>` so changed records can retract claims they no longer produce. Internally, `connect` calls `store.ingest(text, { source: subject })` and then retracts stale rows carrying `src:<subject>`.
+
+However, `store.ingest(..., { source })` only stamps a claim when the claim does **not** already contain a `src:` context. A mapping template can therefore include an explicit `@src:...` context and prevent the record lifecycle stamp from being applied. The same bypass exists for rule conclusions and action effects: their engines rely on `insertResult(..., { source })`, which also declines to add the mandatory rule/action source when any authored `src:` context already exists.
+
+### Impact
+
+Claims produced from such templates are not associated with the record stamp used by `retractStale`. If the source record changes or disappears, those claims may remain current instead of being retracted. This undermines the deterministic diff/retraction model for `connect`. Rule conclusions can survive premise or rule retraction because `suspend()`/`retractRule()` find them by the missing rule source. Action effects lose the mandatory execution attribution.
+
+### Resolution
+
+Suggested fix 3 (a store-level append option forcing the lifecycle context): `AppendOptions.lifecycle` makes `stampSource` apply `@src:<source>` even when the claim already names a source — the authored context is kept alongside the stamp (multi-source rows resolve per §26.3), and the exact stamp context is never duplicated. `connect` record units, rule conclusions (`conclude` + `insertResult`), and action effects (`instantiate` + `insertResult`) now stamp through this option, so `retractStale`, `suspend()`/`retractRule()`, and execution attribution always find their rows. Plain append surfaces (`cave add`, MCP, ingest, automate replies) keep the §9.5 author-wins rule, preserving the cross-actor retraction pattern. Spec skills (§9.5, §24.3, §25.2, §23.2 extraction guide, cave-writing §6.1) and the connect README now document lifecycle stamps as the exception.
 
 ## export-clobbers-db: export could overwrite and corrupt its source database
 

@@ -167,3 +167,18 @@ test('duplicate record keys note last-wins; sanitized keys stay context-safe (sp
   assert.equal(store.byContext('src:connect/people/x-1-y').length > 0, true)
   store.close()
 })
+
+test('an authored @src: context cannot bypass the record lifecycle stamp (BUGS.md src-stamp-bypass)', () => {
+  const store = open()
+  const mapping = mappingOf('?id USES ?tool @src:inventory')
+  connect(store, mapping, [{ id: 'billing', tool: 'postgres' }], { name: 'systems', key: 'id' })
+  // The record stamp lands alongside the authored source (spec §9.5).
+  const stamped = store.byContext('src:connect/systems/billing')
+  assert.ok(stamped.some(row => row.verb === 'USES' && row.object === 'postgres'))
+  // A changed record still retracts the claim it no longer yields (spec §23.2).
+  const report = connect(store, mapping, [{ id: 'billing', tool: 'mysql' }], { name: 'systems', key: 'id' })
+  assert.equal(report.retracted, 1)
+  assert.deepEqual(bindings(store, '?who USES postgres'), [])
+  assert.deepEqual(bindings(store, '?who USES mysql'), ['billing'])
+  store.close()
+})

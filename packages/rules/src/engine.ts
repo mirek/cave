@@ -428,9 +428,13 @@ const conclude = (
     const detail = result.problems.map(problem => problem.message).join('; ')
     return { problem: `conclusion ${JSON.stringify(Canonical.emitClaim(draft))} did not canonicalize${detail === '' ? '' : ` — ${detail}`}` }
   }
-  const stamped = Context.hasSource(claim.contexts) ?
+  // Lifecycle stamp (spec §9.5, §24.3): applied even when the template
+  // names its own `src:` — suspension and `--retract` find derived rows
+  // by this context, so an authored source must not displace it.
+  const stamp = Context.source(ruleSubject(rule.digest))
+  const stamped = claim.contexts.includes(stamp) ?
     claim :
-    { ...claim, contexts: [...claim.contexts, Context.source(ruleSubject(rule.digest))] }
+    { ...claim, contexts: [...claim.contexts, stamp] }
   return { conclusion: { key: Key.of(stamped), claim, conf: stamped.conf, rows: solution.rows } }
 }
 
@@ -536,7 +540,7 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
       }
       const inserted = store.insertResult(
         { claims: [{ claim: conclusion.claim, line: 0 }], edges: [], registry: store.registry(), problems: [] },
-        { source: ruleSubject(rule.digest) }
+        { source: ruleSubject(rule.digest), lifecycle: true }
       )
       const id = inserted.ids[0]!
       const premiseIds = [...new Set(conclusion.rows.map(premiseRow => premiseRow.id))]

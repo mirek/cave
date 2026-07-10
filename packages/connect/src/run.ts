@@ -11,7 +11,9 @@
  * (spec §9.5), so a changed record diffs against itself: current claims
  * still carrying the record's stamp but no longer produced by it are
  * retracted (`@ 0%`). `--prune` extends the diff to records that vanished
- * from the source.
+ * from the source. The stamp is a lifecycle identity, so it is applied
+ * even when a template names its own `@src:` context (both are kept) —
+ * otherwise such claims would escape the diff and never be retracted.
  */
 
 import { createHash } from 'node:crypto'
@@ -180,7 +182,7 @@ export const connect = (
 
   const ingestUnit = (subject: string, text: string, digest: string): void => {
     store.transaction(() => {
-      const result = store.ingest(text, { source: subject })
+      const result = store.ingest(text, { source: subject, lifecycle: true })
       if (result.problems.length > 0) {
         failRecord(result.problems.map(problem => `line ${problem.line}: ${problem.message}`))
       }

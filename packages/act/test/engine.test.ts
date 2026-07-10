@@ -241,6 +241,20 @@ test('unconditional and parameterless actions execute', () => {
   store.close()
 })
 
+test('an effect naming its own @src: still carries execution attribution (BUGS.md src-stamp-bypass, spec §25.2)', () => {
+  const store = open()
+  store.ingest('api-gateway IS service')
+  declareActions(store,
+    'action/mark-deployed HAS action: `?service, ?version, ?service IS service => ' +
+    '?service HAS deployed-version: ?version @src:release-bot`')
+  const report = act(store, 'mark-deployed', { service: 'api-gateway', version: '1.2.3' })
+  assert.ok(report.ok && report.appended === 1)
+  const matches = query(store, 'api-gateway HAS deployed-version: ?v @src:action/mark-deployed')
+  assert.equal(matches.length, 1, 'the execution stamp is mandatory')
+  assert.ok(store.toClaim(matches[0]!.row!).contexts.includes('src:release-bot'), 'the authored source is kept')
+  store.close()
+})
+
 test('constraints gate on parameter values', () => {
   const store = open()
   declareActions(store, 'action/scale HAS action: `?replicas, ?replicas <= 10 => cluster HAS replicas: ?replicas`')

@@ -22,6 +22,20 @@ test('a written @src: context wins over the stamp (spec §9.5)', () => {
   store.close()
 })
 
+test('lifecycle stamping adds the stamp alongside an authored source (spec §9.5)', () => {
+  const store = open()
+  store.ingest('auth USES jwt @src:design-doc', { source: 'rule/abc123', lifecycle: true })
+  assert.deepEqual(contextsOf(store), ['src:design-doc', 'src:rule/abc123'])
+  store.close()
+})
+
+test('lifecycle stamping never duplicates an already-present stamp (spec §9.5)', () => {
+  const store = open()
+  store.ingest('auth USES redis @src:rule/abc123', { source: 'rule/abc123', lifecycle: true })
+  assert.deepEqual(contextsOf(store), ['src:rule/abc123'])
+  store.close()
+})
+
 test('non-source contexts do not suppress the stamp (spec §9.5)', () => {
   const store = open()
   store.ingest('memory-leak EXISTS @production', { source: 'cli' })

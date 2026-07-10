@@ -56,10 +56,12 @@ content digest when unkeyed). Two conventions reuse §9.5 mechanics:
   overrides); the digest covers the *instantiated* text, so mapping
   changes re-fire records too.
 - **Record stamps** — every produced claim is auto-stamped
-  `@src:connect/<name>/<key>`, so a changed keyed record diffs against
-  itself: attributes supersede in place (the value is outside the claim
-  key, §9.2), vanished relation claims are retracted `@ 0%`. `--prune`
-  extends the diff to records that left the source.
+  `@src:connect/<name>/<key>`, even when the template writes its own
+  `@src:` (both are kept — the stamp is the record's lifecycle identity),
+  so a changed keyed record diffs against itself: attributes supersede in
+  place (the value is outside the claim key, §9.2), vanished relation
+  claims are retracted `@ 0%`. `--prune` extends the diff to records that
+  left the source.
 
 Records that fail to format are reported, rolled back atomically, and
 never poison the rest of the run — or the prune set.

@@ -166,9 +166,13 @@ const instantiate = (
     const detail = result.problems.map(problem => problem.message).join('; ')
     return { problem: `effect ${JSON.stringify(Canonical.emitClaim(draft))} did not canonicalize${detail === '' ? '' : ` — ${detail}`}` }
   }
-  const stamped = Context.hasSource(claim.contexts) ?
+  // Lifecycle stamp (spec §9.5, §25.2): applied even when the template
+  // names its own `src:` — execution attribution is mandatory, so an
+  // authored source must not displace it.
+  const stamp = Context.source(subject)
+  const stamped = claim.contexts.includes(stamp) ?
     claim :
-    { ...claim, contexts: [...claim.contexts, Context.source(subject)] }
+    { ...claim, contexts: [...claim.contexts, stamp] }
   return { instantiated: { claim, key: Key.of(stamped), line: Canonical.emitClaim(claim) } }
 }
 
@@ -332,7 +336,7 @@ export const act = (
         }
         const inserted = store.insertResult(
           { claims: [{ claim: entry.claim, line: 0 }], edges: [], registry: store.registry(), problems: [] },
-          { source: action.subject }
+          { source: action.subject, lifecycle: true }
         )
         const id = inserted.ids[0]!
         store.appendEdges([
