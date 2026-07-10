@@ -535,7 +535,7 @@ a gated append runs inside one transaction — append, check, and roll back
 when the append **introduces violations that were not present before**.
 Pre-existing violations never block: the gate compares, it does not
 demand a clean store. `cave add --check` is the first enforcement point;
-action preconditions (roadmap) reuse the identical mechanism — one
+action preconditions (§25) reuse the identical mechanism — one
 mechanism, two enforcement points.
 
 ---

@@ -126,7 +126,7 @@ Share URL helper code between `ingest` and `connect`, or port the timeout/header
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** Medium
-- **Status:** Fixed by [PR #25](https://github.com/mirek/cave/pull/25)
+- **Status:** Fixed by [PR #25](https://github.com/mirek/cave/pull/25); residual gaps tracked in `TODO.md` §3.4 — the smoke script never runs in CI, and CI tests Node 22 while publish uses Node 26
 - **Area:** GitHub Actions
 - **Relevant file:** `.github/workflows/publish.yml`
 
@@ -154,7 +154,7 @@ Release tags are protected by build/test checks, but normal pushes and pull requ
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** Low/Design
-- **Status:** Open
+- **Status:** Open, narrowed — since 0.19.0 the §28.2 receive rule (`Uuidv7.observe`, `packages/store/src/store.ts`) observes a store's `MAX(tx)` at open and after merge, so sequential multi-process writes and post-merge appends order correctly. Still real for two processes holding the same database file open concurrently: each generator only observes at open, so a slow-clock process can mint a tx below a fast-clock peer's fresh append.
 - **Area:** `@cavelang/core`, `@cavelang/store`
 - **Relevant files:**
   - `packages/core/src/uuidv7.ts`
