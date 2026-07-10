@@ -48,8 +48,10 @@ Summary of the gaps:
   read surface is missing.
 - **Distribute** — store merge shipped in 0.19.0 (`cave sync`, item 14 —
   row identity, the tx receive rule, `--tx` annotated text interchange;
-  open decision 1 decided as spec §28); the documented branch/review
-  convention (item 15) remains.
+  open decision 1 decided as spec §28); the branching convention shipped
+  in 0.20.0 (item 15, spec §28.6 — text under git, working stores
+  rebuilt by sync, review on export diffs, union merge driver) —
+  distribute is complete.
 
 ## 1. What the architecture already gets right
 
@@ -184,7 +186,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Capability | CAVE today | Status | Move |
 |---|---|---|---|
 | Multi-store sync | `cave sync` (spec §28): append-only stores merge by row identity — idempotent, transitive, conflict-free under §9.4 coexistence; store files or `;@`-annotated text (`cave export --tx`); in-band `SYNCED-INTO` merge records; the §28.2 tx receive rule | exists | shipped in 0.19.0 (item 14); open decision 1 decided |
-| Branch/review workflow | plain-text export diffs under ordinary git; `cave export --tx --current` seeds a store that merges back without duplication (§28.4) | partial | a documented branch/merge convention (seeded store file + sync merge + PR review on canonical text) |
+| Branch/review workflow | the §28.6 branching convention: the committed `--tx` export is the store, working stores rebuild by sync (`--no-record` checkouts), review is the export diff, text conflicts re-export as the union (git merge driver), landing is a recorded sync | exists | shipped in 0.20.0 (item 15) |
 | Offline/air-gap operation | npm packages, no build step, single SQLite file, offline | exists | none — the canonical text export is the transferable atom |
 
 ## 3. Roadmap
@@ -456,8 +458,9 @@ began with store merge (item 14, 0.19.0).*
 ### Phase 3 — distribution and the closed loop
 
 *Many stores, running continuously, visible to humans. Store merge
-(item 14) shipped in 0.19.0; the branching convention (item 15) builds
-directly on it.*
+(item 14) shipped in 0.19.0 and the branching convention (item 15) in
+0.20.0 — distribution is complete; the closed loop (item 16) and the
+human read surface (items 17–18) remain.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
@@ -491,7 +494,26 @@ directly on it.*
 15. **Branching convention** (docs + `cave sync`): branch = separate
     store file seeded by export; merge = sync; review = git PR on
     canonical text. Accepts the full-copy divergence cost — fine at
-    CAVE's scale, stated honestly.
+    CAVE's scale, stated honestly. — **Shipped in 0.20.0** (spec §28.6,
+    non-normative — the workflow the §28 mechanics compose into, no new
+    surface): the committed text is the full `--tx` export (a complete
+    replica — anyone rebuilds a working store with one sync into a
+    fresh file; the store file never enters git); a branch is a git
+    branch plus a private store, opened as a `--no-record` checkout
+    (plumbing appends no bookkeeping) or seeded lighter from
+    `--tx --current`; review is the export diff — rows are immutable
+    and export order is tx order, so diffs only add lines, except that
+    a derivation visibly *moves* the premise lines it cites under its
+    conclusion; text-level git conflicts dissolve by re-exporting the
+    union (documented one-stanza git merge driver; knowledge merges
+    can't conflict, §9.4), and landing reviewed text into a live store
+    is a real, recorded merge event. Shipping it surfaced and fixed a
+    §28.4 round-trip bug: a row cited by several parents (shared
+    premises, every rule's `VIA` row, §24.5 support cycles) used to
+    export with repeated ids that `cave sync` rejected — the emitter
+    now renders a row's children once and *re-states* the line alone
+    under further parents, and replay unions identical re-statements
+    back into one row (conflicting repeats still reject).
 16. **`cave automate`** (extends `rules`/`act`; distinct from
     `connect --watch`, which is ingestion): a long-running loop — new
     claims matching patterns fire rules, actions, out-of-band hooks, or

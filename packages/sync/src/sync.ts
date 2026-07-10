@@ -243,8 +243,11 @@ export const syncDb = (store: Store, sourcePath: string, options: SyncOptions = 
  *
  * Strict by the spec: every claim line must carry a well-formed UUIDv7
  * annotation, every annotation must precede a claim line, and no id may
- * repeat — otherwise the whole text is rejected with line-level problems
- * and nothing merges (plain text belongs to `cave import`).
+ * repeat with different content — otherwise the whole text is rejected
+ * with line-level problems and nothing merges (plain text belongs to
+ * `cave import`). An *identical* repeat is a re-statement — the §28.4
+ * rendering of a row cited by several parents — and unions back into one
+ * row, contributing its edge.
  */
 export const syncText = (store: Store, text: string, options: SyncOptions = {}): SyncReport => {
   const dryRun = options.dryRun === true
@@ -264,7 +267,7 @@ export const syncText = (store: Store, text: string, options: SyncOptions = {}):
   const result = Canonical.canonicalizeText(text, store.registry())
   problems.push(...result.problems)
   const consumed = new Set<number>()
-  const seen = new Map<string, number>()
+  const seen = new Map<string, { line: number, rendered: string }>()
   const ids = result.claims.map(entry => {
     const line = entry.line - 1
     const tx = txByLine.get(line)
@@ -276,11 +279,16 @@ export const syncText = (store: Store, text: string, options: SyncOptions = {}):
       return undefined
     }
     consumed.add(line)
+    // A repeated id is a *re-statement* — how annotated text carries a row
+    // cited by several parents (§28.4) — and unions back into one row, the
+    // same §28.1 rule that makes re-syncs idempotent. Only a repeat that
+    // disagrees on content forks identity, and rejects.
+    const rendered = Canonical.emitClaim(entry.claim)
     const first = seen.get(tx)
-    if (first !== undefined) {
-      problems.push({ line: entry.line, message: `transaction annotation repeats line ${first}'s id — a row has one identity (spec §28.1)` })
-    } else {
-      seen.set(tx, entry.line)
+    if (first !== undefined && first.rendered !== rendered) {
+      problems.push({ line: entry.line, message: `transaction annotation repeats line ${first.line}'s id with different content — a row has one identity (spec §28.1)` })
+    } else if (first === undefined) {
+      seen.set(tx, { line: entry.line, rendered })
     }
     return tx
   })

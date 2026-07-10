@@ -289,14 +289,14 @@ test('annotated text round-trips a store: identity, edges, values, negation, ret
   }
 })
 
-test('annotated text is strict: unannotated claims, malformed ids, duplicates, orphans all reject whole (spec §28.4)', () => {
+test('annotated text is strict: unannotated claims, malformed ids, conflicting duplicates, orphans all reject whole (spec §28.4)', () => {
   const tx = () => Uuidv7.next()
   const store = open()
   const cases: [string, RegExp][] = [
     ['x NEEDS y\n', /without a transaction annotation.*cave import/],
     [`;@ not-a-uuid\nx NEEDS y\n`, /malformed transaction annotation/],
     [`;@ ${tx()}\n\nx NEEDS y\n`, /does not precede a claim line/],
-    [(id => `;@ ${id}\nx NEEDS y\n;@ ${id}\ny NEEDS z\n`)(tx()), /repeats line 2's id/]
+    [(id => `;@ ${id}\nx NEEDS y\n;@ ${id}\ny NEEDS z\n`)(tx()), /repeats line 2's id with different content/]
   ]
   for (const [text, message] of cases) {
     const report = syncText(store, text)
@@ -305,6 +305,47 @@ test('annotated text is strict: unannotated claims, malformed ids, duplicates, o
   }
   assert.equal(rowCount(store), 0, 'rejected text merges nothing')
   store.close()
+})
+
+test('a re-stated row — one id, several parents — unions back into one row with every edge (spec §28.4)', () => {
+  const { dir, done } = scratch()
+  try {
+    // Two derivations citing one premise row and one shared VIA row — the
+    // §24.3 shape whose export used to repeat ids and reject its own text.
+    const a = open(join(dir, 'a.db'))
+    const premise = a.ingest('deploy PRECEDES outage', { source: 'cli' }).ids[0]!
+    const rule = a.ingest('rule/r HAS rule: `x`', { source: 'cave-derive' }).ids[0]!
+    const one = a.ingest('deploy CAUSE outage @src:rule/r').ids[0]!
+    const two = a.ingest('deploy CAUSE rollback @src:rule/r').ids[0]!
+    a.appendEdges([
+      { parentId: one, role: 'BECAUSE', childId: premise },
+      { parentId: one, role: 'VIA', childId: rule },
+      { parentId: two, role: 'BECAUSE', childId: premise },
+      { parentId: two, role: 'VIA', childId: rule }
+    ])
+    const text = a.exportText({ tx: true })
+    assert.equal(
+      (text.match(new RegExp(premise, 'g')) ?? []).length, 2,
+      'the shared premise is re-stated under its second parent'
+    )
+
+    const b = open(join(dir, 'b.db'))
+    const report = syncText(b, text, { from: 'a', into: 'b' })
+    assert.deepEqual(report.problems, [])
+    assert.equal(report.merged, 4, 'four rows, however many statements')
+    assert.equal(report.skipped, 2, 're-statements skip as already present')
+    assert.equal(report.edges, 4)
+    const edgeSql = 'SELECT parent_id, role, child_id FROM cave_edge ORDER BY parent_id, role, child_id'
+    assert.deepEqual(b.db.prepare(edgeSql).all(), a.db.prepare(edgeSql).all(), 'every edge survives the trip')
+
+    const again = syncText(b, text, { from: 'a', into: 'b' })
+    assert.equal(again.merged, 0)
+    assert.equal(again.edges, 0)
+    b.close()
+    a.close()
+  } finally {
+    done()
+  }
 })
 
 test('syncFile sniffs the source: store files merge through SQL, text through the pipeline (spec §28.5)', () => {
@@ -345,6 +386,68 @@ test('interchange replay never stamps: merged rows keep exported claim keys (spe
     assert.equal(merged.claim_key, a.currentBeliefs().find(row => row.verb === 'USES')!.claim_key)
     b.close()
     a.close()
+  } finally {
+    done()
+  }
+})
+
+test('the branching convention: checkout, work, review diff, union merge, landing (spec §28.6)', () => {
+  const { dir, done } = scratch()
+  try {
+    // The committed text is the full annotated export — the text is the store.
+    const main = open(join(dir, 'main.db'))
+    main.ingest('auth USES jwt @ 90%\napi IS service', { source: 'cli' })
+    const committed = main.exportText({ tx: true })
+
+    // Checkout: a working store rebuilt from the text; plumbing appends no bookkeeping.
+    const work = open(join(dir, 'work.db'))
+    const checkout = syncText(work, committed, { record: false })
+    assert.equal(checkout.merged, 2)
+    assert.equal(checkout.record, undefined)
+    assert.equal(rowCount(work), 2, 'a checkout is not a merge event')
+
+    // Work appends outsort the seed (§28.2), so the review diff is the appended
+    // claims: the committed text is a prefix of the branch's re-export.
+    work.ingest('api HAS owner: platform-team', { source: 'cli' })
+    const reviewed = work.exportText({ tx: true })
+    assert.ok(reviewed.startsWith(committed), 'review reads as pure additions')
+
+    // Main advanced meanwhile — a git-level collision at the file's end. The
+    // merge-driver move: union both texts in a fresh store and re-export.
+    main.ingest('auth USES jwt @ 40%', { source: 'cli' })
+    const theirs = main.exportText({ tx: true })
+    const union = open(join(dir, 'union.db'))
+    syncText(union, reviewed, { record: false })
+    syncText(union, theirs, { record: false })
+    const merged = union.exportText({ tx: true })
+    const lines = new Set(merged.split('\n'))
+    for (const line of [...reviewed.split('\n'), ...theirs.split('\n')]) {
+      assert.ok(lines.has(line), `union keeps every reviewed line: ${line}`)
+    }
+    union.close()
+
+    // Landing is a sync and a real merge event: present rows skip, the branch's
+    // appends arrive, the record is the distribution history. Re-landing is idle.
+    const landing = syncText(main, merged, { from: 'reorg-auth', into: 'main' })
+    assert.equal(landing.merged, 1, "exactly the branch's work arrives")
+    assert.equal(landing.skipped, 3)
+    assert.match(landing.record!, /^store\/reorg-auth SYNCED-INTO store\/main /)
+    const again = syncText(main, merged, { from: 'reorg-auth', into: 'main' })
+    assert.equal(again.merged, 0)
+    assert.equal(again.record, undefined)
+    work.close()
+
+    // The lighter opening move (§28.4): a --current --tx seed leaves superseded
+    // rows behind and still merges back without duplication.
+    const seed = main.exportText({ tx: true, current: true })
+    assert.ok(!seed.includes('@ 90%'), 'the seed carries current beliefs only')
+    const light = open(join(dir, 'light.db'))
+    syncText(light, seed, { record: false })
+    light.ingest('billing IS service', { source: 'cli' })
+    const back = syncText(main, light.exportText({ tx: true }), { from: 'light', into: 'main' })
+    assert.equal(back.merged, 1, 'only the light branch appends arrive')
+    light.close()
+    main.close()
   } finally {
     done()
   }

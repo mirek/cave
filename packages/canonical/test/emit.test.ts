@@ -107,3 +107,29 @@ test('negated full-claim conditions round-trip (spec §8.2)', () => {
   assert.deepEqual(again.problems, [])
   assert.equal(Key.of(again.claims[1]!.claim), Key.of(result.claims[1]!.claim))
 })
+
+test('a child cited by several parents is re-stated — children render once (spec §28.4)', () => {
+  const base = canonicalizeText('a CAUSE b\nc CAUSE d\npremise EXISTS\n  WHEN deep EXISTS', standardRegistry)
+  const result = {
+    claims: base.claims,
+    edges: [...base.edges, { parent: 0, role: 'BECAUSE', child: 2 }, { parent: 1, role: 'BECAUSE', child: 2 }] as const
+  }
+  assert.equal(
+    emit(result),
+    'a CAUSE b\n  BECAUSE premise\n    WHEN deep\nc CAUSE d\n  BECAUSE premise\n',
+    "the re-statement is the line alone; the child's own children rode its first appearance"
+  )
+})
+
+test('a support cycle with no top-level member still emits every claim once (spec §24.5, §28.4)', () => {
+  const base = canonicalizeText('a CAUSE b\nb CAUSE a', standardRegistry)
+  const result = {
+    claims: base.claims,
+    edges: [{ parent: 0, role: 'BECAUSE', child: 1 }, { parent: 1, role: 'BECAUSE', child: 0 }] as const
+  }
+  assert.equal(
+    emit(result),
+    'a CAUSE b\n  BECAUSE b CAUSE a\n    BECAUSE a CAUSE b\n',
+    'the cycle breaks at the re-statement instead of dropping rows'
+  )
+})

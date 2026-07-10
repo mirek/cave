@@ -322,6 +322,15 @@ Present rows skip, re-runs merge nothing, two stores syncing each other converge
 $ pnpm exec cave export --db laptop.db --tx | cave sync --db main.db - --as laptop
 ```
 
+And because the annotated export is a complete replica, **the store can
+live under git** (spec §28.6): commit the `--tx` export, rebuild a
+working store from it on any checkout (`cave sync --db work.db
+knowledge.cave --no-record`), and a pull request's diff *is* the
+appended claims — reviewable line by line. Text-level conflicts
+dissolve by re-exporting the union (a one-stanza git merge driver, see
+[`@cavelang/sync`](packages/sync)); knowledge-level conflicts don't
+exist. Landing an approved branch is one more `cave sync`.
+
 See [`@cavelang/sync`](packages/sync) and spec §28.
 
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
