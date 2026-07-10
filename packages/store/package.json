@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/store",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "type": "module",
   "description": "CAVE persistence on node:sqlite — §13 storage model, append-only belief series, inverse-aware reads.",
   "license": "CC0-1.0",

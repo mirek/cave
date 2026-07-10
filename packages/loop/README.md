@@ -60,8 +60,8 @@ const { claims } = await reconstructAsync(store, policy, ['reject-valid-tokens']
   decision to stop.
 - **`shellComplete`** — a `Complete` from a shell-agent command template,
   the same `--agent` contract as `cave ingest` and `cave eval`: prompt on
-  stdin (and `{prompt-file}`), reply on stdout, non-zero exit or timeout
-  rejects. The model stays out-of-band (§19.5); no LLM SDK is a
+  stdin (and `{prompt-file}`, substituted shell-quoted), reply on stdout,
+  non-zero exit or timeout rejects. The model stays out-of-band (§19.5); no LLM SDK is a
   dependency of this package.
 
 ## Evaluating a policy

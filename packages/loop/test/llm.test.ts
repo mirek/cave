@@ -163,6 +163,27 @@ test('shellComplete substitutes {prompt-file}', async () => {
   assert.equal(await complete('from the file'), 'from the file')
 })
 
+test('shellComplete shell-quotes {prompt-file} — a temp dir with spaces still works', async () => {
+  // The prompt file lands under os.tmpdir(); with TMPDIR containing a
+  // space the unquoted substitution would split into two arguments.
+  const base = mkdtempSync(join(tmpdir(), 'cave loop '))
+  const saved = process.env.TMPDIR
+  process.env.TMPDIR = base
+  try {
+    const complete = shellComplete(
+      `node -e "process.stdout.write(require('fs').readFileSync(process.argv[1],'utf8'))" {prompt-file}`
+    )
+    assert.equal(await complete('from the file'), 'from the file')
+  } finally {
+    if (saved === undefined) {
+      delete process.env.TMPDIR
+    } else {
+      process.env.TMPDIR = saved
+    }
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
 test('shellComplete rejects on non-zero exit and on timeout', async () => {
   await assert.rejects(shellComplete('node -e "process.exit(3)"')('x'), /exited with 3/)
   await assert.rejects(

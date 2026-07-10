@@ -22,7 +22,7 @@ Options:
   --db <path>            knowledge database (default: $CAVE_DB, or cave.db)
   --agent <template>     shell command run once per batch; the prompt is piped
                          to stdin and {prompt-file}, {mcp-config}, {db} are
-                         substituted
+                         substituted shell-quoted (write placeholders bare)
   --instructions <md>    markdown file with domain instructions for the agent
   --stdout               agent prints CAVE text instead of using MCP tools
   --batch <n>            files per agent run (default 8)

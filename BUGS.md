@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## agent-shell-quoting: `cave ingest --agent` shell substitutions are unquoted
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** High/Medium
-- **Status:** Open
-- **Area:** `@cavelang/ingest`
-- **Relevant file:** `packages/ingest/src/run.ts`
-
-### Summary
-
-`runShellAgent` replaces `{prompt-file}`, `{mcp-config}`, and `{db}` inside a shell command template, then executes the resulting string with `spawn(command, { shell: true })`.
-
-### Impact
-
-Paths containing spaces or shell metacharacters can break the command. Because `--db` is user-controlled, this is also a shell-injection footgun for users who pass untrusted or dynamically generated paths.
-
-### Suggested fix
-
-Avoid shell command strings for substitutions. Represent agents as `{ command, args }` and call `spawn(command, args, { shell: false })`. If string templates are kept, shell-escape every substituted value before replacement.
-
 ## alias-literal-terms: alias closure treats literal terms as entities
 
 - **Source:** Merged PR review [#7](https://github.com/mirek/cave/pull/7)
@@ -556,6 +536,28 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## agent-shell-quoting: `cave ingest --agent` shell substitutions are unquoted
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** High/Medium
+- **Status:** Fixed in 0.25.1; regression tests `runShellAgent shell-quotes substituted values — spaces, quotes and $() arrive verbatim` and `shell agent run: a db path with spaces stays one argument` (`packages/ingest/test/run.test.ts`), and `shellComplete shell-quotes {prompt-file} — a temp dir with spaces still works` (`packages/loop/test/llm.test.ts`)
+- **Area:** `@cavelang/ingest`, `@cavelang/loop`
+- **Relevant files:**
+  - `packages/ingest/src/run.ts`
+  - `packages/loop/src/llm.ts`
+
+### Summary
+
+`runShellAgent` replaced `{prompt-file}`, `{mcp-config}`, and `{db}` inside a shell command template, then executed the resulting string with `spawn(command, { shell: true })`. `loop`'s `shellComplete` carried an unshared copy of the same unquoted `{prompt-file}` substitution.
+
+### Impact
+
+Paths containing spaces or shell metacharacters could break the command. Because `--db` is user-controlled, this was also a shell-injection footgun for users who pass untrusted or dynamically generated paths.
+
+### Resolution
+
+Suggested fix 2 (templates kept, values escaped): every substituted value is now POSIX-single-quoted before replacement — the `shellQuote` convention act/automate hooks already use (spec §25.4) — in both `runShellAgent` (covering `cave ingest --agent` plus the eval agent and judge) and `shellComplete` (covering `cave reconstruct --agent`, the suggest-alias judge, and automate prompt steps). A substituted value always lands as one argument and is never shell-evaluated; placeholders are written bare — wrapping one in your own quotes (e.g. `"{db}"`) now yields literal quote characters. The ingest/loop READMEs and every `--agent` help text document the quoting.
 
 ## src-stamp-bypass: `connect` record provenance can be bypassed by explicit `@src:` contexts
 

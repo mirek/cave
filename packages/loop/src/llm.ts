@@ -200,9 +200,10 @@ export type ShellCompleteOptions = {
 /**
  * A `Complete` from a shell-agent command template — the same contract as
  * `cave ingest --agent` and `cave eval --agent`: the prompt is piped to
- * stdin and substituted for `{prompt-file}` (written to a temporary file)
- * when the template names it; stdout is the model's reply; stderr passes
- * through; a non-zero exit, spawn failure or timeout rejects.
+ * stdin and substituted for `{prompt-file}` (written to a temporary file,
+ * substituted shell-quoted) when the template names it; stdout is the
+ * model's reply; stderr passes through; a non-zero exit, spawn failure or
+ * timeout rejects.
  *
  * ```ts
  * const policy = llmPolicy(shellComplete(`claude -p`), { query })
@@ -217,7 +218,8 @@ export const shellComplete = (template: string, options: ShellCompleteOptions = 
       dir = mkdtempSync(join(tmpdir(), 'cave-loop-'))
       const file = join(dir, 'prompt.md')
       writeFileSync(file, prompt)
-      command = template.replaceAll('{prompt-file}', file)
+      // Quoted like ingest's substitutions — one argument, never re-parsed.
+      command = template.replaceAll('{prompt-file}', `'${file.replaceAll("'", `'\\''`)}'`)
     }
     let settled = false
     const settle = (finish: () => void): void => {

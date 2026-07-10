@@ -147,9 +147,19 @@ const claimCount = (store: Store): number =>
   (store.db.prepare('SELECT COUNT(*) AS n FROM cave_claim').get() as { n: number }).n
 
 /**
+ * POSIX single-quoting for substituted template values — the act/automate
+ * hook convention (spec §25.4): a value always lands as one argument and
+ * is never shell-evaluated, so placeholders are written bare.
+ */
+const shellQuote = (value: string): string =>
+  `'${value.replaceAll("'", `'\\''`)}'`
+
+/**
  * Runs one shell agent invocation: `{name}` placeholders substituted into
- * the template, the prompt piped to stdin, stdout captured. Shared with
- * `@cavelang/eval`, whose agents and judges follow the same contract.
+ * the template — each value shell-quoted, so paths with spaces or shell
+ * metacharacters stay single arguments — the prompt piped to stdin,
+ * stdout captured. Shared with `@cavelang/eval`, whose agents and judges
+ * follow the same contract.
  */
 export const runShellAgent = (
   template: string,
@@ -159,7 +169,7 @@ export const runShellAgent = (
   cwd: string
 ): Promise<{ code: number | null, stdout: string, error?: string }> => {
   const command = Object.entries(substitutions)
-    .reduce((acc, [name, value]) => acc.replaceAll(`{${name}}`, value), template)
+    .reduce((acc, [name, value]) => acc.replaceAll(`{${name}}`, shellQuote(value)), template)
   return new Promise(resolvePromise => {
     let settled = false
     const settle = (result: { code: number | null, stdout: string, error?: string }): void => {

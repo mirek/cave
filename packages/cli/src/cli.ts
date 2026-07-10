@@ -376,8 +376,9 @@ Options:
   --agent <template>   LLM judge filtering the candidates — the cave
                        ingest/eval shell contract: the prompt (each pair
                        with both sides' current claims) is piped to stdin
-                       and {prompt-file} is substituted; stdout replies
-                       with a JSON array of confirmed suggestion numbers
+                       and {prompt-file} is substituted shell-quoted;
+                       stdout replies with a JSON array of confirmed
+                       suggestion numbers
   --timeout <seconds>  judge timeout (default 120)
   --write              append the suggestions, stamped @src:suggest/alias,
                        instead of only printing them
@@ -533,8 +534,9 @@ Options:
   --agent <template>   shell agent making the select/stop decision each step —
                        the LLM policy: the prompt (collected claims + scored
                        frontier) is piped to stdin and {prompt-file} is
-                       substituted; stdout replies with a cue name or STOP.
-                       Without --agent the deterministic heuristic runs.
+                       substituted shell-quoted; stdout replies with a cue
+                       name or STOP. Without --agent the deterministic
+                       heuristic runs.
   --steps <n>          expansion budget (default 16)
   --claims <n>         stop after collecting this many claims
   --timeout <seconds>  per-step agent timeout (default 120)
