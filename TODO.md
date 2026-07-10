@@ -56,54 +56,57 @@ implemented), reification `[S V O]` (§17.2), and temporal layer 3
 
 ## 2. Known bugs (BUGS.md)
 
-BUGS.md tracks thirty entries. This pass independently re-verified
-BUG-001..008 at 0.24.1 (below); BUG-009..030 — recorded in #27 from an
+BUGS.md tracks thirty entries, named by short slug and kept sorted most
+severe first. This pass independently re-verified the eight entries
+below at 0.24.1; the remaining twenty-two — recorded in #27 from an
 audit of all merged-PR reviews — landed in parallel and were not
 re-verified here. Overlaps are cross-referenced in §3.
 
-- **BUG-001** open — confirmed end-to-end for `connect`; #27 widened
-  the entry to rule conclusions and action effects (`insertResult`
-  declines the mandatory stamp when an authored `src:` exists), and
-  §3.1 adds the automate echo-filter escape — one systemic decision.
-- **BUG-002** open — unquoted shell substitutions in `ingest`'s
-  `runShellAgent` (`packages/ingest/src/run.ts`), with an unshared copy
-  in `loop`'s `shellComplete` (`packages/loop/src/llm.ts`). Reach: the
-  eval agent and judge, `cave reconstruct --agent`, the suggest-alias
-  judge, automate prompt steps. By contrast act/automate *hooks* quote
-  correctly (`shellQuote`, `packages/act/src/engine.ts`) — reuse that
-  or switch to `{command, args}` arrays.
-- **BUG-003** open — stdout-mode ingest records digests despite parse
-  problems (`packages/ingest/src/run.ts`).
-- **BUG-004** open — MCP `cave_about` shows retracted (`conf = 0`) rows
-  as current (`packages/mcp/src/tools.ts`); the same root behavior
-  feeds eval's produced-facts scoring and `cave_reconstruct`'s
-  `claimsAbout`.
-- **BUG-005** open — `connect` URL fetch has no timeout/headers and
-  case-sensitive detection; the same detector mis-routes
-  `HTTPS://… --watch` past the no-URLs guard onto the file path
-  (`packages/connect/src/source.ts`, `main.ts`). No fetch injection
+- **src-stamp-bypass** open — confirmed end-to-end for `connect`; #27
+  widened the entry to rule conclusions and action effects
+  (`insertResult` declines the mandatory stamp when an authored `src:`
+  exists), and §3.1 adds the automate echo-filter escape — one systemic
+  decision.
+- **agent-shell-quoting** open — unquoted shell substitutions in
+  `ingest`'s `runShellAgent` (`packages/ingest/src/run.ts`), with an
+  unshared copy in `loop`'s `shellComplete` (`packages/loop/src/llm.ts`).
+  Reach: the eval agent and judge, `cave reconstruct --agent`, the
+  suggest-alias judge, automate prompt steps. By contrast act/automate
+  *hooks* quote correctly (`shellQuote`, `packages/act/src/engine.ts`) —
+  reuse that or switch to `{command, args}` arrays.
+- **partial-ingest-digests** open — stdout-mode ingest records digests
+  despite parse problems (`packages/ingest/src/run.ts`).
+- **about-shows-retracted** open — MCP `cave_about` shows retracted
+  (`conf = 0`) rows as current (`packages/mcp/src/tools.ts`); the same
+  root behavior feeds eval's produced-facts scoring and
+  `cave_reconstruct`'s `claimsAbout`.
+- **connect-fetch-timeout** open — `connect` URL fetch has no
+  timeout/headers and case-sensitive detection; the same detector
+  mis-routes `HTTPS://… --watch` past the no-URLs guard onto the file
+  path (`packages/connect/src/source.ts`, `main.ts`). No fetch injection
   point, so the URL path is untestable.
-- **BUG-006** fixed — CI runs on pushes and PRs (#25); residual gaps in
-  §3.4 below.
-- **BUG-007** open, narrowed — the §28.2 receive rule covers sequential
-  multi-process writes and merges; still real for two processes holding
-  the same file open concurrently.
-- **BUG-008** open — `cave mcp --src src:foo` yields nested
+- **ci-releases-only** fixed — CI runs on pushes and PRs (#25); residual
+  gaps in §3.4 below.
+- **multi-process-tx-order** open, narrowed — the §28.2 receive rule
+  covers sequential multi-process writes and merges; still real for two
+  processes holding the same file open concurrently.
+- **mcp-src-prefix** open — `cave mcp --src src:foo` yields nested
   `@src:src:foo` (`packages/mcp/src/main.ts`).
 
 ## 3. Found by analysis (0.24.1)
 
 ### 3.1 Correctness
 
-- **high — the explicit-`@src:` escape is systemic** (BUG-001, widened
-  by #27 to rules and act). A claim template that names its own `@src:`
+- **high — the explicit-`@src:` escape is systemic** (src-stamp-bypass,
+  widened by #27 to rules and act). A claim template that names its own `@src:`
   context skips the engine's lifecycle stamp (`stampSource` /
   `insertResult`, `packages/store/src/store.ts`), reproduced end-to-end
   in three engines: `connect` records escape retract-on-change and
   `--prune`; rule conclusions escape §24.5 well-founded support and
   `cave derive --retract` (`packages/rules/src/engine.ts`,
   `declare.ts` — retracting a premise leaves the conclusion current
-  forever); and — the piece BUG-001 doesn't yet cover — automate agent
+  forever); and — the piece src-stamp-bypass doesn't yet cover —
+  automate agent
   replies and action effects escape the echo filter
   (`packages/automate/src/engine.ts`): a reply matching its own trigger
   re-fires every pass, invoking the agent repeatedly, contradicting
@@ -137,8 +140,8 @@ re-verified here. Overlaps are cross-referenced in §3.
   URL never records, so the source is re-fetched and re-extracted (a
   paid LLM call) on every run. Build the claim programmatically like
   `provenanceKey` already does.
-- **med — automate daemon can stall on pending events** (= BUG-026,
-  found independently by this pass). `cycle()`
+- **med — automate daemon can stall on pending events**
+  (= watch-watermark-race, found independently by this pass). `cycle()`
   snapshots `seen = maxTxOf(store)` after settle — including on the
   catch path — so a row landing during settle (or a mid-cycle failure)
   leaves events pending until an unrelated later append
@@ -162,9 +165,9 @@ re-verified here. Overlaps are cross-referenced in §3.
 - **low — `cave report` citations break on backticks.** Rule/action
   declarations legitimately contain `` ` ``; single-backtick code spans
   in footnotes and default bullets produce broken markdown
-  (`packages/view/src/report.ts`). Output-side sibling of BUG-030,
-  which tracks the input side (the splice scanner hard-codes
-  one-backtick delimiters).
+  (`packages/view/src/report.ts`). Output-side sibling of
+  inline-splice-backticks, which tracks the input side (the splice
+  scanner hard-codes one-backtick delimiters).
 - **low — async CLI commands crash with raw stack traces on bad
   flags** (`mcp`, `ingest`, `eval`, `serve`, `highlight`) while sync
   commands print the clean one-line error (`packages/cli/src/main.ts`).

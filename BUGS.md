@@ -2,9 +2,15 @@
 
 This file collects suspected bugs and design issues found by static analysis. Entries are intended to be reviewed, reproduced, and either fixed or closed as not applicable.
 
+Conventions:
+
+- **Names, not numbers.** Every entry is identified by a short slug (for example `export-clobbers-db`). Numbers are deliberately not used: they go stale the moment an entry is added, removed, or reordered. Refer to entries by slug in commits, PRs, and TODO.md.
+- **Ordered by severity.** Open entries are kept sorted most severe / most urgent first, so the next bug to address is always the top open entry. Fixed entries sink to the bottom of the file.
+- **Test first.** To address an entry: reproduce the bug with a test and watch it fail, then fix it, then confirm the test passes. Record the resolution in the entry when done.
+
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## BUG-001: `connect` record provenance can be bypassed by explicit `@src:` contexts
+## src-stamp-bypass: `connect` record provenance can be bypassed by explicit `@src:` contexts
 
 - **Source:** GPT-5.5 Thinking; merged PR reviews [#13](https://github.com/mirek/cave/pull/13) and [#14](https://github.com/mirek/cave/pull/14)
 - **Severity:** High
@@ -35,7 +41,7 @@ Prefer one of:
 2. Introduce separate internal lifecycle contexts for connect records, rules, and actions that are always applied and used for retraction/attribution.
 3. Add a store-level append option that forces an internal provenance/lifecycle context even when user-authored source contexts are already present.
 
-## BUG-002: `cave ingest --agent` shell substitutions are unquoted
+## agent-shell-quoting: `cave ingest --agent` shell substitutions are unquoted
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** High/Medium
@@ -55,29 +61,67 @@ Paths containing spaces or shell metacharacters can break the command. Because `
 
 Avoid shell command strings for substitutions. Represent agents as `{ command, args }` and call `spawn(command, args, { shell: false })`. If string templates are kept, shell-escape every substituted value before replacement.
 
-## BUG-003: stdout-mode ingest records source digests even when parsing produced problems
+## alias-literal-terms: alias closure treats literal terms as entities
 
-- **Source:** GPT-5.5 Thinking
+- **Source:** Merged PR review [#7](https://github.com/mirek/cave/pull/7)
 - **Severity:** Medium
 - **Status:** Open
-- **Area:** `@cavelang/ingest`
-- **Relevant files:**
-  - `packages/ingest/src/run.ts`
-  - `packages/ingest/src/files.ts`
+- **Area:** `@cavelang/query`, `@cavelang/store`
+- **Relevant file:** `packages/query/src/compile.ts`
 
 ### Summary
 
-In stdout mode, agent output is passed through `store.ingest(caveTextOf(output), ...)`. The returned problems are stored in the batch report, but the batch is still marked `ok: true`. Afterward, `Files.recordDigests(store, files)` runs for the successful batch.
+The alias-edge CTE still accepts every positive `ALIAS` row with a non-null object. It does not exclude code/text literal encodings, despite alias closure being defined for entity terms.
 
 ### Impact
 
-A partially invalid extraction can still mark its input files or URLs as ingested. A later run will skip those unchanged sources even though the previous extraction had parse/canonicalization problems and may be incomplete.
+With aliases enabled, queries can widen through literal values and return unrelated rows.
 
 ### Suggested fix
 
-Only record digests when `ingested.problems.length === 0`, or add an explicit option such as `--accept-partial` to keep the current behavior intentionally.
+Require both alias endpoints to be entity-form terms in query and store closure implementations.
 
-## BUG-004: MCP `cave_about` may present retracted rows as current claims
+## as-of-future-inverses: as-of queries use inverse declarations from the future
+
+- **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/query`, `@cavelang/store`
+- **Relevant file:** `packages/query/src/compile.ts`
+
+### Summary
+
+Rows and resolution policy are rewound for `asOf`, but patterns are still compiled with `store.registry()`, rebuilt from all declarations. An inverse declared after the boundary is therefore usable in a historical query.
+
+### Impact
+
+Historical queries can return facts using vocabulary that did not exist at that time.
+
+### Suggested fix
+
+Reconstruct the verb registry at the same transaction boundary and compile the pattern against it.
+
+## query-numeric-values: CAVE-Q does not accept normal multi-token or multiplied numeric values
+
+- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/query`
+- **Relevant file:** `packages/query/src/pattern.ts`
+
+### Summary
+
+`WHERE value` still uses a decimal-only regex, rejecting values such as `20B USD/yr`. Exact attribute patterns still require exactly one value token, rejecting stored forms such as `900M users/wk`.
+
+### Impact
+
+Users cannot query using the same numeric syntax that ingestion accepts and normalizes.
+
+### Suggested fix
+
+Parse filter and attribute tails with the shared CAVE value parser, then compare normalized number/unit fields.
+
+## about-shows-retracted: MCP `cave_about` may present retracted rows as current claims
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** Medium
@@ -100,7 +144,129 @@ MCP clients can see retraction rows as “everything currently believed about an
 
 Filter `conf > 0` in `aboutLines` by default. If retractions are useful in this view, add an explicit `includeRetracted` option or label the output as including retractions.
 
-## BUG-005: `connect` URL fetching has no timeout and inconsistent URL detection
+## stdout-source-identity: stdout ingest changes fallback source identity when content changes
+
+- **Source:** Merged PR review [#8](https://github.com/mirek/cave/pull/8)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/ingest`
+- **Relevant file:** `packages/ingest/src/run.ts`
+
+### Summary
+
+Stdout-mode fallback provenance remains `src:ingest/<batch-content-digest>`. Editing a source changes the context and therefore the claim key, so a revised claim does not supersede its previous belief series.
+
+### Impact
+
+Old and new extracted facts can both remain current after a file revision.
+
+### Suggested fix
+
+Use stable source identity derived from connector/path/record identity, or retract the previous digest's generated series before recording the new one.
+
+## partial-ingest-digests: stdout-mode ingest records source digests even when parsing produced problems
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/ingest`
+- **Relevant files:**
+  - `packages/ingest/src/run.ts`
+  - `packages/ingest/src/files.ts`
+
+### Summary
+
+In stdout mode, agent output is passed through `store.ingest(caveTextOf(output), ...)`. The returned problems are stored in the batch report, but the batch is still marked `ok: true`. Afterward, `Files.recordDigests(store, files)` runs for the successful batch.
+
+### Impact
+
+A partially invalid extraction can still mark its input files or URLs as ingested. A later run will skip those unchanged sources even though the previous extraction had parse/canonicalization problems and may be incomplete.
+
+### Suggested fix
+
+Only record digests when `ingested.problems.length === 0`, or add an explicit option such as `--accept-partial` to keep the current behavior intentionally.
+
+## stale-rule-watermark: re-declared rules inherit stale derive watermarks
+
+- **Source:** Merged PR review [#13](https://github.com/mirek/cave/pull/13)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/rules`
+- **Relevant file:** `packages/rules/src/engine.ts`
+
+### Summary
+
+Rule loading still reuses the current `derive-watermark` for a digest without comparing it to the current declaration row. Retracting and re-declaring the same rule can therefore skip all older premises.
+
+### Impact
+
+A re-declared rule may leave its conclusions absent until a new premise arrives or `--full` is used.
+
+### Suggested fix
+
+Clear/retract the watermark with the rule, or ignore it whenever the declaration is newer.
+
+## transitive-trigger-rows: transitive automation triggers cannot see event rows
+
+- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/automate`, `@cavelang/query`
+- **Relevant file:** `packages/automate/src/engine.ts`
+
+### Summary
+
+Transitive query matches carry no `found.row`, leaving a trigger solution's row list empty. The firing filter requires at least one row newer than the automation watermark.
+
+### Impact
+
+Automations using allowed `VERB+` premises never fire on newly added edges.
+
+### Suggested fix
+
+Return supporting/event edge rows for trigger evaluation, or separately test whether the transitive result depends on post-watermark edges.
+
+## watch-watermark-race: automate watch can advance past an unprocessed concurrent write
+
+- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/automate`
+- **Relevant file:** `packages/automate/src/main.ts`
+
+### Summary
+
+After `settle()`, the watch loop sets `seen` to a fresh `MAX(tx)`. A write arriving after settle's final read but before that assignment is marked seen without being processed.
+
+### Impact
+
+A matching event can be missed indefinitely until another write arrives.
+
+### Suggested fix
+
+Capture the cycle boundary before settling and loop until the observed maximum is fully processed.
+
+## exponent-notation: generated numeric CAVE values can use unsupported scientific notation
+
+- **Source:** Merged PR reviews [#10](https://github.com/mirek/cave/pull/10) and [#18](https://github.com/mirek/cave/pull/18)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/connect`, `@cavelang/mcp`
+- **Relevant files:** `packages/connect/src/template.ts`, `packages/mcp/src/tools.ts`
+
+### Summary
+
+Connect formats JSON numbers with `String(value)`; MCP fusion converts `toPrecision` output back through `Number`. Both can emit exponent notation such as `1e-7`, which CAVE's numeric parser does not recognize as a number.
+
+### Impact
+
+Numeric fields/posteriors can round-trip as atoms, breaking filters, checks, and later fusion.
+
+### Suggested fix
+
+Use one shared finite-number formatter that always emits CAVE-compatible decimal or multiplier syntax.
+
+## connect-fetch-timeout: `connect` URL fetching has no timeout and inconsistent URL detection
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** Medium
@@ -122,7 +288,327 @@ Filter `conf > 0` in `aboutLines` by default. If retractions are useful in this 
 
 Share URL helper code between `ingest` and `connect`, or port the timeout/header behavior into `connect`. Make URL detection case-insensitive in both surfaces.
 
-## BUG-006: CI validates releases only, not normal pushes or pull requests
+## connect-exit-zero: federated connect queries exit successfully after mapping failures
+
+- **Source:** Merged PR review [#10](https://github.com/mirek/cave/pull/10)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/connect`
+- **Relevant file:** `packages/connect/src/main.ts`
+
+### Summary
+
+`runQuery` prints `report.failures` but still returns 0 in JSON, no-match, and match paths.
+
+### Impact
+
+Scripts and CI can accept incomplete query results as a complete success.
+
+### Suggested fix
+
+Return non-zero whenever any source record failed to instantiate or ingest, while still printing partial results if useful.
+
+## export-error-contract: export output errors escape and its claim count includes qualifier lines
+
+- **Source:** Merged PR reviews [#2](https://github.com/mirek/cave/pull/2) and [#3](https://github.com/mirek/cave/pull/3)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/cli`
+- **Relevant file:** `packages/cli/src/cli.ts`
+
+### Summary
+
+`exportCommand` still has `try/finally` without `catch`, so output write failures throw instead of returning the command's `Output` contract. Its count filters transaction annotation lines only; indented qualifier/grouping lines are still reported as claims.
+
+### Impact
+
+Programmatic callers can crash, and successful exports report misleading claim counts.
+
+### Suggested fix
+
+Catch and return write/export failures, and count canonical root claims from structured rows or parser output.
+
+## eval-glob-escape: eval passes discovered filenames back through glob expansion
+
+- **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/eval`, `@cavelang/ingest`
+- **Relevant file:** `packages/eval/src/run.ts`
+
+### Summary
+
+Eval discovers a concrete fixture path, then passes `basename(kase.source)` as an ingest glob. Filenames containing `[]`, `?`, or `*` are reinterpreted as patterns.
+
+### Impact
+
+An eval can ingest the wrong source or report no batch.
+
+### Suggested fix
+
+Add a literal-path ingest API or escape glob metacharacters before selection.
+
+## report-block-vanishes: failed report query blocks disappear from rendered markdown
+
+- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/view`
+- **Relevant file:** `packages/view/src/report.ts`
+
+### Summary
+
+When a fenced `cave-q` query fails, `renderBlock` still returns no lines. The block vanishes even though the report contract says problems are marked in place.
+
+### Impact
+
+An output file can contain a blank section whose failure is visible only on stderr/exit status.
+
+### Suggested fix
+
+Render a visible invalid-query placeholder at the block location.
+
+## inline-splice-backticks: inline report splices only support one-backtick delimiters
+
+- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/view`
+- **Relevant file:** `packages/view/src/report.ts`
+
+### Summary
+
+The inline splice scanner remains a regular expression that hard-codes one-backtick delimiters. Valid Markdown code spans with longer delimiters, needed when the query contains a backtick code literal, are misparsed.
+
+### Impact
+
+Valid templates can be mangled or reported as invalid.
+
+### Suggested fix
+
+Scan Markdown code spans while honoring the full opening delimiter length, then recognize `cave-q:` inside the span.
+
+## lineage-truncation-leaf: lineage depth truncation is rendered as a complete leaf
+
+- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/view`
+- **Relevant file:** `packages/view/src/api.ts`
+
+### Summary
+
+At depth 16, lineage traversal still returns an empty child array with no truncation marker.
+
+### Impact
+
+The UI/API silently hides valid support and makes an incomplete explanation look complete.
+
+### Suggested fix
+
+Return an explicit truncated node/flag or expose pagination/depth metadata.
+
+## search-limit-pushdown: view search materializes all matches before applying its limit
+
+- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
+- **Severity:** Medium/Performance
+- **Status:** Open
+- **Area:** `@cavelang/view`, `@cavelang/store`
+- **Relevant file:** `packages/view/src/api.ts`
+
+### Summary
+
+The view still calls `store.search(text).slice(0, limit)`; the FTS query materializes all matches first.
+
+### Impact
+
+Broad searches can block the single HTTP thread and allocate far more memory than the 100-row response needs.
+
+### Suggested fix
+
+Thread a SQL `LIMIT` into the store search API.
+
+## mcp-tsconfig-refs: the MCP TypeScript project omits direct dependency references
+
+- **Source:** Merged PR review [#18](https://github.com/mirek/cave/pull/18)
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/mcp`
+- **Relevant file:** `packages/mcp/tsconfig.json`
+
+### Summary
+
+MCP imports `@cavelang/fusion` and `@cavelang/rules`, but its composite project references still omit `../fusion` and `../rules`.
+
+### Impact
+
+A clean or filtered `tsc -b packages/mcp` can fail or consume stale dependency outputs.
+
+### Suggested fix
+
+Add both direct references and cover a clean filtered MCP build in CI.
+
+## mcp-src-prefix: `cave mcp --src` accepts `src:` despite help saying to omit it
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** Low
+- **Status:** Open
+- **Area:** `@cavelang/mcp`, `@cavelang/core`
+- **Relevant files:**
+  - `packages/mcp/src/main.ts`
+  - `packages/core/src/context.ts`
+
+### Summary
+
+The `cave mcp` help says `--src <context>` should be passed without the `src:` prefix. Validation still allows `:`. The store stamps source contexts by prepending `src:` to the provided actor string, so `--src src:foo` becomes `@src:src:foo`.
+
+### Impact
+
+Users can accidentally create nested source contexts that do not match intended provenance conventions.
+
+### Suggested fix
+
+Reject values beginning with `src:` or normalize by stripping the prefix before passing the value into source stamping.
+
+## eval-inline-comments: eval rejects its documented inline comments on expectations
+
+- **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
+- **Severity:** Low
+- **Status:** Open
+- **Area:** `@cavelang/eval`
+- **Relevant file:** `packages/eval/src/queries.ts`
+
+### Summary
+
+Documentation shows `none ; comment`, but the parser checks exact trimmed equality with `none` and does not strip inline comments from expectation lines.
+
+### Impact
+
+Otherwise-valid fixtures are rejected before the agent runs.
+
+### Suggested fix
+
+Apply the shared comment splitter to expectation lines before parsing.
+
+## alias-typo-blocking: alias suggestions miss leading-character typos
+
+- **Source:** Merged PR review [#19](https://github.com/mirek/cave/pull/19)
+- **Severity:** Low/Recall
+- **Status:** Open
+- **Area:** `@cavelang/shape`
+- **Relevant file:** `packages/shape/src/suggest.ts`
+
+### Summary
+
+Candidate blocking still requires the same first normalized character, an exact token, or a shared rare value. High edit-similarity pairs such as `postgres`/`ostgres` never reach scoring.
+
+### Impact
+
+The advertised typo signal silently misses a common typo class.
+
+### Suggested fix
+
+Add an edit-tolerant block such as suffix/trigram/length buckets before scoring.
+
+## windows-portability: test and demo commands are not Windows-portable
+
+- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
+- **Severity:** Low/Portability
+- **Status:** Open
+- **Area:** package scripts, `@cavelang/loop`
+- **Relevant files:** `packages/*/package.json`, `packages/loop/src/demo.ts`
+
+### Summary
+
+Package test scripts still single-quote their glob, for example `node --test 'test/*.test.ts'`. Windows cmd.exe passes those quote characters literally. The demo's direct-invocation check also still splits `process.argv[1]` only on `/`, so it misses Windows paths.
+
+### Impact
+
+Package tests and the loop demo can fail or silently not run on Windows.
+
+### Suggested fix
+
+Use a cross-platform test discovery form and compare paths with `node:path`/`fileURLToPath` rather than manual separator handling.
+
+## dry-run-uuid-clock: text-sync dry-runs mutate the process UUID clock
+
+- **Source:** Merged PR review [#20](https://github.com/mirek/cave/pull/20)
+- **Severity:** Low/Design
+- **Status:** Open
+- **Area:** `@cavelang/sync`, `@cavelang/core`
+- **Relevant file:** `packages/sync/src/sync.ts`
+
+### Summary
+
+Dry-run text sync still calls `insertResult` with explicit transaction IDs inside a rolled-back SQLite transaction. UUID observation is process state, so a future imported UUID advances later locally minted IDs even though the database write rolls back.
+
+### Impact
+
+A command advertised as writing nothing changes subsequent transaction ordering in the process.
+
+### Suggested fix
+
+Validate without observing IDs, or snapshot and restore generator state around dry-runs.
+
+## multi-process-tx-order: current-belief ordering relies on process-local UUIDv7 monotonicity
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** Low/Design
+- **Status:** Open, narrowed — since 0.19.0 the §28.2 receive rule (`Uuidv7.observe`, `packages/store/src/store.ts`) observes a store's `MAX(tx)` at open and after merge, so sequential multi-process writes and post-merge appends order correctly. Still real for two processes holding the same database file open concurrently: each generator only observes at open, so a slow-clock process can mint a tx below a fast-clock peer's fresh append.
+- **Area:** `@cavelang/core`, `@cavelang/store`
+- **Relevant files:**
+  - `packages/core/src/uuidv7.ts`
+  - `packages/store/src/store.ts`
+
+### Summary
+
+Current belief is resolved by `MAX(tx)` per `claim_key`. The UUIDv7 generator is strictly monotonic only within a single process.
+
+### Impact
+
+If multiple processes write to the same SQLite database with skewed clocks, “latest” can be wrong. This may be acceptable for a local single-writer tool, but it is an implicit invariant.
+
+### Suggested fix
+
+Document single-writer expectations clearly. If multi-process writes are intended, add a SQLite-controlled commit sequence column and use that to resolve current belief ordering.
+
+## example-wording: reviewed example wording remains incorrect
+
+- **Source:** Merged PR review [#5](https://github.com/mirek/cave/pull/5)
+- **Severity:** Low/Documentation
+- **Status:** Open
+- **Area:** examples
+- **Relevant files:** `examples/incident/incident.md`, `examples/README.md`
+
+### Summary
+
+The reviewed phrases “payments goes through” and “its hand extraction to CAVE” remain unchanged.
+
+### Suggested fix
+
+Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## export-clobbers-db: export could overwrite and corrupt its source database
+
+- **Source:** Merged PR review [#2](https://github.com/mirek/cave/pull/2)
+- **Severity:** High
+- **Status:** Fixed in 0.24.2; regression test `export refuses --out that would overwrite the source database` in `packages/cli/test/cli.test.ts`
+- **Area:** `@cavelang/cli`
+- **Relevant file:** `packages/cli/src/cli.ts`
+
+### Summary
+
+`cave export --db knowledge.db --out knowledge.db` called `writeFileSync` on the open database path after reading it, replacing SQLite data with text. Equivalent paths and links were not checked.
+
+### Impact
+
+A backup command could destroy the source database.
+
+### Resolution
+
+`exportCommand` now compares the two paths before opening the store and fails with exit 1 (`--out '<path>' is the source database — refusing to overwrite it`) when they name the same file: equal once resolved against the working directory, or — when both exist — an equal device/inode pair, which also catches symlinks and hard links to the database.
+
+## ci-releases-only: CI validates releases only, not normal pushes or pull requests
 
 - **Source:** GPT-5.5 Thinking
 - **Severity:** Medium
@@ -149,482 +635,3 @@ Release tags are protected by build/test checks, but normal pushes and pull requ
 - run: pnpm typecheck
 - run: pnpm test
 ```
-
-## BUG-007: current-belief ordering relies on process-local UUIDv7 monotonicity
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** Low/Design
-- **Status:** Open, narrowed — since 0.19.0 the §28.2 receive rule (`Uuidv7.observe`, `packages/store/src/store.ts`) observes a store's `MAX(tx)` at open and after merge, so sequential multi-process writes and post-merge appends order correctly. Still real for two processes holding the same database file open concurrently: each generator only observes at open, so a slow-clock process can mint a tx below a fast-clock peer's fresh append.
-- **Area:** `@cavelang/core`, `@cavelang/store`
-- **Relevant files:**
-  - `packages/core/src/uuidv7.ts`
-  - `packages/store/src/store.ts`
-
-### Summary
-
-Current belief is resolved by `MAX(tx)` per `claim_key`. The UUIDv7 generator is strictly monotonic only within a single process.
-
-### Impact
-
-If multiple processes write to the same SQLite database with skewed clocks, “latest” can be wrong. This may be acceptable for a local single-writer tool, but it is an implicit invariant.
-
-### Suggested fix
-
-Document single-writer expectations clearly. If multi-process writes are intended, add a SQLite-controlled commit sequence column and use that to resolve current belief ordering.
-
-## BUG-008: `cave mcp --src` accepts `src:` despite help saying to omit it
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** Low
-- **Status:** Open
-- **Area:** `@cavelang/mcp`, `@cavelang/core`
-- **Relevant files:**
-  - `packages/mcp/src/main.ts`
-  - `packages/core/src/context.ts`
-
-### Summary
-
-The `cave mcp` help says `--src <context>` should be passed without the `src:` prefix. Validation still allows `:`. The store stamps source contexts by prepending `src:` to the provided actor string, so `--src src:foo` becomes `@src:src:foo`.
-
-### Impact
-
-Users can accidentally create nested source contexts that do not match intended provenance conventions.
-
-### Suggested fix
-
-Reject values beginning with `src:` or normalize by stripping the prefix before passing the value into source stamping.
-## BUG-009: test and demo commands are not Windows-portable
-
-- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
-- **Severity:** Low/Portability
-- **Status:** Open
-- **Area:** package scripts, `@cavelang/loop`
-- **Relevant files:** `packages/*/package.json`, `packages/loop/src/demo.ts`
-
-### Summary
-
-Package test scripts still single-quote their glob, for example `node --test 'test/*.test.ts'`. Windows cmd.exe passes those quote characters literally. The demo's direct-invocation check also still splits `process.argv[1]` only on `/`, so it misses Windows paths.
-
-### Impact
-
-Package tests and the loop demo can fail or silently not run on Windows.
-
-### Suggested fix
-
-Use a cross-platform test discovery form and compare paths with `node:path`/`fileURLToPath` rather than manual separator handling.
-
-## BUG-010: CAVE-Q does not accept normal multi-token or multiplied numeric values
-
-- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`
-- **Relevant file:** `packages/query/src/pattern.ts`
-
-### Summary
-
-`WHERE value` still uses a decimal-only regex, rejecting values such as `20B USD/yr`. Exact attribute patterns still require exactly one value token, rejecting stored forms such as `900M users/wk`.
-
-### Impact
-
-Users cannot query using the same numeric syntax that ingestion accepts and normalizes.
-
-### Suggested fix
-
-Parse filter and attribute tails with the shared CAVE value parser, then compare normalized number/unit fields.
-
-## BUG-011: export can overwrite and corrupt its source database
-
-- **Source:** Merged PR review [#2](https://github.com/mirek/cave/pull/2)
-- **Severity:** High
-- **Status:** Open
-- **Area:** `@cavelang/cli`
-- **Relevant file:** `packages/cli/src/cli.ts`
-
-### Summary
-
-`cave export --db knowledge.db --out knowledge.db` still calls `writeFileSync` on the open database path after reading it, replacing SQLite data with text. Equivalent paths and links are not checked.
-
-### Impact
-
-A backup command can destroy the source database.
-
-### Suggested fix
-
-Resolve and compare source/output identities before opening the output; reject identical paths and, where possible, equal inode/device pairs.
-
-## BUG-012: export output errors escape and its claim count includes qualifier lines
-
-- **Source:** Merged PR reviews [#2](https://github.com/mirek/cave/pull/2) and [#3](https://github.com/mirek/cave/pull/3)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/cli`
-- **Relevant file:** `packages/cli/src/cli.ts`
-
-### Summary
-
-`exportCommand` still has `try/finally` without `catch`, so output write failures throw instead of returning the command's `Output` contract. Its count filters transaction annotation lines only; indented qualifier/grouping lines are still reported as claims.
-
-### Impact
-
-Programmatic callers can crash, and successful exports report misleading claim counts.
-
-### Suggested fix
-
-Catch and return write/export failures, and count canonical root claims from structured rows or parser output.
-
-## BUG-013: reviewed example wording remains incorrect
-
-- **Source:** Merged PR review [#5](https://github.com/mirek/cave/pull/5)
-- **Severity:** Low/Documentation
-- **Status:** Open
-- **Area:** examples
-- **Relevant files:** `examples/incident/incident.md`, `examples/README.md`
-
-### Summary
-
-The reviewed phrases “payments goes through” and “its hand extraction to CAVE” remain unchanged.
-
-### Suggested fix
-
-Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
-
-## BUG-014: alias closure treats literal terms as entities
-
-- **Source:** Merged PR review [#7](https://github.com/mirek/cave/pull/7)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`, `@cavelang/store`
-- **Relevant file:** `packages/query/src/compile.ts`
-
-### Summary
-
-The alias-edge CTE still accepts every positive `ALIAS` row with a non-null object. It does not exclude code/text literal encodings, despite alias closure being defined for entity terms.
-
-### Impact
-
-With aliases enabled, queries can widen through literal values and return unrelated rows.
-
-### Suggested fix
-
-Require both alias endpoints to be entity-form terms in query and store closure implementations.
-
-## BUG-015: stdout ingest changes fallback source identity when content changes
-
-- **Source:** Merged PR review [#8](https://github.com/mirek/cave/pull/8)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/ingest`
-- **Relevant file:** `packages/ingest/src/run.ts`
-
-### Summary
-
-Stdout-mode fallback provenance remains `src:ingest/<batch-content-digest>`. Editing a source changes the context and therefore the claim key, so a revised claim does not supersede its previous belief series.
-
-### Impact
-
-Old and new extracted facts can both remain current after a file revision.
-
-### Suggested fix
-
-Use stable source identity derived from connector/path/record identity, or retract the previous digest's generated series before recording the new one.
-
-## BUG-016: federated connect queries exit successfully after mapping failures
-
-- **Source:** Merged PR review [#10](https://github.com/mirek/cave/pull/10)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/connect`
-- **Relevant file:** `packages/connect/src/main.ts`
-
-### Summary
-
-`runQuery` prints `report.failures` but still returns 0 in JSON, no-match, and match paths.
-
-### Impact
-
-Scripts and CI can accept incomplete query results as a complete success.
-
-### Suggested fix
-
-Return non-zero whenever any source record failed to instantiate or ingest, while still printing partial results if useful.
-
-## BUG-017: generated numeric CAVE values can use unsupported scientific notation
-
-- **Source:** Merged PR reviews [#10](https://github.com/mirek/cave/pull/10) and [#18](https://github.com/mirek/cave/pull/18)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/connect`, `@cavelang/mcp`
-- **Relevant files:** `packages/connect/src/template.ts`, `packages/mcp/src/tools.ts`
-
-### Summary
-
-Connect formats JSON numbers with `String(value)`; MCP fusion converts `toPrecision` output back through `Number`. Both can emit exponent notation such as `1e-7`, which CAVE's numeric parser does not recognize as a number.
-
-### Impact
-
-Numeric fields/posteriors can round-trip as atoms, breaking filters, checks, and later fusion.
-
-### Suggested fix
-
-Use one shared finite-number formatter that always emits CAVE-compatible decimal or multiplier syntax.
-
-## BUG-018: as-of queries use inverse declarations from the future
-
-- **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`, `@cavelang/store`
-- **Relevant file:** `packages/query/src/compile.ts`
-
-### Summary
-
-Rows and resolution policy are rewound for `asOf`, but patterns are still compiled with `store.registry()`, rebuilt from all declarations. An inverse declared after the boundary is therefore usable in a historical query.
-
-### Impact
-
-Historical queries can return facts using vocabulary that did not exist at that time.
-
-### Suggested fix
-
-Reconstruct the verb registry at the same transaction boundary and compile the pattern against it.
-
-## BUG-019: re-declared rules inherit stale derive watermarks
-
-- **Source:** Merged PR review [#13](https://github.com/mirek/cave/pull/13)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/rules`
-- **Relevant file:** `packages/rules/src/engine.ts`
-
-### Summary
-
-Rule loading still reuses the current `derive-watermark` for a digest without comparing it to the current declaration row. Retracting and re-declaring the same rule can therefore skip all older premises.
-
-### Impact
-
-A re-declared rule may leave its conclusions absent until a new premise arrives or `--full` is used.
-
-### Suggested fix
-
-Clear/retract the watermark with the rule, or ignore it whenever the declaration is newer.
-
-## BUG-020: eval passes discovered filenames back through glob expansion
-
-- **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/eval`, `@cavelang/ingest`
-- **Relevant file:** `packages/eval/src/run.ts`
-
-### Summary
-
-Eval discovers a concrete fixture path, then passes `basename(kase.source)` as an ingest glob. Filenames containing `[]`, `?`, or `*` are reinterpreted as patterns.
-
-### Impact
-
-An eval can ingest the wrong source or report no batch.
-
-### Suggested fix
-
-Add a literal-path ingest API or escape glob metacharacters before selection.
-
-## BUG-021: eval rejects its documented inline comments on expectations
-
-- **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
-- **Severity:** Low
-- **Status:** Open
-- **Area:** `@cavelang/eval`
-- **Relevant file:** `packages/eval/src/queries.ts`
-
-### Summary
-
-Documentation shows `none ; comment`, but the parser checks exact trimmed equality with `none` and does not strip inline comments from expectation lines.
-
-### Impact
-
-Otherwise-valid fixtures are rejected before the agent runs.
-
-### Suggested fix
-
-Apply the shared comment splitter to expectation lines before parsing.
-
-## BUG-022: the MCP TypeScript project omits direct dependency references
-
-- **Source:** Merged PR review [#18](https://github.com/mirek/cave/pull/18)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/mcp`
-- **Relevant file:** `packages/mcp/tsconfig.json`
-
-### Summary
-
-MCP imports `@cavelang/fusion` and `@cavelang/rules`, but its composite project references still omit `../fusion` and `../rules`.
-
-### Impact
-
-A clean or filtered `tsc -b packages/mcp` can fail or consume stale dependency outputs.
-
-### Suggested fix
-
-Add both direct references and cover a clean filtered MCP build in CI.
-
-## BUG-023: alias suggestions miss leading-character typos
-
-- **Source:** Merged PR review [#19](https://github.com/mirek/cave/pull/19)
-- **Severity:** Low/Recall
-- **Status:** Open
-- **Area:** `@cavelang/shape`
-- **Relevant file:** `packages/shape/src/suggest.ts`
-
-### Summary
-
-Candidate blocking still requires the same first normalized character, an exact token, or a shared rare value. High edit-similarity pairs such as `postgres`/`ostgres` never reach scoring.
-
-### Impact
-
-The advertised typo signal silently misses a common typo class.
-
-### Suggested fix
-
-Add an edit-tolerant block such as suffix/trigram/length buckets before scoring.
-
-## BUG-024: text-sync dry-runs mutate the process UUID clock
-
-- **Source:** Merged PR review [#20](https://github.com/mirek/cave/pull/20)
-- **Severity:** Low/Design
-- **Status:** Open
-- **Area:** `@cavelang/sync`, `@cavelang/core`
-- **Relevant file:** `packages/sync/src/sync.ts`
-
-### Summary
-
-Dry-run text sync still calls `insertResult` with explicit transaction IDs inside a rolled-back SQLite transaction. UUID observation is process state, so a future imported UUID advances later locally minted IDs even though the database write rolls back.
-
-### Impact
-
-A command advertised as writing nothing changes subsequent transaction ordering in the process.
-
-### Suggested fix
-
-Validate without observing IDs, or snapshot and restore generator state around dry-runs.
-
-## BUG-025: transitive automation triggers cannot see event rows
-
-- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/automate`, `@cavelang/query`
-- **Relevant file:** `packages/automate/src/engine.ts`
-
-### Summary
-
-Transitive query matches carry no `found.row`, leaving a trigger solution's row list empty. The firing filter requires at least one row newer than the automation watermark.
-
-### Impact
-
-Automations using allowed `VERB+` premises never fire on newly added edges.
-
-### Suggested fix
-
-Return supporting/event edge rows for trigger evaluation, or separately test whether the transitive result depends on post-watermark edges.
-
-## BUG-026: automate watch can advance past an unprocessed concurrent write
-
-- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/automate`
-- **Relevant file:** `packages/automate/src/main.ts`
-
-### Summary
-
-After `settle()`, the watch loop sets `seen` to a fresh `MAX(tx)`. A write arriving after settle's final read but before that assignment is marked seen without being processed.
-
-### Impact
-
-A matching event can be missed indefinitely until another write arrives.
-
-### Suggested fix
-
-Capture the cycle boundary before settling and loop until the observed maximum is fully processed.
-
-## BUG-027: lineage depth truncation is rendered as a complete leaf
-
-- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/api.ts`
-
-### Summary
-
-At depth 16, lineage traversal still returns an empty child array with no truncation marker.
-
-### Impact
-
-The UI/API silently hides valid support and makes an incomplete explanation look complete.
-
-### Suggested fix
-
-Return an explicit truncated node/flag or expose pagination/depth metadata.
-
-## BUG-028: view search materializes all matches before applying its limit
-
-- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
-- **Severity:** Medium/Performance
-- **Status:** Open
-- **Area:** `@cavelang/view`, `@cavelang/store`
-- **Relevant file:** `packages/view/src/api.ts`
-
-### Summary
-
-The view still calls `store.search(text).slice(0, limit)`; the FTS query materializes all matches first.
-
-### Impact
-
-Broad searches can block the single HTTP thread and allocate far more memory than the 100-row response needs.
-
-### Suggested fix
-
-Thread a SQL `LIMIT` into the store search API.
-
-## BUG-029: failed report query blocks disappear from rendered markdown
-
-- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/report.ts`
-
-### Summary
-
-When a fenced `cave-q` query fails, `renderBlock` still returns no lines. The block vanishes even though the report contract says problems are marked in place.
-
-### Impact
-
-An output file can contain a blank section whose failure is visible only on stderr/exit status.
-
-### Suggested fix
-
-Render a visible invalid-query placeholder at the block location.
-
-## BUG-030: inline report splices only support one-backtick delimiters
-
-- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/report.ts`
-
-### Summary
-
-The inline splice scanner remains a regular expression that hard-codes one-backtick delimiters. Valid Markdown code spans with longer delimiters, needed when the query contains a backtick code literal, are misparsed.
-
-### Impact
-
-Valid templates can be mangled or reported as invalid.
-
-### Suggested fix
-
-Scan Markdown code spans while honoring the full opening delimiter length, then recognize `cave-q:` inside the span.

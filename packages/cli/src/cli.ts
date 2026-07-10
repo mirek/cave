@@ -30,7 +30,8 @@
  * `cave.db`. Every command answers `--help` with options and examples.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, statSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
@@ -457,7 +458,8 @@ Usage:
 
 Options:
   ${dbHelp}
-  --out <file>   write to a file instead of stdout
+  --out <file>   write to a file instead of stdout — refused when it
+                 names the store's own database file
   --current      current beliefs only (skip superseded rows)
   --tx           precede every claim line with its ;@ transaction
                  annotation (spec §28.4) — the text carries row identity,
@@ -1280,6 +1282,24 @@ export const reportCommand = (argv: readonly string[]): Output => {
   }
 }
 
+/**
+ * True when both paths name the same file: equal once resolved, or — when
+ * both exist — one device/inode pair, which also catches symlinks and
+ * hard links to the file.
+ */
+const sameFile = (a: string, b: string): boolean => {
+  if (resolve(a) === resolve(b)) {
+    return true
+  }
+  try {
+    const left = statSync(a)
+    const right = statSync(b)
+    return left.dev === right.dev && left.ino === right.ino
+  } catch {
+    return false
+  }
+}
+
 export const exportCommand = (argv: readonly string[]): Output => {
   const { values } = parseArgs({
     args: [...argv],
@@ -1292,7 +1312,11 @@ export const exportCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: false
   })
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const db = values.db ?? defaultDbPath()
+  if (values.out !== undefined && sameFile(db, values.out)) {
+    return fail(`cave export: --out '${values.out}' is the source database — refusing to overwrite it\n`)
+  }
+  const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
     const text = store.exportText({ current: values.current === true, tx: values.tx === true })
     if (values.out === undefined) {

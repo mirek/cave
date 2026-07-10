@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
@@ -551,6 +551,37 @@ test('export --current --out backs up only current beliefs', () => {
     importCommand([backup, '--db', fresh])
     const state = queryCommand(['x HAS state: ?s', '--db', fresh])
     assert.equal(state.out, '?s = b\n')
+  })
+})
+
+test('export refuses --out that would overwrite the source database (export-clobbers-db)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'auth USES jwt\n')
+    addCommand([file, '--db', db])
+
+    const clobbered = exportCommand(['--db', db, '--out', db])
+    assert.equal(clobbered.code, 1)
+    assert.match(clobbered.err, /source database/)
+
+    // Equivalent spellings of the same path are caught too.
+    const cwd = process.cwd()
+    process.chdir(dir)
+    try {
+      assert.equal(exportCommand(['--db', db, '--out', 'k.db']).code, 1)
+      assert.equal(exportCommand(['--db', 'k.db', '--out', db]).code, 1)
+    } finally {
+      process.chdir(cwd)
+    }
+
+    // Links to the database file are caught by file identity.
+    const link = join(dir, 'link.db')
+    symlinkSync(db, link)
+    assert.equal(exportCommand(['--db', db, '--out', link]).code, 1)
+
+    // The store survives every refused attempt and still answers.
+    assert.equal(queryCommand(['auth USES ?x', '--db', db]).out, '?x = jwt\n')
   })
 })
 
