@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/highlight",
-  "version": "0.24.1",
+  "version": "0.24.2",
   "type": "module",
   "description": "CAVE syntax highlighting — web-tree-sitter over the @cavelang/tree-sitter-cave grammar, rendered to ANSI for terminals.",
   "license": "CC0-1.0",
@@ -14,7 +14,8 @@
     "node": ">=22.18"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts"
   },
   "files": [
     "dist",
@@ -31,6 +32,10 @@
       ".": {
         "types": "./dist/src/index.d.ts",
         "default": "./dist/src/index.js"
+      },
+      "./browser": {
+        "types": "./dist/src/browser.d.ts",
+        "default": "./dist/src/browser.js"
       }
     }
   },

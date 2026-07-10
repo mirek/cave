@@ -38,6 +38,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate tree-sitter artifacts
+        run: pnpm --filter @cavelang/tree-sitter-cave build
+
       - run: pnpm site:build
 
       - uses: actions/configure-pages@v5

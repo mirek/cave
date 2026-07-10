@@ -41,7 +41,7 @@ export const App = () => {
         <footer className="site-footer">
           <Logo />
           <p>Compressed Atomic Verb Expressions.<br />Knowledge that stays yours.</p>
-          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="https://github.com/mirek/cave">GitHub</a><span>v0.24.1</span></div>
+          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="https://github.com/mirek/cave">GitHub</a><span>v0.24.2</span></div>
         </footer>
       )}
     </div>

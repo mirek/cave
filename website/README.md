@@ -10,4 +10,7 @@ pnpm --filter @cavelang/website test
 
 Documentation pages import the repository's Markdown sources directly, so package docs and the website stay in sync. The playground aliases `node:sqlite` to a SQL.js adapter and runs the real parser, canonicalizer, store, and query packages against SQLite WebAssembly.
 
+CAVE examples and the playground editor are highlighted in-browser by the
+Tree-sitter WASM grammar and its shared `queries/highlights.scm` captures.
+
 `.github/workflows/pages.yml` publishes `website/dist` to GitHub Pages on changes to the site, packages, or documentation.

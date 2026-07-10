@@ -19,7 +19,7 @@ export const Docs = ({ slug, navigate }: { slug: string, navigate: (path: string
   return (
     <main className="docs-shell">
       <aside className="docs-sidebar">
-        <div className="docs-version"><span>Documentation</span><strong>v0.24.1</strong></div>
+        <div className="docs-version"><span>Documentation</span><strong>v0.24.2</strong></div>
         <label className="docs-search">
           <span aria-hidden="true">⌕</span>
           <input value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter documentation" />
@@ -48,7 +48,7 @@ export const Docs = ({ slug, navigate }: { slug: string, navigate: (path: string
         <div className="docs-eyebrow">CAVE / {doc.group}</div>
         <Markdown source={doc.source}>{doc.markdown}</Markdown>
         <footer className="docs-footer">
-          <span>Documentation for CAVE v0.24.1</span>
+          <span>Documentation for CAVE v0.24.2</span>
           <a href={`https://github.com/mirek/cave/edit/main/${doc.source}`} target="_blank" rel="noreferrer">Edit on GitHub ↗</a>
         </footer>
       </article>
