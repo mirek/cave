@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { docBySlug, docs } from '../content.ts'
 import { Markdown } from '../components/Markdown.tsx'
+import { Input } from '../components/ui/input.tsx'
 
 const groups = ['Learn', 'Reference', 'Integrations', 'Project'] as const
 
@@ -22,7 +23,7 @@ export const Docs = ({ slug, navigate }: { slug: string, navigate: (path: string
         <div className="docs-version"><span>Documentation</span><strong>v0.24.2</strong></div>
         <label className="docs-search">
           <span aria-hidden="true">⌕</span>
-          <input value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter documentation" />
+          <Input value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter documentation" />
         </label>
         <nav aria-label="Documentation">
           {groups.map(group => {
@@ -48,7 +49,7 @@ export const Docs = ({ slug, navigate }: { slug: string, navigate: (path: string
         <div className="docs-eyebrow">CAVE / {doc.group}</div>
         <Markdown source={doc.source}>{doc.markdown}</Markdown>
         <footer className="docs-footer">
-          <span>Documentation for CAVE v0.24.2</span>
+          <span>CAVE v0.24.2 documentation</span>
           <a href={`https://github.com/mirek/cave/edit/main/${doc.source}`} target="_blank" rel="noreferrer">Edit on GitHub ↗</a>
         </footer>
       </article>
