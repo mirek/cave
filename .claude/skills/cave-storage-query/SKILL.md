@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§26) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§27) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -420,6 +420,7 @@ SELECT name FROM alias_closure;
 
 The closure applies to entity positions only — values, attribute names
 and verbs are not entities (verb lifecycle is a separate concern).
+Finding the pairs worth linking is alias *discovery* (§27).
 
 ---
 
@@ -1011,3 +1012,132 @@ group key computed from `claim_key` (drop the negation element, filter
 row looked up by longest-prefix match over the declared-or-built-in
 entries. Retraction, negation and §12 filters then apply to the
 surviving winners exactly as they always did.
+
+---
+
+## 27. Alias Discovery
+
+§13.6 made merge and unmerge one-line appends; this section covers
+*finding* the pairs worth merging. Under LLM extraction the same person
+arrives as `maria`, `grandma-maria` and `Grandma_Maria` across batches —
+naming drift makes discovery, not merge mechanics, the entity-resolution
+bottleneck. Alias discovery is a **read** that proposes: it scores
+same-entity candidates by deterministic, explainable signals and emits
+*suggested* `ALIAS` claims at low confidence for review. It never merges
+anything itself, and it never re-opens a pair somebody decided.
+
+### 27.1 Candidates — who can be suggested
+
+Candidates are entity names appearing in current believed claims
+(subject or relation-object position). Never candidates:
+
+- verb tokens and literals — not entities (§13.6 carries the same rule);
+- system entities under `rule/`, `action/`, `source/` and `connect/`
+  (§24–§26, §23) and ingestion bookkeeping records (subjects carrying
+  `ingest-digest:`) — infrastructure, and digest-shaped names are
+  string-similar by construction.
+
+A pair is **excluded** — whatever the evidence — when:
+
+- any `ALIAS` row between the two names exists in the history, in either
+  direction and whatever its current state: positive (already merged),
+  negated (rejected) or retracted (deliberately unmerged). Review
+  decisions stick; re-runs never nag.
+- both names are already in one §13.6 closure group (transitively
+  merged);
+- a current claim relates the two directly (`a CALLS b`) — a claim
+  relating two names treats them as distinct entities;
+- one name is a scope prefix of the other (`auth` vs `auth/middleware`)
+  — a scope parent names a scope, not an alias.
+
+### 27.2 Evidence — signals and score
+
+Two signal families. **Generating** signals make a pair a candidate;
+the strongest one is the base score:
+
+| Signal | Score | Example |
+|---|---|---|
+| names equal ignoring case and separators | 1.0 | `Long-Street` / `long_street` |
+| same name segments, reordered | 0.9 | `maria-grandma` / `grandma-maria` |
+| one segment set inside the other (shorter ≥ 3 chars) | 0.7 | `maria` / `grandma-maria` |
+| one normalized name prefixes the other (shorter ≥ 4) | length ratio | `postgres` / `postgresql` → 0.8 |
+| edit similarity ≥ 0.75 (shorter ≥ 5) | similarity | `anlytics` / `analytics` → 0.89 |
+| a shared **rare textual** attribute value | 0.8 | both `HAS orcid: 0000-0002-1825` |
+
+Guards keep the signals honest: names differing **only in digits**
+(`api-v1` / `api-v2`) are versions, not drift — no prefix or edit
+signal; edit similarity requires the *differing segments* themselves to
+be spelling variants, so `grandma-mria` drifts but `north-tower` /
+`south-tower` (a differing word) does not; a shared value identifies
+only when it is textual (numeric values never do — two towers with the
+same height are not one tower), at least 4 characters, and carried by
+**exactly the two candidates** — a value shared more widely is a common
+category value (`status: active`), not an identity.
+
+**Boosting** signals strengthen a candidate but never create one:
+each shared relation neighbor — same verb, same other end, same side —
+adds 0.1 (at most 0.2). Topology alone must not suggest: siblings share
+both parents without being one person.
+
+The pair's score is the strongest generating signal plus boosts, capped
+at 1; pairs below the threshold (default **0.6**) are dropped.
+
+### 27.3 The suggested claim
+
+A suggestion is emitted as an ordinary `ALIAS` claim — no new syntax:
+
+```cave
+grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-maria
+```
+
+- Direction is a readability convention, not a semantic (§13.6 reads
+  `ALIAS` undirected): the better-established name — more current rows,
+  then the shorter, then lexicographic — is the object.
+- **Confidence is half the score**, clamped to 0.3–0.5: a suggestion is
+  a question, not an answer — never above 50%, and always inside the
+  §20.2 review band, so `cave check` surfaces pending suggestions.
+- The `#suggested` tag finds them (`byTag`, §13.5); the comment carries
+  the evidence.
+
+Discovery **emits text by default** — review it, edit it, pipe it into
+`cave add`. Opting into writing (`--write`) appends the suggestions
+stamped `@src:suggest/alias` (§9.5; root precedence class under §26.3 —
+declare `source/suggest HAS precedence:` to move the tier). A written
+pair has `ALIAS` history, so re-runs append nothing.
+
+One consequence stated honestly: a written suggestion is a current
+positive claim, and the §13.6 closure links on any positive confidence —
+belief is graded, and an opted-in `aliases` read honors a 35% link
+exactly as it honors a 100% one. Review is therefore part of the
+workflow, and both moves are one append:
+
+- **confirm** — assert the link yourself: `dupe ALIAS canonical`
+  (lands in the reviewer's own series, at full confidence);
+- **reject** — retract the *suggestion's* series:
+  `dupe ALIAS canonical @src:suggest/alias @ 0%`. Contexts are part of
+  claim identity (§9.2), so a plain `@ 0%` append would start a new
+  series and leave the suggested link standing — rejection must name
+  the suggestion's source context (§9.5's explicit-context supersede
+  path). Either way the pair stays decided and is never re-suggested.
+
+### 27.4 The judge — optional, out-of-band
+
+An LLM can filter candidates before a human sees them. Per §19.5 the
+model stays outside the language and the engine: the judge is a shell
+agent template (the `cave ingest` / `cave eval` `--agent` contract —
+prompt on stdin and `{prompt-file}`, reply on stdout). The prompt shows
+every suggestion with its evidence and each side's current claims; the
+reply is one JSON array of the suggestion numbers that really are the
+same entity (`[1, 3]`; `[]` for none). Replies parse leniently — the
+last well-formed array wins, out-of-range and duplicate entries drop —
+but agent *errors* propagate as failures. The judge filters; it never
+raises a confidence and never writes.
+
+### 27.5 Surfaces
+
+- `cave suggest-alias [--min <score>] [--limit <n>] [--agent <template>]
+  [--write] [--json]` — suggestions as CAVE text (default), JSON with
+  scores and signals, or appended claims;
+- `suggestAliases(store, { minScore?, limit? })`, `writeSuggestions`,
+  `judgePrompt` / `parseJudgeReply` — the same engine programmatically
+  (`@cavelang/shape`, beside the §20 health checks it feeds).

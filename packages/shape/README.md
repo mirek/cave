@@ -2,7 +2,8 @@
 
 Shape expectations and knowledge health (spec §20): schema as claims,
 checked against the store's own `EXTENDS` taxonomy — plus the read that
-looks at everything the append-only model keeps side by side.
+looks at everything the append-only model keeps side by side, and alias
+discovery (spec §27), which proposes what §13.6 should merge.
 
 Expectations are ordinary in-band claims on the `EXPECTS` meta-verb
 (standard prelude, §20.1):
@@ -56,6 +57,38 @@ including against expectations the text itself declares. Pre-existing
 violations never block: the gate compares, it does not demand a clean
 store. `cave add --check` is the first enforcement point; action
 preconditions reuse the same mechanism.
+
+## Alias discovery (§27)
+
+Under LLM extraction the same entity drifts across names; discovery
+finds the pairs, review decides them:
+
+```ts
+import { suggestAliases, writeSuggestions } from '@cavelang/shape'
+
+suggestAliases(store)
+// → [{ entity: 'grandma-maria', canonical: 'maria', score: 0.7,
+//      confidence: 0.35, signals: [{ kind: 'tokens', … }],
+//      line: 'grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-maria' }]
+
+writeSuggestions(store, suggestAliases(store))  // append, stamped @src:suggest/alias
+```
+
+- **Signals are deterministic and explainable** — normalized-name
+  equality, segment reorder/containment, prefixes, edit similarity
+  (with a differing-segments guard: `grandma-mria` drifts,
+  `north-tower`/`south-tower` doesn't), shared *rare* textual attribute
+  values; shared relation neighbors boost a candidate, never create one.
+- **Suggestions are questions**: confidence is `score/2` clamped to
+  0.3–0.5 — the §20.2 review band — and the evidence rides in the
+  line's comment.
+- **Decisions stick**: any recorded `ALIAS` history between two names
+  (merged, rejected `ALIAS NOT`, or unmerged `@ 0%`) excludes the pair,
+  as do closure-group membership, a direct relating claim, and
+  scope-parent names.
+- **The judge stays out-of-band** (§19.5): `judgePrompt(store,
+  suggestions)` / `parseJudgeReply(reply, count)` define the contract;
+  the CLI wires any shell agent to it (`cave suggest-alias --agent`).
 
 ## Design notes
 

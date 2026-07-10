@@ -19,7 +19,7 @@ Dependency order, bottom to top:
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
 | [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
 | [`@cavelang/query`](packages/query) | §12, §26 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching |
-| [`@cavelang/shape`](packages/shape) | §20 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating |
+| [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating; alias discovery (`suggestAliases` — string/graph similarity signals, suggested `ALIAS` claims in the review band, optional judge contract) |
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
@@ -30,7 +30,7 @@ Dependency order, bottom to top:
 | [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / export / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / suggest-alias / export / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -156,6 +156,18 @@ Package READMEs document local decisions; these are the global ones:
   ordinary CAVE lines about the entity `loop`) score either policy's
   reconstruction by claim key, answering queries from the reconstruction
   alone.
+- **Suggestions are questions, not merges** (§27): `@cavelang/shape`
+  proposes same-entity pairs from deterministic, explainable signals —
+  string similarity and exactly-two-carriers textual attribute values
+  generate, shared relation neighbors only boost (siblings share
+  parents) — and emits `dupe ALIAS canonical #suggested` at `score/2`
+  confidence clamped to the §20.2 review band (0.3–0.5). Text out by
+  default (review is a pipe into `cave add`); `--write` stamps
+  `@src:suggest/alias`. Any recorded `ALIAS` history between a pair —
+  merged, negated or retracted — excludes it, so review decisions stick
+  and written re-runs append nothing; the optional judge is the
+  ingest/eval shell-agent contract (§19.5), filtering candidates without
+  ever raising a confidence or writing.
 - **Resolution is a read mode; the policy is knowledge** (§26): contested
   facts — one fact asserted by several §9.5-forked series, or opposite
   polarity — group by claim key modulo `src:` contexts and negation

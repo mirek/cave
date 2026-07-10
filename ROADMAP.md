@@ -29,9 +29,10 @@ Summary of the gaps:
   (`cave ingest`) exists.
 - **Model** — storage, belief evolution, inverses, query, alias closure
   (0.6.0), shape expectations (0.8.0), as-of reconstruction (0.11.0),
-  and the contradiction-resolution policy (0.16.0, item 11 — human
-  corrections outrank ingest re-runs) exist and are CAVE's strongest
-  layer; alias *discovery* is missing.
+  the contradiction-resolution policy (0.16.0, item 11 — human
+  corrections outrank ingest re-runs) and alias discovery (0.18.0,
+  item 13 — `cave suggest-alias` finds what §13.6 merges) exist and
+  are CAVE's strongest layer.
 - **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
   tx watermark; named computation tools shipped in 0.17.0 (`cave_fuse`,
@@ -139,7 +140,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Verb lifecycle | adding verbs/inverses/topics is free, in-band | partial | *renaming/deprecating* a verb strands historical claims — needs a verb-alias / deprecation convention (entity `ALIAS` doesn't cover verbs) |
 | Shape polymorphism | `EXPECTS` binds shape declarations to the `EXTENDS` taxonomy (spec §20.1) | exists | shipped in 0.8.0 (item 3) |
 | Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreements surfaced by `cave check` since 0.8.0 (item 3) |
-| Entity resolution: match discovery | none | missing | candidate suggestion (`cave suggest-alias`) — under LLM extraction, naming drift makes *discovery*, not merge mechanics, the bottleneck |
+| Entity resolution: match discovery | `cave suggest-alias` (spec §27): string/graph similarity signals propose suggested `ALIAS` claims at review-band confidence; optional LLM judge; decided pairs never re-suggested | exists | shipped in 0.18.0 (item 13) |
 | As-of reconstruction | `cave query --as-of` (spec §12.3): current-belief resolution at a past date, timestamp or tx | exists | shipped in 0.11.0 (item 6) |
 | Contradiction-resolution policy | opt-in resolved reads (spec §26): precedence classes over §9.5 stamp families, in-band `source/<name>` reliability/precedence claims, longest-prefix specificity, tx tiebreak | exists | shipped in 0.16.0 (item 11); human corrections outrank ingest re-runs |
 | Source-span provenance | `@src:` names a source, file-level | partial | a `@src:file#L10-L20` span convention — cheap, and it lets a claim answer "which sentence produced you" |
@@ -288,8 +289,9 @@ extend an existing one.
 knowledge. The rules engine (item 7) shipped in 0.12.0, action templates
 (item 8) in 0.13.0, the evals harness (item 9) in 0.14.0, the LLM loop
 policy (item 10) in 0.15.0, the contradiction-resolution policy
-(item 11) in 0.16.0, named computation tools (item 12) in 0.17.0;
-alias discovery (item 13) is next.*
+(item 11) in 0.16.0, named computation tools (item 12) in 0.17.0,
+alias discovery (item 13) in 0.18.0 — phase 2 is complete; phase 3
+(store merge, item 14) is next.*
 
 7. **`@cavelang/rules` — implement Draft §17.4**, gated exactly as the
    spec demands (commitment follows the parser proving it out).
@@ -429,7 +431,25 @@ alias discovery (item 13) is next.*
     `store`): propose same-entity candidates by string/graph similarity,
     optional LLM judge, emitting *suggested* `ALIAS` claims at low
     confidence for human review — discovery is the bottleneck under LLM
-    naming drift.
+    naming drift. — **Shipped in 0.18.0** (spec §27, in
+    `@cavelang/shape` beside the §20 health checks it feeds): candidates
+    generate from string similarity (normalized equality, segment
+    reorder/containment, prefixes, edit distance with a
+    differing-segments guard so `north-tower`/`south-tower` sibling
+    naming never fires, digit-only differences read as versions) and
+    shared *rare* textual attribute values (carried by exactly the two
+    candidates — never numeric, never common category values); shared
+    relation neighbors boost but never generate (siblings share
+    parents). Suggestions are questions, not merges: `dupe ALIAS
+    canonical #suggested` at `score/2` confidence clamped to 0.3–0.5 —
+    inside `cave check`'s review band — printed as pipeable CAVE text by
+    default, appended stamped `@src:suggest/alias` under `--write`. A
+    pair with any recorded `ALIAS` history (merged, rejected or
+    unmerged), one closure group, a direct relating claim or a
+    scope-parent name is never suggested, so review decisions stick and
+    re-runs are idempotent; the optional `--agent` judge (the
+    ingest/eval shell contract, §19.5) filters candidates against each
+    side's current claims and replies with one JSON array.
 
 ### Phase 3 — distribution and the closed loop
 
