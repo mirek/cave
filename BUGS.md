@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## export-clobbers-db: export can overwrite and corrupt its source database
-
-- **Source:** Merged PR review [#2](https://github.com/mirek/cave/pull/2)
-- **Severity:** High
-- **Status:** Open
-- **Area:** `@cavelang/cli`
-- **Relevant file:** `packages/cli/src/cli.ts`
-
-### Summary
-
-`cave export --db knowledge.db --out knowledge.db` still calls `writeFileSync` on the open database path after reading it, replacing SQLite data with text. Equivalent paths and links are not checked.
-
-### Impact
-
-A backup command can destroy the source database.
-
-### Suggested fix
-
-Resolve and compare source/output identities before opening the output; reject identical paths and, where possible, equal inode/device pairs.
-
 ## src-stamp-bypass: `connect` record provenance can be bypassed by explicit `@src:` contexts
 
 - **Source:** GPT-5.5 Thinking; merged PR reviews [#13](https://github.com/mirek/cave/pull/13) and [#14](https://github.com/mirek/cave/pull/14)
@@ -607,6 +587,26 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## export-clobbers-db: export could overwrite and corrupt its source database
+
+- **Source:** Merged PR review [#2](https://github.com/mirek/cave/pull/2)
+- **Severity:** High
+- **Status:** Fixed in 0.24.2; regression test `export refuses --out that would overwrite the source database` in `packages/cli/test/cli.test.ts`
+- **Area:** `@cavelang/cli`
+- **Relevant file:** `packages/cli/src/cli.ts`
+
+### Summary
+
+`cave export --db knowledge.db --out knowledge.db` called `writeFileSync` on the open database path after reading it, replacing SQLite data with text. Equivalent paths and links were not checked.
+
+### Impact
+
+A backup command could destroy the source database.
+
+### Resolution
+
+`exportCommand` now compares the two paths before opening the store and fails with exit 1 (`--out '<path>' is the source database — refusing to overwrite it`) when they name the same file: equal once resolved against the working directory, or — when both exist — an equal device/inode pair, which also catches symlinks and hard links to the database.
 
 ## ci-releases-only: CI validates releases only, not normal pushes or pull requests
 
