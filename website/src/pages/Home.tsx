@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { CaveCode } from '../components/CaveCode.tsx'
+import { Badge } from '../components/ui/badge.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Card } from '../components/ui/card.tsx'
 
 const example = `PARENT-OF IS verb
 PARENT-OF REVERSE CHILD-OF
@@ -12,22 +15,22 @@ anna PARENT-OF me`
 const capabilities = [
   {
     number: '01',
-    title: 'Write what you know',
-    text: 'One atomic claim per line. Confidence, provenance, time, uncertainty, and relationships remain readable plain text.',
+    title: 'Represent atomic claims',
+    text: 'Each line records one claim. Relations, confidence, provenance, valid time, and uncertainty remain visible in the source text.',
     code: 'server IS NOT compromised @ 90%',
     language: 'cave',
   },
   {
     number: '02',
-    title: 'Keep every belief',
-    text: 'Append-only SQLite preserves how knowledge changes. Reconstruct what was believed at any transaction or valid-time boundary.',
+    title: 'Preserve revision history',
+    text: 'The SQLite store is append-only. Current beliefs and earlier states can be reconstructed without replacing the original records.',
     code: 'cave query "?x WORKS-AT ?where" --at 1960',
     language: 'shell',
   },
   {
     number: '03',
-    title: 'Ask the graph',
-    text: 'CAVE-Q handles inverse relations, transitive paths, aliases, uncertainty filters, and contradiction resolution.',
+    title: 'Query relationships',
+    text: 'CAVE-Q supports inverse relations, transitive paths, aliases, confidence filters, and contradiction resolution over the stored graph.',
     code: '?ancestor PARENT-OF+ me',
     language: 'cave-q',
   },
@@ -44,25 +47,23 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
   return (
     <main>
       <section className="hero">
-        <div className="hero-grid" aria-hidden="true" />
         <div className="hero-copy">
-          <div className="kicker"><i /> Knowledge infrastructure, without the infrastructure</div>
-          <h1>Knowledge,<br /><em>made durable.</em></h1>
+          <Badge variant="secondary">CAVE language and runtime</Badge>
+          <h1>A text format for durable, queryable knowledge.</h1>
           <p>
-            A compact language and local-first engine for knowledge that stays human-readable,
-            accumulates safely, and answers real questions.
+            CAVE represents knowledge as atomic claims in plain text, stores revisions in SQLite,
+            and queries relationships with CAVE-Q. The source remains readable without the runtime.
           </p>
           <div className="hero-actions">
-            <button className="button primary" onClick={() => navigate('playground')}>Open playground <span>↗</span></button>
-            <button className="button secondary" onClick={() => navigate('docs/overview')}>Read the docs <span>→</span></button>
+            <Button size="lg" onClick={() => navigate('playground')}>Run the playground</Button>
+            <Button size="lg" variant="outline" onClick={() => navigate('docs/overview')}>Read the documentation</Button>
           </div>
           <button className="install-command" onClick={copyInstall} aria-label="Copy install command">
             <span>$</span> pnpm add @cavelang/cli <b>{copied ? 'copied' : 'copy'}</b>
           </button>
         </div>
-        <div className="hero-console" aria-label="CAVE code example">
+        <Card className="hero-console" aria-label="CAVE code example">
           <div className="console-bar">
-            <div><i /><i /><i /></div>
             <span>family.cave</span>
             <small>plain text</small>
           </div>
@@ -70,67 +71,67 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
           <div className="query-result">
             <span>QUERY</span>
             <code>?ancestor PARENT-OF+ me</code>
-            <div><i /> 4 paths resolved in <b>0.8 ms</b></div>
+            <div>4 matches</div>
           </div>
-        </div>
+        </Card>
       </section>
 
       <section className="proof-strip" aria-label="Project attributes">
         <span>PLAIN TEXT</span><i />
-        <span>SQLITE NATIVE</span><i />
-        <span>LOCAL FIRST</span><i />
-        <span>LLM READY</span><i />
+        <span>SQLITE</span><i />
+        <span>APPEND-ONLY</span><i />
+        <span>TEMPORAL</span><i />
         <span>CC0</span>
       </section>
 
       <section className="manifesto">
-        <div className="section-label">THE PREMISE</div>
+        <div className="section-label">DESIGN</div>
         <div>
-          <h2>Your knowledge should<br />outlive its <em>tools.</em></h2>
+          <h2>Claims are the source of truth.</h2>
           <p>
-            CAVE stores facts as small, composable claims—not opaque embeddings or a platform-specific graph.
-            The source is text. The database is one file. The history is never overwritten.
+            CAVE stores small, composable claims rather than opaque vectors or platform-specific graph objects.
+            The source is text, the database is a SQLite file, and previous states remain available for inspection.
           </p>
         </div>
       </section>
 
       <section className="capabilities">
         {capabilities.map(item => (
-          <article key={item.number}>
+          <Card as={undefined} key={item.number} className="capability-card">
             <span>{item.number}</span>
             <h3>{item.title}</h3>
             <p>{item.text}</p>
             <code>{item.language === 'cave' ? <CaveCode code={item.code} /> : item.code}</code>
-          </article>
+          </Card>
         ))}
       </section>
 
       <section className="loop-section">
-        <div className="section-label">ONE COMPLETE LOOP</div>
+        <div className="section-label">RUNTIME</div>
         <div className="loop-copy">
-          <h2>From signal to<br /><em>accountable action.</em></h2>
-          <p>Ingest sources, model beliefs, derive conclusions, execute governed actions, and preserve why each result exists.</p>
-          <button className="text-link" onClick={() => navigate('docs/implementation')}>Explore the architecture <span>→</span></button>
+          <h2>A small, inspectable pipeline.</h2>
+          <p>Parse claims, preserve history, resolve current beliefs, run graph queries, and retain provenance for each result.</p>
+          <Button variant="link" onClick={() => navigate('docs/implementation')}>Read the implementation notes →</Button>
         </div>
-        <div className="loop-diagram" aria-label="Sense, model, conclude, act, trust">
-          {['Sense', 'Model', 'Conclude', 'Act', 'Trust'].map((label, index) => (
-            <div key={label} className={index === 1 ? 'active' : ''}>
+        <Card className="loop-diagram" aria-label="Parse, store, resolve, query, audit">
+          {['Parse', 'Store', 'Resolve', 'Query', 'Audit'].map((label, index) => (
+            <div key={label}>
               <span>{String(index + 1).padStart(2, '0')}</span>
               <strong>{label}</strong>
               {index < 4 && <i>→</i>}
             </div>
           ))}
-        </div>
+        </Card>
       </section>
 
-      <section className="cta">
+      <Card className="cta">
         <div>
-          <span>RUNS ENTIRELY IN YOUR BROWSER</span>
-          <h2>Enter the cave.</h2>
+          <Badge variant="outline">SQLite WebAssembly</Badge>
+          <h2>Use the browser playground.</h2>
         </div>
-        <p>Load a dataset, append claims, and run CAVE-Q against a real SQLite database compiled to WebAssembly.</p>
-        <button className="button primary dark" onClick={() => navigate('playground')}>Try it now <span>↗</span></button>
-      </section>
+        <p>Edit a sample dataset, rebuild the in-memory store, and execute CAVE-Q without sending data to a server.</p>
+        <Button size="lg" onClick={() => navigate('playground')}>Open playground</Button>
+      </Card>
     </main>
   )
 }
