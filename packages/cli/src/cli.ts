@@ -419,11 +419,20 @@ after a merge outsorts everything merged, whatever the origin machine's
 clock read (spec §28.2). An effective merge appends one record claim,
 stamped @src:sync — the sync log is its belief series.
 
+Branching (spec §28.6): commit the full annotated export — the text is
+the store — and rebuild working stores from it. A checkout is plumbing
+(--no-record); landing reviewed text into a live store is a real merge
+event (let it record). Never hand-merge exports: sync both sides into
+a fresh store and re-export — the union — which git can run for you as
+a merge driver on *.cave files.
+
 Examples:
   cave sync --db main.db laptop.db
   cave sync --db main.db laptop.db --dry-run --json
   cave export --db laptop.db --tx | cave sync --db main.db -
-  cave sync --db a.db b.db && cave sync --db b.db a.db   # converge both`,
+  cave sync --db a.db b.db && cave sync --db b.db a.db   # converge both
+  cave sync --db work.db knowledge.cave --no-record      # checkout (§28.6)
+  cave sync --db main.db knowledge.cave --as reorg-auth  # land the branch`,
 
   export: `cave export — emit canonical CAVE text from a store
 
@@ -444,7 +453,9 @@ Examples:
   cave export --db k.db
   cave export --db k.db --out backup.cave
   cave export --db k.db --current --out snapshot.cave
-  cave export --db k.db --tx | cave sync --db other.db -`,
+  cave export --db k.db --tx | cave sync --db other.db -
+  cave export --db work.db --tx --out knowledge.cave    # the committed,
+                                    # reviewable store text (spec §28.6)`,
 
   reconstruct: `cave reconstruct — active memory reconstruction from seed cues (spec §18)
 

@@ -111,6 +111,16 @@ export type EmitOptions = {
 /**
  * Emits a whole canonicalization result as canonical CAVE text: top-level
  * claims in claim order, children indented two spaces per level.
+ *
+ * Edges form a graph, text forms a tree, and the reconciliation is the
+ * *re-statement*: a claim's own children render exactly once — at its
+ * first appearance — and every later appearance (a row cited by several
+ * parents, §24.3 shared premises and `VIA` rules; or a §24.5 support
+ * cycle) is the claim line alone, restating the row to carry that one
+ * edge. With annotations the repeats share one id, so replay unions them
+ * back into a single row (§28.4); a component with no top-level member
+ * (a pure cycle) is emitted from its first claim, the cycle breaking at
+ * the re-statement.
  */
 export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, options: EmitOptions = {}): string => {
   const childEdges = new Map<number, Canonicalize.Edge[]>()
@@ -125,6 +135,7 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
     }
   }
   const lines: string[] = []
+  const expanded = new Set<number>()
   const emitAt = (index: number, depth: number, role: undefined | Canonicalize.EdgeRole): void => {
     const { claim } = result.claims[index]!
     const indent = '  '.repeat(depth)
@@ -137,12 +148,21 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
     } else {
       lines.push(`${indent}${role} ${conditionText(claim)}`)
     }
+    if (expanded.has(index)) {
+      return
+    }
+    expanded.add(index)
     for (const edge of childEdges.get(index) ?? []) {
       emitAt(edge.child, depth + 1, edge.role)
     }
   }
   result.claims.forEach((_, index) => {
     if (!isChild.has(index)) {
+      emitAt(index, 0, undefined)
+    }
+  })
+  result.claims.forEach((_, index) => {
+    if (!expanded.has(index)) {
       emitAt(index, 0, undefined)
     }
   })

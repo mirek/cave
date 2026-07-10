@@ -77,6 +77,19 @@ echo "==> cave sync merges stores by row identity (spec §28)"
   echo "error: annotated text sync lost derived knowledge" >&2
   exit 1
 }
+echo "==> branching convention: checkout, work, review diff, landing (spec §28.6)"
+"$cave" export --db "$tmp/family.db" --tx --out "$tmp/knowledge.cave"
+"$cave" sync --db "$tmp/work.db" "$tmp/knowledge.cave" --no-record >/dev/null
+printf 'branch-note IS smoke-test\n' | "$cave" add --db "$tmp/work.db" >/dev/null
+"$cave" export --db "$tmp/work.db" --tx --out "$tmp/reviewed.cave"
+head -c "$(wc -c < "$tmp/knowledge.cave")" "$tmp/reviewed.cave" | cmp -s - "$tmp/knowledge.cave" || {
+  echo "error: the branch export does not extend the committed text" >&2
+  exit 1
+}
+"$cave" sync --db "$tmp/family.db" "$tmp/reviewed.cave" --as work | grep -q 'merged 1 claim(s)' || {
+  echo "error: landing the reviewed text did not merge exactly the branch appends" >&2
+  exit 1
+}
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

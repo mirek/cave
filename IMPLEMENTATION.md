@@ -24,7 +24,7 @@ Dependency order, bottom to top:
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
-| [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule |
+| [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule, re-statement replay and the §28.6 branching convention (text under git, checkout/land by sync, union merge driver) |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` are named computation (§10.1 fusion, §24 derivation — ROADMAP item 12); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
@@ -195,6 +195,16 @@ Package READMEs document local decisions; these are the global ones:
   effective); text interchange carries identity through `;@ <tx>` comment
   lines (`cave export --tx`), transparent to the grammar, strict on
   replay (`cave sync`), and gracefully ordinary under plain `cave import`.
+  Edges form a graph and text a tree, reconciled by *re-statements*: the
+  emitter renders a row's children once and re-states the claim line
+  alone (same annotation) under each further citing parent — shared
+  premises, a rule's `VIA` row, §24.5 support cycles — and replay unions
+  identical re-statements back into one row while conflicting repeats
+  reject whole. The §28.6 branching convention rides on this with no new
+  surface: the committed `--tx` export is the store, working stores
+  rebuild by `--no-record` sync (a checkout is plumbing, landing is a
+  recorded merge), review is the export diff, and text-level git
+  conflicts re-export as the union (documented merge driver).
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

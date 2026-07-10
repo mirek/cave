@@ -52,14 +52,56 @@ cave sync --db main.db laptop.db --dry-run --json
   existing reader takes the file unchanged and plain `cave import`
   degrades to an ordinary tx-less replay; `syncText` replays each line
   under its recorded id — and is strict about it (every claim annotated,
-  no repeated ids, no orphaned annotations), because a half-annotated
-  file would merge half idempotently and duplicate the rest.
+  no orphaned annotations, no id repeated with different content),
+  because a half-annotated file would merge half idempotently and
+  duplicate the rest.
+- **Re-statements make the tree carry the graph.** A row cited by
+  several parents — a premise shared by two derivations, the `VIA` rule
+  row every derivation of one rule shares (§24.3), a §24.5 support
+  cycle — renders its children once and thereafter re-appears as the
+  claim line alone under each citing parent, same `;@` id. On replay an
+  identical repeat unions back into one row, each statement contributing
+  its edge; a conflicting repeat rejects the file whole.
 
 The same fact recorded independently on both machines arrives as two
 rows in one belief series — asserted twice, which is what happened.
 Query semantics do not change: current belief is still latest-tx per
 key, `--as-of` reconstructs across merged history, and `--resolve`
 arbitrates cross-actor contests exactly as within one store.
+
+## Branching (§28.6)
+
+The convention that turns these mechanics into a review workflow: the
+**text is the store** — commit the full annotated export, never the
+SQLite file — and a branch is a git branch plus a private store rebuilt
+from it:
+
+```sh
+cave export --db main.db --tx --out knowledge.cave     # regenerate before every commit
+git switch -c reorg-auth
+cave sync --db work.db knowledge.cave --no-record      # checkout: plumbing, no record
+cave add --db work.db …                                # ordinary appends
+cave export --db work.db --tx --out knowledge.cave     # the PR diff = the appended claims
+```
+
+Rows are immutable and export order is transaction order, so review
+diffs only add lines (a derivation may *move* the premise lines it
+cites into its indented block — verbatim, annotations included). A
+knowledge merge can never conflict; a *text* merge can, and the answer
+is never to hand-merge: sync both sides into a fresh store and
+re-export the union — configurable as a git merge driver
+(`.gitattributes`: `*.cave merge=cave`):
+
+```ini
+[merge "cave"]
+	name = CAVE store union
+	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --out $1 && rm -rf $t' - %A %B
+```
+
+Landing is a sync — `cave sync --db main.db knowledge.cave --as
+reorg-auth` — and this one is a real merge event: let it record. The
+honest cost: every branch is a full copy of the store; fine at CAVE's
+scale, and stated rather than hidden.
 
 ## API
 

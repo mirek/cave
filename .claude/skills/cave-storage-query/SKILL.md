@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§28) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§28) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1265,10 +1265,24 @@ annotated with a well-formed UUIDv7 — a half-annotated file would merge
 half a store idempotently and duplicate the rest on every re-run, so it
 is rejected whole (use `cave import` for plain text).
 
+Edges form a graph; text forms a tree. The reconciliation is the
+**re-statement**: the emitter renders a row's own children exactly once
+— at its first appearance — and every further appearance (a premise row
+cited by several derivations, the `VIA` rule row every derivation of
+one rule shares, §24.3; a §24.5 support cycle, which has no top-level
+member at all) is the claim line alone under the citing parent,
+carrying that one edge and the same `;@` id. On replay a repeated id
+whose content matches is the same row re-stated — it unions back into
+one row (the §28.1 rule applied within a file), each statement
+contributing its edge — while a repeated id with *different* content
+forks identity and rejects the file whole. Under plain `cave import`
+a re-statement degrades to the same claim asserted twice: two rows in
+one belief series, which §9.4 already makes legal.
+
 A `--current` export with `--tx` is a *seed*: a snapshot whose rows
 keep their identity, so a store grown from it merges back into the
-original without duplication — the branch-and-merge workflow's opening
-move.
+original without duplication — the branching convention's (§28.6)
+opening move for a working copy that doesn't need the past.
 
 ### 28.5 Surfaces
 
@@ -1292,3 +1306,88 @@ Merging with the query layer: nothing changes. Current belief stays
 history (§12.3, boundaries compare origin timestamps), and resolution
 (§26) arbitrates cross-actor contests exactly as before — the policy,
 not the merge, decides who outranks whom.
+
+### 28.6 The branching convention (non-normative)
+
+§28.1–§28.4 are mechanics; this section is the workflow they compose
+into — how a store branches, gets reviewed, and merges, with git doing
+what git already does. Nothing here adds semantics or surface; it
+fixes the moves so tooling and habits agree.
+
+**The text is the store.** What enters version control is the full
+annotated export — `cave export --tx > knowledge.cave` — never the
+SQLite file. The §28.4 round trip is complete (rows, contexts, tags,
+edges, in-band declarations, transaction identity), so the committed
+text *is* a replica: anyone rebuilds a working store from it with one
+sync into a fresh file. The file is generated — regenerate it before
+every commit, never edit it by hand.
+
+**A branch is a git branch plus a private store file.** Opening one
+is a checkout, not a merge event, so rebuild with `--no-record` —
+plumbing appends no bookkeeping:
+
+```sh
+git switch -c reorg-auth
+cave sync --db work.db knowledge.cave --no-record
+```
+
+(`cave export --tx --current` seeds a *lighter* working copy —
+current beliefs only, history left behind — when the branch doesn't
+need the past; it merges back identically.) Work is then ordinary
+appends — `cave add`, `cave derive`, `cave act` — and the §28.2
+receive rule guarantees everything appended on the branch outsorts
+everything seeded, whatever machine the seed came from.
+
+**Review is the diff of the export.** Re-export before committing —
+`cave export --db work.db --tx > knowledge.cave` — and the PR diff is
+the appended claims, annotations included: claim rows are immutable
+and export order is transaction order, so a later export never
+rewrites or reorders the lines an earlier one contained. One
+presentational exception, stated honestly: §24.3 lineage rendering
+nests a premise line under the first conclusion that cites it, so a
+derivation *moves* the lines it consumed into its indented block —
+verbatim, annotation and all (further citations only add §28.4
+re-statements) — and the diff shows that move.
+
+**Merge is union; conflicts dissolve.** A *knowledge* merge can never
+conflict: rows union by identity (§28.1), contradictory claims
+legally coexist (§9.4) and resolve at read time (§26). A *text* merge
+can — two branches appending at the file's end collide in git. Never
+hand-merge the export; rebuild it as the union the two texts already
+are:
+
+```sh
+t=$(mktemp -d)
+cave sync --db $t/m.db ours.cave --no-record
+cave sync --db $t/m.db theirs.cave --no-record
+cave export --db $t/m.db --tx --out knowledge.cave
+```
+
+Git can run that as a merge driver (`.gitattributes`:
+`*.cave merge=cave`):
+
+```ini
+[merge "cave"]
+	name = CAVE store union
+	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --out $1 && rm -rf $t' - %A %B
+```
+
+The ancestor (`%O`) is deliberately unused: union by identity needs
+no three-way — full annotated exports never lose a row; a line only
+ever gains siblings or moves into the block that first cites it.
+
+**Landing is a sync.** After the PR merges, any live store absorbs
+the merged text — `cave sync --db main.db knowledge.cave --as
+reorg-auth` — present rows skip, the branch's appends arrive, and
+this one *is* a merge event: let it record (§28.3); the sync log is
+the distribution history. Refreshing a stale branch is the same move
+pointed the other way, as a checkout: `git show
+origin/main:knowledge.cave | cave sync --db work.db - --no-record`,
+then re-export.
+
+**Costs, stated honestly.** A branch is a full copy of the store —
+no shared structure, no copy-on-write; a thousand cheap branches is a
+git workflow, not a CAVE one. Divergence between the committed text
+and anyone's live store is bounded by the next sync, not prevented.
+Both are the right trade at CAVE's scale: one machine, one SQLite
+file, plain text as the escape hatch.
