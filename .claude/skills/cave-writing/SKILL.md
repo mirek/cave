@@ -1,6 +1,6 @@
 ---
 name: cave-writing
-description: CAVE language reference (spec §3–§8, §11, §16, §22) — syntax, lexical rules, verbs and REVERSE inverses, metadata qualifiers, values/units/uncertainty, indentation and continuation, tags and topics, normative grammar. Use when writing, reviewing, emitting, or parsing CAVE lines, or when spec sections in that range are referenced.
+description: CAVE language reference (spec §3–§8, §11, §16, §22) — syntax, lexical rules, verbs and REVERSE inverses, metadata qualifiers, values/units/uncertainty, trajectory values (A -> B) and time contexts, indentation and continuation, tags and topics, normative grammar. Use when writing, reviewing, emitting, or parsing CAVE lines, or when spec sections in that range are referenced.
 ---
 
 # CAVE — Writing the Language
@@ -155,6 +155,7 @@ Outside quotes and backticks:
 | `!` | important |
 | `:` | attribute/value separator (payload); key/value separator (inside a tag) |
 | `~` | approximate value prefix |
+| `->` | trajectory separator between two numeric endpoints, value position only (§32.3) |
 
 If an object must contain these literally, quote it or use backticks.
 
@@ -397,6 +398,11 @@ Recommended context prefixes:
 
 Bare contexts are allowed: `memory-leak EXISTS @production`. Multiple contexts per claim are allowed.
 
+A bare or `@time:`-prefixed date-like context is a **time context** —
+`@2025`, `@2026-Q1`, and ranges `@2025..2028` / `@..2025` / `@2026..` —
+interpreted by valid-time queries (§32.2); every other context is
+opaque scope text.
+
 Append surfaces auto-stamp actor provenance onto claims that carry no `@src:` context — `@src:cli`, `@src:agent/<client>`, `@src:ingest/<digest>` (§9.5); a written `@src:` always wins over the stamp.
 
 The **episodic/semantic distinction stays implicit**: episodes are just claims with `@time:` / `@src:` contexts; semantic knowledge is claims without event anchoring. No explicit layering — a deliberate rejection of added machinery (§19.3).
@@ -473,6 +479,8 @@ Rules:
 - `%` is a unit
 - `~` prefix means approximate: `~20B USD/yr`, `~30ms`
 - `@timestamp` is a context (when the measurement applies), not a unit
+- `A -> B unit` is a trajectory — two endpoints, one shared unit,
+  linear interpolation over a time-range context (§32.3)
 
 Standard units:
 
@@ -702,11 +710,13 @@ confidence    = "@" space percentage ;                (* space after @ *)
 importance    = "!" ;
 comment       = space ";" text ;
 
-value         = [ "~" ] number [ multiplier ] [ unit_expr ]
+value         = [ "~" ] numeric [ space "->" space numeric ]   (* two numerics: trajectory, §32.3 *)
               | date_like
               | atom
               | literal
               | code_literal ;
+
+numeric       = number [ multiplier ] [ unit_expr ] ;
 
 unit_expr     = unit { "/" unit } ;
 

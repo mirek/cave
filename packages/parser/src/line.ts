@@ -186,7 +186,9 @@ const splitAtMeta = (tokens: readonly Token[]): { payload: readonly Token[], met
  *
  * - `attr: value` — attribute claim; the colon is canonical (spec §3.4)
  * - legacy colonless `HAS attr value` when the value is numeric/date-like
- * - numeric/date value — metric claim (`latency IS 30ms`; also the shape a
+ *   or a trajectory (spec §32.3)
+ * - numeric/date/trajectory value — metric claim (`latency IS 30ms`,
+ *   `db/query-time IS 5ms -> 800ms @2026-04-10..04-11`; also the shape a
  *   comparison condition canonicalizes to, e.g. `load EXCEEDS 1000 req/s`,
  *   which keeps `WHERE value > …` filters queryable, spec §12.2)
  * - empty — bare existence, `EXISTS` only
@@ -224,7 +226,7 @@ const parsePayload = (verb: string, tokens: readonly Token[]): Result<Claim.Payl
   }
   if (verb === 'HAS' && rest.length > 0 && head!.kind === 'word') {
     const value = valueOf(rest)
-    if (value !== undefined && (value.kind === 'number' || value.kind === 'date')) {
+    if (value !== undefined && (value.kind === 'number' || value.kind === 'date' || value.kind === 'trajectory')) {
       return ok(
         Claim.attribute(head!.text, value),
         [`legacy colonless attribute form; canonical is "${head!.text}: ${value.raw}" (spec §3.4)`]
@@ -233,7 +235,7 @@ const parsePayload = (verb: string, tokens: readonly Token[]): Result<Claim.Payl
   }
   {
     const value = valueOf(tokens)
-    if (value !== undefined && (value.kind === 'number' || value.kind === 'date')) {
+    if (value !== undefined && (value.kind === 'number' || value.kind === 'date' || value.kind === 'trajectory')) {
       return ok(Claim.metric(value))
     }
   }

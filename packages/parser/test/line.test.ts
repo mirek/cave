@@ -85,6 +85,33 @@ test('metric claim: IS + numeric value (spec §3.1)', () => {
   assert.equal(claim('free-user-rate IS 94.5%').value.payload.kind, 'metric')
 })
 
+test('metric claim: IS + trajectory value (spec §32.3)', () => {
+  const revenue = claim('revenue IS 20B -> 40B USD/yr @2025..2028').value
+  assert.equal(revenue.payload.kind, 'metric')
+  if (revenue.payload.kind === 'metric') {
+    assert.equal(revenue.payload.value.kind, 'trajectory')
+    assert.equal(revenue.payload.value.from, 20_000_000_000)
+    assert.equal(revenue.payload.value.to, 40_000_000_000)
+    assert.equal(revenue.payload.value.unit, 'USD/yr')
+    assert.equal(revenue.payload.value.raw, '20B -> 40B USD/yr')
+  }
+  assert.deepEqual(revenue.meta.contexts, ['2025..2028'])
+})
+
+test('attribute claim: trajectory value (spec §32.3)', () => {
+  const headcount = claim('acme HAS headcount: 100 -> 400 @2025..2027').value
+  assert.equal(headcount.payload.kind, 'attribute')
+  if (headcount.payload.kind === 'attribute') {
+    assert.equal(headcount.payload.value.kind, 'trajectory')
+    assert.equal(headcount.payload.value.from, 100)
+    assert.equal(headcount.payload.value.to, 400)
+  }
+})
+
+test('an arrow between non-numeric words stays a relational phrase', () => {
+  assert.equal(claim('pipeline YIELDS extract -> load').value.payload.kind, 'relation')
+})
+
 test('IS + atom stays relational (spec §5.1: jwt IS token-format)', () => {
   assert.equal(claim('jwt IS token-format').value.payload.kind, 'relation')
   assert.equal(claim('server IS production').value.payload.kind, 'relation')

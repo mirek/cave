@@ -134,6 +134,29 @@ test('query --as-of resolves beliefs at a past tx (spec §12.3)', () => {
   })
 })
 
+test('query --at anchors in valid time and interpolates trajectories (spec §32.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'revenue IS 20B -> 40B USD/yr @2025..2028',
+      'alice WORKS-AT acme @2020..2023',
+      'alice WORKS-AT initech @2024..'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+    // 2026-07-02T12:00Z is the exact midpoint of 2025-01-01..2028-01-01.
+    const mid = queryCommand(['revenue IS', '--db', db, '--at', '2026-07-02T12:00:00Z'])
+    assert.equal(mid.code, 0)
+    assert.match(mid.out, /revenue IS 20B -> 40B USD\/yr @2025\.\.2028 ; at 2026-07-02T12:00:00Z: 30B USD\/yr/)
+    assert.equal(queryCommand(['revenue IS', '--db', db, '--at', '2024']).out, 'no matches\n')
+    assert.equal(queryCommand(['alice WORKS-AT ?org', '--db', db, '--at', '2021']).out, '?org = acme\n')
+    assert.equal(queryCommand(['alice WORKS-AT ?org', '--db', db, '--at', '2026']).out, '?org = initech\n')
+    const invalid = queryCommand(['revenue IS', '--db', db, '--at', 'someday'])
+    assert.equal(invalid.code, 1)
+    assert.match(invalid.err, /at anchor/)
+  })
+})
+
 test('query --resolve matches winners only — a cli correction survives the re-run (spec §26.4)', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')

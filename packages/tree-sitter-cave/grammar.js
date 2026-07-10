@@ -79,8 +79,13 @@ module.exports = grammar({
       field('value', choice($.value, $._term))
     ),
 
-    // `20B USD/yr`, `30ms`, `~1000 req/s`, `2026-Q1` — number then unit (§7.1).
-    value: $ => seq($.number, optional(alias($.entity, $.unit))),
+    // `20B USD/yr`, `30ms`, `~1000 req/s`, `2026-Q1` — number then unit
+    // (§7.1) — optionally `-> number [unit]`, a trajectory (§32.3).
+    value: $ => prec.right(seq(
+      $.number,
+      optional(alias($.entity, $.unit)),
+      optional(seq('->', $.number, optional(alias($.entity, $.unit))))
+    )),
 
     object: $ => choice(
       $.string,

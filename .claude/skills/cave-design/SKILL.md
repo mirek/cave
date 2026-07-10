@@ -134,7 +134,7 @@ app CAUSE crash @hyp:deadlock @ 30%
 
 ## 17. Draft Layer — Unified Grammar (Variables, Reification, Rules, Temporal)
 
-**Status: Draft, except §17.4.** Fully designed; a PEG specification, `peggy` grammar file, and TypeScript AST/evaluator skeleton exist. Commitment is gated on the parser implementation proving the pieces out — and the **rules subset (§17.4) passed that gate in 0.12.0**: `@cavelang/rules` parses and fires `premises => conclusion` lines, with the committed semantics (in-band storage, `BECAUSE`/`VIA` lineage, noisy-AND confidence, watermark incrementality, well-founded support) normative as spec §24 (`cave-storage-query` skill). Reification (§17.3), temporal values (§17.5) and variables in ordinary claim lines remain Draft. Nothing here invalidates any normative line above.
+**Status: Draft, except §17.4 and the §17.5 layer-2 subset.** Fully designed; a PEG specification, `peggy` grammar file, and TypeScript AST/evaluator skeleton exist. Commitment is gated on the parser implementation proving the pieces out — the **rules subset (§17.4) passed that gate in 0.12.0**: `@cavelang/rules` parses and fires `premises => conclusion` lines, with the committed semantics (in-band storage, `BECAUSE`/`VIA` lineage, noisy-AND confidence, watermark incrementality, well-founded support) normative as spec §24 (`cave-storage-query` skill) — and **temporal layer 2 (§17.5) passed it in 0.24.0**: trajectory values and time-range contexts with interpolation in query, normative as spec §32. Reification (§17.3), temporal layer 3 (`(t -> expr)` functions) and variables in ordinary claim lines remain Draft. Nothing here invalidates any normative line above.
 
 ### 17.1 The binding-state insight
 
@@ -194,6 +194,8 @@ Left side: comma-separated conjunction of patterns. Right side: the asserted tri
 ```
 
 ### 17.5 Temporal values — three layers
+
+**Layers 1–2 committed as spec §32** (the `cave-storage-query` skill) and implemented by `@cavelang/core`/`query` / `cave query --at` in 0.24.0; layer 3 remains Draft. The text below is the original design sketch.
 
 Progressive complexity; most claims never leave Layer 1.
 

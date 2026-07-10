@@ -42,6 +42,8 @@ export type ReportOptions = {
   readonly resolve?: boolean
   /** Queries resolve beliefs as of a past moment (spec §12.3). */
   readonly asOf?: string
+  /** Queries anchor in valid time (spec §32.4): time-scoped claims filter, trajectories interpolate. */
+  readonly at?: string
 }
 
 export type Report = {
@@ -250,7 +252,8 @@ export const report = (store: Store, template: string, options: ReportOptions = 
         return query(store, queryText, {
           ...options.aliases === true ? { aliases: true } : {},
           ...options.resolve === true ? { resolve: true } : {},
-          ...options.asOf === undefined ? {} : { asOf: options.asOf }
+          ...options.asOf === undefined ? {} : { asOf: options.asOf },
+          ...options.at === undefined ? {} : { at: options.at }
         })
       } catch (error) {
         problems.push({ line, message: error instanceof Error ? error.message : String(error) })

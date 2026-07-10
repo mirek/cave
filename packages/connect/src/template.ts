@@ -146,7 +146,7 @@ export const formatValue = (value: unknown, position: 'subject' | 'payload'): Fo
   }
   if (position === 'payload') {
     const parsed = Value.parse(text)
-    if (parsed.kind === 'number' || parsed.kind === 'date') {
+    if (parsed.kind === 'number' || parsed.kind === 'date' || parsed.kind === 'trajectory') {
       return { kind: 'ok', text }
     }
   }

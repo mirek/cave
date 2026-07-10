@@ -128,6 +128,23 @@ The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts
 
 The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it).
 
+**Time is an axis of the world, not just of the store.** Transaction time — when the store learned something — is reconstructable with `--as-of`. Claims can also say *when in the world* they hold (spec §32): a date-like context scopes a claim to a period or range, and a trajectory value (`A -> B`) interpolates linearly across its range:
+
+```
+$ printf '%s\n' 'jan WORKS-AT textile-mill @1950..1974' \
+    'jan WORKS-AT railways @1975..' \
+    'mill/wage IS 200 -> 900 PLN/mo @1950..1974' | pnpm exec cave add --db family.db
+added 3 claim(s), 0 edge(s)
+
+$ pnpm exec cave query --db family.db 'jan WORKS-AT ?where' --at 1960
+?where = textile-mill
+
+$ pnpm exec cave query --db family.db 'mill/wage IS' --at 1962
+mill/wage IS 200 -> 900 PLN/mo @1950..1974 ; at 1962: 550 PLN/mo
+```
+
+Timeless claims (most knowledge) always match; time-scoped claims filter by coverage; trajectories evaluate at the instant. And because `--at` (valid time) composes with `--as-of` (belief time), "what did we believe last year about 1962?" is one query — bitemporal questions fall out of two orthogonal flags. See spec §32.
+
 ### Let an LLM write the claims — `cave ingest`
 
 The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) or web pages (URLs are fetched and readability-extracted) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
@@ -406,7 +423,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (temporal values), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists (every numbered roadmap item has shipped), the remaining partial edges, and the open design decisions along the way.
 
 ## Development
 
@@ -424,9 +441,9 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 
 | Skill | Sections | Covers |
 |---|---|---|
-| [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
+| [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, trajectories & time contexts, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§31 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§32 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports, temporal values & valid time |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

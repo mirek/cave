@@ -3,9 +3,11 @@
  *
  * Patterns run over *current beliefs* by default — the latest transaction
  * per claim key (spec §9.1) — pass `all` to match the full history,
- * `asOf` to resolve the belief state at a past moment (spec §12.3), or
+ * `asOf` to resolve the belief state at a past moment (spec §12.3),
  * `resolve` to match only the winners the §26 contradiction-resolution
- * policy picks among contested facts.
+ * policy picks among contested facts, or `at` to anchor in valid time
+ * (spec §32.4): claims whose time contexts don't cover the instant drop
+ * out and trajectory values interpolate.
  * Inverse verbs compile to the same physical query as their primary
  * (spec §12.1): `?x PART-OF monorepo` and `monorepo CONTAINS ?x` produce
  * identical SQL against canonical rows, with the pattern's subject binding
@@ -15,16 +17,23 @@
  * CTE over current, positive, non-retracted edges (depth-capped at 32).
  */
 
-import { Uuidv7, Value } from '@cavelang/core'
+import { Time, Uuidv7, Value } from '@cavelang/core'
 import { Registry } from '@cavelang/canonical'
-import { Resolve } from '@cavelang/store'
-import type { Row, Store } from '@cavelang/store'
+import { Resolve, Row } from '@cavelang/store'
+import type { Store } from '@cavelang/store'
 import * as Pattern from './pattern.ts'
 
 /** One query solution: variable bindings plus the matched row (absent for transitive hops). */
 export type Match = {
   readonly bindings: Readonly<Record<string, string>>
   readonly row?: Row.t
+  /**
+   * The row's trajectory value evaluated at the query's `at` instant by
+   * linear interpolation (spec §32.3) — present only when `at` is set,
+   * the row's value is a trajectory and its contexts carry exactly one
+   * closed time range. `text` is canonical CAVE value text.
+   */
+  readonly at?: { readonly num: number, readonly unit?: string, readonly text: string }
 }
 
 export type Options = {
@@ -57,6 +66,20 @@ export type Options = {
    * and policy reconstruct at the boundary); incompatible with `all`.
    */
   readonly resolve?: boolean
+  /**
+   * Valid-time anchor (spec §32.4): a date-like period — read as its
+   * start instant — or a timestamp. Claims whose time contexts (bare or
+   * `time:`-prefixed date-like points and `..` ranges, spec §32.2) do
+   * not cover the instant are invisible; timeless claims always match.
+   * A matched trajectory value with one closed range context evaluates
+   * by linear interpolation at the instant, surfacing as the match's
+   * `at` and substituting into value-slot bindings. Orthogonal to
+   * `asOf`: `asOf` picks which rows are believed (transaction time),
+   * `at` picks when in the world the claims apply (valid time) — set
+   * both for "what did we believe then about that moment". Transitive
+   * patterns reject `at` (hop edges are not valid-time filtered).
+   */
+  readonly at?: string
 }
 
 /**
@@ -152,6 +175,8 @@ type Compiled = {
   readonly params: (string | number)[]
   readonly bind: (row: Record<string, unknown>) => Record<string, string>
   readonly transitive: boolean
+  /** Variables bound to the value slot — interpolation substitutes these (spec §32.4). */
+  readonly valueVars: readonly string[]
 }
 
 const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
@@ -341,7 +366,10 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, pol
     }
     return bindings
   }
-  return { sql, params, bind, transitive: false }
+  const valueVars = [...varColumns]
+    .filter(([, columns]) => columns[0] === 'value_text')
+    .map(([name]) => name)
+  return { sql, params, bind, transitive: false, valueVars }
 }
 
 const compileTransitive = (
@@ -407,7 +435,7 @@ ORDER BY h.src, h.dst`
     }
     return bindings
   }
-  return { sql, params, bind, transitive: true }
+  return { sql, params, bind, transitive: true, valueVars: [] }
 }
 
 /**
@@ -424,18 +452,57 @@ export const query = (store: Store, input: string, options: Options = {}): Match
   match(store, Pattern.parse(input), options)
 
 /**
+ * The row's trajectory value evaluated at the instant (spec §32.3):
+ * linear interpolation over the single closed time-range context, with
+ * endpoint values anchored at the range periods' start instants and the
+ * end value held through the end period's tail.
+ */
+const evaluateAt = (
+  row: Record<string, unknown>,
+  contexts: readonly string[],
+  instant: number
+): undefined | Match['at'] => {
+  const valueText = row['value_text']
+  if (typeof valueText !== 'string') {
+    return undefined
+  }
+  const value = Row.parseValue(valueText)
+  if (value.kind !== 'trajectory') {
+    return undefined
+  }
+  const range = Time.closedRangeOf(contexts)
+  if (range === undefined) {
+    return undefined
+  }
+  const fraction = Time.fractionAt(range, instant)
+  return {
+    num: Value.interpolate(value, fraction)!,
+    text: Value.formatAt(value, fraction)!,
+    ...value.unit === undefined ? {} : { unit: value.unit }
+  }
+}
+
+/**
  * Runs an already-parsed pattern against a store — the programmatic
  * entry point for callers that build or specialize patterns as values
  * (the §24 rules engine substitutes bindings into premise patterns
  * between joins) rather than as text.
  */
 export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] => {
+  const instant = options.at === undefined ? undefined : Time.parseInstant(options.at)
+  if (options.at !== undefined && instant === undefined) {
+    throw new Error(
+      `CAVE-Q: cannot parse at anchor ${JSON.stringify(options.at)} — a date-like period or a timestamp (spec §32.4)`)
+  }
   // The effective policy is read per query so an as-of query reads the
   // in-band declarations as of its boundary (spec §26.3, §12.3).
   const policy = options.resolve === true ?
     Resolve.readPolicy(store.db, currentSql(options.asOf)) :
     undefined
   const compiled = compile(pattern, store.registry(), options, policy)
+  if (compiled.transitive && instant !== undefined) {
+    throw new Error('CAVE-Q: at does not compose with transitive patterns — hop edges are not valid-time filtered (spec §32.4)')
+  }
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
   if (compiled.transitive && options.aliases === true) {
     // Distinct (src, dst) pairs can repeat a binding set when an endpoint
@@ -453,9 +520,29 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
       return [{ bindings }]
     })
   }
-  return rows.map(row =>
-    compiled.transitive ?
-      { bindings: compiled.bind(row) } :
-      { bindings: compiled.bind(row), row: row as unknown as Row.t }
-  )
+  if (compiled.transitive) {
+    return rows.map(row => ({ bindings: compiled.bind(row) }))
+  }
+  if (instant === undefined) {
+    return rows.map(row => ({ bindings: compiled.bind(row), row: row as unknown as Row.t }))
+  }
+  // Valid-time pass (spec §32.4): contexts are read per row — coverage
+  // needs period interpretation no SQL expression can do.
+  const contextsOf = store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?')
+  return rows.flatMap(row => {
+    const contexts = (contextsOf.all(String(row['id'])) as { context: string }[])
+      .map(entry => entry.context)
+    if (!Time.appliesAt(contexts, instant)) {
+      return []
+    }
+    const at = evaluateAt(row, contexts, instant)
+    const bindings = compiled.bind(row)
+    if (at === undefined) {
+      return [{ bindings, row: row as unknown as Row.t }]
+    }
+    for (const name of compiled.valueVars) {
+      bindings[name] = at.text
+    }
+    return [{ bindings, row: row as unknown as Row.t, at }]
+  })
 }

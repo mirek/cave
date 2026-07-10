@@ -102,3 +102,34 @@ auth/middleware HAS topic: security
     (attr_value
       (attribute)
       (entity))))
+
+==================
+trajectory value with shared unit and range context
+==================
+revenue IS 20B -> 40B USD/yr @2025..2028
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number)
+      (number)
+      (unit))
+    (context)))
+
+==================
+trajectory with glued units
+==================
+db/query-time IS 5ms -> 800ms @2026-04-10..04-11
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number)
+      (number))
+    (context)))

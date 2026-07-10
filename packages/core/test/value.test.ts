@@ -73,6 +73,47 @@ test('domain-specific units pass through verbatim (spec §7.1)', () => {
   assert.equal(Value.parse('50 tps').unit, 'tps')
 })
 
+test('trajectories: two endpoints, shared unit (spec §32.3)', () => {
+  const revenue = Value.parse('20B -> 40B USD/yr')
+  assert.equal(revenue.kind, 'trajectory')
+  assert.equal(revenue.from, 20_000_000_000)
+  assert.equal(revenue.to, 40_000_000_000)
+  assert.equal(revenue.unit, 'USD/yr')
+  assert.equal(revenue.num, undefined) // a trajectory is not one number
+  assert.equal(revenue.raw, '20B -> 40B USD/yr')
+  const latency = Value.parse('5ms -> 800ms')
+  assert.equal(latency.kind, 'trajectory')
+  assert.equal(latency.from, 5)
+  assert.equal(latency.to, 800)
+  assert.equal(latency.unit, 'ms')
+  const plain = Value.parse('10 -> 20')
+  assert.equal(plain.kind, 'trajectory')
+  assert.equal(plain.unit, undefined)
+  assert.equal(Value.parse('~20B -> 40B USD/yr').approx, true)
+  assert.equal(Value.parse('-5 -> 5 C').from, -5)
+})
+
+test('malformed trajectories degrade to atoms (spec §1.6)', () => {
+  assert.equal(Value.parse('20B -> soon').kind, 'atom')
+  assert.equal(Value.parse('20ms -> 40s').kind, 'atom') // endpoint units disagree
+  assert.equal(Value.parse('10 -> 20 -> 30').kind, 'atom')
+  assert.equal(Value.parse('-> 40B').kind, 'atom')
+})
+
+test('interpolate and formatAt: linear, clamped, styled (spec §32.3)', () => {
+  const revenue = Value.parse('20B -> 40B USD/yr')
+  assert.equal(Value.interpolate(revenue, 0), 20_000_000_000)
+  assert.equal(Value.interpolate(revenue, 0.5), 30_000_000_000)
+  assert.equal(Value.interpolate(revenue, 2), 40_000_000_000) // clamped
+  assert.equal(Value.formatAt(revenue, 0.5), '30B USD/yr')
+  const latency = Value.parse('5ms -> 800ms')
+  assert.equal(Value.formatAt(latency, 0.5), '402.5ms') // glued unit stays glued
+  const conn = Value.parse('10 conn -> 20 conn')
+  assert.equal(Value.formatAt(conn, 0.5), '15 conn')
+  assert.equal(Value.interpolate(Value.parse('30ms'), 0.5), undefined)
+  assert.equal(Value.formatAt(Value.parse('30ms'), 0.5), undefined)
+})
+
 test('quoted constructors and format round-trip', () => {
   assert.equal(Value.format(Value.ofText('install dependencies')), '"install dependencies"')
   assert.equal(Value.format(Value.ofCode('<=')), '`<=`')
