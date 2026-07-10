@@ -371,6 +371,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
       '@cavelang/shape':
         specifier: workspace:*
         version: link:../shape

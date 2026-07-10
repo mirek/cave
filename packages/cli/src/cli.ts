@@ -18,6 +18,7 @@
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
  * - `cave export [--db <path>]` — canonical text out (`--current`, `--tx`)
  * - `cave serve [--db <path>]` — the human read surface in a browser (spec §30; async, routed in `main.ts`)
+ * - `cave report [--db <path>] [template.md…]` — cited markdown from CAVE-Q template blocks (spec §31)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
  * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
  * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async, routed in `main.ts`)
@@ -50,6 +51,7 @@ import {
 } from '@cavelang/loop'
 import { labelOf, sanitizeLabel, syncFile, syncText } from '@cavelang/sync'
 import type { SyncReport } from '@cavelang/sync'
+import { report as caveReport } from '@cavelang/view'
 import { emitClaim, txOfLine } from '@cavelang/canonical'
 
 export type Output = {
@@ -82,6 +84,7 @@ Usage:
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
   cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--tx] [--no-prelude]
   cave serve [--db <path>]                 browse the store in a browser (spec §30) [--port <n>] [--host <a>]
+  cave report [--db <path>] [template...]  render cited markdown from a CAVE-Q template (spec §31) [--out <file>] [--resolve]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals (items 9, 10)
@@ -460,6 +463,50 @@ Examples:
   cave export --db k.db --tx | cave sync --db other.db -
   cave export --db work.db --tx --out knowledge.cave    # the committed,
                                     # reviewable store text (spec §28.6)`,
+
+  report: `cave report — render cited markdown from a CAVE-Q template (spec §31)
+
+Usage:
+  cave report [--db <path>] [template.md...] [--out <file>]
+              [--aliases] [--resolve] [--as-of <t>] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --out <file>   write the rendered markdown to a file instead of stdout
+  --aliases      queries match through the alias closure (spec §13.6)
+  --resolve      queries match resolved winners only (spec §26) — the fix
+                 when an inline splice reports an ambiguous fact
+  --as-of <t>    render the report as of a past moment (spec §12.3): a
+                 date, timestamp, or transaction id
+  --no-prelude   open the store without the standard verb registry
+
+Reads stdin when no file (or \`-\`) is given. A template is ordinary
+markdown with two live constructs (spec §31.1); everything else passes
+through verbatim:
+
+  \`\`\`cave-q
+  ?svc HAS owner: ?who
+  - **?svc** is owned by ?who [^?]
+  \`\`\`
+
+a fenced cave-q block — a CAVE-Q pattern, optional WHERE filter lines,
+then a fragment rendered once per solution (?var substituted; without a
+fragment each solution renders as a cited bullet) — and an inline splice
+\`cave-q: OpenAI HAS revenue: ?v\` replaced by the single value the
+pattern binds (exactly one variable and one solution, or it is a
+problem). Every rendered solution cites its stored row: [^cN] footnote
+markers land at the fragment's [^?] placeholder (appended when absent),
+and the definitions — the row's canonical line, tx date and claim key —
+collect at the end of the document. Problems are reported with template
+line numbers and exit 1; the document still renders, problems marked in
+place.
+
+Examples:
+  cave report --db k.db weekly.md
+  cave report --db k.db weekly.md --out report.md
+  cave report --db k.db weekly.md --resolve
+  cave report --db k.db weekly.md --as-of 2026-01-15
+  echo 'Revenue: \`cave-q: acme HAS revenue: ?v\`' | cave report --db k.db`,
 
   reconstruct: `cave reconstruct — active memory reconstruction from seed cues (spec §18)
 
@@ -1164,6 +1211,54 @@ export const syncCommand = (argv: readonly string[]): Output => {
   }
 }
 
+/**
+ * `cave report` — the §31 deliverable: a markdown template's cave-q
+ * blocks and inline splices render from the store, every stated fact
+ * cited back to its claim. Problems mark the text, land on stderr with
+ * template line numbers, and fail the exit code — the render never
+ * silently drops a fact.
+ */
+export const reportCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      out: { type: 'string' },
+      aliases: { type: 'boolean' },
+      resolve: { type: 'boolean' },
+      'as-of': { type: 'string' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: true
+  })
+  const template = readInput(positionals)
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    const rendered = caveReport(store, template, {
+      aliases: values.aliases === true,
+      resolve: values.resolve === true,
+      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] }
+    })
+    const err = rendered.problems
+      .map(problem => `template line ${problem.line}: ${problem.message}`)
+      .join('\n')
+    const code = rendered.problems.length > 0 ? 1 : 0
+    if (values.out === undefined) {
+      return { code, out: rendered.markdown, err: err === '' ? '' : `${err}\n` }
+    }
+    writeFileSync(values.out, rendered.markdown)
+    return {
+      code,
+      out: `rendered ${rendered.citations} citation(s) to ${values.out}\n`,
+      err: err === '' ? '' : `${err}\n`
+    }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
 export const exportCommand = (argv: readonly string[]): Output => {
   const { values } = parseArgs({
     args: [...argv],
@@ -1315,6 +1410,8 @@ export const cave = (argv: readonly string[]): Output => {
         return syncCommand(rest)
       case 'export':
         return exportCommand(rest)
+      case 'report':
+        return reportCommand(rest)
       case 'demo':
         return demoCommand()
       case 'version':

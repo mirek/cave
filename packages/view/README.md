@@ -1,14 +1,17 @@
 # @cavelang/view
 
-The human read surface (spec §30): `cave serve` puts **one static,
+The human read surface (spec §30, §31): `cave serve` puts **one static,
 self-contained HTML page** over a CAVE store — the graph as something
-you can *look at*, not just query. No build step, no framework, no
-external resource of any kind: the page renders offline and the
-server's CSP denies every non-self source.
+you can *look at*, not just query — and `cave report` renders **cited
+markdown deliverables** from CAVE-Q templates. No build step, no
+framework, no external resource of any kind: the page renders offline
+and the server's CSP denies every non-self source.
 
 ```sh
 cave serve --db k.db
 # serving k.db at http://127.0.0.1:2283/ (read-only, ctrl-c to stop)
+
+cave report --db k.db weekly.md > report.md
 ```
 
 ## The views (spec §30.2)
@@ -49,10 +52,40 @@ by default; `--host` widens deliberately (it shares the whole store,
 read-only). Recording knowledge stays with `cave add`, the MCP tools
 and the kinetic layer.
 
+## Reports — cited deliverables (spec §31)
+
+`cave report` turns a markdown template into a document whose every
+stated fact traces back to the claim that supports it. Two live
+constructs; everything else passes through verbatim:
+
+````markdown
+Revenue reached `cave-q: acme HAS revenue: ?v` this quarter.
+
+## Service ownership
+
+```cave-q
+?svc HAS owner: ?who
+- **?svc** is owned by ?who [^?]
+```
+````
+
+A fenced `cave-q` block holds a CAVE-Q pattern (plus optional `WHERE`
+lines) and a fragment rendered once per solution, `?var` bindings
+substituted — without a fragment each solution renders as a cited
+bullet. An inline `` `cave-q: …` `` splice takes exactly one variable
+and one solution (several matches are a *problem*, and `--resolve` picks
+the §26 winner — the fix when sources contest a fact). Every rendered
+row cites: `[^cN]` markers land at the fragment's `[^?]` placeholder
+(appended when absent), and the definitions — canonical line, tx date,
+claim key — collect at the end of the document, so a reader can pull the
+belief history behind any sentence. `--aliases` and `--as-of` compose
+exactly as on `cave query`; the template stays under version control and
+the report re-renders from current belief on demand.
+
 ## Programmatic
 
 ```ts
-import { serve, overview, entity, history, lineage } from '@cavelang/view'
+import { serve, report, overview, entity, history, lineage } from '@cavelang/view'
 
 const handle = await serve(store, { port: 0, label: 'k.db' })
 // handle.url → http://127.0.0.1:<port>/
@@ -61,6 +94,7 @@ await handle.close()
 // the view models are plain functions over a store, no server needed
 const dash = overview(store)
 const gateway = entity(store, 'api-gateway', { aliases: true })
+const { markdown, problems } = report(store, template, { resolve: true })
 ```
 
 Endpoints: `/api/overview`, `/api/entity?name=`, `/api/topic?name=`,
@@ -68,5 +102,5 @@ Endpoints: `/api/overview`, `/api/entity?name=`, `/api/topic?name=`,
 where the §13.6 closure applies).
 
 Part of the [CAVE monorepo](../..); the specification lives in the
-repository's `.claude/skills/` directory (spec §30 in
+repository's `.claude/skills/` directory (spec §30 and §31 in
 `cave-storage-query`).
