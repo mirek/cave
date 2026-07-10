@@ -36,13 +36,16 @@ Summary of the gaps:
 - **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
   tx watermark; named computation tools shipped in 0.17.0 (`cave_fuse`,
-  `cave_derive`, item 12); event-driven automation (item 16) is still
-  ahead.
+  `cave_derive`, item 12); event-driven automation shipped in 0.21.0
+  (`cave automate`, item 16 — rules fire in every settle cycle).
 - **Act** — governed writes and side effects shipped in 0.13.0
   (`cave act`, item 8): in-band action templates with validated CAVE-Q
   preconditions, generated `act_<name>` MCP tools, out-of-band hooks;
   named computation shipped in 0.17.0 (`cave_fuse`/`cave_derive`,
-  item 12); event-driven automation (item 16) remains.
+  item 12); event-driven automation shipped in 0.21.0 (`cave automate`,
+  item 16 — new claims matching in-band trigger patterns fire rules,
+  actions, hooks and agent prompts unattended) — with `connect --watch`,
+  sense → decide → act → record closes on one machine.
 - **Trust** — actor provenance shipped in 0.7.0, MCP serving scope in
   0.10.0, the evals harness in 0.14.0 (`cave eval`, item 9); a human
   read surface is missing.
@@ -167,7 +170,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Governed writes (actions) | `cave act` (spec §25): named action templates declared in-band, parameters validated, CAVE-Q preconditions checked against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default; served as generated `act_<name>` MCP tools | exists | shipped in 0.13.0 (item 8) |
 | Side effects / writeback | `HAS hook:` names a config-declared shell template (`--hooks`, §25.4) fired after commit with the appended claims on stdin | exists | shipped in 0.13.0 (item 8); the claim names the hook, the command never enters the store |
 | Named computation | `cave_fuse` / `cave_derive` MCP tools: §10.1 fusion and §24 derivation invocable by name | exists | shipped in 0.17.0 (item 12); agents delegate computation instead of doing arithmetic in tokens |
-| Event-driven automation | none | missing | a long-running loop firing rules/actions/hooks/agent prompts when new claims match patterns — closes sense → decide → act → record unattended |
+| Event-driven automation | `cave automate` (spec §29): in-band `automation/<name>` trigger patterns over new claims fire rules, actions, out-of-band hooks and agent prompts; armed at declaration, watermark firing log, idempotent settle cycles | exists | shipped in 0.21.0 (item 16) |
 
 ### Trust — provenance, quality, scope
 
@@ -458,9 +461,9 @@ began with store merge (item 14, 0.19.0).*
 ### Phase 3 — distribution and the closed loop
 
 *Many stores, running continuously, visible to humans. Store merge
-(item 14) shipped in 0.19.0 and the branching convention (item 15) in
-0.20.0 — distribution is complete; the closed loop (item 16) and the
-human read surface (items 17–18) remain.*
+(item 14) shipped in 0.19.0, the branching convention (item 15) in
+0.20.0 and the closed loop (item 16) in 0.21.0 — the human read surface
+(items 17–18) remains.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
@@ -518,7 +521,25 @@ human read surface (items 17–18) remain.*
     `connect --watch`, which is ingestion): a long-running loop — new
     claims matching patterns fire rules, actions, out-of-band hooks, or
     an agent prompt. With `connect --watch` this closes sense → decide →
-    act → record on one machine.
+    act → record on one machine. — **Shipped in 0.21.0** (spec §29,
+    `@cavelang/automate`): an automation is the §24.1 line shape under a
+    stable name (`automation/<name> HAS automation: `…``) — trigger
+    premises on the left (no bare parameters; an automation has no
+    caller), steps on the right: `action/<name>` (executed under §25.2
+    semantics, parameters bound from same-named trigger variables),
+    `hook/<name>` (the §25.4 configuration, trigger claims on stdin) or
+    a prompt literal (the `--agent` shell contract; the CAVE reply
+    appends stamped `@src:automation/<name>`, unchanged claims skipped).
+    A solution fires only when it cites a row newer than the
+    automation's watermark that is neither engine bookkeeping nor the
+    automation's own echo — armed at declaration, the watermark append
+    (the firing log) lands *before* steps run, so re-runs never
+    re-notify. A settle cycle interleaves incremental §24 derivation
+    with trigger evaluation until nothing fires; chains across
+    automations converge because every write path is idempotent. The
+    daemon polls `MAX(tx)`; `--once` is the cron mode; deliberately not
+    an MCP tool, though agents declare automations through ordinary
+    `cave_add` appends.
 17. **`@cavelang/view` — the human read surface.** `cave serve`: one
     static, self-contained HTML page over the store — entity 360, topic
     browse, belief-history timeline per claim key, `BECAUSE`-edge

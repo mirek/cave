@@ -90,6 +90,24 @@ head -c "$(wc -c < "$tmp/knowledge.cave")" "$tmp/reviewed.cave" | cmp -s - "$tmp
   echo "error: landing the reviewed text did not merge exactly the branch appends" >&2
   exit 1
 }
+echo "==> cave automate fires steps on new claims (spec §29)"
+printf '%s\n' \
+  'action/flag HAS action: `?svc => ?svc IS flagged`' \
+  'automation/watch HAS automation: `?svc IS overloaded => action/flag`' \
+  | "$cave" automate --db "$tmp/auto.db" --declare >/dev/null
+printf 'api IS overloaded\n' | "$cave" add --db "$tmp/auto.db" >/dev/null
+"$cave" automate --db "$tmp/auto.db" --once | grep -q 'automation/watch: fired 1 solution(s)' || {
+  echo "error: cave automate did not fire on the new claim" >&2
+  exit 1
+}
+"$cave" query 'api IS flagged' --db "$tmp/auto.db" | grep -q 'api IS flagged' || {
+  echo "error: the automation's action step did not append" >&2
+  exit 1
+}
+"$cave" automate --db "$tmp/auto.db" --once | grep -q 'settled: 0 firing(s)' || {
+  echo "error: cave automate re-run was not quiescent" >&2
+  exit 1
+}
 echo "==> cave highlight emits ANSI from the packed grammar wasm"
 "$cave" highlight "$root/examples/incident/incident.cave" | grep -q "$(printf '\033')\[" || {
   echo "error: cave highlight produced no ANSI escapes" >&2

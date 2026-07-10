@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/eval",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "type": "module",
   "description": "CAVE evals harness (roadmap item 9) — golden-fixture extraction and query evals: plain-file suites, N runs against any agent, claim-key scoring with value tolerance, optional LLM judge.",
   "license": "CC0-1.0",

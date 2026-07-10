@@ -1,14 +1,14 @@
 {
-  "name": "@cavelang/fusion",
+  "name": "@cavelang/automate",
   "version": "0.21.0",
   "type": "module",
-  "description": "CAVE probabilistic layer — Bayesian fusion of numeric estimates, noisy-AND conditional confidence, hypothesis helpers.",
+  "description": "CAVE automations (spec §29) — the event-driven loop: in-band trigger patterns over new claims fire rules, actions, out-of-band hooks and agent prompts; cave automate settles the store whenever belief changes.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/fusion"
+    "directory": "packages/automate"
   },
   "engines": {
     "node": ">=22.18"
@@ -41,6 +41,13 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@cavelang/core": "workspace:*"
+    "@cavelang/act": "workspace:*",
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/rules": "workspace:*",
+    "@cavelang/store": "workspace:*"
   }
 }

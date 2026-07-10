@@ -26,12 +26,13 @@ Dependency order, bottom to top:
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
 | [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule, re-statement replay and the §28.6 branching convention (text under git, checkout/land by sync, union merge driver) |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
+| [`@cavelang/automate`](packages/automate) | §29 | Automations — the event-driven loop: in-band `automation/<name>` declarations pair §24.1 trigger premises with steps (§25 actions, §25.4 hooks, agent prompts); solutions fire on rows newer than the automation's watermark, armed at declaration, deaf to their own echo; settle cycles interleave incremental derivation with trigger evaluation until quiescent |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` are named computation (§10.1 fusion, §24 derivation — ROADMAP item 12); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / suggest-alias / sync / export / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / suggest-alias / sync / export / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -205,6 +206,25 @@ Package READMEs document local decisions; these are the global ones:
   rebuild by `--no-record` sync (a checkout is plumbing, landing is a
   recorded merge), review is the export diff, and text-level git
   conflicts re-export as the union (documented merge driver).
+- **Automations fire on events, never on state** (§29):
+  `@cavelang/automate` evaluates triggers with the same §24.2 join rules
+  and actions use, but a solution fires only when it cites a row newer
+  than the automation's in-band `automate-watermark` — absent one, the
+  declaration row's tx, so declaring arms the watcher and pre-existing
+  matches stay state. Rows stamped by engine bookkeeping
+  (`src:cave-automate`/`cave-derive`/`cave-act`) or by the automation's
+  own steps (`src:automation/<name>`, its actions' `src:action/<x>`)
+  are never events for it — no self-wakes, while cross-automation
+  chains work and converge on the idempotent write paths (§24.4, §25.2,
+  and the agent-reply guard, which skips reply claims equal to current
+  belief). The watermark appends *before* steps execute, so a crash
+  drops outside-world steps rather than replaying them — §25.4's
+  never-re-notify stance — and quiescent cycles append nothing. Step
+  execution reuses the §25 machinery wholesale: `action/` steps call
+  `act()` (gate, lineage, hooks included), `hook/` steps read the same
+  `--hooks` configuration, prompt steps ride the `shellComplete` agent
+  contract (§19.5 — commands stay out-of-band; the store names hooks
+  and phrases prompts).
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

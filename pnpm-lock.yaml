@@ -67,6 +67,33 @@ importers:
         specifier: workspace:*
         version: link:../store
 
+  packages/automate:
+    dependencies:
+      '@cavelang/act':
+        specifier: workspace:*
+        version: link:../act
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/loop':
+        specifier: workspace:*
+        version: link:../loop
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cavelang/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/canonical:
     dependencies:
       '@cavelang/core':
@@ -81,6 +108,9 @@ importers:
       '@cavelang/act':
         specifier: workspace:*
         version: link:../act
+      '@cavelang/automate':
+        specifier: workspace:*
+        version: link:../automate
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
