@@ -218,11 +218,12 @@ Two conventions make re-runs incremental and attributable, both reusing
   the same way under `connect/<name>`.
 
 - **The record stamp.** Every claim a record produces is auto-stamped
-  `@src:connect/<name>/<key>` (unless the template writes its own
-  `@src:`). The stamp is part of claim identity (§9.5), so each record
-  owns its belief series — and a changed record can be *diffed against
-  itself*: after re-appending, any current claim still carrying the
-  record's stamp but no longer produced by it is *retracted* (`@ 0%`).
+  `@src:connect/<name>/<key>` — a lifecycle stamp, applied even when the
+  template writes its own `@src:` (both contexts are kept). The stamp is
+  part of claim identity (§9.5), so each record owns its belief series —
+  and a changed record can be *diffed against itself*: after
+  re-appending, any current claim still carrying the record's stamp but
+  no longer produced by it is *retracted* (`@ 0%`).
   Attribute claims supersede naturally (the value is outside the claim
   key, §9.2); vanished relation claims retract explicitly. With
   `--prune`, records that disappeared from the source entirely are

@@ -403,7 +403,7 @@ A bare or `@time:`-prefixed date-like context is a **time context** —
 interpreted by valid-time queries (§32.2); every other context is
 opaque scope text.
 
-Append surfaces auto-stamp actor provenance onto claims that carry no `@src:` context — `@src:cli`, `@src:agent/<client>`, `@src:ingest/<digest>` (§9.5); a written `@src:` always wins over the stamp.
+Append surfaces auto-stamp actor provenance onto claims that carry no `@src:` context — `@src:cli`, `@src:agent/<client>`, `@src:ingest/<digest>` (§9.5); a written `@src:` wins over the stamp, except lifecycle stamps (connect records, rule conclusions, action effects — §9.5), which are applied alongside it.
 
 The **episodic/semantic distinction stays implicit**: episodes are just claims with `@time:` / `@src:` contexts; semantic knowledge is claims without event anchoring. No explicit layering — a deliberate rejection of added machinery (§19.3).
 

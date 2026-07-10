@@ -267,6 +267,31 @@ test('alias closure widens premise matching when opted in (spec §13.6)', () => 
   store.close()
 })
 
+test('a conclusion naming its own @src: still carries the rule stamp — retraction propagates (BUGS.md src-stamp-bypass, spec §24.5)', () => {
+  const store = open()
+  store.ingest('a NEEDS b', { source: 'cli' })
+  declareRules(store, '?x NEEDS ?y => ?x LIKE ?y @src:mine')
+  derive(store)
+  assert.equal(query(store, 'a LIKE b').length, 1)
+  // Retract the premise — the derivation must not outlive it.
+  store.ingest('a NEEDS b @ 0%', { source: 'cli' })
+  const report = derive(store)
+  assert.equal(report.retracted, 1)
+  assert.deepEqual(query(store, 'a LIKE b'), [])
+  store.close()
+})
+
+test('--retract finds conclusions that name their own @src: (BUGS.md src-stamp-bypass, spec §24.5)', () => {
+  const store = open()
+  store.ingest('a NEEDS b')
+  const declaration = declareRules(store, '?x NEEDS ?y => ?x LIKE ?y @src:mine')
+  derive(store)
+  const retraction = retractRule(store, declaration.rules[0]!.digest)
+  assert.ok(retraction.ok && retraction.derived === 1, 'the derived claim is found and retracted')
+  assert.deepEqual(query(store, 'a LIKE b'), [])
+  store.close()
+})
+
 test('derived claims round-trip through export/import with lineage', () => {
   const store = open()
   store.ingest('a NEEDS b @ 80%\nb NEEDS c @ 90%')

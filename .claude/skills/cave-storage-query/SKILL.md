@@ -103,7 +103,11 @@ Rules:
 
 - A claim that already names a source (any `src:` context, e.g. extraction
   anchors like `@src:path/to/file`) is never re-stamped — author-provided
-  provenance wins.
+  provenance wins. **Lifecycle stamps are the exception**: connect records
+  (§23.2), rule conclusions (§24.3) and action effects (§25.2) are found
+  for retraction and attribution by their stamp, so those surfaces stamp
+  unconditionally — an authored source is kept *alongside* the lifecycle
+  context, and such multi-source rows resolve per §26.3.
 - The stamp is applied **before the claim key is computed**. Contexts are
   key components (§9.2), so the same fact asserted by different actors
   keeps separate belief series — coexisting per §9.4, resolved at query
@@ -631,10 +635,12 @@ the tool writes, so a `--read-only` serving scope drops it.
 
 A derived claim is an ordinary append with three §9/§13 obligations:
 
-- **actor provenance** (§9.5): stamped `@src:rule/<digest>` (unless the
-  conclusion template names its own `src:`), so a rule's output is one
-  belief series per conclusion, separate from any hand-written series
-  about the same fact — coexisting per §9.4, never silently overriding;
+- **actor provenance** (§9.5): stamped `@src:rule/<digest>` — a lifecycle
+  stamp, applied even when the conclusion template names its own `src:`
+  (both contexts are kept), so §24.5 support and `--retract` always find
+  the rule's output. A rule's output is one belief series per conclusion,
+  separate from any hand-written series about the same fact — coexisting
+  per §9.4, never silently overriding;
 - **lineage** (`cave_edge`, §13.2): `BECAUSE` edges to the *specific
   premise rows* that fired, and a `VIA` edge to the rule's declaration
   row — evidence and mechanism, in the roles §8.2 already defines.
@@ -779,10 +785,11 @@ which is why it may live in-band where executable content must not
    rows (§24.2): an action is the caller's assertion, and its premises
    are gates, not evidence.
 6. Appended rows carry the §24.3 obligations: stamped
-   `@src:action/<name>` (§9.5; a template naming its own `src:` wins),
-   `BECAUSE` edges to the premise rows of the justifying solution (the
-   first, when several survive) and a `VIA` edge to the declaration
-   row. Executions by different callers land in one belief series per
+   `@src:action/<name>` (a §9.5 lifecycle stamp — applied even when the
+   template names its own `src:`, both kept: execution attribution is
+   mandatory), `BECAUSE` edges to the premise rows of the justifying
+   solution (the first, when several survive) and a `VIA` edge to the
+   declaration row. Executions by different callers land in one belief series per
    effect key — the action, not the caller, is the acting surface.
 7. Execution is **idempotent** (§24.4's convention): an effect equal to
    its current belief — same key, value, confidence — appends nothing
