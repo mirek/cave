@@ -36,7 +36,9 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    recorded.
 3. **Run the agent** — the `--agent` shell template runs once per batch:
    the prompt is piped to stdin and `{prompt-file}`, `{mcp-config}`,
-   `{db}` are substituted. Failed batches keep their files eligible for
+   `{db}` are substituted. Each value is shell-quoted — paths with spaces
+   or metacharacters stay single arguments — so write placeholders bare,
+   without wrapping quotes. Failed batches keep their files eligible for
    the next run; the report shows per-batch claim deltas.
 
 ## API access: context slice + full tools

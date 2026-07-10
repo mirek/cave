@@ -37,9 +37,10 @@ stdout), and the queries are answered by the reconstruction alone.
 Options:
   --agent <template>     shell command run once per case run (extraction; the
                          prompt is piped to stdin and {prompt-file},
-                         {mcp-config}, {db} are substituted — the cave ingest
-                         contract) or once per loop step (reconstruction);
-                         optional when every case is a reconstruction
+                         {mcp-config}, {db} are substituted shell-quoted — the
+                         cave ingest contract) or once per loop step
+                         (reconstruction); optional when every case is a
+                         reconstruction
   --judge <template>     LLM judge pairing semantically equivalent leftovers
                          after strict scoring; prompt on stdin/{prompt-file},
                          replies a JSON array of [golden, produced] pairs

@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { open } from '@cavelang/store'
-import { Files, run, writeMcpConfig } from '@cavelang/ingest'
+import { Files, run, runShellAgent, writeMcpConfig } from '@cavelang/ingest'
 
 const withDir = (body: (dir: string) => Promise<void>): Promise<void> => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-run-'))
@@ -75,8 +75,9 @@ test('shell agent template: stdin prompt, {prompt-file} and {db} substitution', 
     const store = open()
     // The fake agent emits a claim only after verifying it received the
     // prompt on stdin AND via {prompt-file}, with {db} substituted.
+    // Placeholders stay bare — substituted values arrive shell-quoted.
     const agent =
-      'grep -q "Files to ingest" - && grep -q "Files to ingest" {prompt-file} && test -n "{db}" && echo "shell/agent USES stdin"'
+      'grep -q "Files to ingest" - && grep -q "Files to ingest" {prompt-file} && test -n {db} && echo "shell/agent USES stdin"'
     const report = await run({
       db: join(dir, 'k.db'), store, patterns: ['notes.md'], cwd: dir,
       mode: 'stdout', agent
@@ -85,6 +86,39 @@ test('shell agent template: stdin prompt, {prompt-file} and {db} substitution', 
     assert.equal(report.added, 1)
     const [claim] = store.currentBeliefs().filter(row => row.verb === 'USES')
     assert.equal(claim!.subject, 'shell/agent')
+    store.close()
+  }))
+
+test('runShellAgent shell-quotes substituted values — spaces, quotes and $() arrive verbatim', () =>
+  withDir(async dir => {
+    const echoArg = 'node -e "process.stdout.write(process.argv[1])" {db}'
+    // A hostile value: spaces plus a command substitution. Unquoted, the
+    // shell would run `touch` and split the path into two arguments.
+    const marker = join(dir, 'injected')
+    const hostile = join(dir, `knowledge base$(touch ${marker}).db`)
+    const injected = await runShellAgent(echoArg, '', { db: hostile }, 10, dir)
+    assert.equal(injected.code, 0)
+    assert.equal(injected.stdout, hostile, 'the value lands as one verbatim argument')
+    assert.ok(!existsSync(marker), 'substituted values are never shell-evaluated')
+    // A single quote in the value exercises the quote-escaping itself.
+    const quoted = join(dir, "it's a kb.db")
+    const result = await runShellAgent(echoArg, '', { db: quoted }, 10, dir)
+    assert.equal(result.code, 0)
+    assert.equal(result.stdout, quoted)
+  }))
+
+test('shell agent run: a db path with spaces stays one argument', () =>
+  withDir(async dir => {
+    writeFileSync(join(dir, 'notes.md'), 'notes')
+    const db = join(dir, 'knowledge base.db')
+    writeFileSync(db, '')
+    const store = open()
+    const report = await run({
+      db, store, patterns: ['notes.md'], cwd: dir,
+      mode: 'stdout', agent: 'test -f {db} && echo "db/path USES spaces"'
+    })
+    assert.equal(report.failed, 0, JSON.stringify(report.batches))
+    assert.equal(report.added, 1)
     store.close()
   }))
 
