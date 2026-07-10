@@ -1,21 +1,20 @@
 {
-  "name": "@cavelang/mcp",
+  "name": "@cavelang/sync",
   "version": "0.19.0",
   "type": "module",
-  "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
+  "description": "CAVE store merge (spec §28) — merge append-only stores by row identity: idempotent, transitive, conflict-free by construction; SYNCED-INTO merge records, the tx receive rule, and `;@` transaction-annotated text interchange.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
-    "directory": "packages/mcp"
+    "directory": "packages/sync"
   },
   "engines": {
     "node": ">=22.18"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./bin": "./src/bin.ts"
+    ".": "./src/index.ts"
   },
   "files": [
     "dist",
@@ -32,10 +31,6 @@
       ".": {
         "types": "./dist/src/index.d.ts",
         "default": "./dist/src/index.js"
-      },
-      "./bin": {
-        "types": "./dist/src/bin.d.ts",
-        "default": "./dist/src/bin.js"
       }
     }
   },
@@ -46,14 +41,8 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@cavelang/act": "workspace:*",
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
-    "@cavelang/fusion": "workspace:*",
-    "@cavelang/loop": "workspace:*",
-    "@cavelang/parser": "workspace:*",
-    "@cavelang/query": "workspace:*",
-    "@cavelang/rules": "workspace:*",
     "@cavelang/store": "workspace:*"
   }
 }

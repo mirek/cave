@@ -81,3 +81,26 @@ const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 /** @returns `true` if `s` is a well-formed UUIDv7 string. */
 export const is = (s: string): boolean =>
   uuidRe.test(s)
+
+/** @returns the 12-bit monotonic sequence in a UUIDv7's `rand_a` field. */
+const seqOf = (id: string): number =>
+  Number.parseInt(id.slice(15, 18), 16)
+
+/**
+ * The Lamport receive rule (spec §28.2): after observing an id — a merged
+ * row's tx, or a store's `MAX(tx)` at open — {@link next} never mints at or
+ * below it. This generalizes §9.1's single-writer monotonicity to the
+ * *store*: appends after a merge sort after everything merged, whatever the
+ * origin machine's clock read. Non-v7 ids are ignored.
+ */
+export const observe = (id: string): void => {
+  if (!is(id)) {
+    return
+  }
+  const ms = msOf(id)
+  const seq = seqOf(id)
+  if (ms > lastMs || (ms === lastMs && seq > lastSeq)) {
+    lastMs = ms
+    lastSeq = seq
+  }
+}

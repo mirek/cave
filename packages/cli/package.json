@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/cli",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "type": "module",
   "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
   "license": "CC0-1.0",
@@ -65,6 +65,7 @@
     "@cavelang/query": "workspace:*",
     "@cavelang/rules": "workspace:*",
     "@cavelang/shape": "workspace:*",
-    "@cavelang/store": "workspace:*"
+    "@cavelang/store": "workspace:*",
+    "@cavelang/sync": "workspace:*"
   }
 }

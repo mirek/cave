@@ -79,10 +79,40 @@ const conditionText = (claim: Claim.t): string => {
 }
 
 /**
+ * A transaction annotation (spec §28.4): the full-line comment placed
+ * immediately above a claim line to carry its transaction id through
+ * canonical text. Comment lines are transparent to the grammar (§8), so
+ * annotated text reads unchanged everywhere; sync-aware readers pair each
+ * annotation with the claim line below it.
+ */
+export const txComment = (tx: string): string =>
+  `;@ ${tx}`
+
+const txLineRe = /^\s*;@\s+(\S+)\s*$/
+
+/**
+ * @returns the transaction id carried by a raw line when it is a §28.4
+ * annotation (`;@ <tx>`), `undefined` otherwise. Purely lexical — the
+ * caller validates the id shape.
+ */
+export const txOfLine = (raw: string): undefined | string =>
+  txLineRe.exec(raw)?.[1]
+
+export type EmitOptions = {
+  /**
+   * Per-claim annotation lines (spec §28.4): when defined for a claim
+   * index, the returned text is emitted verbatim as its own line directly
+   * above that claim, at the claim's indentation. Used by tx-carrying
+   * export ({@link txComment}); return `undefined` to annotate nothing.
+   */
+  readonly annotate?: (index: number) => undefined | string
+}
+
+/**
  * Emits a whole canonicalization result as canonical CAVE text: top-level
  * claims in claim order, children indented two spaces per level.
  */
-export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>): string => {
+export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, options: EmitOptions = {}): string => {
   const childEdges = new Map<number, Canonicalize.Edge[]>()
   const isChild = new Set<number>()
   for (const edge of result.edges) {
@@ -98,6 +128,10 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>): str
   const emitAt = (index: number, depth: number, role: undefined | Canonicalize.EdgeRole): void => {
     const { claim } = result.claims[index]!
     const indent = '  '.repeat(depth)
+    const annotation = options.annotate?.(index)
+    if (annotation !== undefined) {
+      lines.push(`${indent}${annotation}`)
+    }
     if (role === undefined || role === 'QUALIFIES') {
       lines.push(`${indent}${emitClaim(claim)}`)
     } else {

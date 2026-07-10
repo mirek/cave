@@ -303,6 +303,27 @@ config-push CAUSE redis-cache/failover @src:cli @ 85%
 
 By default a deterministic heuristic picks each expansion. With `--agent 'claude -p' --query 'what caused the checkout errors?'` an LLM makes the select/stop decision instead — one prompt per step showing the claims collected so far and the scored frontier (ROADMAP item 10). The heuristic is the *baseline*: reconstruction eval fixtures (`<stem>.loop.cave`, see [`examples/loop-eval`](examples/loop-eval)) score both policies with the same claim-key F1, so "does the model beat the heuristic" is two `cave eval` runs. See [`@cavelang/loop`](packages/loop).
 
+### Two stores become one — `cave sync`
+
+Knowledge accumulates on more than one machine. The data model pre-solved the merge: rows are immutable appends under global UUIDv7 identity, contradictions legally coexist (spec §9.4) and resolve at read time (§26) — so `cave sync` merges by row identity, and can never conflict (spec §28):
+
+```
+$ pnpm exec cave sync --db main.db laptop.db
+merged 42 claim(s), 17 edge(s)
+record: store/laptop SYNCED-INTO store/main ; +42 claim(s), +17 edge(s)
+
+$ pnpm exec cave sync --db main.db laptop.db
+merged 0 claim(s), 0 edge(s), 42 already present
+```
+
+Present rows skip, re-runs merge nothing, two stores syncing each other converge — and the merge itself is a claim (stamped `@src:sync`) whose belief series is the sync log. Local appends after a merge always outsort merged history, whatever the origin machine's clock read (the §28.2 receive rule). Plain text crosses air gaps the same way: `cave export --tx` precedes every claim line with a `;@` transaction annotation — an ordinary comment to every other reader — and `cave sync` replays it under the recorded identity:
+
+```
+$ pnpm exec cave export --db laptop.db --tx | cave sync --db main.db - --as laptop
+```
+
+See [`@cavelang/sync`](packages/sync) and spec §28.
+
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Syntax highlighting
@@ -311,7 +332,7 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## Where CAVE is heading
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (resolution policy, automation, sync), the phased plan, and the open design decisions along the way.
+[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists, what's missing (event-driven automation, the human read surface), the phased plan, and the open design decisions along the way.
 
 ## Development
 
@@ -321,7 +342,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `loop` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `sync` → `loop` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
 
 ## The specification
 
@@ -331,7 +352,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§27 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§28 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

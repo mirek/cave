@@ -120,6 +120,9 @@ importers:
       '@cavelang/store':
         specifier: workspace:*
         version: link:../store
+      '@cavelang/sync':
+        specifier: workspace:*
+        version: link:../sync
 
   packages/connect:
     dependencies:
@@ -308,6 +311,18 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/sync:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/tree-sitter-cave:
     devDependencies:

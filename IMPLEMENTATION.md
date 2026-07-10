@@ -24,13 +24,14 @@ Dependency order, bottom to top:
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
+| [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` are named computation (§10.1 fusion, §24 derivation — ROADMAP item 12); `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / suggest-alias / export / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / check / suggest-alias / sync / export / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -180,6 +181,20 @@ Package READMEs document local decisions; these are the global ones:
   claims themselves resolve under the built-ins alone, so ingested text
   cannot self-elevate. Winners are stored rows returned verbatim —
   nothing is rewritten, and unresolved reads keep §9.4 coexistence.
+- **The id is the row; the store is the monotonic authority** (§28):
+  every append mints one UUIDv7 serving as both `id` and `tx`, and
+  `@cavelang/sync` merges by that identity — absent rows copy verbatim
+  (claim key, raw line, side tables), present rows skip, so re-syncs are
+  idempotent, chains are transitive, and the same fact recorded on two
+  machines lands as two rows in one belief series (asserted twice, §9.4).
+  The generator applies the Lamport receive rule (`Uuidv7.observe`): a
+  store's `MAX(tx)` is observed at open and after merge, so every append
+  outsorts everything already stored — local knowledge always wins
+  locally, whatever the origin clocks read. Merge events append in-band
+  `store/<from> SYNCED-INTO store/<into> @src:sync` records (only when
+  effective); text interchange carries identity through `;@ <tx>` comment
+  lines (`cave export --tx`), transparent to the grammar, strict on
+  replay (`cave sync`), and gracefully ordinary under plain `cave import`.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

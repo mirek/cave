@@ -14,7 +14,8 @@
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
- * - `cave export [--db <path>]` — canonical text out (`--current`)
+ * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
+ * - `cave export [--db <path>]` — canonical text out (`--current`, `--tx`)
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
  * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
  * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async, routed in `main.ts`)
@@ -45,7 +46,9 @@ import type { ActReport } from '@cavelang/act'
 import {
   Demo, heuristicPolicy, llmPolicy, reconstruct, reconstructAsync, shellComplete, sqliteStore
 } from '@cavelang/loop'
-import { emitClaim } from '@cavelang/canonical'
+import { labelOf, sanitizeLabel, syncFile, syncText } from '@cavelang/sync'
+import type { SyncReport } from '@cavelang/sync'
+import { emitClaim, txOfLine } from '@cavelang/canonical'
 
 export type Output = {
   readonly code: number
@@ -73,7 +76,8 @@ Usage:
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
-  cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--no-prelude]
+  cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
+  cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--tx] [--no-prelude]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals (items 9, 10)
@@ -160,7 +164,10 @@ Canonical CAVE text is the interchange format (spec §2.2): importing a
 file written by \`cave export\` replays its claims append-only, preserving
 the belief series, qualifier edges and in-band declarations. Unlike
 \`cave add\`, import never stamps actor provenance — replayed claims must
-keep the claim keys they were exported with (spec §9.5).
+keep the claim keys they were exported with (spec §9.5). Import always
+mints fresh transaction ids — ;@ annotations in a \`cave export --tx\`
+file read as ordinary comments; to merge under the recorded row
+identity, use \`cave sync\` (spec §28.4).
 
 Examples:
   cave export --db old.db --out backup.cave
@@ -384,21 +391,60 @@ Examples:
   cave suggest-alias --db k.db | cave add --db k.db
   cave suggest-alias --db k.db --agent 'claude -p' --write`,
 
+  sync: `cave sync — merge another store into this one by row identity (spec §28)
+
+Usage:
+  cave sync [--db <path>] <source> [--as <label>] [--into <label>]
+            [--dry-run] [--no-record] [--json] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --as <label>   origin label in the merge record (default: the source
+                 file's basename stem; stdin defaults to "stdin")
+  --into <label> target label in the merge record (default: the database
+                 file's basename stem)
+  --dry-run      compute the full report inside a rolled-back transaction
+  --no-record    do not append the store/<from> SYNCED-INTO store/<into>
+                 merge record
+  --json         emit the report as JSON
+  --no-prelude   open the store without the standard verb registry
+
+The source is a CAVE store file (recognized by the SQLite header),
+canonical text with ;@ transaction annotations (cave export --tx), or -
+for annotated text on stdin. Rows merge by identity: a row's UUIDv7 is
+its id everywhere, so present rows skip, re-runs merge nothing, and two
+stores syncing each other converge. Contradictions coexist (spec §9.4)
+and resolve at read time (cave resolve, --resolve); everything appended
+after a merge outsorts everything merged, whatever the origin machine's
+clock read (spec §28.2). An effective merge appends one record claim,
+stamped @src:sync — the sync log is its belief series.
+
+Examples:
+  cave sync --db main.db laptop.db
+  cave sync --db main.db laptop.db --dry-run --json
+  cave export --db laptop.db --tx | cave sync --db main.db -
+  cave sync --db a.db b.db && cave sync --db b.db a.db   # converge both`,
+
   export: `cave export — emit canonical CAVE text from a store
 
 Usage:
-  cave export [--db <path>] [--out <file>] [--current] [--no-prelude]
+  cave export [--db <path>] [--out <file>] [--current] [--tx] [--no-prelude]
 
 Options:
   ${dbHelp}
   --out <file>   write to a file instead of stdout
   --current      current beliefs only (skip superseded rows)
+  --tx           precede every claim line with its ;@ transaction
+                 annotation (spec §28.4) — the text carries row identity,
+                 so cave sync replays it idempotently; other readers see
+                 ordinary comments
   --no-prelude   open the store without the standard verb registry
 
 Examples:
   cave export --db k.db
   cave export --db k.db --out backup.cave
-  cave export --db k.db --current --out snapshot.cave`,
+  cave export --db k.db --current --out snapshot.cave
+  cave export --db k.db --tx | cave sync --db other.db -`,
 
   reconstruct: `cave reconstruct — active memory reconstruction from seed cues (spec §18)
 
@@ -1044,12 +1090,72 @@ export const suggestAliasCommand = async (argv: readonly string[]): Promise<Outp
   }
 }
 
+/**
+ * `cave sync` — store merge (spec §28): another store's rows arrive by
+ * identity — a store file merges through SQL, `;@`-annotated canonical
+ * text (`cave export --tx`, or `-` for stdin) replays under its recorded
+ * ids. Idempotent: re-runs merge nothing and append no record.
+ */
+export const syncCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      as: { type: 'string' },
+      into: { type: 'string' },
+      'dry-run': { type: 'boolean' },
+      'no-record': { type: 'boolean' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: true
+  })
+  const [source, ...extra] = positionals
+  if (source === undefined || extra.length > 0) {
+    return fail('cave sync: exactly one source is required — a CAVE store file, ;@-annotated text, or - for stdin (spec §28.5)\n')
+  }
+  const dbPath = values.db ?? defaultDbPath()
+  const store = open(dbPath, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    const options = {
+      into: values.into === undefined ? labelOf(dbPath) : sanitizeLabel(values.into),
+      record: values['no-record'] !== true,
+      dryRun: values['dry-run'] === true,
+      ...values.as === undefined ? {} : { from: sanitizeLabel(values.as) }
+    }
+    const report: SyncReport = source === '-' ?
+      syncText(store, readFileSync(0, 'utf8'), { from: 'stdin', ...options }) :
+      syncFile(store, source, options)
+    if (values.json === true) {
+      return { code: report.problems.length > 0 ? 1 : 0, out: `${JSON.stringify(report, undefined, 2)}\n`, err: '' }
+    }
+    if (report.problems.length > 0) {
+      const detail = report.problems.map(problem => `  line ${problem.line}: ${problem.message}`).join('\n')
+      return fail(`cave sync: ${source}: ${report.problems.length} problem(s), nothing merged\n${detail}\n`)
+    }
+    const lines = [
+      `merged ${report.merged} claim(s), ${report.edges} edge(s)` +
+      (report.skipped > 0 ? `, ${report.skipped} already present` : '') +
+      (report.dryRun ? ' (dry run)' : '')
+    ]
+    if (report.record !== undefined) {
+      lines.push(`record: ${report.record}`)
+    }
+    return ok(`${lines.join('\n')}\n`)
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
 export const exportCommand = (argv: readonly string[]): Output => {
   const { values } = parseArgs({
     args: [...argv],
     options: {
       db: { type: 'string' },
       current: { type: 'boolean' },
+      tx: { type: 'boolean' },
       out: { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
@@ -1057,12 +1163,12 @@ export const exportCommand = (argv: readonly string[]): Output => {
   })
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const text = store.exportText({ current: values.current === true })
+    const text = store.exportText({ current: values.current === true, tx: values.tx === true })
     if (values.out === undefined) {
       return ok(text)
     }
     writeFileSync(values.out, text)
-    const claims = text === '' ? 0 : text.trimEnd().split('\n').length
+    const claims = text === '' ? 0 : text.trimEnd().split('\n').filter(line => txOfLine(line) === undefined).length
     return ok(`exported ${claims} claim(s) to ${values.out}\n`)
   } finally {
     store.close()
@@ -1190,6 +1296,8 @@ export const cave = (argv: readonly string[]): Output => {
         return actCommand(rest)
       case 'check':
         return checkCommand(rest)
+      case 'sync':
+        return syncCommand(rest)
       case 'export':
         return exportCommand(rest)
       case 'demo':
