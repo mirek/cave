@@ -14,11 +14,11 @@ Dependency order, bottom to top:
 
 | Package | Spec | Purpose |
 |---|---|---|
-| [`@cavelang/core`](packages/core) | §2, §6, §7, §9 | Domain model: claims, values/units/multipliers, uncertainty, confidence, tags, contexts, claim keys, monotonic UUIDv7 |
+| [`@cavelang/core`](packages/core) | §2, §6, §7, §9, §32 | Domain model: claims, values/units/multipliers (incl. `A -> B` trajectories), uncertainty, confidence, tags, contexts, valid-time periods/ranges (`Time`), claim keys, monotonic UUIDv7 |
 | [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, extensions), inverse resolution, continuation expansion, qualifier edges, canonical emitter |
 | [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
-| [`@cavelang/query`](packages/query) | §12, §26 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching |
+| [`@cavelang/query`](packages/query) | §12, §26, §32 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse verbs, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching, `at` valid-time filtering + trajectory interpolation |
 | [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy), knowledge-health report (violations, staleness, review candidates, alias disagreements, coverage), write gating; alias discovery (`suggestAliases` — string/graph similarity signals, suggested `ALIAS` claims in the review band, optional judge contract) |
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
@@ -259,9 +259,13 @@ Package READMEs document local decisions; these are the global ones:
   (colonless attributes parse, emitters always produce the colon form).
 - **Draft layer (§17)** — rules `=>` passed the parser gate and are
   committed + implemented as §24 (`@cavelang/rules`, `cave derive`);
-  variables in core grammar, reification `[S V O]` and temporal values
-  remain *not implemented*, as speced ("commitment is gated on the parser
-  implementation"). CAVE-Q's `?x` layer (§12) is implemented.
+  temporal layer 2 passed it too and is committed + implemented as §32
+  (trajectory values in `@cavelang/core`, time contexts in `Time`,
+  interpolation in `@cavelang/query` / `cave query --at`); variables in
+  core grammar, reification `[S V O]` and temporal layer 3
+  (`(t -> expr)` functions) remain *not implemented*, as speced
+  ("commitment is gated on the parser implementation"). CAVE-Q's `?x`
+  layer (§12) is implemented.
 - **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`,
   including the LLM-driven policy over shell-agent templates
   (ROADMAP item 10) with the heuristic policy as its eval baseline.

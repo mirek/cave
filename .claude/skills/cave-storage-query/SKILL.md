@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§31) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints), reports (cave report — templated markdown from CAVE-Q query blocks and inline splices, claim keys as footnote citations). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, @cave/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§32) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints), reports (cave report — templated markdown from CAVE-Q query blocks and inline splices, claim keys as footnote citations), temporal values (trajectories A -> B with linear interpolation, time-range contexts @2025..2028, valid-time anchoring with cave query --at, bitemporal composition with --as-of). Use when working on @cave/store, @cave/query, @cave/canonical, @cave/shape, @cave/rules, @cave/act, @cave/sync, @cave/automate, @cave/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -1736,11 +1736,11 @@ their `[^?]` placeholders are dropped.
 ### 31.3 Surfaces
 
 - `cave report [--db <path>] [template.md …] [--out <file>]
-  [--aliases] [--resolve] [--as-of <t>] [--no-prelude]` — stdin when no
-  file; rendered markdown to stdout or `--out`. The query options are
-  the §12.3/§13.6/§26.4 opt-ins, applied to every query in the
-  template — resolution stays opt-in here exactly because it is opt-in
-  everywhere (§26). Problems (unparseable queries, empty or ambiguous
+  [--aliases] [--resolve] [--as-of <t>] [--at <t>] [--no-prelude]` —
+  stdin when no file; rendered markdown to stdout or `--out`. The query
+  options are the §12.3/§13.6/§26.4/§32.4 opt-ins, applied to every
+  query in the template — resolution stays opt-in here exactly because
+  it is opt-in everywhere (§26). Problems (unparseable queries, empty or ambiguous
   splices) are reported to stderr with template line numbers and exit 1;
   the rendered document still emits, problems marked in place.
 - Programmatic: `report(store, template, options)` in `@cavelang/view`
@@ -1752,3 +1752,179 @@ their `[^?]` placeholders are dropped.
   deliverable: the template under version control, the store evolving,
   `cave report` re-rendering the document from current belief on
   demand.
+
+---
+
+## 32. Temporal Values — Trajectories and Valid Time
+
+Everything before this section is anchored in **transaction time** —
+when the store learned something (§9.1), reconstructable with `--as-of`
+(§12.3). This section adds the other axis: **valid time** — when a
+claim applies *in the world*. It commits the §17.5 **layer-2** subset of
+the Draft temporal design (the layer-1 point observation `revenue IS
+20B USD/yr @2025` was always ordinary CAVE): trajectory values with
+linear interpolation, time-range contexts, and the `at` query anchor.
+Layer 3 — `(t -> expr)` function values — stays Draft, gated as §17.5
+demands.
+
+No new context grammar: a time range is an ordinary context atom
+(§6.1 already admits `.` in contexts), *interpreted* by the engine —
+the same move as `REVERSE` (§5.5) and `EXPECTS` (§20.1), declarations
+that are ordinary lines until a semantic pass reads them. The one
+grammar addition is the trajectory value form (§16 `value`), exactly
+the syntax §17.5 designed.
+
+### 32.1 Time points name periods
+
+A **time point** is a date-like atom naming a whole calendar period,
+read as a UTC interval `[start, end)`:
+
+| Point | Period |
+|---|---|
+| `2025` | the year |
+| `2026-04` | the month |
+| `2026-04-10` | the day |
+| `2026-Q1` | the quarter (Jan–Mar) |
+| `2026-H2` | the half (Jul–Dec) |
+| `2026-W15` | the ISO week (weeks start Monday; week 1 contains Jan 4) |
+
+Whole-period reading matches the `WHERE tx` interval semantics (§12.2)
+and the `--as-of` boundary (§12.3): naming a period means all of it.
+Out-of-calendar points (`2026-02-30`, `2026-13`) are not time points —
+they stay opaque context text.
+
+### 32.2 Time contexts — points and ranges
+
+A context is a **time context** when its body — bare, or after a
+`time:` prefix (§6.1) — is a time point or a **range**: two points
+joined by `..`, either end omissible.
+
+```cave
+revenue IS 20B USD/yr @2025                     ; point (layer 1, unchanged)
+alice WORKS-AT acme @2020..2023                 ; closed range
+alice WORKS-AT initech @2024..                  ; open end: since 2024
+cost IS 10B USD/yr @..2024                      ; open start: until end of 2024
+db/query-time IS 5ms -> 800ms @2026-04-10..04-11
+```
+
+A range covers `[start(A), end(B))` — **whole periods at both ends**:
+`@2020..2023` runs from 2020-01-01 through the last instant of 2023.
+Consequently adjacent spans must not repeat the boundary period —
+`@..2024` and `@2025..2026` and `@2027..` tile cleanly; `@..2025` and
+`@2025..2026` overlap during 2025, and both claims apply then (§9.4
+coexistence — legal, resolved by the reader). A closed range must be
+non-empty: `2028..2025` is not a time context.
+
+The end point of a closed range MAY abbreviate by dropping *leading*
+numeric segments, inherited from the start point: `@2026-04-10..04-11`
+and `@2026-04-10..11` both read as April 10th to the 11th. `Q`/`H`/`W`
+points are always written in full (`@2026-Q1..2026-Q3`).
+
+Time contexts are ordinary contexts everywhere else: stored in
+`cave_context`, part of the claim key (§9.2), emitted verbatim. A
+context that fails to parse as time is simply opaque — the
+robust-extraction default (§1.6), never an error.
+
+### 32.3 Trajectory values — `A -> B`
+
+A **trajectory** is a value with two numeric endpoints and one unit —
+"it was X, it'll be Y" (§17.5 layer 2):
+
+```cave
+revenue IS 20B -> 40B USD/yr @2025..2028
+acme HAS headcount: 100 -> 400 @2025..2027
+db/query-time IS 5ms -> 800ms @2026-04-10..04-11
+```
+
+Each endpoint is a number with an optional multiplier; the unit is
+shared — glued per endpoint (`5ms -> 800ms`) or spaced after either
+side (`20B -> 40B USD/yr`), and endpoints naming *different* units do
+not form a trajectory (the text degrades to an atom, §1.6). `~`
+prefixes the whole value. Trajectories appear in metric and attribute
+payloads; claim keys exclude values (§9.2), so re-estimating a
+trajectory under the same contexts appends to the same belief series —
+`revenue IS 20B -> 60B USD/yr @2025..2028` supersedes, and `--as-of`
+reconstructs the earlier estimate.
+
+A trajectory **interpolates linearly** over the claim's single closed
+range context, in real calendar time:
+
+- endpoint values anchor at the **start instants** of the periods that
+  name the range: `20B -> 40B @2025..2028` is 20B at 2025-01-01 and
+  40B at 2028-01-01;
+- between the anchors the value is linear in elapsed time;
+- through the end period's tail the value **holds at the end value** —
+  "40B *in* 2028" is true all of 2028;
+- outside the range the claim does not apply at all (§32.4 filtering —
+  the range is still a context like any other).
+
+Interpolation requires exactly **one closed range** among the claim's
+contexts: none, an open range, or several ranges mean the trajectory
+stays textual — the claim still matches, nothing is evaluated. A
+trajectory is deliberately **not one number**: `value_num` stays NULL
+in storage (numeric `WHERE value` filters never match trajectories),
+fusion (§10.1) skips them, and CAVE-Q value slots bind the stored text
+unless an `at` anchor evaluates it. `value_unit` carries the shared
+unit; `value_text` carries the form as written, which is what
+re-parses on read — no schema change.
+
+Step functions need no new machinery — they are consecutive scalar
+claims with tiling range contexts (§17.5's layer-3 `Step` collapsed
+into layer 1 + §32.2):
+
+```cave
+cost IS 10B USD/yr @..2024
+cost IS 14B USD/yr @2025..2026
+cost IS 18B USD/yr @2027..
+```
+
+### 32.4 The `at` anchor — valid-time queries
+
+`at` anchors a query at an **instant**: a time point (read as its
+*start* instant — `2026` is 2026-01-01T00:00:00Z; name a finer period
+to anchor inside one) or a `T` timestamp, exact.
+
+Two effects, in order:
+
+1. **Filter.** A claim applies at the instant when it carries no time
+   context (timeless knowledge — most claims), or when *any* of its
+   time contexts covers it (a point covers its period, a range covers
+   `[start(A), end(B))`, missing ends are unbounded). Claims whose
+   time contexts all miss the instant are invisible — relational
+   claims included: `alice WORKS-AT ?org` answers differently at
+   `--at 2021` and `--at 2026`.
+2. **Evaluate.** A matched claim whose value is a trajectory with one
+   closed range interpolates at the instant (§32.3). The evaluated
+   value surfaces alongside the match — and substitutes into
+   value-slot variable bindings (`?n` in `acme HAS headcount: ?n`
+   binds the interpolated `250`, not the stored text) — while the
+   stored row is returned untouched. Metric `IS` values stay unbound
+   by variables (§10.1); a payload-less pattern (`revenue IS`) reaches
+   them, the evaluation riding the match.
+
+`at` is orthogonal to `asOf` (§12.3): `asOf` picks which rows are
+*believed* (transaction time), `at` picks *when in the world* the
+claims apply (valid time). Set both for the bitemporal question —
+"what did we believe on 2026-01-15 about 2028?" It composes with
+`all`, `aliases` and `resolve` the same way — a row universe first,
+then the valid-time pass. Transitive patterns (`VERB+`) reject `at`:
+hop edges are not valid-time filtered, and a silently unfiltered
+closure would be a wrong answer.
+
+### 32.5 Surfaces
+
+- `cave query <pattern> --at <t>` — filtered matches; interpolated
+  trajectory rows print `; at <t>: <value>` after the canonical line,
+  and value bindings carry the evaluated text.
+- `query(store, pattern, { at })` — each match gains
+  `at?: { num, unit?, text }` when its row evaluated; `text` is
+  canonical value text in the trajectory's own style (multipliers
+  re-compressed, glued units kept glued, 4 significant digits).
+- The MCP `cave_query` tool's `at` parameter — same semantics, so
+  agents ask time-anchored questions through the same governed surface.
+- `cave report --at <t>` / `report(store, template, { at })` — every
+  query in the template anchors, so one template renders "the plan as
+  of mid-2026" or "the 2028 projection" from the same store (§31).
+- An unparseable anchor is an error, not an empty result — `--at
+  someday` fails loudly, mirroring the `--as-of` boundary rule
+  (§12.3).

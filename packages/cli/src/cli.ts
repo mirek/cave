@@ -73,7 +73,7 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
-  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
   cave resolve [--db <path>]               contested facts + winners (spec §26) [--aliases] [--policy] [--json]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
@@ -183,7 +183,7 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -193,6 +193,13 @@ Options:
   --as-of <t>    resolve beliefs as of a past moment (spec §12.3): a date
                  (whole day included), a timestamp (whole second), or a
                  transaction id — rows recorded later are invisible
+  --at <t>       anchor in valid time (spec §32.4): a date-like period
+                 (read as its start instant) or a timestamp. Claims whose
+                 time contexts — @2026-Q1 points, @2025..2028 ranges — do
+                 not cover the instant are invisible; timeless claims
+                 always match; trajectory values (20B -> 40B USD/yr)
+                 interpolate at the instant. Composes with --as-of: what
+                 was believed then, about that moment
   --resolve      match resolved winners only (spec §26): contested facts —
                  same fact from several sources, or opposite polarity —
                  collapse to the row the resolution policy picks
@@ -211,6 +218,8 @@ Examples:
   cave query --db k.db 'terrier EXTENDS+ animal'
   cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db 'server IS compromised' --as-of 2026-01-15
+  cave query --db k.db 'revenue IS' --at 2026-07
+  cave query --db k.db 'alice WORKS-AT ?org' --at 2021
   cave query --db k.db 'service HAS owner: ?who' --resolve
   cave query --db k.db '?x ?verb ?y @production' --json`,
 
@@ -468,7 +477,7 @@ Examples:
 
 Usage:
   cave report [--db <path>] [template.md...] [--out <file>]
-              [--aliases] [--resolve] [--as-of <t>] [--no-prelude]
+              [--aliases] [--resolve] [--as-of <t>] [--at <t>] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -478,6 +487,9 @@ Options:
                  when an inline splice reports an ambiguous fact
   --as-of <t>    render the report as of a past moment (spec §12.3): a
                  date, timestamp, or transaction id
+  --at <t>       anchor every query in valid time (spec §32.4): claims
+                 whose time contexts don't cover the instant drop out,
+                 trajectory values render interpolated
   --no-prelude   open the store without the standard verb registry
 
 Reads stdin when no file (or \`-\`) is given. A template is ordinary
@@ -675,6 +687,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       all: { type: 'boolean' },
       aliases: { type: 'boolean' },
       'as-of': { type: 'string' },
+      at: { type: 'string' },
       resolve: { type: 'boolean' },
       'no-prelude': { type: 'boolean' }
     },
@@ -690,7 +703,8 @@ export const queryCommand = (argv: readonly string[]): Output => {
       all: values.all === true,
       aliases: values.aliases === true,
       resolve: values.resolve === true,
-      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] }
+      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
+      ...values.at === undefined ? {} : { at: values.at }
     })
     if (values.json === true) {
       return ok(`${JSON.stringify(matches, undefined, 2)}\n`)
@@ -704,7 +718,12 @@ export const queryCommand = (argv: readonly string[]): Output => {
         .join('  ')
       // A fully bound pattern has no bindings to print; transitive matches
       // additionally carry no row — confirm with the pattern itself.
-      return bindings !== '' ? bindings : match.row?.raw_line ?? pattern.split('\n')[0]!
+      const line = bindings !== '' ? bindings : match.row?.raw_line ?? pattern.split('\n')[0]!
+      // An interpolated trajectory shows its value at the anchor
+      // (spec §32.4) — bindings already carry it in the value slot.
+      return match.at !== undefined && bindings === '' ?
+        `${line} ; at ${values.at}: ${match.at.text}` :
+        line
     })
     return ok(`${lines.join('\n')}\n`)
   } catch (error) {
@@ -1227,6 +1246,7 @@ export const reportCommand = (argv: readonly string[]): Output => {
       aliases: { type: 'boolean' },
       resolve: { type: 'boolean' },
       'as-of': { type: 'string' },
+      at: { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
@@ -1237,7 +1257,8 @@ export const reportCommand = (argv: readonly string[]): Output => {
     const rendered = caveReport(store, template, {
       aliases: values.aliases === true,
       resolve: values.resolve === true,
-      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] }
+      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
+      ...values.at === undefined ? {} : { at: values.at }
     })
     const err = rendered.problems
       .map(problem => `template line ${problem.line}: ${problem.message}`)

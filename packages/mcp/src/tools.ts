@@ -217,6 +217,7 @@ export const tools: readonly Tool[] = [
         all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' },
         aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' },
         asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' },
+        at: { type: 'string', description: 'anchor in valid time (spec §32.4): a date-like period (its start instant) or a timestamp — claims whose time contexts (@2026-Q1, @2025..2028) do not cover it are invisible, timeless claims always match, and trajectory values (20B -> 40B USD/yr) interpolate at the instant; composes with asOf' },
         resolve: { type: 'boolean', description: 'match resolved winners only (spec §26): contested facts — one fact from several sources, or opposite polarity — collapse to the row the resolution policy picks; incompatible with all' }
       }
     },
@@ -225,7 +226,8 @@ export const tools: readonly Tool[] = [
         all: args['all'] === true,
         aliases: args['aliases'] === true,
         resolve: args['resolve'] === true,
-        ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {}
+        ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {},
+        ...typeof args['at'] === 'string' ? { at: args['at'] } : {}
       })
       if (matches.length === 0) {
         return 'no matches'
@@ -234,7 +236,12 @@ export const tools: readonly Tool[] = [
         const bindings = Object.entries(match.bindings)
           .map(([name, value]) => `?${name} = ${value}`)
           .join('  ')
-        const line = match.row === undefined ? undefined : match.row.raw_line
+        let line = match.row === undefined ? undefined : match.row.raw_line
+        // An interpolated trajectory shows its value at the anchor
+        // (spec §32.4); value-slot bindings already carry it.
+        if (match.at !== undefined && line !== undefined && bindings === '') {
+          line = `${line} ; at ${String(args['at'])}: ${match.at.text}`
+        }
         return bindings === '' ? line ?? 'match' : line === undefined ? bindings : `${bindings}  ; ${line}`
       }).join('\n')
     }

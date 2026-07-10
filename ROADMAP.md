@@ -30,8 +30,10 @@ Summary of the gaps:
 - **Model** — storage, belief evolution, inverses, query, alias closure
   (0.6.0), shape expectations (0.8.0), as-of reconstruction (0.11.0),
   the contradiction-resolution policy (0.16.0, item 11 — human
-  corrections outrank ingest re-runs) and alias discovery (0.18.0,
-  item 13 — `cave suggest-alias` finds what §13.6 merges) exist and
+  corrections outrank ingest re-runs), alias discovery (0.18.0,
+  item 13 — `cave suggest-alias` finds what §13.6 merges) and temporal
+  values (0.24.0, item 19 — trajectories interpolate under
+  `cave query --at`, valid time beside §12.3's belief time) exist and
   are CAVE's strongest layer.
 - **Conclude** — the rules engine shipped in 0.12.0 (`cave derive`,
   item 7): forward chaining with `BECAUSE`/`VIA` lineage, incremental by
@@ -151,6 +153,7 @@ surface or semantics missing) · **missing** (nothing implemented). Every
 | Entity resolution: merge/unmerge | `ALIAS` verb (§5.2) + opt-in query/traversal closure (§13.6); unmerge = retraction | exists | shipped in 0.6.0 (item 1); disagreements surfaced by `cave check` since 0.8.0 (item 3) |
 | Entity resolution: match discovery | `cave suggest-alias` (spec §27): string/graph similarity signals propose suggested `ALIAS` claims at review-band confidence; optional LLM judge; decided pairs never re-suggested | exists | shipped in 0.18.0 (item 13) |
 | As-of reconstruction | `cave query --as-of` (spec §12.3): current-belief resolution at a past date, timestamp or tx | exists | shipped in 0.11.0 (item 6) |
+| Temporal values / valid time | trajectories `20B -> 40B USD/yr @2025..2028` + time-range contexts (spec §32); `cave query --at` filters by valid-time coverage and interpolates, composing with `--as-of` into bitemporal reads | exists | shipped in 0.24.0 (item 19); §17.5 layer 3 (`(t -> expr)` functions) stays Draft |
 | Contradiction-resolution policy | opt-in resolved reads (spec §26): precedence classes over §9.5 stamp families, in-band `source/<name>` reliability/precedence claims, longest-prefix specificity, tx tiebreak | exists | shipped in 0.16.0 (item 11); human corrections outrank ingest re-runs |
 | Source-span provenance | `@src:` names a source, file-level | partial | a `@src:file#L10-L20` span convention — cheap, and it lets a claim answer "which sentence produced you" |
 | Schema-change review | schema edits are ordinary in-band appends; since 0.7.0 stamped with the appending actor (§9.5) | partial | actor stamping makes verb/`REVERSE`/topic mutations attributable; the reviewable-diff workflow is the branch/review convention (item 15) |
@@ -465,8 +468,11 @@ began with store merge (item 14, 0.19.0).*
 *Many stores, running continuously, visible to humans. Store merge
 (item 14) shipped in 0.19.0, the branching convention (item 15) in
 0.20.0, the closed loop (item 16) in 0.21.0, the human read surface
-(item 17) in 0.22.0 and reports with citations (item 18) in 0.23.0 —
-temporal values (item 19) remain, gated as the spec demands.*
+(item 17) in 0.22.0, reports with citations (item 18) in 0.23.0 and
+temporal values (item 19) in 0.24.0 — its gate, rules (item 7),
+having proved the Draft grammar path as the spec demands. Phase 3 is
+complete; every numbered roadmap item has shipped. What remains is
+the partial edges of §2 and the open decisions of §4.*
 
 14. **`@cavelang/sync` — store merge.** Merge two append-only stores;
     §9.4 contradiction tolerance makes conflicts legal data resolved at
@@ -595,7 +601,44 @@ temporal values (item 19) remain, gated as the spec demands.*
 19. **Temporal values, §17.5 layer 2** (`parser`/`core`): trajectories
     (`20B -> 40B @2025..2028`) with interpolation in query — only after
     rules (item 7) proves the Draft grammar path, per the spec's own
-    gating.
+    gating. — **Shipped in 0.24.0** (spec §32, the §17.5 layer-2 subset
+    committed; layer 3 — `(t -> expr)` functions — stays Draft, still
+    gated): a trajectory is a value with two numeric endpoints and one
+    shared unit (`20B -> 40B USD/yr`; glued `5ms -> 800ms`; mismatched
+    endpoint units degrade to an atom, §1.6), stored as written with
+    `value_num` NULL — a trajectory is not one number, so numeric
+    `WHERE value` filters and §10.1 fusion conservatively skip it — no
+    schema change, and claim keys unchanged (values were never key
+    components: a re-estimate under the same contexts supersedes in one
+    series, reconstructable with `--as-of`). Time contexts are ordinary
+    contexts read semantically (the `REVERSE` move, §19.5 — no new
+    context grammar): bare or `time:`-prefixed date-like points name
+    whole calendar periods (`@2025`, `@2026-Q1`, `@2026-W15`), ranges
+    join two with `..` (`@2025..2028`, open `@..2025` / `@2026..`,
+    numeric end points abbreviating by leading-segment inheritance —
+    `@2026-04-10..04-11`), covering whole periods at both ends; what
+    fails to parse as time stays opaque (§1.6). `cave query --at <t>`
+    anchors in valid time: claims whose time contexts all miss the
+    instant are invisible (timeless claims always match — relational
+    claims filter too, `alice WORKS-AT ?org` answers differently at
+    `--at 2021` and `--at 2026`), and a matched trajectory with exactly
+    one closed range interpolates linearly in calendar time — endpoint
+    values anchored at the range periods' start instants, held at the
+    end value through the end period's tail ("40B *in* 2028" is true
+    all of 2028), printed in the trajectory's own style (multipliers
+    re-compressed, glued units kept glued) — with value-slot bindings
+    carrying the evaluated text while the stored row returns untouched.
+    Orthogonal to `--as-of`: belief time × valid time, so "what did we
+    believe then about that moment" is one query; composes with
+    `aliases`/`resolve`/`all`, while transitive patterns reject `at`
+    (unfiltered hop edges would answer wrongly). Step functions need no
+    machinery — consecutive scalar claims with tiling ranges. Surfaced
+    as `cave query --at`, `query({ at })` (matches gain
+    `at: { num, unit, text }`), the MCP `cave_query` tool's `at`
+    parameter and `cave report --at` (a template renders "the 2028
+    projection" from the same store); the tree-sitter grammar gained
+    the value-position arrow, and `cave connect` passes
+    trajectory-shaped fields through unquoted in payload position.
 
 ## 4. Open design decisions
 
