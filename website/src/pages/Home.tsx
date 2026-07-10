@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CaveCode } from '../components/CaveCode.tsx'
 
 const example = `PARENT-OF IS verb
 PARENT-OF REVERSE CHILD-OF
@@ -14,18 +15,21 @@ const capabilities = [
     title: 'Write what you know',
     text: 'One atomic claim per line. Confidence, provenance, time, uncertainty, and relationships remain readable plain text.',
     code: 'server IS NOT compromised @ 90%',
+    language: 'cave',
   },
   {
     number: '02',
     title: 'Keep every belief',
     text: 'Append-only SQLite preserves how knowledge changes. Reconstruct what was believed at any transaction or valid-time boundary.',
     code: 'cave query "?x WORKS-AT ?where" --at 1960',
+    language: 'shell',
   },
   {
     number: '03',
     title: 'Ask the graph',
     text: 'CAVE-Q handles inverse relations, transitive paths, aliases, uncertainty filters, and contradiction resolution.',
     code: '?ancestor PARENT-OF+ me',
+    language: 'cave-q',
   },
 ]
 
@@ -62,9 +66,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             <span>family.cave</span>
             <small>plain text</small>
           </div>
-          <pre>{example.split('\n').map((line, index) => (
-            <span className="code-line" key={`${line}-${index}`}><i>{String(index + 1).padStart(2, '0')}</i>{line || ' '}</span>
-          ))}</pre>
+          <pre><CaveCode code={example} lineNumbers /></pre>
           <div className="query-result">
             <span>QUERY</span>
             <code>?ancestor PARENT-OF+ me</code>
@@ -98,7 +100,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             <span>{item.number}</span>
             <h3>{item.title}</h3>
             <p>{item.text}</p>
-            <code>{item.code}</code>
+            <code>{item.language === 'cave' ? <CaveCode code={item.code} /> : item.code}</code>
           </article>
         ))}
       </section>

@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/website",
-  "version": "0.24.1",
+  "version": "0.24.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,14 +12,17 @@
   "dependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
+    "@cavelang/highlight": "workspace:*",
     "@cavelang/parser": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*",
+    "@cavelang/tree-sitter-cave": "workspace:*",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.14.1",
+    "web-tree-sitter": "^0.26.10"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

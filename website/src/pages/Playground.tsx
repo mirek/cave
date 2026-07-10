@@ -4,6 +4,7 @@ import { open, type Store } from '@cavelang/store'
 import family from '../../../examples/family-history/notes.cave?raw'
 import incident from '../../../examples/incident/incident.cave?raw'
 import loop from '../../../examples/loop-eval/postmortem.cave?raw'
+import { CaveEditor } from '../components/CaveEditor.tsx'
 import { initializeSqlite } from '../playground/sqlite-shim.ts'
 
 type Dataset = {
@@ -141,7 +142,7 @@ export const Playground = () => {
       <section className="workbench">
         <div className="workbench-panel editor-panel">
           <header><div><span>01</span><strong>Claims</strong></div><small>dataset.cave</small></header>
-          <textarea value={source} onChange={event => setSource(event.target.value)} spellCheck={false} aria-label="CAVE claims" />
+          <CaveEditor value={source} onChange={event => setSource(event.target.value)} ariaLabel="CAVE claims" />
           <footer>
             <button onClick={() => void rebuild()} disabled={status === 'loading'}>Rebuild database</button>
             <button className="subtle" onClick={append} disabled={status !== 'ready'}>Append again</button>

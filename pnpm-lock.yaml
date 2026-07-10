@@ -389,6 +389,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@cavelang/highlight':
+        specifier: workspace:*
+        version: link:../packages/highlight
       '@cavelang/parser':
         specifier: workspace:*
         version: link:../packages/parser
@@ -398,6 +401,9 @@ importers:
       '@cavelang/store':
         specifier: workspace:*
         version: link:../packages/store
+      '@cavelang/tree-sitter-cave':
+        specifier: workspace:*
+        version: link:../packages/tree-sitter-cave
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -413,6 +419,9 @@ importers:
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
+      web-tree-sitter:
+        specifier: ^0.26.10
+        version: 0.26.10
     devDependencies:
       '@types/react':
         specifier: ^19.2.17

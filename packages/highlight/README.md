@@ -16,6 +16,8 @@ process.stdout.write(ansi('auth/middleware USES jwt @ 90% #security\n'))
 - `ansi(text, theme?)` — ANSI-colored text; themes map capture names (or
   dotted prefixes, longest wins) to SGR parameters
 - `paint(text, spans, theme?)` — renderer, exported for custom span sources
+- `@cavelang/highlight/browser` — browser factory accepting emitted parser
+  and language WASM URLs plus the shared highlights query
 
 The default theme leaves entities uncolored — they are the bulk of every
 line; color carries the structure (verbs, values, metadata, comments).
