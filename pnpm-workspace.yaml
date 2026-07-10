@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - editors/*
+  - website
 
 allowBuilds:
   '@vscode/vsce-sign': false
