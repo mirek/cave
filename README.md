@@ -421,9 +421,9 @@ From here: `cave mcp --db family.db` serves the store to any MCP client, and `pn
 
 One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives every surface: `cave highlight` (and `cave export` on a terminal) colors CAVE text with the grammar's own `highlights.scm`, the [VSCode extension](editors/vscode) replays the same query as semantic tokens, and tree-sitter-native editors (Neovim, Helix, Zed) can point at the grammar directly.
 
-## Where CAVE is heading
+## What's left
 
-[ROADMAP.md](ROADMAP.md) maps CAVE's path to a complete knowledge loop on one machine — sense, model, conclude, act, trust, distribute: what exists (every numbered roadmap item has shipped), the remaining partial edges, and the open design decisions along the way.
+The roadmap is complete — every numbered item shipped, and the knowledge loop (sense, model, conclude, act, trust, distribute) runs on one machine. [TODO.md](TODO.md) tracks what remains: the deliberately unfinished edges, the open design decisions, and issues found by analysis. Suspected bugs with repro notes live in [BUGS.md](BUGS.md).
 
 ## Development
 

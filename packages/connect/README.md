@@ -84,7 +84,7 @@ never poison the rest of the run — or the prune set.
   quoted; a value that cannot be quoted (`"` and `` ` `` both present)
   fails that record loudly instead of being mangled silently.
 - **Retraction never touches declaration claims** (`X IS verb`,
-  `REVERSE`) — verb lifecycle is an open design decision (ROADMAP), and
+  `REVERSE`) — verb lifecycle is an open design decision (`TODO.md`), and
   the prelude is additive.
 - **Keys are sanitized, claims are not.** The record key rides in an
   entity name and a `@src:` context, so reserved characters collapse to
