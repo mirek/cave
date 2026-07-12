@@ -1,3 +1,5 @@
+#import "../style.typ": note
+
 = End-to-End Example: Architecture Decision
 CAVE can model a decision such as monolith versus microservices by separating inputs, evidence, derived effects, and the decision itself. The system does not need a special decision object; ordinary claims plus rules and an action are enough.
 
