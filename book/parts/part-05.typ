@@ -24,7 +24,7 @@ cave export --db laptop.db --tx | cave sync --db main.db - --as laptop
 
 A successful merge can append a SYNCED-INTO claim naming origin and target labels. The receive rule ensures later local appends sort after merged history even when clocks differ.
 
-Transaction annotations are full-line comments of the form ;@ <uuidv7> immediately above a claim. cave export --tx emits them and cave sync replays them with original identity. Plain import ignores the annotations and performs an ordinary replay.
+Transaction annotations are full-line comments of the form ;\@ <uuidv7> immediately above a claim. cave export --tx emits them and cave sync replays them with original identity. Plain import ignores the annotations and performs an ordinary replay.
 
 The recommended Git workflow commits the annotated text export, not the SQLite file. A branch rebuilds a private store by syncing the export with --no-record, performs normal appends, re-exports, and reviews the textual diff. Text conflicts are resolved by syncing both exports into a fresh store and exporting the union, which can be configured as a merge driver.
 
@@ -71,7 +71,7 @@ cave serve provides knowledge-health tiles, entity 360 pages, forward and invers
 
 cave report evaluates fenced cave-q blocks and inline query splices in a Markdown template. Rendered facts carry footnotes with canonical claim text, date, and claim key. Ambiguous inline values fail unless resolution is explicitly requested, preventing a report from silently selecting a contested fact.
 
-The MCP server can be read-only or tool-scoped. It dynamically generates act_<name> tools from current action declarations, giving an agent a governed, inspectable write vocabulary.
+The MCP server can be read-only or tool-scoped. It dynamically generates `act_<name>` tools from current action declarations, giving an agent a governed, inspectable write vocabulary.
 
 
 = Package Architecture
