@@ -57,7 +57,7 @@ action/mark-deployed HAS action: `?service, ?version,
   ?service HAS deployed-version: ?version`
 ```
 
-Execution resolves the current action declaration, validates parameters, evaluates preconditions against current positive beliefs, requires deterministic bindings for effect variables, canonicalizes all effects, and appends them atomically. Effects are stamped @src:action/<name>, linked by BECAUSE and VIA edges, and deduplicated when already current.
+Execution resolves the current action declaration, validates parameters, evaluates preconditions against current positive beliefs, requires deterministic bindings for effect variables, canonicalizes all effects, and appends them atomically. Effects are stamped \@src:action/<name>, linked by BECAUSE and VIA edges, and deduplicated when already current.
 
 Actions run inside the shape gate by default. A failed precondition or introduced violation produces no append. This is the preferred write vocabulary for agents because it replaces unconstrained freeform changes with named operations and explicit schemas.
 
