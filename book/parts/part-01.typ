@@ -1,3 +1,5 @@
+#import "../style.typ": note
+
 = What CAVE Is
 CAVE stands for Compressed Atomic Verb Expressions. It is a small line-oriented language and a local system for recording knowledge as atomic claims. A claim is easy for a person or language model to write, easy to diff in source control, formal enough to query, and persistent enough to retain changes in belief over time.
 
@@ -75,13 +77,13 @@ subject HAS attribute: value [+/- delta [(N sigma)]] [qualifiers] [; comment]
 #table(columns: 2, inset: 5pt, stroke: 0.4pt + luma(190),
   [*Token*],
   [*Meaning*],
-  [@context],
+  [\@context],
   [Scope, source, location, environment, or valid-time context.],
-  [@ 90%],
-  [Epistemic confidence; the space after @ distinguishes it from context.],
-  [#tag],
+  [\@ 90%],
+  [Epistemic confidence; the space after \@ distinguishes it from context.],
+  [\#tag],
   [Flat tag.],
-  [#key:value],
+  [\#key:value],
   [Scoped tag.],
   [+/-],
   [Numeric uncertainty.],
