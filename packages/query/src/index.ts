@@ -14,5 +14,5 @@
  */
 
 export * as Pattern from './pattern.ts'
-export { match, query } from './compile.ts'
-export type { Match, Options } from './compile.ts'
+export { match, query } from './bounded.ts'
+export type { Match, Options } from './bounded.ts'
