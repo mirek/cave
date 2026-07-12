@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## query-numeric-values: CAVE-Q does not accept normal multi-token or multiplied numeric values
-
-- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`
-- **Relevant file:** `packages/query/src/pattern.ts`
-
-### Summary
-
-`WHERE value` still uses a decimal-only regex, rejecting values such as `20B USD/yr`. Exact attribute patterns still require exactly one value token, rejecting stored forms such as `900M users/wk`.
-
-### Impact
-
-Users cannot query using the same numeric syntax that ingestion accepts and normalizes.
-
-### Suggested fix
-
-Parse filter and attribute tails with the shared CAVE value parser, then compare normalized number/unit fields.
-
 ## about-shows-retracted: MCP `cave_about` may present retracted rows as current claims
 
 - **Source:** GPT-5.5 Thinking
@@ -496,6 +476,28 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## query-numeric-values: CAVE-Q does not accept normal multi-token or multiplied numeric values
+
+- **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
+- **Severity:** Medium
+- **Status:** Fixed by [PR #37](https://github.com/mirek/cave/pull/37); regression tests `WHERE value accepts multiplied numeric values with units` and `exact numeric attribute values compare normalized number and unit` (`packages/query/test/numeric-values.test.ts`)
+- **Area:** `@cavelang/query`
+- **Relevant files:**
+  - `packages/query/src/pattern.ts`
+  - `packages/query/src/bounded.ts`
+
+### Summary
+
+`WHERE value` used a decimal-only regular expression, rejecting values such as `20B USD/yr`. Exact attribute patterns required exactly one value token, rejecting normal stored forms such as `900M users/wk`.
+
+### Impact
+
+Users could not query using the same numeric syntax that ingestion accepts and normalizes.
+
+### Resolution
+
+CAVE-Q now parses value filters and multi-token numeric attribute tails with the shared `Value.parse` implementation. Filters compare normalized `value_num` and `value_unit` columns. Exact numeric attribute patterns are rewritten through the same normalized SQL comparison, then checked for exact unit and approximation semantics, so equivalent spellings such as `0.9B users/wk` and `900M users/wk` match while different units do not.
 
 ## as-of-future-inverses: as-of queries use inverse declarations from the future
 
