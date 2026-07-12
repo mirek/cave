@@ -9,7 +9,6 @@
 #show heading.where(level: 2): set text(size: 14pt, weight: "bold")
 #show raw: set text(font: ("DejaVu Sans Mono", "Liberation Mono"), size: 8pt)
 #show raw.where(block: true): it => block(fill: luma(245), inset: 8pt, radius: 2pt, width: 100%)[#it]
-#let note(title, body) = block(fill: luma(246), stroke: 0.5pt + luma(170), inset: 9pt, radius: 2pt, width: 100%)[*#title*\ #body]
 
 #align(center)[
   #v(32mm)
@@ -22,13 +21,12 @@
   #text(size: 10pt)[Repository version 0.25.1\ 2026-07-12]
 ]
 #pagebreak()
-= About this book
+#heading(level: 1, outlined: false, numbering: none)[About this book]
 This book consolidates the implemented CAVE system and its normative repository specification into one continuous technical guide. The specification skills remain authoritative for exact normative wording and section numbers; this book explains how the pieces work together.
 
 Build target: Typst 0.15.0. Project version: 0.25.1.
 #pagebreak()
-= Contents
-#outline(indent: auto)
+#outline(title: [Contents], indent: auto)
 #pagebreak()
 #include "parts/part-01.typ"
 #include "parts/part-02.typ"
