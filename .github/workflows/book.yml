@@ -34,6 +34,14 @@ jobs:
             *) exit 1 ;;
           esac
 
+      - name: Export compiler for reproducible diagnostics
+        run: cp "$(command -v typst)" /tmp/typst
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: typst-0.15.0-linux
+          path: /tmp/typst
+
       - name: Install PDF validation tools
         run: |
           sudo apt-get update
