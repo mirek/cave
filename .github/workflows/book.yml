@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: cave-book-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -33,14 +37,6 @@ jobs:
             "typst 0.15.0"*) ;;
             *) exit 1 ;;
           esac
-
-      - name: Export compiler for reproducible diagnostics
-        run: cp "$(command -v typst)" /tmp/typst
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: typst-0.15.0-linux
-          path: /tmp/typst
 
       - name: Install PDF validation tools
         run: |
