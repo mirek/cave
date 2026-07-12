@@ -48,6 +48,15 @@ export const parseTerm = (text: string): Claim.Term => {
   return Claim.entity(text)
 }
 
+/**
+ * SQL predicate: `column` holds an entity-form term — not a `"…"` text or
+ * `` `…` `` code literal encoding (the stored-text dual of `parseTerm`).
+ * The §13.6 alias closure joins entity endpoints only: a literal names a
+ * value, not an entity.
+ */
+export const entityTermSql = (column: string): string =>
+  `NOT (length(${column}) >= 2 AND substr(${column}, 1, 1) = substr(${column}, -1, 1) AND substr(${column}, 1, 1) IN ('\`', '"'))`
+
 /** @returns value parsed back from its stored as-written text. */
 export const parseValue = (text: string): Value.t => {
   if (text.length >= 2 && text.startsWith('`') && text.endsWith('`')) {

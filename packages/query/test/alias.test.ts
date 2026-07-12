@@ -95,6 +95,34 @@ test('repeated variables compare alias-equal across entity slots (spec §13.6)',
   store.close()
 })
 
+test('literal terms are not entities: the closure never links through them (spec §13.6)', () => {
+  const store = open()
+  store.ingest([
+    'error-a ALIAS "connection refused"',
+    'error-b ALIAS "connection refused"',
+    'error-a ALIAS err-a',
+    'retry-a ALIAS `retry()`',
+    'retry-b ALIAS `retry()`',
+    'error-a AFFECTS billing',
+    'error-b AFFECTS search',
+    'err-a AFFECTS payments',
+    'retry-a CALLS backoff',
+    'retry-b CALLS jitter',
+    'monitor WATCHES error-a'
+  ].join('\n'))
+  assert.deepEqual(
+    query(store, 'error-a AFFECTS ?x', { aliases: true }).map(match => match.bindings['x']).sort(),
+    ['billing', 'payments'],
+    'entity aliases still widen; sharing a text literal never links error-a to error-b')
+  assert.deepEqual(
+    query(store, 'retry-a CALLS ?x', { aliases: true }).map(match => match.bindings['x']),
+    ['backoff'],
+    'sharing a code literal never links retry-a to retry-b')
+  assert.equal(query(store, '?x WATCHES "connection refused"', { aliases: true }).length, 0,
+    'a literal pattern term never widens to rows about an aliased entity')
+  store.close()
+})
+
 test('values are not entities: alias closure never touches attribute values (spec §13.6)', () => {
   const store = open()
   store.ingest('fast ALIAS quick\nbuild HAS speed: fast')

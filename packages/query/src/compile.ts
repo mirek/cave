@@ -148,7 +148,9 @@ const baseSql = (options: Options, policy: undefined | readonly Resolve.Entry[])
  * `ALIAS` claims symmetrized (each written direction is its own claim key —
  * both assert the same undirected link); `alias_pair` its transitive
  * closure — every ordered pair of names currently believed to denote one
- * entity. Resolution always reads *current* beliefs, even under `all`:
+ * entity. Edges keep entity-form endpoints only: a `"…"`/`` `…` `` literal
+ * names a value, not an entity, so it never joins names into one closure.
+ * Resolution always reads *current* beliefs, even under `all`:
  * the closure is entity resolution as believed now, not as believed when
  * a row landed — except under `asOf`, where "now" is the boundary itself
  * and the closure reconstructs entity resolution as believed then
@@ -157,9 +159,11 @@ const baseSql = (options: Options, policy: undefined | readonly Resolve.Entry[])
 const aliasPairSql = (asOf: undefined | string): string => `alias_edge(a, b) AS (
   SELECT c.subject, c.object FROM (${currentSql(asOf)}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
   UNION
   SELECT c.object, c.subject FROM (${currentSql(asOf)}) c
   WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
 ), alias_pair(a, b) AS (
   SELECT a, b FROM alias_edge
   UNION
