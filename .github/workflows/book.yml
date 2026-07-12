@@ -28,7 +28,11 @@ jobs:
           typst-version: 0.15.0
 
       - name: Verify Typst version
-        run: test "$(typst --version)" = "typst 0.15.0"
+        run: |
+          case "$(typst --version)" in
+            "typst 0.15.0"*) ;;
+            *) exit 1 ;;
+          esac
 
       - name: Install PDF validation tools
         run: |
