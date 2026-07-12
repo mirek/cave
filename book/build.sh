@@ -10,6 +10,9 @@ case "$actual" in
     ;;
 esac
 
+: "${SOURCE_DATE_EPOCH:=1783814400}"
+export SOURCE_DATE_EPOCH
+
 mkdir -p website/public
 typst compile --root . book/cave.typ website/public/cave-book.pdf
 pdfinfo website/public/cave-book.pdf >/dev/null
