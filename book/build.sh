@@ -1,12 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-expected="typst 0.15.0"
 actual="$(typst --version)"
-if [ "$actual" != "$expected" ]; then
-  echo "expected $expected, got $actual" >&2
-  exit 1
-fi
+case "$actual" in
+  "typst 0.15.0"*) ;;
+  *)
+    echo "expected Typst 0.15.0, got $actual" >&2
+    exit 1
+    ;;
+esac
 
 mkdir -p website/public
 typst compile --root . book/cave.typ website/public/cave-book.pdf
