@@ -23,13 +23,12 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install Typst 0.15.0
-        run: |
-          curl -fsSL \
-            https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-unknown-linux-musl.tar.xz \
-            -o /tmp/typst.tar.xz
-          tar -xJf /tmp/typst.tar.xz -C /tmp
-          sudo install /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
-          test "$(typst --version)" = "typst 0.15.0"
+        uses: typst-community/setup-typst@v5
+        with:
+          typst-version: 0.15.0
+
+      - name: Verify Typst version
+        run: test "$(typst --version)" = "typst 0.15.0"
 
       - name: Install PDF validation tools
         run: |
