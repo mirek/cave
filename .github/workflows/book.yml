@@ -1,0 +1,44 @@
+name: Build CAVE book
+
+on:
+  push:
+    paths:
+      - 'book/**'
+      - '.github/workflows/book.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Typst 0.15.0
+        run: |
+          curl -fsSL \
+            https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-unknown-linux-musl.tar.xz \
+            -o /tmp/typst.tar.xz
+          tar -xJf /tmp/typst.tar.xz -C /tmp
+          sudo install /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          test "$(typst --version)" = "typst 0.15.0"
+
+      - name: Install PDF validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes poppler-utils
+
+      - name: Build and validate
+        run: sh book/build.sh
+
+      - name: Check in generated PDF
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add website/public/cave-book.pdf
+          if ! git diff --cached --quiet; then
+            git commit -m "Build CAVE book PDF"
+            git push
+          fi
