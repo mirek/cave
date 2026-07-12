@@ -1,3 +1,5 @@
+#import "../style.typ": note
+
 = SQLite Storage Model
 The physical design is a compact relational schema. Claims occupy the central table; contexts, tags, and claim-to-claim edges live in side tables. Full-text search indexes human-readable fields.
 
