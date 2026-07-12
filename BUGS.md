@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## as-of-future-inverses: as-of queries use inverse declarations from the future
-
-- **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/query`, `@cavelang/store`
-- **Relevant file:** `packages/query/src/compile.ts`
-
-### Summary
-
-Rows and resolution policy are rewound for `asOf`, but patterns are still compiled with `store.registry()`, rebuilt from all declarations. An inverse declared after the boundary is therefore usable in a historical query.
-
-### Impact
-
-Historical queries can return facts using vocabulary that did not exist at that time.
-
-### Suggested fix
-
-Reconstruct the verb registry at the same transaction boundary and compile the pattern against it.
-
 ## query-numeric-values: CAVE-Q does not accept normal multi-token or multiplied numeric values
 
 - **Source:** Merged PR review [#1](https://github.com/mirek/cave/pull/1)
@@ -516,6 +496,28 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## as-of-future-inverses: as-of queries use inverse declarations from the future
+
+- **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
+- **Severity:** Medium
+- **Status:** Fixed by [PR #36](https://github.com/mirek/cave/pull/36); regression test `asOf does not use inverse declarations recorded after the boundary (spec §12.3)` (`packages/query/test/asof.test.ts`)
+- **Area:** `@cavelang/query`, `@cavelang/store`
+- **Relevant files:**
+  - `packages/query/src/bounded.ts`
+  - `packages/store/src/open.ts`
+
+### Summary
+
+Rows and resolution policy were rewound for `asOf`, but patterns were compiled with `store.registry()`, rebuilt from all declarations. An inverse declared after the boundary was therefore usable in a historical query.
+
+### Impact
+
+Historical queries could return facts using vocabulary that did not exist at that time.
+
+### Resolution
+
+The public store now retains its configured base registry and can reconstruct the verb registry from declaration rows visible at an `asOf` boundary. Public query and match calls substitute that historical registry during compilation while the existing SQL continues to apply the same boundary to claims, aliases, transitive edges, and resolution policy. Future inverse and extension declarations can no longer affect historical query interpretation.
 
 ## alias-literal-terms: alias closure treats literal terms as entities
 
