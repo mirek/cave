@@ -11,3 +11,4 @@ sh book/build.sh
 
 The PDF is intentionally committed so the GitHub Pages site can link to a stable
 artifact without a runtime document build. Source and PDF must change together.
+The book workflow rebuilds and validates the PDF whenever its source changes.
