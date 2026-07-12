@@ -71,6 +71,20 @@ test('all composes: full history up to the boundary (spec §12.3)', () => {
   store.close()
 })
 
+test('asOf does not use inverse declarations recorded after the boundary (spec §12.3)', () => {
+  const store = open()
+  store.ingest('LEADS IS verb\nteam LEADS project')
+  const before = lastTx(store, 'team')
+  store.ingest('LEADS REVERSE LED-BY')
+  assert.equal(query(store, 'project LED-BY team').length, 1, 'the inverse is available now')
+  assert.equal(
+    query(store, 'project LED-BY team', { asOf: before }).length,
+    0,
+    'the inverse vocabulary did not exist at the boundary'
+  )
+  store.close()
+})
+
 test('the alias closure reconstructs entity resolution as believed then (spec §12.3, §13.6)', () => {
   const store = open()
   store.ingest('billing USES postgres\nanalytics USES postgresql')
