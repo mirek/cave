@@ -37,8 +37,9 @@ export const match = (
   if (value.kind !== 'number' || value.num === undefined) {
     return Compile.match(storeAtBoundary(store, options), pattern, options)
   }
+  const expectedNum = value.num
   const filter: Pattern.Filter = {
-    field: 'value', op: '=', value: value.num,
+    field: 'value', op: '=', value: expectedNum,
     ...value.unit === undefined ? {} : { unit: value.unit }
   }
   const normalized: Pattern.t = {
@@ -53,10 +54,13 @@ export const match = (
   const expectedUnit = value.unit ?? null
   const expectedApprox = value.approx ? 1 : 0
   return Compile.match(storeAtBoundary(store, options), normalized, options)
-    .filter(result =>
-      result.row?.value_num === value.num &&
-      result.row.value_unit === expectedUnit &&
-      result.row.value_approx === expectedApprox)
+    .filter(result => {
+      const row = result.row
+      return row !== undefined &&
+        row.value_num === expectedNum &&
+        row.value_unit === expectedUnit &&
+        row.value_approx === expectedApprox
+    })
 }
 
 export const query = (
