@@ -5,6 +5,10 @@ on:
     paths:
       - 'book/**'
       - '.github/workflows/book.yml'
+  pull_request:
+    paths:
+      - 'book/**'
+      - '.github/workflows/book.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,6 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install Typst 0.15.0
         run: |
@@ -40,5 +46,6 @@ jobs:
           git add website/public/cave-book.pdf
           if ! git diff --cached --quiet; then
             git commit -m "Build CAVE book PDF"
-            git push
+            branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+            git push origin "HEAD:$branch"
           fi
