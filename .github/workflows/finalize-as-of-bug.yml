@@ -1,0 +1,61 @@
+name: Finalize as-of bug record
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'agent/fix-as-of-future-inverses'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Record resolved bug
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('BUGS.md')
+          text = path.read_text()
+          start = text.index('## as-of-future-inverses:')
+          end = text.index('## query-numeric-values:', start)
+          text = text[:start] + text[end:]
+
+          fixed = '''## as-of-future-inverses: as-of queries use inverse declarations from the future
+
+          - **Source:** Merged PR review [#12](https://github.com/mirek/cave/pull/12)
+          - **Severity:** Medium
+          - **Status:** Fixed by [PR #36](https://github.com/mirek/cave/pull/36); regression test `asOf does not use inverse declarations recorded after the boundary (spec §12.3)` (`packages/query/test/asof.test.ts`)
+          - **Area:** `@cavelang/query`, `@cavelang/store`
+          - **Relevant files:**
+            - `packages/query/src/bounded.ts`
+            - `packages/store/src/open.ts`
+
+          ### Summary
+
+          Rows and resolution policy were rewound for `asOf`, but patterns were compiled with `store.registry()`, rebuilt from all declarations. An inverse declared after the boundary was therefore usable in a historical query.
+
+          ### Impact
+
+          Historical queries could return facts using vocabulary that did not exist at that time.
+
+          ### Resolution
+
+          The public store now retains its configured base registry and can reconstruct the verb registry from declaration rows visible at an `asOf` boundary. Public query and match calls substitute that historical registry during compilation while the existing SQL continues to apply the same boundary to claims, aliases, transitive edges, and resolution policy. Future inverse and extension declarations can no longer affect historical query interpretation.
+
+          '''
+          marker = text.index('## alias-literal-terms:')
+          path.write_text(text[:marker] + fixed + text[marker:])
+          PY
+
+          rm .github/workflows/finalize-as-of-bug.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add BUGS.md .github/workflows/finalize-as-of-bug.yml
+          git commit -m "record as-of inverse fix"
+          git push origin HEAD:${{ github.head_ref }}
