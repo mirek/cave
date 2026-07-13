@@ -96,7 +96,7 @@ nothing, and broken fixtures are skipped before agent money is spent.
 ## Scoring
 
 Both sides run through the same pipeline: canonicalize → strip **actor
-stamps** (`@src:cli`, `@src:agent/<name>`, `@src:ingest/<digest>` —
+stamps** (`@src:cli`, `@src:agent/<name>`, `@src:ingest` —
 spec §9.5; which surface wrote a claim must not move its key) → re-key →
 last claim per key. Content sources the fixture author wrote
 (`@src:maria`) stay part of claim identity, and inverse-direction writes

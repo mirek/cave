@@ -123,8 +123,9 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
   extraction rules ask the model for per-file `@src:path` anchors; claims
   arriving without one are stamped anyway — in MCP mode by the `cave mcp`
   server (`@src:agent/<client-name>`), in stdout mode by the orchestrator
-  (`@src:ingest/<digest>`, digested over the batch's `path digest`
-  manifest, so re-running unchanged content keeps the same claim keys).
+  (`@src:ingest`, the stable ingestion-surface identity, so a fact
+  re-extracted after a source revision supersedes its previous belief
+  instead of forking a new claim key).
 - **Failed batches record nothing**, so a re-run retries exactly the
   files that didn't make it.
 

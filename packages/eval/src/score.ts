@@ -5,7 +5,7 @@
  * Both sides run through the same pipeline: parse → canonicalize → strip
  * actor stamps → re-key → keep the last claim per key. Actor stamps are
  * the `@src:` contexts appended by the engine itself under spec §9.5
- * (`@src:cli`, `@src:agent/<name>`, `@src:ingest/<digest>`) — which actor
+ * (`@src:cli`, `@src:agent/<name>`, `@src:ingest`) — which actor
  * happened to write a claim must not shift its key away from the golden's,
  * while *content* sources the fixture author wrote (`@src:maria`,
  * `@src:notes.md`) stay part of claim identity: the golden decides which
@@ -28,7 +28,7 @@ import { Files } from '@cavelang/ingest'
 import type { Store } from '@cavelang/store'
 
 /** Actor-stamp sources appended by the engine (spec §9.5), ignored in scoring. */
-const actorStampRe = /^src:(?:cli$|agent\/|ingest\/)/
+const actorStampRe = /^src:(?:cli$|agent\/|ingest$)/
 
 /** @returns the claim without engine-appended actor stamps. */
 export const normalize = (claim: Claim.t): Claim.t => {

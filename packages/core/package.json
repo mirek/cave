@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/core",
-  "version": "0.25.4",
+  "version": "0.26.0",
   "type": "module",
   "description": "CAVE domain model — claims, values, units, uncertainty, claim keys, UUIDv7 transactions.",
   "license": "CC0-1.0",

@@ -33,15 +33,6 @@ export const expand = (patterns: readonly string[], cwd: string = process.cwd())
 export const digestOf = (content: string): string =>
   createHash('sha256').update(content).digest('hex').slice(0, 12)
 
-/**
- * @returns digest identifying a batch's exact input — sha256/12 over the
- * `path digest` manifest lines. Content-derived, not run-derived: re-running
- * the same content produces the same `@src:ingest/<digest>` stamp, so
- * re-extracted claims stay in their belief series (spec §9.5).
- */
-export const batchDigest = (files: readonly Selected[]): string =>
-  digestOf(files.map(file => `${file.path} ${file.digest}`).join('\n'))
-
 /** Claim key of a file's provenance claim (value excluded by design, §9.2). */
 const provenanceKey = (path: string): string =>
   Key.of(Claim.of({
