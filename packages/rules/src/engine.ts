@@ -23,7 +23,9 @@
  * - re-runs are idempotent — a conclusion equal to current belief appends
  *   nothing — and incremental by per-rule tx watermark claims: a rule
  *   re-fires only when rows recorded since its watermark could extend a
- *   premise match (§24.4);
+ *   premise match, and a watermark predating the rule's current
+ *   declaration row is stale — a re-declared rule fires from scratch
+ *   (§24.4);
  * - support is recomputed on every firing: previously-derived claims the
  *   rule no longer concludes are retracted `@ 0%`, and while a fired
  *   rule's earlier derivations are being re-established they are invisible
@@ -460,9 +462,17 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   const marks = new Map<string, undefined | string>()
   const storedMarks = new Map<string, undefined | string>()
 
-  for (const { rule } of loaded) {
+  for (const { rule, row } of loaded) {
     const watermark = store.currentBelief(bookkeepingKey(ruleSubject(rule.digest), watermarkAttribute))
-    const stored = watermark !== undefined && watermark.conf > 0 ? watermark.value_text ?? undefined : undefined
+    // A watermark is trusted only when it postdates the current
+    // declaration row: retracting and re-declaring a rule keeps its
+    // digest — and so its watermark claim key — while the conclusions
+    // were retracted with it, so an older watermark would skip every
+    // pre-existing premise (BUGS.md stale-rule-watermark). A re-declared
+    // rule fires from scratch.
+    const stored = watermark !== undefined && watermark.conf > 0 && watermark.tx > row.tx ?
+      watermark.value_text ?? undefined :
+      undefined
     storedMarks.set(rule.digest, stored)
     marks.set(rule.digest, options.full === true ? undefined : stored)
   }

@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## stale-rule-watermark: re-declared rules inherit stale derive watermarks
-
-- **Source:** Merged PR review [#13](https://github.com/mirek/cave/pull/13)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/rules`
-- **Relevant file:** `packages/rules/src/engine.ts`
-
-### Summary
-
-Rule loading still reuses the current `derive-watermark` for a digest without comparing it to the current declaration row. Retracting and re-declaring the same rule can therefore skip all older premises.
-
-### Impact
-
-A re-declared rule may leave its conclusions absent until a new premise arrives or `--full` is used.
-
-### Suggested fix
-
-Clear/retract the watermark with the rule, or ignore it whenever the declaration is newer.
-
 ## transitive-trigger-rows: transitive automation triggers cannot see event rows
 
 - **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
@@ -69,6 +49,26 @@ A matching event can be missed indefinitely until another write arrives.
 ### Suggested fix
 
 Capture the cycle boundary before settling and loop until the observed maximum is fully processed.
+
+## automate-stale-watermark: re-declared automations arm at a stale watermark
+
+- **Source:** Analysis while fixing `stale-rule-watermark`
+- **Severity:** Medium
+- **Status:** Open
+- **Area:** `@cavelang/automate`
+- **Relevant file:** `packages/automate/src/engine.ts`
+
+### Summary
+
+Trigger arming takes a stored `automate-watermark` unconditionally, falling back to the declaration row's tx only when none exists. Retracting an automation leaves its watermark claim current, so re-declaring the same name arms at the old watermark instead of the new declaration row.
+
+### Impact
+
+Rows recorded while the automation was retracted count as events on the next settle: steps — hooks, agent prompts, actions — fire once over stale rows, contradicting §29.2's arming rule ("rows recorded before the declaration are state, never events").
+
+### Suggested fix
+
+Arm at the later of the stored watermark and the current declaration row's tx — the dual of the `stale-rule-watermark` fix: derivation must re-fire over old rows, automations must not fire on them.
 
 ## exponent-notation: generated numeric CAVE values can use unsupported scientific notation
 
@@ -411,6 +411,26 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## stale-rule-watermark: re-declared rules inherit stale derive watermarks
+
+- **Source:** Merged PR review [#13](https://github.com/mirek/cave/pull/13)
+- **Severity:** Medium
+- **Status:** Fixed in 0.26.2; regression test `a re-declared rule does not inherit its stale watermark (BUGS.md stale-rule-watermark, spec §24.4)` (`packages/rules/test/engine.test.ts`)
+- **Area:** `@cavelang/rules`
+- **Relevant file:** `packages/rules/src/engine.ts`
+
+### Summary
+
+Rule loading reused the current `derive-watermark` for a digest without comparing it to the current declaration row. Retracting and re-declaring the same rule could therefore skip all older premises.
+
+### Impact
+
+A re-declared rule could leave its conclusions absent until a new premise arrived or `--full` was used.
+
+### Resolution
+
+The second suggested fix (ignore the watermark whenever the declaration is newer): `derive` now trusts a stored `derive-watermark` only when its row's tx postdates the rule's current declaration row. Rows carry per-row monotonic tx values, so a watermark recorded against an earlier declaration of the same digest always sorts below the re-declaration; the re-declared rule fires from scratch — restoring the conclusions `retractRule` retracted with the previous declaration — then records a fresh watermark and later runs are incremental again. The clear/retract-the-watermark alternative was rejected: it would cover only `retractRule`, while a rule retracted by a plain `@ 0%` append and re-declared would still inherit the stale mark — and the load-time check also heals stores that already carry one. Spec §24.4 and the rules README document the staleness rule. The same unconditional-trust shape exists in automation arming — filed as `automate-stale-watermark` above (the required direction differs: derivation must re-fire over pre-existing rows, automations must not fire on them).
 
 ## partial-ingest-digests: stdout-mode ingest recorded source digests even when parsing produced problems
 
