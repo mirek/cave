@@ -44,7 +44,9 @@ await settle(store, { hooks, complete })
   row *newer than the automation's watermark*. Declaring **arms** the
   automation — rows recorded before the declaration are state; a
   retraction fires nothing; an unchanged re-assertion appends no row and
-  so fires nothing; transitive premises constrain but never trigger.
+  so fires nothing; a transitive (`VERB+`) premise cites its supporting
+  edge rows, so a new edge fires exactly the solutions whose connection
+  it backs.
 - **The watermark is the firing log.** Firing appends one in-band
   `automate-watermark` claim (§24.4's convention, counts in the
   comment) *before* the steps run — a crash never replays outside-world

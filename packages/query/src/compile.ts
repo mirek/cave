@@ -28,6 +28,12 @@ export type Match = {
   readonly bindings: Readonly<Record<string, string>>
   readonly row?: Row.t
   /**
+   * Supporting edge rows of a transitive match — present only under
+   * `support`: the visible positive edges of the pattern's verb lying
+   * on some path between the matched endpoints.
+   */
+  readonly rows?: readonly Row.t[]
+  /**
    * The row's trajectory value evaluated at the query's `at` instant by
    * linear interpolation (spec §32.3) — present only when `at` is set,
    * the row's value is a trajectory and its contexts carry exactly one
@@ -80,6 +86,17 @@ export type Options = {
    * patterns reject `at` (hop edges are not valid-time filtered).
    */
   readonly at?: string
+  /**
+   * Attach supporting edge rows to transitive matches: each match's
+   * `rows` lists the visible positive edges of the verb on some path
+   * between its endpoints (alias links widen the paths under `aliases`
+   * but are not edges themselves). Off by default — the support join
+   * costs more than pair enumeration, and most callers need only
+   * bindings. `@cavelang/automate` opts in so its event filter can see
+   * which edge rows a trigger solution stands on (spec §29.2).
+   * Non-transitive patterns are unaffected.
+   */
+  readonly support?: boolean
 }
 
 /**
@@ -415,17 +432,36 @@ const compileTransitive = (
   if (subjectSlot.kind === 'var' && objectSlot?.kind === 'var' && subjectSlot.name === objectSlot.name) {
     conditions.push(same('h.src', 'h.dst'))
   }
-  const sql = `
-WITH RECURSIVE ${aliases ? `${aliasPairSql(options.asOf)}, ` : ''}cur AS (
-  SELECT c.subject AS src, c.object AS dst
-  FROM (${base}) c
-  WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-), hops(src, dst, depth) AS (
+  const withRecursive = `WITH RECURSIVE ${aliases ? `${aliasPairSql(options.asOf)}, ` : ''}`
+  const hopsSql = `hops(src, dst, depth) AS (
   SELECT src, dst, 1 FROM cur
   UNION
   SELECT h.src, cur.dst, h.depth + 1 FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}
   WHERE h.depth < 32
+)`
+  // Support (an opt-in): an edge row backs a pair when its endpoints sit
+  // on some path between them — reflexive or through the same hop
+  // closure, so alias-equal endpoints connect exactly as matching did.
+  const sql = options.support === true ? `
+${withRecursive}edge AS (
+  SELECT c.* FROM (${base}) c
+  WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+), cur AS (
+  SELECT DISTINCT subject AS src, object AS dst FROM edge
+), ${hopsSql}, pair(src, dst) AS (
+  SELECT DISTINCT h.src, h.dst FROM hops h
+  ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 )
+SELECT p.src AS src, p.dst AS dst, e.*
+FROM pair p JOIN edge e
+  ON (${same('e.subject', 'p.src')} OR EXISTS (SELECT 1 FROM hops f WHERE ${same('f.src', 'p.src')} AND ${same('f.dst', 'e.subject')}))
+ AND (${same('e.object', 'p.dst')} OR EXISTS (SELECT 1 FROM hops b WHERE ${same('b.src', 'e.object')} AND ${same('b.dst', 'p.dst')}))
+ORDER BY p.src, p.dst, e.tx` : `
+${withRecursive}cur AS (
+  SELECT c.subject AS src, c.object AS dst
+  FROM (${base}) c
+  WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
+), ${hopsSql}
 SELECT DISTINCT h.src AS src, h.dst AS dst FROM hops h
 ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 ORDER BY h.src, h.dst`
@@ -508,6 +544,28 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
     throw new Error('CAVE-Q: at does not compose with transitive patterns — hop edges are not valid-time filtered (spec §32.4)')
   }
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
+  if (compiled.transitive && options.support === true) {
+    // One match per distinct (src, dst) pair, its supporting edge rows
+    // attached; under aliases identical binding sets still collapse to
+    // one answer (the rule below), their support unioned.
+    const matches = new Map<string, { bindings: Record<string, string>, rows: Row.t[], seen: Set<string> }>()
+    for (const row of rows) {
+      const key = options.aliases === true ?
+        JSON.stringify(compiled.bind(row)) :
+        JSON.stringify([row['src'], row['dst']])
+      let entry = matches.get(key)
+      if (entry === undefined) {
+        entry = { bindings: compiled.bind(row), rows: [], seen: new Set() }
+        matches.set(key, entry)
+      }
+      const id = String(row['id'])
+      if (!entry.seen.has(id)) {
+        entry.seen.add(id)
+        entry.rows.push(row as unknown as Row.t)
+      }
+    }
+    return [...matches.values()].map(entry => ({ bindings: entry.bindings, rows: entry.rows }))
+  }
   if (compiled.transitive && options.aliases === true) {
     // Distinct (src, dst) pairs can repeat a binding set when an endpoint
     // matched through different spellings of one aliased entity; a

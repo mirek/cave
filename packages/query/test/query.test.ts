@@ -68,6 +68,38 @@ test('transitive EXTENDS+ (spec §12.1)', () => {
   store.close()
 })
 
+test('transitive matches carry their supporting edge rows under support (spec §12.1)', () => {
+  const store = fixture()
+  const matches = query(store, 'terrier EXTENDS+ animal', { support: true })
+  assert.equal(matches.length, 1)
+  assert.equal(matches[0]!.row, undefined, 'still no single matched row')
+  assert.deepEqual(
+    matches[0]!.rows!.map(row => `${row.subject}->${row.object}`).sort(),
+    ['dog->mammal', 'mammal->animal', 'terrier->dog']
+  )
+
+  // Edges off the path are not support: terrier->dog reaches, but never
+  // supports, dog's own ancestry.
+  const up = query(store, 'dog EXTENDS+ ?ancestor', { support: true })
+  const mammal = up.find(match => match.bindings['ancestor'] === 'mammal')!
+  assert.deepEqual(mammal.rows!.map(row => `${row.subject}->${row.object}`), ['dog->mammal'])
+
+  assert.equal(query(store, 'terrier EXTENDS+ animal')[0]!.rows, undefined, 'off by default')
+  store.close()
+})
+
+test('support composes with aliases: edges across alias links support the connection', () => {
+  const store = open()
+  store.ingest('terrier EXTENDS doggo\ndog EXTENDS animal\ndoggo ALIAS dog')
+  const matches = query(store, 'terrier EXTENDS+ animal', { aliases: true, support: true })
+  assert.equal(matches.length, 1)
+  assert.deepEqual(
+    matches[0]!.rows!.map(row => `${row.subject}->${row.object}`).sort(),
+    ['dog->animal', 'terrier->doggo']
+  )
+  store.close()
+})
+
 test('inverse verbs compile to the same physical query (spec §12.1)', () => {
   const store = fixture()
   const inverse = query(store, '?x PART-OF monorepo')

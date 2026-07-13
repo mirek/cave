@@ -78,6 +78,54 @@ test('a retraction fires nothing — the fact stops matching (spec §29.2)', asy
   store.close()
 })
 
+test('a new edge is an event for a transitive trigger (BUGS.md transitive-trigger-rows, spec §29.2)', async () => {
+  const store = open()
+  store.ingest('dog EXTENDS animal')
+  declareAutomations(store, 'automation/lineage HAS automation: `?x EXTENDS+ animal => hook/log`')
+  const first = await settle(store)
+  assert.equal(firedOf(first, 'automation/lineage'), 0, 'pre-declaration edges are state, not events')
+
+  store.ingest('terrier EXTENDS dog')
+  const second = await settle(store)
+  assert.equal(firedOf(second, 'automation/lineage'), 1, 'the new edge fires the connection it creates')
+  const fired = second.automations.find(automation => automation.subject === 'automation/lineage')!
+  assert.equal(fired.firings[0]!.bindings['x'], 'terrier', 'the pre-existing dog→animal connection stays state')
+
+  const again = await settle(store)
+  assert.equal(firedOf(again, 'automation/lineage'), 0, 'the edge is behind the watermark now')
+  store.close()
+})
+
+test('transitive supporting edges ride into prompts as trigger claims (spec §29.3)', async () => {
+  const store = open()
+  store.ingest('dog EXTENDS animal')
+  declareAutomations(store, 'automation/lineage HAS automation: `?x EXTENDS+ animal => "welcome ?x"`')
+  await settle(store)
+
+  store.ingest('terrier EXTENDS dog')
+  const prompts: string[] = []
+  await settle(store, { complete: async prompt => { prompts.push(prompt); return '' } })
+  assert.equal(prompts.length, 1)
+  assert.match(prompts[0]!, /terrier EXTENDS dog/, 'the event edge rides in the prompt')
+  assert.match(prompts[0]!, /dog EXTENDS animal/, 'so does the rest of the supporting path')
+  store.close()
+})
+
+test('an own action step’s edge never re-fires a transitive trigger — deaf to its echo (spec §29.2)', async () => {
+  const store = open()
+  store.ingest('dog EXTENDS animal')
+  declareActions(store, 'action/graft HAS action: `?x => puppy EXTENDS ?x`')
+  declareAutomations(store, 'automation/lineage HAS automation: `?x EXTENDS+ animal => action/graft`')
+  store.ingest('terrier EXTENDS dog')
+
+  const report = await settle(store)
+  assert.equal(firedOf(report, 'automation/lineage'), 1, 'the hand-written edge fires once')
+  assert.equal(query(store, 'puppy EXTENDS terrier @src:action/graft').length, 1, 'the action ran')
+  assert.equal(query(store, 'puppy EXTENDS puppy').length, 0, 'the effect edge is not an event for its own automation')
+  assert.equal(firedOf(await settle(store), 'automation/lineage'), 0)
+  store.close()
+})
+
 test('action steps execute with trigger-bound parameters and lineage (spec §29.3)', async () => {
   const store = open()
   declareActions(store, 'action/flag HAS action: `?svc => ?svc IS flagged`')

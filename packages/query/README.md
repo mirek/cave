@@ -69,6 +69,13 @@ covers one second.
   `?x EXTENDS+ ?x` finds nodes on cycles, not every reachable pair.
 - Transitive patterns support endpoint slots only; tag/context/WHERE
   filters on them are rejected rather than silently ignored.
+- **`{ support: true }` attaches supporting edge rows to transitive
+  matches**: `match.rows` lists the visible positive edges of the verb
+  on some path between the matched endpoints (`match.row` stays absent;
+  alias links widen the paths under `aliases` but are not edges
+  themselves). Off by default — the support join costs more than pair
+  enumeration. `@cavelang/automate` opts in so a trigger solution's
+  event test can see which edge rows it stands on (spec §29.2).
 - **`{ aliases: true }` resolves entity terms through the alias closure**
   (§13.6): current positive `ALIAS` claims as undirected edges. Matching
   widens — bound terms match aliased spellings, repeated variables compare

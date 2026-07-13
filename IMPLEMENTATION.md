@@ -212,7 +212,10 @@ Package READMEs document local decisions; these are the global ones:
   and actions use, but a solution fires only when it cites a row newer
   than the automation's in-band `automate-watermark` — absent one, the
   declaration row's tx, so declaring arms the watcher and pre-existing
-  matches stay state. Rows stamped by engine bookkeeping
+  matches stay state. A transitive (`VERB+`) premise cites its
+  supporting edge rows (CAVE-Q's opt-in `support` option), so a new
+  edge fires exactly the solutions whose connection it backs and the
+  supporting path rides into hooks and prompts. Rows stamped by engine bookkeeping
   (`src:cave-automate`/`cave-derive`/`cave-act`) or by the automation's
   own steps (`src:automation/<name>`, its actions' `src:action/<x>`)
   are never events for it — no self-wakes, while cross-automation

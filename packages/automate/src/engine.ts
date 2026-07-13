@@ -11,6 +11,10 @@
  *   automation's own output (`src:automation/<name>`, or `src:action/<x>`
  *   for its action steps). An automation is deaf to its own echo; other
  *   automations' output triggers normally, which is how automations chain.
+ *   A transitive (`VERB+`) premise cites its supporting edge rows (the
+ *   query layer's `support` option), so a new edge is an event exactly
+ *   for the solutions whose connection it backs — with the same
+ *   exclusions applied per edge row.
  * - An automation with no stored watermark is armed at its declaration
  *   row's tx — it watches from the moment it is declared (§29.2).
  * - Firing records the batch *before* acting on it (§29.3): one
@@ -134,9 +138,12 @@ const evaluateTrigger = (store: Store, automation: Automation.t, aliases: boolea
         if (pattern === undefined) {
           return []
         }
-        return match(store, pattern, { aliases }).map(found => ({
+        return match(store, pattern, { aliases, support: true }).map(found => ({
           bindings: { ...solution.bindings, ...found.bindings },
-          rows: found.row === undefined ? solution.rows : [...solution.rows, found.row]
+          rows:
+            found.row !== undefined ? [...solution.rows, found.row] :
+            found.rows !== undefined ? [...solution.rows, ...found.rows] :
+            solution.rows
         }))
       })
     }
