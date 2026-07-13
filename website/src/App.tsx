@@ -30,6 +30,7 @@ export const App = () => {
         <nav aria-label="Primary navigation">
           <Button variant="ghost" size="sm" className={isDocs ? 'active' : ''} onClick={() => navigate('docs/overview')}>Docs</Button>
           <Button variant="ghost" size="sm" className={isPlayground ? 'active' : ''} onClick={() => navigate('playground')}>Playground</Button>
+          <a className="nav-link" href="./cave-book.pdf">Book</a>
           <a className="nav-link" href="https://github.com/mirek/cave" target="_blank" rel="noreferrer">GitHub ↗</a>
         </nav>
         <Button className="header-cta" variant="outline" size="sm" onClick={() => navigate('docs/overview')}>Documentation</Button>
@@ -42,7 +43,7 @@ export const App = () => {
         <footer className="site-footer">
           <Logo />
           <p>Compressed Atomic Verb Expressions.<br />Plain-text claims backed by SQLite.</p>
-          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="https://github.com/mirek/cave">GitHub</a><span>v0.24.2</span></div>
+          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="./cave-book.pdf">Book</a><a href="https://github.com/mirek/cave">GitHub</a><span>v0.25.1</span></div>
         </footer>
       )}
     </div>
