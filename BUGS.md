@@ -10,28 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## partial-ingest-digests: stdout-mode ingest records source digests even when parsing produced problems
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/ingest`
-- **Relevant files:**
-  - `packages/ingest/src/run.ts`
-  - `packages/ingest/src/files.ts`
-
-### Summary
-
-In stdout mode, agent output is passed through `store.ingest(caveTextOf(output), ...)`. The returned problems are stored in the batch report, but the batch is still marked `ok: true`. Afterward, `Files.recordDigests(store, files)` runs for the successful batch.
-
-### Impact
-
-A partially invalid extraction can still mark its input files or URLs as ingested. A later run will skip those unchanged sources even though the previous extraction had parse/canonicalization problems and may be incomplete.
-
-### Suggested fix
-
-Only record digests when `ingested.problems.length === 0`, or add an explicit option such as `--accept-partial` to keep the current behavior intentionally.
-
 ## stale-rule-watermark: re-declared rules inherit stale derive watermarks
 
 - **Source:** Merged PR review [#13](https://github.com/mirek/cave/pull/13)
@@ -433,6 +411,28 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## partial-ingest-digests: stdout-mode ingest recorded source digests even when parsing produced problems
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** Medium
+- **Status:** Fixed in 0.26.1; regression test `a batch with parse problems does not record digests — sources are retried (BUGS.md partial-ingest-digests)` (`packages/ingest/test/run.test.ts`)
+- **Area:** `@cavelang/ingest`
+- **Relevant files:**
+  - `packages/ingest/src/run.ts`
+  - `packages/ingest/src/files.ts`
+
+### Summary
+
+In stdout mode, agent output was passed through `store.ingest(caveTextOf(output), ...)`. The returned problems were stored in the batch report, but the batch was still marked `ok: true`. Afterward, `Files.recordDigests(store, files)` ran for the successful batch.
+
+### Impact
+
+A partially invalid extraction could still mark its input files or URLs as ingested. A later run would skip those unchanged sources even though the previous extraction had parse/canonicalization problems and may have been incomplete.
+
+### Resolution
+
+The first suggested fix: stdout-mode digest bookkeeping is now gated on a problem-free ingest — when `store.ingest` returns problems, `Files.recordDigests` is skipped, so the batch's files and URLs stay eligible and the next run re-extracts them. The batch report is unchanged: it stays `ok: true` (the agent ran; valid lines still land, spec §1.6) with the problems listed, and a retried claim lands in the same belief series (stable `@src:ingest` stamp, §9.5) and supersedes in place, so re-running a partial batch is safe. The `--accept-partial` alternative was not added — nothing needs the old behavior; it can be introduced if a use case appears. MCP-mode batches are unaffected (the orchestrator ingests nothing there; their problems list is always empty). The ingest README documents that problem batches record nothing.
 
 ## stdout-source-identity: stdout ingest changed fallback source identity when content changed
 
