@@ -15,7 +15,7 @@
  * lines (spec §12.2), indented or not.
  */
 
-import { Confidence, Verb } from '@cavelang/core'
+import { Confidence, Value, Verb } from '@cavelang/core'
 import { Token } from '@cavelang/parser'
 
 /** A pattern slot: named variable, wildcard `_`, or a bound term. */
@@ -128,12 +128,14 @@ const parseFilter = (tokens: readonly Token.t[], lineNo: number): Filter => {
       return { field: 'context', op: '=', value: valueText }
     }
     case 'value': {
-      const match = /^(-?\d+(?:\.\d+)?)(?:\s+(.+))?$/.exec(valueText)
-      if (!match) {
+      const value = Value.parse(valueText)
+      if (value.kind !== 'number' || value.num === undefined) {
         return bad(`cannot parse value filter ${JSON.stringify(valueText)}`)
       }
-      const unit = match[2]
-      return { field: 'value', op: op.text, value: Number(match[1]), ...unit === undefined ? {} : { unit } }
+      return {
+        field: 'value', op: op.text, value: value.num,
+        ...value.unit === undefined ? {} : { unit: value.unit }
+      }
     }
     case 'tx':
       return { field: 'tx', op: op.text, value: valueText }
@@ -185,10 +187,28 @@ export const parse = (input: string): Pattern => {
   if (payloadTokens.length === 0) {
     payload = { kind: 'any' }
   } else if (payloadTokens[0]!.kind === 'word' && payloadTokens[0]!.text.endsWith(':') && payloadTokens[0]!.text.length > 1) {
-    if (payloadTokens.length !== 2) {
-      throw new Error('CAVE-Q: attribute patterns take exactly one value slot (spec §12.1)')
+    const valueTokens = payloadTokens.slice(1)
+    if (valueTokens.length === 0) {
+      throw new Error('CAVE-Q: attribute patterns need a value slot (spec §12.1)')
     }
-    payload = { kind: 'attribute', attribute: payloadTokens[0]!.text.slice(0, -1), value: slotOf(payloadTokens[1]!) }
+    if (valueTokens.length === 1) {
+      payload = {
+        kind: 'attribute',
+        attribute: payloadTokens[0]!.text.slice(0, -1),
+        value: slotOf(valueTokens[0]!)
+      }
+    } else {
+      const valueText = valueTokens.map(token => token.text).join(' ')
+      const value = Value.parse(valueText)
+      if (value.kind !== 'number') {
+        throw new Error('CAVE-Q: attribute patterns take one value slot or a numeric value (spec §12.1)')
+      }
+      payload = {
+        kind: 'attribute',
+        attribute: payloadTokens[0]!.text.slice(0, -1),
+        value: { kind: 'term', text: valueText }
+      }
+    }
   } else if (payloadTokens.length === 1) {
     payload = { kind: 'object', object: slotOf(payloadTokens[0]!) }
   } else {

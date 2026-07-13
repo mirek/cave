@@ -1,6 +1,7 @@
+import { Value } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
 import * as Compile from './compile.ts'
-import type * as Pattern from './pattern.ts'
+import * as Pattern from './pattern.ts'
 
 export type { Match, Options } from './compile.ts'
 
@@ -17,16 +18,54 @@ const storeAtBoundary = (store: Store, options: Compile.Options): Store => {
   return { ...store, registry: () => registry }
 }
 
+/**
+ * Exact numeric attribute values are matched through normalized storage
+ * columns, not their as-written spelling: `0.9B users/wk` and
+ * `900M users/wk` denote the same number/unit pair. The compiler's existing
+ * value filter pushes the normalized comparison into SQL; the final check
+ * preserves exact unit and approximation semantics.
+ */
+export const match = (
+  store: Store,
+  pattern: Pattern.t,
+  options: Compile.Options = {}
+): Compile.Match[] => {
+  if (pattern.payload.kind !== 'attribute' || pattern.payload.value.kind !== 'term') {
+    return Compile.match(storeAtBoundary(store, options), pattern, options)
+  }
+  const value = Value.parse(pattern.payload.value.text)
+  if (value.kind !== 'number' || value.num === undefined) {
+    return Compile.match(storeAtBoundary(store, options), pattern, options)
+  }
+  const expectedNum = value.num
+  const filter: Pattern.Filter = {
+    field: 'value', op: '=', value: expectedNum,
+    ...value.unit === undefined ? {} : { unit: value.unit }
+  }
+  const normalized: Pattern.t = {
+    ...pattern,
+    payload: {
+      kind: 'attribute',
+      attribute: pattern.payload.attribute,
+      value: { kind: 'wildcard' }
+    },
+    filters: [...pattern.filters, filter]
+  }
+  const expectedUnit = value.unit ?? null
+  const expectedApprox = value.approx ? 1 : 0
+  return Compile.match(storeAtBoundary(store, options), normalized, options)
+    .filter(result => {
+      const row = result.row
+      return row !== undefined &&
+        row.value_num === expectedNum &&
+        row.value_unit === expectedUnit &&
+        row.value_approx === expectedApprox
+    })
+}
+
 export const query = (
   store: Store,
   input: string,
   options: Compile.Options = {}
 ): Compile.Match[] =>
-  Compile.query(storeAtBoundary(store, options), input, options)
-
-export const match = (
-  store: Store,
-  pattern: Pattern.t,
-  options: Compile.Options = {}
-): Compile.Match[] =>
-  Compile.match(storeAtBoundary(store, options), pattern, options)
+  match(store, Pattern.parse(input), options)
