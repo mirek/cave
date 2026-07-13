@@ -127,7 +127,10 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
   re-extracted after a source revision supersedes its previous belief
   instead of forking a new claim key).
 - **Failed batches record nothing**, so a re-run retries exactly the
-  files that didn't make it.
+  files that didn't make it. In `--stdout` mode the same holds for a
+  batch whose output ingested with parse/canonicalization problems: its
+  valid lines land (spec §1.6), but the extraction may be incomplete, so
+  its digests are withheld and the sources stay eligible.
 
 ## Tests
 
@@ -138,5 +141,5 @@ pnpm --filter @cavelang/ingest test
 Glob/batch/digest units, context slices, prompt assembly for both modes,
 readability extraction and URL selection (fake fetch plus a real local
 http server), and end-to-end runs with fake shell and function agents:
-incremental skips, growing context between batches, failure retry,
-MCP-mode delta reporting, fence extraction.
+incremental skips, growing context between batches, failure and
+problem-batch retry, MCP-mode delta reporting, fence extraction.

@@ -204,8 +204,9 @@ export const caveTextOf = (output: string): string => {
 
 /**
  * Runs the full ingestion. The store stays open across batches; digests
- * are recorded only for batches whose agent run succeeded, so failed
- * batches are retried by the next invocation.
+ * are recorded only for batches whose agent run succeeded — and, in
+ * stdout mode, whose output ingested without problems — so failed or
+ * partially invalid batches are retried by the next invocation.
  */
 export const run = async (options: Options): Promise<Report> => {
   const store = options.store
@@ -274,6 +275,11 @@ export const run = async (options: Options): Promise<Report> => {
           added: ingested.ids.length,
           problems: ingested.problems.map(problem => `line ${problem.line}: ${problem.message}`)
         })
+        if (ingested.problems.length > 0) {
+          // A partially invalid extraction may be incomplete — withhold the
+          // digests so these sources stay eligible for the next run.
+          continue
+        }
       } else {
         const note = output.trim().split('\n').at(-1) ?? ''
         reports.push({

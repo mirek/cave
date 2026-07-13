@@ -212,3 +212,29 @@ test('problems in agent output are reported, valid lines still land', () =>
     assert.equal(report.batches[0]!.problems.length, 1)
     store.close()
   }))
+
+test('a batch with parse problems does not record digests — sources are retried (BUGS.md partial-ingest-digests)', () =>
+  withDir(async dir => {
+    writeFileSync(join(dir, 'p.md'), 'p')
+    const store = open()
+    const options = {
+      db: ':memory:', store, patterns: ['*.md'], cwd: dir,
+      mode: 'stdout' as const
+    }
+    const partial = await run({ ...options, agent: async () => 'good USES claim\nthis is not cave\n' })
+    assert.equal(partial.added, 1, 'valid lines still land (spec §1.6)')
+    assert.equal(partial.batches[0]!.problems.length, 1)
+    // The extraction may be incomplete: the unchanged source must stay
+    // eligible, or the partial result freezes until the file changes.
+    const retry = await run({ ...options, agent: async () => 'good USES claim\nrest CONTAINS extraction' })
+    assert.equal(retry.batches.length, 1, 'a problem batch must not mark its sources ingested')
+    assert.equal(retry.batches[0]!.problems.length, 0)
+    // A clean extraction records digests as usual — the third run skips.
+    const third = await run({
+      ...options,
+      agent: async (): Promise<string> => { throw new Error('agent must not run for an ingested source') }
+    })
+    assert.equal(third.batches.length, 0)
+    assert.deepEqual(third.skipped, ['p.md'])
+    store.close()
+  }))
