@@ -266,6 +266,28 @@ test('cave_about, cave_neighbors and cave_search read the graph', () => {
   store.close()
 })
 
+test('cave_about hides retracted series — an @ 0% current row is not believed (spec §9.3)', () => {
+  const store = open()
+  store.ingest('auth USES jwt @ 90%\nauth USES oauth\nauth USES NOT ldap @ 80%\nlegacy CONTAINS auth')
+  store.ingest('auth USES jwt @ 0% ; key rotation retired jwt\nlegacy CONTAINS auth @ 0%')
+  const server = createServer(store)
+  const about = contentText(call(server, 34, 'cave_about', { entity: 'auth' }))
+  assert.match(about, /auth USES oauth/)
+  assert.match(about, /auth USES NOT ldap @ 80%/, 'a supported denial is a current belief')
+  assert.doesNotMatch(about, /jwt/, 'the retracted subject-side series is gone')
+  assert.doesNotMatch(about, /legacy/, 'the retracted object-side series is gone')
+
+  // An entity whose only series is retracted has nothing believed about it.
+  store.ingest('ghost IS haunted\nghost IS haunted @ 0%')
+  assert.equal(contentText(call(server, 35, 'cave_about', { entity: 'ghost' })), 'no claims')
+
+  // The alias closure widens names, never the belief filter (spec §13.6).
+  store.ingest('auth ALIAS authn\nauthn USES saml\nauthn USES saml @ 0%')
+  const aliased = contentText(call(server, 36, 'cave_about', { entity: 'auth', aliases: true }))
+  assert.doesNotMatch(aliased, /saml/, 'a retracted aliased series is gone too')
+  store.close()
+})
+
 test('cave_query, cave_about and cave_neighbors resolve aliases on request (spec §13.6)', () => {
   const store = open()
   store.ingest('postgres ALIAS postgresql\nbilling USES postgres\nanalytics USES postgresql')

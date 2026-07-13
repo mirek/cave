@@ -82,13 +82,15 @@ const text = (value: unknown, name: string): string => {
 /**
  * Current claims mentioning `entity` on either endpoint, as canonical
  * lines — through the alias closure (spec §13.6) when asked, restricted
- * to the §26 resolved winners when asked.
+ * to the §26 resolved winners when asked. A retracted (`@ 0%`) current
+ * belief has no current support (spec §9.3) and is skipped, matching
+ * the CAVE-Q default and store traversal.
  */
 const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boolean): string[] => {
   const names = new Set(aliases ? store.aliasesOf(entity) : [entity])
   const rows = resolve ? store.resolvedBeliefs({ aliases }) : store.currentBeliefs()
   return rows
-    .filter(row => names.has(row.subject) || (row.object !== null && names.has(row.object)))
+    .filter(row => row.conf > 0 && (names.has(row.subject) || (row.object !== null && names.has(row.object))))
     .map(row => emitClaim(store.toClaim(row)))
 }
 

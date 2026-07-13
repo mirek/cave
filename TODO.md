@@ -76,10 +76,14 @@ re-verified here. Overlaps are cross-referenced in §3.
   reuse that or switch to `{command, args}` arrays.
 - **partial-ingest-digests** open — stdout-mode ingest records digests
   despite parse problems (`packages/ingest/src/run.ts`).
-- **about-shows-retracted** open — MCP `cave_about` shows retracted
-  (`conf = 0`) rows as current (`packages/mcp/src/tools.ts`); the same
-  root behavior feeds eval's produced-facts scoring and
-  `cave_reconstruct`'s `claimsAbout`.
+- **about-shows-retracted** fixed in 0.25.4 — `cave_about` filters
+  `conf > 0` (`packages/mcp/src/tools.ts`). The root behavior still
+  feeds eval's produced-facts scoring (`packages/eval/src/score.ts`)
+  and `cave_reconstruct`'s `claimsAbout` (`packages/loop/src/sqlite.ts`,
+  `store.ts` — both implementations collect retracted rows; traversal
+  already excludes them), deliberately untouched: whether §18
+  reconstruction should collect retracted claims is a design question,
+  not part of the entry.
 - **connect-fetch-timeout** open — `connect` URL fetch has no
   timeout/headers and case-sensitive detection; the same detector
   mis-routes `HTTPS://… --watch` past the no-URLs guard onto the file

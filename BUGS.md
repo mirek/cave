@@ -10,29 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## about-shows-retracted: MCP `cave_about` may present retracted rows as current claims
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/mcp`, `@cavelang/store`
-- **Relevant files:**
-  - `packages/mcp/src/tools.ts`
-  - `packages/store/src/store.ts`
-  - `packages/query/src/compile.ts`
-
-### Summary
-
-`cave_about` uses `store.currentBeliefs()` and filters rows mentioning the requested entity. `currentBeliefs()` returns the latest row per claim key but does not filter out `conf = 0` rows. By contrast, normal CAVE-Q queries exclude unsupported/retracted current rows by default unless the query explicitly asks otherwise.
-
-### Impact
-
-MCP clients can see retraction rows as “everything currently believed about an entity” and may treat `@ 0%` facts as supported current facts.
-
-### Suggested fix
-
-Filter `conf > 0` in `aboutLines` by default. If retractions are useful in this view, add an explicit `includeRetracted` option or label the output as including retractions.
-
 ## stdout-source-identity: stdout ingest changes fallback source identity when content changes
 
 - **Source:** Merged PR review [#8](https://github.com/mirek/cave/pull/8)
@@ -476,6 +453,29 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## about-shows-retracted: MCP `cave_about` presented retracted rows as current claims
+
+- **Source:** GPT-5.5 Thinking
+- **Severity:** Medium
+- **Status:** Fixed in 0.25.4; regression test `cave_about hides retracted series — an @ 0% current row is not believed (spec §9.3)` (`packages/mcp/test/server.test.ts`)
+- **Area:** `@cavelang/mcp`, `@cavelang/store`
+- **Relevant files:**
+  - `packages/mcp/src/tools.ts`
+  - `packages/store/src/store.ts`
+  - `packages/query/src/compile.ts`
+
+### Summary
+
+`cave_about` used `store.currentBeliefs()` and filtered rows mentioning the requested entity. `currentBeliefs()` returns the latest row per claim key but does not filter out `conf = 0` rows. By contrast, normal CAVE-Q queries exclude unsupported/retracted current rows by default unless the query explicitly asks otherwise.
+
+### Impact
+
+MCP clients could see retraction rows as “everything currently believed about an entity” and treat `@ 0%` facts as supported current facts.
+
+### Resolution
+
+The suggested fix: `aboutLines` now filters `conf > 0`, so a retracted (`@ 0%`) current belief — which has no current support (spec §9.3) — never renders as a current claim, matching the CAVE-Q default, store traversal (`cave_neighbors`) and the `cave_fuse` `about` selector. The `resolve` path was already safe (`rankedSql` excludes retracted candidates); the filter now applies uniformly to the plain and aliased paths. Retractions remain reachable where history is explicit: CAVE-Q with `all`, `store.history`, export.
 
 ## query-numeric-values: CAVE-Q does not accept normal multi-token or multiplied numeric values
 
