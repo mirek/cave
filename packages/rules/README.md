@@ -50,7 +50,9 @@ cave derive --db k.db --retract 4a0bb974f43c
   the whole derivation tree, and import replays it.
 - **Idempotent and incremental**: unchanged conclusions append nothing;
   per-rule `derive-watermark` claims let a run skip rules no new row
-  could affect (`--full` overrides).
+  could affect (`--full` overrides). A watermark predating the rule's
+  current declaration row is stale — a re-declared rule fires from
+  scratch.
 - **Support is well-founded**: premises retracted → dependents retracted,
   cascading across rules within the run; mutually-supporting derivation
   cycles cannot keep each other alive.

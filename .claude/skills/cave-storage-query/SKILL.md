@@ -679,6 +679,14 @@ retraction row re-fires the rules its claim used to feed. Over-matching
 costs a wasted evaluation; under-matching would be a missed conclusion,
 so ambiguity resolves toward firing. `--full` ignores watermarks.
 
+A watermark is trusted only when it postdates the rule's **current
+declaration row**: retracting a rule retracts what it derived (§24.5),
+and re-declaring the same text keeps the digest — and so the watermark
+claim key — so an inherited watermark would skip every pre-existing
+premise and leave the conclusions unrestored. A re-declared rule fires
+from scratch, as if unmarked, then records a fresh watermark and later
+runs are incremental again.
+
 ### 24.5 Support — retraction propagates
 
 A derivation's justification must not outlive its premises. On every

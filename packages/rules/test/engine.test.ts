@@ -62,6 +62,31 @@ test('re-runs are idempotent and watermark-incremental (spec §24.4)', () => {
   store.close()
 })
 
+test('a re-declared rule does not inherit its stale watermark (BUGS.md stale-rule-watermark, spec §24.4)', () => {
+  const store = open()
+  store.ingest('alpha IS server')
+  const file = '?x IS server => ?x NEEDS monitoring'
+  const declaration = declareRules(store, file)
+  derive(store)
+  assert.equal(query(store, 'alpha NEEDS monitoring').length, 1)
+
+  // Retract the rule — its conclusions go with it (§24.5) — then declare
+  // the identical text again: same digest, same watermark claim key, and
+  // no premise-shaped row newer than the stored watermark.
+  const retraction = retractRule(store, declaration.rules[0]!.digest)
+  assert.ok(retraction.ok)
+  assert.deepEqual(query(store, 'alpha NEEDS monitoring'), [])
+  assert.equal(declareRules(store, file).declared, 1)
+
+  const report = derive(store)
+  assert.equal(report.rules[0]!.fired, true, 'the stale watermark must not skip the re-declared rule')
+  assert.equal(query(store, 'alpha NEEDS monitoring').length, 1, 'conclusions re-derived from pre-watermark premises')
+
+  const idle = derive(store)
+  assert.equal(idle.rules[0]!.fired, false, 'the fresh watermark restores incrementality')
+  store.close()
+})
+
 test('belief updates: premise confidence change re-derives the conclusion', () => {
   const store = open()
   store.ingest('monorepo CONTAINS api @ 80%')
