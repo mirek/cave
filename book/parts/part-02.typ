@@ -94,7 +94,7 @@ Every append surface should identify who or what wrote a claim. Source provenanc
   [MCP append],
   [\@src:agent/<client>],
   [LLM ingest],
-  [\@src:ingest/<digest>],
+  [\@src:ingest],
   [Structured connector],
   [\@src:connect/<name>/<key>],
   [Rule conclusion],

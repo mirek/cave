@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { open } from '@cavelang/store'
-import { Files, run, runShellAgent, writeMcpConfig } from '@cavelang/ingest'
+import { run, runShellAgent, writeMcpConfig } from '@cavelang/ingest'
 
 const withDir = (body: (dir: string) => Promise<void>): Promise<void> => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-run-'))
@@ -33,19 +33,40 @@ test('stdout mode with a function agent: extraction lands, digests recorded, rer
     assert.match(prompts[0]!, /The auth middleware uses JWT tokens\./, 'embed inlines contents')
     const extracted = store.currentBeliefs().filter(row => row.verb === 'USES')
     assert.equal(extracted.length, 2)
-    // Actor provenance (spec §9.5): stdout-mode appends carry the batch's
-    // content-derived ingest stamp.
-    const batch = [
-      { path: 'auth.md', digest: Files.digestOf('The auth middleware uses JWT tokens.') },
-      { path: 'billing.md', digest: Files.digestOf('Billing talks to stripe.') }
-    ]
+    // Actor provenance (spec §9.5): stdout-mode appends carry the stable
+    // ingestion-surface stamp, so a later re-extraction stays in the same
+    // belief series.
     for (const row of extracted) {
-      assert.deepEqual(store.toClaim(row).contexts, [`src:ingest/${Files.batchDigest(batch)}`])
+      assert.deepEqual(store.toClaim(row).contexts, ['src:ingest'])
     }
 
     const again = await run(options)
     assert.equal(again.batches.length, 0, 'unchanged files are skipped')
     assert.deepEqual(again.skipped.length, 2)
+    store.close()
+  }))
+
+test('stdout re-ingest of a revised source supersedes the previous belief (BUGS.md stdout-source-identity)', () =>
+  withDir(async dir => {
+    const doc = join(dir, 'service.md')
+    writeFileSync(doc, 'The service timeout is 3000ms.')
+    const store = open()
+    const options = {
+      db: ':memory:', store, patterns: ['*.md'], cwd: dir,
+      mode: 'stdout' as const, embed: true
+    }
+    const first = await run({ ...options, agent: async () => 'service HAS timeout: 3000ms' })
+    assert.equal(first.added, 1)
+    // The source is revised: the agent re-extracts the same fact with a
+    // new value. The stamp must not depend on content, or the revised
+    // claim lands under a different claim key (spec §9.2) and both the
+    // old and the new belief stay current.
+    writeFileSync(doc, 'The service timeout is 5000ms.')
+    const second = await run({ ...options, agent: async () => 'service HAS timeout: 5000ms' })
+    assert.equal(second.batches.length, 1, 'the revised file is re-ingested')
+    const current = store.currentBeliefs().filter(row => row.attribute === 'timeout')
+    assert.equal(current.length, 1, 'the revision supersedes — old and new must not both be current')
+    assert.equal(current[0]!.value_num, 5000)
     store.close()
   }))
 

@@ -96,7 +96,7 @@ the acting surface. Recommended forms:
 |---|---|
 | interactive CLI (`cave add`) | `@src:cli` |
 | MCP client append (`cave_add`) | `@src:agent/<client-name>` (from the MCP `initialize` handshake; `@src:agent` when unknown) |
-| deterministic/orchestrated ingestion | `@src:ingest/<digest>` (content-derived, so identical re-runs stay key-stable) |
+| orchestrated ingestion (`cave ingest --stdout`) | `@src:ingest` (stable across re-runs *and* source revisions, so a re-extracted fact supersedes in its belief series instead of forking a new key) |
 | structured record mapping (`cave connect`) | `@src:connect/<name>/<key>` per record (§23.2) — record identity is what lets a changed record retract claims it no longer yields |
 
 Rules:
@@ -958,9 +958,9 @@ source/ingest HAS reliability: 80%        ; discount all LLM ingestion
 ```
 
 **Matching is by path prefix, most specific declaration wins** — the
-§9.4 "context" dimension made concrete: a context `src:ingest/93a0`
-takes its reliability from `source/ingest/93a0` if declared, else
-`source/ingest`, else `source` (the root), else the built-in default.
+§9.4 "context" dimension made concrete: a context `src:agent/claude`
+takes its reliability from `source/agent/claude` if declared, else
+`source/agent`, else `source` (the root), else the built-in default.
 Prefixes are whole `/`-separated segments; precedence and reliability
 match independently (the most specific declaration *of each dimension*
 applies).
@@ -972,7 +972,7 @@ applies).
 | `source/cli` | `src:cli` — a human at the CLI (§9.5) | 4 |
 | `source/agent` | `src:agent/*` — MCP client appends | 3 |
 | `source/action` | `src:action/*` — governed writes (§25) | 3 |
-| `source` (root) | every other source — content sources, `src:connect/*`, `src:ingest/*` — and rows with no source | 2 |
+| `source` (root) | every other source — content sources, `src:connect/*`, `src:ingest` — and rows with no source | 2 |
 | `source/rule` | `src:rule/*` — derived claims (§24) | 1 |
 
 No reliability is built in — absent declarations, every source weighs
@@ -984,7 +984,7 @@ with their appending actor (§9.5). **Policy claims themselves resolve
 under the built-in ladder alone** — bootstrapping must end somewhere,
 and this is where: when two actors declare `source/ingest HAS
 precedence:` differently, the built-in classes of *their* sources
-decide (a `@src:cli` declaration beats a `@src:ingest/…` one), then
+decide (a `@src:cli` declaration beats a `@src:ingest` one), then
 confidence, then tx. An ingested document can therefore never elevate
 its own batch above the humans and agents it is answerable to, unless
 nothing above its tier has spoken. Reliability values accept `N%` or

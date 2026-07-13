@@ -52,19 +52,6 @@ test('digest selection skips unchanged files; force re-selects (incremental inge
   })
 })
 
-test('batchDigest is content-derived: stable across runs, sensitive to content (spec §9.5)', () => {
-  const files = [
-    { path: 'a.md', digest: Files.digestOf('a') },
-    { path: 'b.md', digest: Files.digestOf('b') }
-  ]
-  assert.equal(Files.batchDigest(files), Files.batchDigest([...files]))
-  assert.match(Files.batchDigest(files), /^[0-9a-f]{12}$/)
-  assert.notEqual(
-    Files.batchDigest(files),
-    Files.batchDigest([files[0]!, { path: 'b.md', digest: Files.digestOf('changed') }])
-  )
-})
-
 test('provenance claims are ordinary CAVE claims with @src:cave-ingest', () => {
   const store = open()
   Files.recordDigests(store, [{ path: 'packages/api/src/index.ts', digest: 'abc123def456' }])

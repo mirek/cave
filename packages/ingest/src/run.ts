@@ -263,8 +263,11 @@ export const run = async (options: Options): Promise<Report> => {
       if (mode === 'stdout') {
         // Actor provenance (spec §9.5): mcp-mode appends are stamped by the
         // MCP server; here the orchestrator appends, so it stamps — with the
-        // batch's content-derived digest, keeping re-runs key-stable.
-        const ingested = store.ingest(caveTextOf(output), { source: `ingest/${Files.batchDigest(files)}` })
+        // stable ingestion-surface identity, like `src:cli` and
+        // `src:agent/<client>`. A content- or batch-derived identity would
+        // fork the claim key (§9.2) on every source revision, leaving the
+        // old and the re-extracted belief both current.
+        const ingested = store.ingest(caveTextOf(output), { source: 'ingest' })
         reports.push({
           files: paths,
           ok: true,

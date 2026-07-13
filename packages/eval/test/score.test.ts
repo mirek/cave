@@ -83,7 +83,7 @@ test('compare: matched, value-off, misses, extras, precision/recall/F1', () => {
     'helena PARENT-OF jan',
     'jan HAS birth-year: 1931 @src:maria', // right fact, wrong value
     'piotr IS related-family'              // extra
-  ].join('\n'), { source: 'ingest/abc' })
+  ].join('\n'), { source: 'ingest' })
   const comparison = Score.compare(goldenFacts, Score.producedFacts(store))
   assert.equal(comparison.golden, 4)
   assert.equal(comparison.produced, 4)

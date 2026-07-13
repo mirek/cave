@@ -138,7 +138,7 @@ Package READMEs document local decisions; these are the global ones:
   (ROADMAP item 9): `@cavelang/eval` runs each case in a fresh throwaway
   store through `@cavelang/ingest` (one agent contract everywhere), then
   canonicalizes both golden and produced claims, strips §9.5 actor
-  stamps (`src:cli`, `src:agent/*`, `src:ingest/*`) before re-keying —
+  stamps (`src:cli`, `src:agent/*`, `src:ingest`) before re-keying —
   which surface wrote a claim must not move its key, while
   fixture-authored content sources stay identity — and matches on
   key + value (relative `--tolerance`, unit-strict). Query expectations

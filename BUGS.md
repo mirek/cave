@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## stdout-source-identity: stdout ingest changes fallback source identity when content changes
-
-- **Source:** Merged PR review [#8](https://github.com/mirek/cave/pull/8)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/ingest`
-- **Relevant file:** `packages/ingest/src/run.ts`
-
-### Summary
-
-Stdout-mode fallback provenance remains `src:ingest/<batch-content-digest>`. Editing a source changes the context and therefore the claim key, so a revised claim does not supersede its previous belief series.
-
-### Impact
-
-Old and new extracted facts can both remain current after a file revision.
-
-### Suggested fix
-
-Use stable source identity derived from connector/path/record identity, or retract the previous digest's generated series before recording the new one.
-
 ## partial-ingest-digests: stdout-mode ingest records source digests even when parsing produced problems
 
 - **Source:** GPT-5.5 Thinking
@@ -453,6 +433,29 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## stdout-source-identity: stdout ingest changed fallback source identity when content changed
+
+- **Source:** Merged PR review [#8](https://github.com/mirek/cave/pull/8)
+- **Severity:** Medium
+- **Status:** Fixed in 0.26.0; regression test `stdout re-ingest of a revised source supersedes the previous belief (BUGS.md stdout-source-identity)` (`packages/ingest/test/run.test.ts`)
+- **Area:** `@cavelang/ingest`, `@cavelang/eval`
+- **Relevant files:**
+  - `packages/ingest/src/run.ts`
+  - `packages/ingest/src/files.ts`
+  - `packages/eval/src/score.ts`
+
+### Summary
+
+Stdout-mode fallback provenance was `src:ingest/<batch-content-digest>`. Contexts are claim-key components (spec §9.2), so editing a source changed the context and therefore the claim key: a revised claim did not supersede its previous belief series.
+
+### Impact
+
+Old and new extracted facts could both remain current after a file revision.
+
+### Resolution
+
+The first suggested fix: stdout-mode appends now stamp the stable ingestion-surface identity `@src:ingest` — constant like `@src:cli` and `@src:agent/<client>` (spec §9.5) — so a fact re-extracted after a source revision lands in the same belief series and supersedes (§9.1). The alternatives were rejected as still broken or unsound: a path/batch-derived identity re-forks the key whenever batch composition changes (the normal incremental flow batches only changed files), and retracting the previous digest's series would retract claims extracted from unchanged co-batched files without re-extracting them. Per-source attribution stays available through agent-authored `@src:path` anchors (extraction rule 10), which win over the stamp; batch bookkeeping stays in the `ingest-digest` claims. The now-unused `Files.batchDigest` is removed, the eval scorer's actor-stamp filter matches the bare stamp, and the §9.5 stamp table, §26.3 examples, cave-writing §6.1, the ingest/eval READMEs, IMPLEMENTATION.md and the book document the stable form.
 
 ## about-shows-retracted: MCP `cave_about` presented retracted rows as current claims
 
