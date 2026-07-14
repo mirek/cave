@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## report-block-vanishes: failed report query blocks disappear from rendered markdown
-
-- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/report.ts`
-
-### Summary
-
-When a fenced `cave-q` query fails, `renderBlock` still returns no lines. The block vanishes even though the report contract says problems are marked in place.
-
-### Impact
-
-An output file can contain a blank section whose failure is visible only on stderr/exit status.
-
-### Suggested fix
-
-Render a visible invalid-query placeholder at the block location.
-
 ## inline-splice-backticks: inline report splices only support one-backtick delimiters
 
 - **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)

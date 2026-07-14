@@ -248,6 +248,37 @@ test('other fenced blocks pass through verbatim, splices inside them inert', () 
   store.close()
 })
 
+test('a failing query block is marked in place, not vanished (spec §31.3)', () => {
+  const store = fixture()
+  const rendered = report(store, [
+    'Before.',
+    '```cave-q',
+    'not-even a-pattern extra tokens here',
+    '```',
+    'After.'
+  ].join('\n'))
+  assert.equal(rendered.problems.length, 1)
+  assert.equal(rendered.problems[0]!.line, 3)
+  // §31.3: the rendered document still emits, problems marked in place —
+  // the block must not silently vanish from the output.
+  assert.equal(rendered.markdown, 'Before.\n*(invalid query)*\nAfter.\n')
+  store.close()
+})
+
+test('an empty query block is marked in place, not vanished (spec §31.3)', () => {
+  const store = fixture()
+  const rendered = report(store, [
+    'Before.',
+    '```cave-q',
+    '```',
+    'After.'
+  ].join('\n'))
+  assert.equal(rendered.problems.length, 1)
+  assert.match(rendered.problems[0]!.message, /empty cave-q block/)
+  assert.equal(rendered.markdown, 'Before.\n*(invalid query)*\nAfter.\n')
+  store.close()
+})
+
 test('problems: bad pattern, empty block, unclosed fence — with template lines', () => {
   const store = fixture()
   const rendered = report(store, [

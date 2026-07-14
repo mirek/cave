@@ -56,6 +56,12 @@ export type Report = {
 /** The fragment's citation placeholder — replaced by the `[^cN]` marker. */
 const placeholder = '[^?]'
 
+/**
+ * The in-document marker for a block or splice whose query never ran —
+ * §31.3's contract: the document still emits, problems marked in place.
+ */
+const invalidQuery = '*(invalid query)*'
+
 const escapeRegExp = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -118,7 +124,7 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
   }
   if (lines.length === 0) {
     renderer.problem(startLine, 'empty cave-q block — a CAVE-Q pattern is required (spec §31.1)')
-    return []
+    return [invalidQuery]
   }
   const queryLines = [lines[0]!]
   let at = 1
@@ -134,7 +140,7 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
 
   const matches = renderer.run(queryLines.join('\n'), startLine)
   if (matches === undefined) {
-    return []
+    return [invalidQuery]
   }
   const out: string[] = []
   for (const match of matches) {
@@ -187,15 +193,15 @@ const renderInline = (line: string, lineNo: number, renderer: Renderer): string 
       names = variablesOf(Pattern.parse(patternText))
     } catch (error) {
       renderer.problem(lineNo, error instanceof Error ? error.message : String(error))
-      return '*(invalid query)*'
+      return invalidQuery
     }
     if (names.length !== 1) {
       renderer.problem(lineNo, `an inline splice needs exactly one ?variable, got ${names.length} (spec §31.1)`)
-      return '*(invalid query)*'
+      return invalidQuery
     }
     const matches = renderer.run(patternText, lineNo)
     if (matches === undefined) {
-      return '*(invalid query)*'
+      return invalidQuery
     }
     if (matches.length === 0) {
       renderer.problem(lineNo, `no match for inline splice ${JSON.stringify(patternText.trim())}`)
