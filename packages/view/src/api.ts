@@ -318,6 +318,6 @@ export const lineage = (store: Store, id: string): undefined | Lineage => {
   }
 }
 
-/** Full-text search (§13.5's FTS surface), newest first. */
+/** Full-text search (§13.5's FTS surface), newest first, capped in the query. */
 export const search = (store: Store, text: string, options: { limit?: number } = {}): ClaimView[] =>
-  views(store, store.search(text).slice(0, options.limit ?? 100))
+  views(store, store.search(text, { limit: options.limit ?? 100 }))

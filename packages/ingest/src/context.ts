@@ -45,7 +45,7 @@ export const contextFor = (store: Store, paths: readonly string[], limit = 40): 
     .map(([entity, count]) => `${entity} (${count})`)
   const related = new Map<string, string>()
   for (const token of paths.flatMap(pathTokens)) {
-    for (const row of store.search(token).slice(0, 5)) {
+    for (const row of store.search(token, { limit: 5 })) {
       if (related.size >= limit) {
         break
       }

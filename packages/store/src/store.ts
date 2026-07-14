@@ -576,13 +576,17 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      * Full-text search, newest first. The query is treated as a literal
      * phrase by default (safe for terms like `token-expiry`, which FTS5
      * would otherwise parse as a column filter); pass `raw` to use full
-     * FTS5 MATCH syntax.
+     * FTS5 MATCH syntax. `limit` caps the rows inside the query itself,
+     * so a broad search never materializes more than the caller reads.
      */
-    search(query: string, options_: { raw?: boolean } = {}): Row.t[] {
+    search(query: string, options_: { raw?: boolean, limit?: number } = {}): Row.t[] {
       const match = options_.raw === true ? query : `"${query.replaceAll('"', '""')}"`
-      return rows(`
+      const sql = `
         SELECT c.* FROM cave_claim c JOIN cave_fts f ON c.id = f.claim_id
-        WHERE cave_fts MATCH ? ORDER BY c.tx DESC`, match)
+        WHERE cave_fts MATCH ? ORDER BY c.tx DESC`
+      return options_.limit === undefined ?
+        rows(sql, match) :
+        rows(`${sql} LIMIT ?`, match, options_.limit)
     },
 
     /**

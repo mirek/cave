@@ -219,3 +219,27 @@ test('search rides the store FTS, newest first', () => {
   assert.deepEqual(search(store, 'nothing-matches-this'), [])
   store.close()
 })
+
+test('search threads its limit into the store query, never slicing materialized matches', () => {
+  const store = fixture()
+  store.ingest(
+    Array.from({ length: 5 }, (_, i) => `dep-${i + 1} USES sharedterm`).join('\n'),
+    { source: 'test' }
+  )
+  // The store sees the cap — a broad search must not materialize every
+  // match only for the view to throw all but `limit` of them away.
+  const limits: (undefined | number)[] = []
+  const spy = {
+    ...store,
+    search: (text: string, options?: { raw?: boolean, limit?: number }) => {
+      limits.push(options?.limit)
+      return store.search(text, options)
+    }
+  }
+  const capped = search(spy, 'sharedterm', { limit: 2 })
+  assert.equal(capped.length, 2)
+  assert.deepEqual(capped.map(match => match.subject), ['dep-5', 'dep-4'], 'newest first survives the cap')
+  assert.equal(search(spy, 'sharedterm').length, 5, 'the default cap outsizes this store')
+  assert.deepEqual(limits, [2, 100], 'each store query carried the view limit')
+  store.close()
+})

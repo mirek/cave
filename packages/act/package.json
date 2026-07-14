@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/act",
-  "version": "0.27.10",
+  "version": "0.27.11",
   "type": "module",
   "description": "CAVE action templates (spec §25) — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic templated appends with BECAUSE/VIA lineage, and out-of-band side-effect hooks.",
   "license": "CC0-1.0",
