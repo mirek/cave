@@ -39,7 +39,14 @@ export type Agent =
 
 export type Options = {
   readonly db: string
+  /** Source patterns — file globs and http(s) URLs. */
   readonly patterns: readonly string[]
+  /**
+   * Literal file paths (relative to `cwd`), selected as-is with no glob
+   * expansion — for discovered names, which may contain `[]?*`. Unlike an
+   * unmatched pattern, a missing literal path is an error.
+   */
+  readonly files?: readonly string[]
   /** Path to an instructions markdown file. */
   readonly instructions?: string
   readonly agent?: Agent
@@ -124,10 +131,11 @@ export const promptFor = (
   })
 }
 
-/** Selects and batches the sources to process — file globs and URLs. */
+/** Selects and batches the sources to process — file globs, literal paths and URLs. */
 export const selectBatches = async (store: Store, options: Options): Promise<{ selection: Files.Selection, batches: Files.Selected[][] }> => {
   const urls = options.patterns.filter(Web.isUrl)
-  const paths = Files.expand(options.patterns.filter(pattern => !Web.isUrl(pattern)), options.cwd)
+  const expanded = Files.expand(options.patterns.filter(pattern => !Web.isUrl(pattern)), options.cwd)
+  const paths = [...new Set([...expanded, ...options.files ?? []])].sort()
   const local = Files.select(store, paths, {
     force: options.force === true,
     ...options.cwd === undefined ? {} : { cwd: options.cwd }

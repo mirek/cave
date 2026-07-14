@@ -251,6 +251,38 @@ test('keep retains the per-run databases and reports their directory', () =>
     }
   }))
 
+test('a source name with glob metacharacters is ingested literally, never as a pattern (BUGS.md eval-glob-escape)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-eval-glob-'))
+  try {
+    // `[draft]` is a glob character class: as a pattern it matches one
+    // character of d/r/a/f/t — the decoy below — and never the literal
+    // file, so eval used to ingest the wrong source or report no batch.
+    writeFileSync(join(dir, 'notes [draft].md'), 'The auth middleware uses JWT tokens.')
+    writeFileSync(join(dir, 'notes [draft].golden.cave'), 'auth USES jwt')
+    writeFileSync(join(dir, 'notes d.md'), 'Billing talks to stripe.')
+    const batches: (readonly string[])[] = []
+    const prompts: string[] = []
+    const report = await run({
+      suites: [dir],
+      mode: 'stdout',
+      agent: async (prompt, files) => {
+        prompts.push(prompt)
+        batches.push(files)
+        return 'auth USES jwt'
+      }
+    })
+    assert.deepEqual(report.fixture, [])
+    assert.deepEqual(report.cases[0]!.fixture, [])
+    assert.equal(report.failedRuns, 0, JSON.stringify(report.cases[0]!.runs))
+    assert.equal(report.okRuns, 1)
+    assert.deepEqual(batches, [['notes [draft].md']], 'the discovered source itself, not what its name glob-matches')
+    assert.match(prompts[0]!, /JWT tokens/, 'the prompt embeds the real source, not the decoy')
+    assert.equal(report.mean!.f1, 1)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('stdout-mode lint problems are reported while valid lines still score', () =>
   withSuite(async dir => {
     const report = await run({

@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## eval-glob-escape: eval passes discovered filenames back through glob expansion
-
-- **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/eval`, `@cavelang/ingest`
-- **Relevant file:** `packages/eval/src/run.ts`
-
-### Summary
-
-Eval discovers a concrete fixture path, then passes `basename(kase.source)` as an ingest glob. Filenames containing `[]`, `?`, or `*` are reinterpreted as patterns.
-
-### Impact
-
-An eval can ingest the wrong source or report no batch.
-
-### Suggested fix
-
-Add a literal-path ingest API or escape glob metacharacters before selection.
-
 ## report-block-vanishes: failed report query blocks disappear from rendered markdown
 
 - **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
@@ -130,6 +110,26 @@ A clean or filtered `tsc -b packages/mcp` can fail or consume stale dependency o
 ### Suggested fix
 
 Add both direct references and cover a clean filtered MCP build in CI.
+
+## digest-path-lexing: ingest digest claims for paths that are not entity atoms never parse
+
+- **Source:** Found while writing the eval-glob-escape regression tests
+- **Severity:** Medium/Cost
+- **Status:** Open
+- **Area:** `@cavelang/ingest`
+- **Relevant file:** `packages/ingest/src/files.ts`
+
+### Summary
+
+`recordDigests` builds provenance text by interpolating the file path into a CAVE line. A path that does not lex as an entity atom — one containing a space, for example — produces an invalid line (`expected an UPPERCASE verb, got "..."`), and the problems returned by `store.ingest` are discarded, so the digest claim silently never lands. `isIngested` keys the lookup programmatically (`Claim.entity(path)`), so it never matches either.
+
+### Impact
+
+A file whose path is not a valid entity atom (`design notes.md`, matched by `*.md` or passed as a literal `files` entry) is re-selected and re-ingested by every run — repeated agent spend with no incremental skip — while ingest reports success.
+
+### Suggested fix
+
+Record digests through a path representation that round-trips the parser (or append the provenance claim programmatically rather than via text), and surface `store.ingest` problems from `recordDigests` instead of discarding them.
 
 ## mcp-src-prefix: `cave mcp --src` accepts `src:` despite help saying to omit it
 

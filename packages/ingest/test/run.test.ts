@@ -70,6 +70,54 @@ test('stdout re-ingest of a revised source supersedes the previous belief (BUGS.
     store.close()
   }))
 
+test('files are literal paths — a name with glob metacharacters selects that file, not its expansion (BUGS.md eval-glob-escape)', () =>
+  withDir(async dir => {
+    // As a pattern, `[draft]` is a character class matching the decoy
+    // `notesd.md` and never the literal file.
+    writeFileSync(join(dir, 'notes[draft].md'), 'The real draft notes.')
+    writeFileSync(join(dir, 'notesd.md'), 'A decoy the character class matches.')
+    const store = open()
+    const prompts: string[] = []
+    const options = {
+      db: ':memory:', store, patterns: [], files: ['notes[draft].md'], cwd: dir,
+      mode: 'stdout' as const, embed: true
+    }
+    const report = await run({
+      ...options,
+      agent: async (prompt: string) => {
+        prompts.push(prompt)
+        return 'notes HAS status: draft'
+      }
+    })
+    assert.equal(report.matched, 1)
+    assert.deepEqual(report.batches[0]!.files, ['notes[draft].md'])
+    assert.match(prompts[0]!, /The real draft notes\./)
+    assert.equal(report.added, 1)
+    // Digest bookkeeping treats literal files like any other selection.
+    const again = await run({
+      ...options,
+      agent: async (): Promise<string> => { throw new Error('agent must not run for an ingested source') }
+    })
+    assert.deepEqual(again.skipped, ['notes[draft].md'])
+    // A missing literal path is an error, unlike an unmatched pattern.
+    await assert.rejects(run({ ...options, files: ['missing.md'], agent: async () => '' }))
+    store.close()
+  }))
+
+test('files merge with pattern expansion, deduplicated and sorted', () =>
+  withDir(async dir => {
+    writeFileSync(join(dir, 'a.md'), 'a')
+    writeFileSync(join(dir, 'b.md'), 'b')
+    const store = open()
+    const report = await run({
+      db: ':memory:', store, patterns: ['*.md'], files: ['b.md'], cwd: dir,
+      mode: 'stdout', agent: async () => 'topic/files CONTAINS both'
+    })
+    assert.equal(report.matched, 2, 'b.md is selected once')
+    assert.deepEqual(report.batches[0]!.files, ['a.md', 'b.md'])
+    store.close()
+  }))
+
 test('context grows between batches — later prompts see earlier extractions', () =>
   withDir(async dir => {
     writeFileSync(join(dir, 'a.md'), 'a')
