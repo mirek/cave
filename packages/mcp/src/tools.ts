@@ -23,7 +23,7 @@
  * the minimum viable agent permission boundary.
  */
 
-import { Claim, Key, Multiplier } from '@cavelang/core'
+import { Claim, Key, Multiplier, Value } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
@@ -103,14 +103,17 @@ const unitOf = (claim: Claim.t): undefined | string =>
 /**
  * Multiplier-compacted rendering of a fused number, 4 significant digits:
  * `19965517241` → `19.97B` (spec §7.1 multipliers, largest that fits).
+ * The residual digits go through `Value.formatNumber` — tiny (`2e-7`) and
+ * huge (`2e+22` after T-compression) magnitudes must still emit as plain
+ * decimal, the only number form the CAVE grammar accepts (spec §16).
  */
 const compactNumber = (n: number): string => {
   for (const [letter, factor] of Object.entries(Multiplier.factors)) {
     if (Math.abs(n) >= factor) {
-      return `${Number((n / factor).toPrecision(4))}${letter}`
+      return `${Value.formatNumber(Number((n / factor).toPrecision(4)))}${letter}`
     }
   }
-  return `${Number(n.toPrecision(4))}`
+  return Value.formatNumber(Number(n.toPrecision(4)))
 }
 
 /** Compact number with its unit as CAVE writes values: `19.97B USD/yr`, `94.5%`. */
@@ -308,7 +311,7 @@ export const tools: readonly Tool[] = [
         `fused ${estimates.length} estimate(s)${skipped > 0 ? `, skipped ${skipped} without a positive numeric +/- estimate` : ''}:`,
         ...estimates.map(({ claim }) => `  ${emitClaim(claim)}`),
         `posterior: ${withUnit(posterior.mean, unit)} +/- ${withUnit(2 * posterior.sigma, unit)} (2σ)` +
-        ` ; mean ${posterior.mean}, sigma ${posterior.sigma}`
+        ` ; mean ${Value.formatNumber(posterior.mean)}, sigma ${Value.formatNumber(posterior.sigma)}`
       ].join('\n')
     }
   },

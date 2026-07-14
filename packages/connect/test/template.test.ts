@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { Value } from '@cavelang/core'
 import { Template } from '@cavelang/connect'
 
 const mappingText = [
@@ -62,6 +63,24 @@ test('formatValue: atoms verbatim, everything else quoted exactly (spec §23.1)'
   assert.deepEqual(Template.formatValue('', 'payload').kind, 'missing')
   assert.deepEqual(Template.formatValue(null, 'payload').kind, 'missing')
   assert.deepEqual(Template.formatValue({ nested: true }, 'payload').kind, 'problem')
+})
+
+test('formatValue: tiny and huge JSON numbers emit CAVE-parseable decimals (exponent-notation bug)', () => {
+  const okText = (value: unknown): string => {
+    const formatted = Template.formatValue(value, 'payload')
+    assert.equal(formatted.kind, 'ok')
+    return (formatted as { text: string }).text
+  }
+  // String(1e-7) is '1e-7' — CAVE's number grammar has no exponent form,
+  // so that text would round-trip as an atom and break filters and fusion.
+  assert.equal(okText(1e-7), '0.0000001')
+  assert.equal(okText(-1.5e-7), '-0.00000015')
+  assert.equal(okText(1.5e21), '1500000000000000000000')
+  for (const n of [1e-7, -1.5e-7, 1.5e21]) {
+    const parsed = Value.parse(okText(n))
+    assert.equal(parsed.kind, 'number')
+    assert.equal(parsed.num, n)
+  }
 })
 
 test('instantiate substitutes fields and drops missing lines with children (spec §23.1)', () => {

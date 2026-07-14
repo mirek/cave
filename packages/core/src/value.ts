@@ -170,6 +170,34 @@ export const parse = (raw: string): Value => {
   return { raw, kind: 'atom', approx }
 }
 
+const exponentRe = /^(-?)(\d+)(?:\.(\d+))?e([+-]\d+)$/
+
+/**
+ * Plain-decimal text of a finite number. The CAVE number grammar
+ * (spec §16) has no exponent form, so `String`'s occasional `1e-7` /
+ * `1.5e+21` output is expanded to `0.0000001` / `1500000000000000000000`.
+ * The digits are JavaScript's shortest round-trip representation, so
+ * `parse(formatNumber(n)).num === n`. Every generator writing numbers
+ * into CAVE text must go through this (or emit a multiplier form built
+ * on it) — `String(n)` alone round-trips tiny and huge magnitudes as
+ * atoms. Throws on non-finite input: CAVE has no text for it.
+ */
+export const formatNumber = (n: number): string => {
+  if (!Number.isFinite(n)) {
+    throw new Error(`Expected a finite number, got ${n}.`)
+  }
+  const match = exponentRe.exec(String(n))
+  if (match === null) {
+    return String(n)
+  }
+  const [, sign = '', whole = '', fraction = '', exponent = '0'] = match
+  const digits = `${whole}${fraction}`
+  const point = whole.length + Number(exponent)
+  return point <= 0 ? `${sign}0.${'0'.repeat(-point)}${digits}` :
+    point >= digits.length ? `${sign}${digits}${'0'.repeat(point - digits.length)}` :
+    `${sign}${digits.slice(0, point)}.${digits.slice(point)}`
+}
+
 /**
  * Linear interpolation of a trajectory at `fraction` ∈ [0, 1], clamped
  * (spec §32.3). @returns `undefined` for non-trajectory values.
@@ -203,7 +231,7 @@ export const formatAt = (value: Value, fraction: number): undefined | string => 
       }
     }
   }
-  const digits = Number(scaled.toPrecision(4)).toString()
+  const digits = formatNumber(Number(scaled.toPrecision(4)))
   return value.unit === undefined ?
     `${digits}${letter}` :
     `${digits}${letter}${style?.glued === true ? '' : ' '}${value.unit}`

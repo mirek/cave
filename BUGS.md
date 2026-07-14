@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## exponent-notation: generated numeric CAVE values can use unsupported scientific notation
-
-- **Source:** Merged PR reviews [#10](https://github.com/mirek/cave/pull/10) and [#18](https://github.com/mirek/cave/pull/18)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/connect`, `@cavelang/mcp`
-- **Relevant files:** `packages/connect/src/template.ts`, `packages/mcp/src/tools.ts`
-
-### Summary
-
-Connect formats JSON numbers with `String(value)`; MCP fusion converts `toPrecision` output back through `Number`. Both can emit exponent notation such as `1e-7`, which CAVE's numeric parser does not recognize as a number.
-
-### Impact
-
-Numeric fields/posteriors can round-trip as atoms, breaking filters, checks, and later fusion.
-
-### Suggested fix
-
-Use one shared finite-number formatter that always emits CAVE-compatible decimal or multiplier syntax.
-
 ## connect-fetch-timeout: `connect` URL fetching has no timeout and inconsistent URL detection
 
 - **Source:** GPT-5.5 Thinking

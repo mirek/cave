@@ -127,8 +127,10 @@ export const formatValue = (value: unknown, position: 'subject' | 'payload'): Fo
     return { kind: 'missing' }
   }
   if (typeof value === 'number') {
+    // Plain decimal, never String's exponent notation — `1e-7` is not a
+    // CAVE number (spec §16) and would round-trip as an atom.
     return Number.isFinite(value) ?
-      { kind: 'ok', text: String(value) } :
+      { kind: 'ok', text: Value.formatNumber(value) } :
       { kind: 'problem', message: 'non-finite number' }
   }
   if (typeof value === 'boolean') {
