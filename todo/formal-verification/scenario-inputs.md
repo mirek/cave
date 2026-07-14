@@ -1,7 +1,7 @@
 ---
 name: formal-verification-scenario-inputs
 description: Bind typed CAVE snapshots and ephemeral assumptions into solver models.
-status: open
+status: completed
 priority: low
 area: reasoning
 source: solver-feasibility-analysis
@@ -60,3 +60,11 @@ overlay.
 - Snapshot options and all supporting row IDs appear in the run metadata.
 - Replaying the same snapshot, overlay, and model yields the same compiled
   input record.
+
+## Outcome
+
+Implemented by `@cavelang/scenario`: explicit snapshot and binding contracts,
+exact typed values and opt-in conversions, stable belief/scenario evidence,
+rolled-back overlays, and an async runner whose evaluator starts only after
+the store and registry have been restored. Transitive overlay bindings remain
+explicitly deferred to the shared snapshot-query primitives prerequisite.

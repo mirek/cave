@@ -47,6 +47,9 @@
       "path": "packages/rules"
     },
     {
+      "path": "packages/scenario"
+    },
+    {
       "path": "packages/shape"
     },
     {

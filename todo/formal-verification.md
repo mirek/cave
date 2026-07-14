@@ -69,24 +69,21 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Bind typed scenario inputs](formal-verification/scenario-inputs.md) — read a
-   precise CAVE snapshot, apply an ephemeral overlay, and reject ambiguous or
-   dimensionally invalid inputs.
-2. [Prove Z3 feasibility](formal-verification/z3-feasibility-spike.md) — validate
+1. [Prove Z3 feasibility](formal-verification/z3-feasibility-spike.md) — validate
    the adapter, exact arithmetic, models, optimization, unsat cores, timeouts,
    packaging, and process cleanup.
-3. [Map explanations to provenance](formal-verification/explanations-provenance.md)
+2. [Map explanations to provenance](formal-verification/explanations-provenance.md)
    — make constraints and objective contributions traceable to exact claim
    rows and scenario inputs.
-4. [Add verification workflows](formal-verification/verification-workflows.md)
+3. [Add verification workflows](formal-verification/verification-workflows.md)
    — expose feasibility, optimization, counterexample, and sensitivity
    operations without inventing a second rule engine.
-5. [Govern result recording](formal-verification/result-governance.md) — keep
+4. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-6. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
+5. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
    when representative linear/MIP workloads justify a second adapter.
-7. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+6. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 

@@ -238,6 +238,10 @@ shell template. Action hooks run only after the database transaction commits.
 - **`@cavelang/eval`** runs extraction and reconstruction fixtures in fresh
   stores. It tests both claim-key accuracy and query behavior, keeping quality
   measurement outside the production store.
+- **`@cavelang/scenario`** freezes CAVE-Q snapshot options and binds typed
+  evaluator inputs. Hypothetical claims live only inside a rolled-back
+  savepoint, while the resulting exact values and evidence identifiers are
+  plain replayable data passed to decision evaluators or solver adapters.
 
 ## Package layers
 
@@ -246,7 +250,7 @@ shell template. Action hooks run only after the database transaction commits.
 | Domain | `core`, `fusion` | Immutable claim/value types, keys, time, UUIDv7, probabilistic math. |
 | Language | `parser`, `canonical` | CAVE text, diagnostics, inverse registry, canonical claims, emission. |
 | Data | `store`, `query`, `shape` | SQLite persistence, CAVE-Q, resolution, expectations, health and write gates. |
-| Formal reasoning | `solver` | Portable exact models, validation, capabilities, limits, canonical identity, and backend-neutral results. |
+| Formal reasoning | `solver`, `scenario` | Portable exact models and backend-neutral results; typed snapshot and ephemeral-overlay bindings. |
 | Behavior | `rules`, `act`, `automate`, `loop` | Derivation, governed writes, event processing, active reconstruction policies. |
 | Movement | `connect`, `ingest`, `sync` | Deterministic records, agent extraction, and store union. |
 | Integration | `mcp`, `eval` | Agent tool protocol and repeatable quality evaluation. |
@@ -308,6 +312,7 @@ Changes should preserve these properties:
 | Canonical text output or inverse behavior | `packages/canonical` |
 | Schema, belief history, traversal, resolution | `packages/store` |
 | CAVE-Q patterns or SQL compilation | `packages/query` |
+| Scenario, decision, or solver input binding | `packages/scenario` |
 | Expectations, gates, health, alias suggestions | `packages/shape` |
 | Derived, governed, or event-driven writes | `packages/rules`, `packages/act`, `packages/automate` |
 | New data-source workflow | `packages/connect` or `packages/ingest` |
