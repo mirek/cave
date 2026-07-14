@@ -2,6 +2,9 @@
 
 A small, line-oriented language for persisting knowledge as composable, atomic claims. Easy for humans and LLMs to write, easy to diff, stored in SQLite, formal enough to query as an information graph.
 
+For the package boundaries, runtime flows, storage model, and architectural
+invariants, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 The core idea:
 
 ```cave
