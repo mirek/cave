@@ -211,8 +211,16 @@ const runHook = (
     ...options.cwd === undefined ? {} : { cwd: options.cwd }
   })
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim()
+  // A hook may exit without reading its stdin (e.g. `true`): the input
+  // pipe then reports EPIPE even though the hook ran and exited cleanly,
+  // so only non-EPIPE spawn errors fail the hook — the exit status still
+  // arrives and is judged as usual.
+  const spawnFailure =
+    result.error !== undefined && (result.error as NodeJS.ErrnoException).code !== 'EPIPE' ?
+      result.error.message :
+      undefined
   const error =
-    result.error !== undefined ? result.error.message :
+    spawnFailure !== undefined ? spawnFailure :
     result.status !== 0 ? `hook exited with ${result.status ?? `signal ${result.signal}`}` :
     undefined
   return {
