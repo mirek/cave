@@ -15,8 +15,10 @@
  *   query layer's `support` option), so a new edge is an event exactly
  *   for the solutions whose connection it backs — with the same
  *   exclusions applied per edge row.
- * - An automation with no stored watermark is armed at its declaration
- *   row's tx — it watches from the moment it is declared (§29.2).
+ * - An automation arms at the later of its stored watermark and its
+ *   declaration row's tx — it watches from the moment it is declared
+ *   (§29.2), and a watermark left current by a retracted incarnation
+ *   never lets a re-declaration fire over rows recorded in between.
  * - Firing records the batch *before* acting on it (§29.3): one
  *   `automate-watermark` append (the firing log), then the steps per
  *   solution in declaration order — re-runs never re-notify the world.
@@ -427,9 +429,16 @@ export const settle = async (store: Store, options: SettleOptions = {}): Promise
         outcomes.set(automation.subject, outcome)
       }
 
-      // Arming (spec §29.2): the stored watermark, else the declaration tx.
+      // Arming (spec §29.2): the later of the stored watermark and the
+      // declaration row's tx. Retracting an automation leaves its
+      // watermark claim current, so a re-declared automation would
+      // otherwise arm at the old mark and fire once over every row
+      // recorded while it was retracted (BUGS.md automate-stale-watermark)
+      // — the dual of the rules engine's §24.4 staleness rule: derivation
+      // must re-fire over pre-declaration rows, an automation must not.
       const stored = store.currentBelief(bookkeepingKey(automation.subject, watermarkAttribute))
-      const mark = stored !== undefined && stored.conf > 0 && stored.value_text !== null ?
+      const mark = stored !== undefined && stored.conf > 0 &&
+        stored.value_text !== null && stored.value_text > row.tx ?
         stored.value_text :
         row.tx
       if (anyRowSince.get(mark) === undefined) {

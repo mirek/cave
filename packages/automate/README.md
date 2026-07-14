@@ -46,7 +46,9 @@ await settle(store, { hooks, complete })
   retraction fires nothing; an unchanged re-assertion appends no row and
   so fires nothing; a transitive (`VERB+`) premise cites its supporting
   edge rows, so a new edge fires exactly the solutions whose connection
-  it backs.
+  it backs. Arming floors the stored watermark at the current
+  declaration row's tx, so a re-declared automation never fires over
+  rows recorded while it was retracted.
 - **The watermark is the firing log.** Firing appends one in-band
   `automate-watermark` claim (§24.4's convention, counts in the
   comment) *before* the steps run — a crash never replays outside-world
