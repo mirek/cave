@@ -1738,9 +1738,13 @@ for the single value a sentence needs:
 Revenue reached `cave-q: OpenAI HAS revenue: ?v` in the latest belief.
 ```
 
-The pattern must bind **exactly one variable** and match **exactly one
-solution**; the span is replaced by the bound value followed by its
-citation. No match renders `*(no match)*`, several render
+The span follows Markdown's usual code-span rules, delimiter length
+included — write `` ``cave-q: ?who HAS default: `null` `` `` when the
+pattern itself carries a backtick code literal (and a span that merely
+*quotes* the construct, `` `cave-q: …` `` inside longer delimiters,
+stays literal). The pattern must bind **exactly one variable** and
+match **exactly one solution**; the span is replaced by the bound value
+followed by its citation. No match renders `*(no match)*`, several render
 `*(ambiguous: N matches)*` — both are report problems (nonzero exit):
 prose splices are deterministic or nothing, §25.2's principle. When
 several sources contest the fact, ambiguity is working as intended —
@@ -1763,7 +1767,9 @@ key `["e:auth/middleware","USES",0,"r:e:jwt",["src:cli"]]`
 The definition is the row's **canonical line** (the §16 emitter over
 the stored columns and side tables — exactly what `cave export` prints,
 actor stamps included, so provenance a `raw_line` abbreviation would
-hide stays visible), the tx **date** (when), and the **claim key**
+hide stays visible; its code span widens its delimiter past any
+backtick run the line carries), the tx **date** (when), and the
+**claim key**
 (§9.2) — the identity of the belief series, so a reader can pull the
 full history behind any sentence (`cave query --all`, the §30
 timeline). Labels are `c1, c2, …` in order of first citation, a

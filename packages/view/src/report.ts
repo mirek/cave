@@ -9,10 +9,12 @@
  *   fragment rendered once per solution with `?var` bindings
  *   substituted (no fragment: the solution as `cave query` prints it,
  *   as a cited bullet);
- * - an inline `` `cave-q: <pattern>` `` splice — exactly one variable,
- *   exactly one solution, replaced by the bound value; anything else is
- *   a problem (§25.2's determinism, and `--resolve` is the knob when
- *   sources contest the fact, §26).
+ * - an inline `` `cave-q: <pattern>` `` splice — a code span of any
+ *   delimiter length (```` ``cave-q: …`` ```` when the pattern carries a
+ *   backtick code literal), exactly one variable, exactly one solution,
+ *   replaced by the bound value; anything else is a problem (§25.2's
+ *   determinism, and `--resolve` is the knob when sources contest the
+ *   fact, §26).
  *
  * Every solution that matched a stored row cites it: `[^cN]` footnote
  * markers land at the fragment's `[^?]` placeholder (appended when
@@ -64,6 +66,19 @@ const invalidQuery = '*(invalid query)*'
 
 const escapeRegExp = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Wraps store text as a Markdown code span that survives its own
+ * backticks: the delimiter outruns the longest run inside by one, and a
+ * space pads content that begins or ends with a backtick (CommonMark
+ * strips the pair back out).
+ */
+const toCodeSpan = (text: string): string => {
+  const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map(run => run[0].length))
+  const delimiter = '`'.repeat(longest + 1)
+  const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : ''
+  return `${delimiter}${pad}${text}${pad}${delimiter}`
+}
 
 /**
  * Substitutes `?var` occurrences with bindings, longest names first so
@@ -151,7 +166,7 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
         .join('  ')
       // A fully bound pattern has nothing to bind — the claim itself is
       // the point (mirroring `cave query`'s rendering).
-      instance = `- ${bindings !== '' ? bindings : `\`${match.row?.raw_line ?? queryLines[0]!.trim()}\``} ${placeholder}`
+      instance = `- ${bindings !== '' ? bindings : toCodeSpan(match.row?.raw_line ?? queryLines[0]!.trim())} ${placeholder}`
     } else {
       instance = substitute(fragment, match.bindings)
     }
@@ -180,43 +195,120 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
   return out
 }
 
-const spliceRe = /`cave-q:([^`]*)`/g
+/** A code span on one line: `[start, end)` offsets, delimiters included. */
+type CodeSpan = {
+  readonly start: number
+  readonly end: number
+  /** Content after CommonMark normalization (one padding space stripped). */
+  readonly content: string
+}
 
 /**
- * Inline splices on one prose line (spec §31.1): exactly one variable,
- * exactly one solution — deterministic or nothing.
+ * Scans one line for Markdown code spans (CommonMark 6.1): a span opens
+ * with a backtick run and closes at the next run of exactly the same
+ * length — longer and shorter runs in between are content, an opener
+ * with no closer is literal text. Content that both begins and ends
+ * with a space (and isn't all spaces) loses one from each end, the
+ * escape hatch that lets content begin or end with a backtick.
  */
-const renderInline = (line: string, lineNo: number, renderer: Renderer): string =>
-  line.replace(spliceRe, (_whole, patternText: string) => {
-    let names: string[]
-    try {
-      names = variablesOf(Pattern.parse(patternText))
-    } catch (error) {
-      renderer.problem(lineNo, error instanceof Error ? error.message : String(error))
-      return invalidQuery
+const codeSpans = (line: string): CodeSpan[] => {
+  const spans: CodeSpan[] = []
+  let at = 0
+  while (at < line.length) {
+    const start = line.indexOf('`', at)
+    if (start === -1) {
+      break
     }
-    if (names.length !== 1) {
-      renderer.problem(lineNo, `an inline splice needs exactly one ?variable, got ${names.length} (spec §31.1)`)
-      return invalidQuery
+    let opened = start + 1
+    while (opened < line.length && line[opened] === '`') {
+      opened += 1
     }
-    const matches = renderer.run(patternText, lineNo)
-    if (matches === undefined) {
-      return invalidQuery
+    const length = opened - start
+    let close = -1
+    for (let search = opened; search < line.length;) {
+      const candidate = line.indexOf('`', search)
+      if (candidate === -1) {
+        break
+      }
+      let candidateEnd = candidate + 1
+      while (candidateEnd < line.length && line[candidateEnd] === '`') {
+        candidateEnd += 1
+      }
+      if (candidateEnd - candidate === length) {
+        close = candidate
+        break
+      }
+      search = candidateEnd
     }
-    if (matches.length === 0) {
-      renderer.problem(lineNo, `no match for inline splice ${JSON.stringify(patternText.trim())}`)
-      return '*(no match)*'
+    if (close === -1) {
+      at = opened
+      continue
     }
-    if (matches.length > 1) {
-      renderer.problem(lineNo,
-        `ambiguous inline splice ${JSON.stringify(patternText.trim())}: ${matches.length} matches — ` +
-        'several series contest the fact; --resolve picks the §26 winner')
-      return `*(ambiguous: ${matches.length} matches)*`
+    let content = line.slice(opened, close)
+    if (content.startsWith(' ') && content.endsWith(' ') && /[^ ]/.test(content)) {
+      content = content.slice(1, -1)
     }
-    const match = matches[0]!
-    const value = match.bindings[names[0]!]!
-    return match.row === undefined ? value : `${value}${renderer.cite(match.row)}`
-  })
+    spans.push({ start, end: close + length, content })
+    at = close + length
+  }
+  return spans
+}
+
+const splicePrefix = 'cave-q:'
+
+/**
+ * One inline splice (spec §31.1): exactly one variable, exactly one
+ * solution — deterministic or nothing.
+ */
+const renderSplice = (patternText: string, lineNo: number, renderer: Renderer): string => {
+  let names: string[]
+  try {
+    names = variablesOf(Pattern.parse(patternText))
+  } catch (error) {
+    renderer.problem(lineNo, error instanceof Error ? error.message : String(error))
+    return invalidQuery
+  }
+  if (names.length !== 1) {
+    renderer.problem(lineNo, `an inline splice needs exactly one ?variable, got ${names.length} (spec §31.1)`)
+    return invalidQuery
+  }
+  const matches = renderer.run(patternText, lineNo)
+  if (matches === undefined) {
+    return invalidQuery
+  }
+  if (matches.length === 0) {
+    renderer.problem(lineNo, `no match for inline splice ${JSON.stringify(patternText.trim())}`)
+    return '*(no match)*'
+  }
+  if (matches.length > 1) {
+    renderer.problem(lineNo,
+      `ambiguous inline splice ${JSON.stringify(patternText.trim())}: ${matches.length} matches — ` +
+      'several series contest the fact; --resolve picks the §26 winner')
+    return `*(ambiguous: ${matches.length} matches)*`
+  }
+  const match = matches[0]!
+  const value = match.bindings[names[0]!]!
+  return match.row === undefined ? value : `${value}${renderer.cite(match.row)}`
+}
+
+/**
+ * Splices on one prose line: each code span whose content starts with
+ * `cave-q:` — whatever its delimiter length, so patterns may carry
+ * backtick code literals — is replaced by its splice rendering; other
+ * spans and the text between pass through untouched.
+ */
+const renderInline = (line: string, lineNo: number, renderer: Renderer): string => {
+  let out = ''
+  let at = 0
+  for (const span of codeSpans(line)) {
+    out += line.slice(at, span.start)
+    out += span.content.startsWith(splicePrefix)
+      ? renderSplice(span.content.slice(splicePrefix.length), lineNo, renderer)
+      : line.slice(span.start, span.end)
+    at = span.end
+  }
+  return out + line.slice(at)
+}
 
 /**
  * Renders a report template against a store (spec §31): markdown in,
@@ -246,7 +338,7 @@ export const report = (store: Store, template: string, options: ReportOptions = 
     // must show provenance the authored abbreviation would hide.
     const canonical = emitClaim(Row.toClaim(row, contexts, tags))
     const date = new Date(Uuidv7.msOf(row.tx)).toISOString().slice(0, 10)
-    definitions.push(`[^c${number}]: \`${canonical}\` — ${date}, claim key \`${row.claim_key}\``)
+    definitions.push(`[^c${number}]: ${toCodeSpan(canonical)} — ${date}, claim key ${toCodeSpan(row.claim_key)}`)
     return `[^c${number}]`
   }
 

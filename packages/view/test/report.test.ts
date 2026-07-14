@@ -209,6 +209,49 @@ test('inline splice: no match and wrong variable count are problems', () => {
   store.close()
 })
 
+test('inline splice: longer delimiters carry a backtick code literal (spec §31.1)', () => {
+  const store = open()
+  store.ingest('config HAS default: `null`')
+  const rendered = report(store, 'Default set on ``cave-q: ?who HAS default: `null` ``.\n')
+  assert.deepEqual(rendered.problems, [])
+  assert.match(rendered.markdown, /Default set on config\[\^c1\]\./)
+  assert.equal(rendered.citations, 1)
+  // The cited canonical line carries a backtick run, so its footnote
+  // definition needs a longer delimiter (and padding) to stay a valid span.
+  assert.match(rendered.markdown, /\[\^c1\]: `` config HAS default: `null` `` — \d{4}-\d{2}-\d{2}/)
+  store.close()
+})
+
+test('inline splice: padded delimiters strip one space each side (CommonMark)', () => {
+  const store = fixture()
+  const rendered = report(store, 'Revenue: `` cave-q: acme HAS revenue: ?v ``.\n')
+  assert.deepEqual(rendered.problems, [])
+  assert.match(rendered.markdown, /Revenue: ~20B USD\/yr\[\^c1\]\./)
+  store.close()
+})
+
+test('a code span quoting the splice syntax stays literal', () => {
+  const store = fixture()
+  const template = 'The construct is `` `cave-q: <pattern>` `` in prose.\n'
+  const rendered = report(store, template)
+  assert.deepEqual(rendered.problems, [])
+  assert.equal(rendered.markdown, template)
+  assert.equal(rendered.citations, 0)
+  store.close()
+})
+
+test('a stray backtick before a splice keeps CommonMark span boundaries', () => {
+  const store = fixture()
+  // The first span is ` then ` — the following cave-q: text sits outside
+  // any code span (its backtick never closes), so nothing splices.
+  const template = 'Tick ` then `cave-q: acme HAS revenue: ?v` done.\n'
+  const rendered = report(store, template)
+  assert.deepEqual(rendered.problems, [])
+  assert.equal(rendered.markdown, template)
+  assert.equal(rendered.citations, 0)
+  store.close()
+})
+
 test('aliases widen matching when opted in (spec §13.6)', () => {
   const store = fixture()
   const plain = report(store, '```cave-q\n?x USES postgres\n- ?x\n```\n')

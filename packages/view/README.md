@@ -72,7 +72,9 @@ Revenue reached `cave-q: acme HAS revenue: ?v` this quarter.
 A fenced `cave-q` block holds a CAVE-Q pattern (plus optional `WHERE`
 lines) and a fragment rendered once per solution, `?var` bindings
 substituted — without a fragment each solution renders as a cited
-bullet. An inline `` `cave-q: …` `` splice takes exactly one variable
+bullet. An inline `` `cave-q: …` `` splice — a code span of any
+delimiter length, so `` ``cave-q: … `code` …`` `` works when the
+pattern carries a backtick literal — takes exactly one variable
 and one solution (several matches are a *problem*, and `--resolve` picks
 the §26 winner — the fix when sources contest a fact). Every rendered
 row cites: `[^cN]` markers land at the fragment's `[^?]` placeholder
