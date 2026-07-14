@@ -145,12 +145,12 @@ re-verified here. Overlaps are cross-referenced in §3.
   paid LLM call) on every run. Build the claim programmatically like
   `provenanceKey` already does.
 - **med — automate daemon can stall on pending events**
-  (= watch-watermark-race, found independently by this pass). `cycle()`
-  snapshots `seen = maxTxOf(store)` after settle — including on the
-  catch path — so a row landing during settle (or a mid-cycle failure)
-  leaves events pending until an unrelated later append
-  (`packages/automate/src/main.ts`). Snapshot before settling and don't
-  advance on error.
+  (= watch-watermark-race, found independently by this pass) — fixed in
+  0.27.1: `watchCycle` captures the boundary *before* each settle and
+  re-settles until `MAX(tx)` holds still across one, and a cycle
+  failure leaves `seen` put so the next tick retries
+  (`packages/automate/src/main.ts`; regression tests in
+  `packages/automate/test/main.test.ts`).
 - **low — rules `maxPasses` truncation falsely retracts.** Hitting the
   pass cap still runs the retraction sweep, transiently retracting
   suspended derivations whose premises hold (deep chains under

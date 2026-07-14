@@ -1570,8 +1570,11 @@ error the pass guard bounds per cycle, stated honestly, not prevented.
 
 - `cave automate [--db <path>]` — the long-running loop: one settle
   cycle at startup, then a cheap `MAX(tx)` poll every `--interval`
-  seconds (default 2) and a cycle whenever it moves. One machine, one
-  SQLite file — polling, not a bus, stated honestly.
+  seconds (default 2) and a cycle whenever it moves. A cycle captures
+  its boundary *before* settling and re-settles until `MAX(tx)` is
+  unchanged across one, so a write landing mid-cycle is processed by
+  that cycle, never marked seen unprocessed. One machine, one SQLite
+  file — polling, not a bus, stated honestly.
 - `cave automate --once` — exactly one settle cycle, exit code
   carrying step failures and declaration problems: cron replaces the
   daemon.
