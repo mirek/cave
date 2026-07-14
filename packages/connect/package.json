@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/connect",
-  "version": "0.27.12",
+  "version": "0.27.13",
   "type": "module",
   "description": "Deterministic structured ingestion (spec §23) — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with ?field variables into claims, with per-record digest incrementality, watch mode, and query-time overlay.",
   "license": "CC0-1.0",
