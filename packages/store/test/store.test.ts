@@ -128,6 +128,19 @@ test('comment search via SQL LIKE and FTS (spec §13.5)', () => {
   store.close()
 })
 
+test('search limit caps rows inside the query, newest matches first (spec §13.5)', () => {
+  const store = open()
+  for (const n of [1, 2, 3, 4, 5]) {
+    store.ingest(`svc-${n} USES sharedterm`)
+  }
+  const capped = store.search('sharedterm', { limit: 2 })
+  assert.equal(capped.length, 2, 'no more rows than the limit')
+  assert.deepEqual(capped.map(row => row.subject), ['svc-5', 'svc-4'], 'the newest matches survive the cap')
+  assert.equal(store.search('sharedterm').length, 5, 'without a limit everything still returns')
+  assert.equal(store.search('sharedterm', { raw: true, limit: 3 }).length, 3, 'limit composes with raw')
+  store.close()
+})
+
 test('topic layer reads, forward and inverse of the same rows (spec §11.2)', () => {
   const store = open()
   store.ingest([

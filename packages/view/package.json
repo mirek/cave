@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/view",
-  "version": "0.27.10",
+  "version": "0.27.11",
   "type": "module",
   "description": "CAVE human read surface (spec §30, §31) — cave serve: one static, self-contained HTML page over the store (entity 360, topic browse, belief-history timeline, BECAUSE-edge lineage, coverage/frontier dashboard); cave report: templated markdown from CAVE-Q results with claim keys as citations.",
   "license": "CC0-1.0",

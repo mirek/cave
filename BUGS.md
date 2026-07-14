@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## search-limit-pushdown: view search materializes all matches before applying its limit
-
-- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
-- **Severity:** Medium/Performance
-- **Status:** Open
-- **Area:** `@cavelang/view`, `@cavelang/store`
-- **Relevant file:** `packages/view/src/api.ts`
-
-### Summary
-
-The view still calls `store.search(text).slice(0, limit)`; the FTS query materializes all matches first.
-
-### Impact
-
-Broad searches can block the single HTTP thread and allocate far more memory than the 100-row response needs.
-
-### Suggested fix
-
-Thread a SQL `LIMIT` into the store search API.
-
 ## mcp-tsconfig-refs: the MCP TypeScript project omits direct dependency references
 
 - **Source:** Merged PR review [#18](https://github.com/mirek/cave/pull/18)
