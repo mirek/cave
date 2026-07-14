@@ -19,6 +19,9 @@
       "path": "../core"
     },
     {
+      "path": "../fusion"
+    },
+    {
       "path": "../loop"
     },
     {
@@ -26,6 +29,9 @@
     },
     {
       "path": "../query"
+    },
+    {
+      "path": "../rules"
     },
     {
       "path": "../store"
