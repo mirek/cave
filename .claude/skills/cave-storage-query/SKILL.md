@@ -1492,11 +1492,17 @@ The watermark is an in-band bookkeeping claim, the §24.4 convention:
 automation/page-on-spike HAS automate-watermark: 019f47ba-8f72-7000-… @src:cave-automate ; fired 1 solution(s), 3 step(s)
 ```
 
-An automation with no watermark yet is **armed at its declaration
-row's transaction**: it watches from the moment it is declared,
-whether or not a loop was running — rows recorded before the
-declaration are state, never events. Because matching is over current
-beliefs, the semantics follow §12 throughout: a retraction fires
+An automation arms at **the later of its stored watermark and its
+current declaration row's transaction**: it watches from the moment
+it is declared, whether or not a loop was running — rows recorded
+before the declaration are state, never events. The declaration floor
+is what keeps that rule true across re-declaration: retracting an
+automation leaves its watermark claim current, and trusting that
+stale mark would fire the re-declared automation once over every row
+recorded while it was retracted. This is §24.4's staleness rule
+pointed the other way — a re-declared rule re-fires over pre-existing
+rows, a re-declared automation must not. Because matching is over
+current beliefs, the semantics follow §12 throughout: a retraction fires
 nothing (the fact stops matching), an unchanged re-assertion appends
 no row and so fires nothing, a value update fires (the new row is the
 current row), and a solution built entirely from old rows is state,

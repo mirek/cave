@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/sync",
-  "version": "0.27.1",
+  "version": "0.27.2",
   "type": "module",
   "description": "CAVE store merge (spec §28) — merge append-only stores by row identity: idempotent, transitive, conflict-free by construction; SYNCED-INTO merge records, the tx receive rule, and `;@` transaction-annotated text interchange.",
   "license": "CC0-1.0",

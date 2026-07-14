@@ -54,6 +54,31 @@ test('firing records the watermark first, and re-runs never re-fire (spec §29.3
   store.close()
 })
 
+test('a re-declared automation does not arm at its stale watermark (BUGS.md automate-stale-watermark, spec §29.2)', async () => {
+  const store = open()
+  const text = 'automation/watch HAS automation: `?x IS hot => hook/log`'
+  declareAutomations(store, text)
+  store.ingest('api IS hot')
+  assert.equal(firedOf(await settle(store), 'automation/watch'), 1, 'the first firing records a watermark')
+
+  // Retract the automation, record a row while it is retracted, then
+  // declare the identical text again. The watermark claim stays current
+  // through the retraction, but rows recorded before the re-declaration
+  // are state, never events (§29.2).
+  assert.ok(retractAutomation(store, 'watch').ok)
+  store.ingest('db IS hot')
+  assert.equal(declareAutomations(store, text).declared, 1)
+  assert.equal(firedOf(await settle(store), 'automation/watch'), 0, 'rows recorded while retracted never fire')
+
+  store.ingest('cache IS hot')
+  const after = await settle(store)
+  assert.equal(firedOf(after, 'automation/watch'), 1, 'a row after the re-declaration is an event')
+  const fired = after.automations.find(automation => automation.subject === 'automation/watch')!
+  assert.equal(fired.firings.length, 1)
+  assert.equal(fired.firings[0]!.bindings['x'], 'cache', 'the pre-declaration row stays state')
+  store.close()
+})
+
 test('constraints gate the trigger; an updated value is a new event', async () => {
   const store = open()
   declareAutomations(store, 'automation/spike HAS automation: `?s HAS error-rate: ?r, ?r > 0.05 => hook/page`')

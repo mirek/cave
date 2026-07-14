@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## automate-stale-watermark: re-declared automations arm at a stale watermark
-
-- **Source:** Analysis while fixing `stale-rule-watermark`
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/automate`
-- **Relevant file:** `packages/automate/src/engine.ts`
-
-### Summary
-
-Trigger arming takes a stored `automate-watermark` unconditionally, falling back to the declaration row's tx only when none exists. Retracting an automation leaves its watermark claim current, so re-declaring the same name arms at the old watermark instead of the new declaration row.
-
-### Impact
-
-Rows recorded while the automation was retracted count as events on the next settle: steps — hooks, agent prompts, actions — fire once over stale rows, contradicting §29.2's arming rule ("rows recorded before the declaration are state, never events").
-
-### Suggested fix
-
-Arm at the later of the stored watermark and the current declaration row's tx — the dual of the `stale-rule-watermark` fix: derivation must re-fire over old rows, automations must not fire on them.
-
 ## exponent-notation: generated numeric CAVE values can use unsupported scientific notation
 
 - **Source:** Merged PR reviews [#10](https://github.com/mirek/cave/pull/10) and [#18](https://github.com/mirek/cave/pull/18)
