@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## connect-exit-zero: federated connect queries exit successfully after mapping failures
-
-- **Source:** Merged PR review [#10](https://github.com/mirek/cave/pull/10)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/connect`
-- **Relevant file:** `packages/connect/src/main.ts`
-
-### Summary
-
-`runQuery` prints `report.failures` but still returns 0 in JSON, no-match, and match paths.
-
-### Impact
-
-Scripts and CI can accept incomplete query results as a complete success.
-
-### Suggested fix
-
-Return non-zero whenever any source record failed to instantiate or ingest, while still printing partial results if useful.
-
 ## export-error-contract: export output errors escape and its claim count includes qualifier lines
 
 - **Source:** Merged PR reviews [#2](https://github.com/mirek/cave/pull/2) and [#3](https://github.com/mirek/cave/pull/3)

@@ -168,16 +168,19 @@ const runQuery = async (source: string, values: Values, name: string): Promise<n
       values.query!,
       { all: values.all === true, aliases: values.aliases === true }
     )
-    if (report.failures.length > 0) {
+    // A failed record means the union was incomplete — matches still print
+    // as partial results, but the exit code must not read as success.
+    const code = report.failures.length > 0 ? 1 : 0
+    if (code !== 0) {
       process.stderr.write(`${renderReport(report)}\n`)
     }
     if (values.json === true) {
       process.stdout.write(`${JSON.stringify(matches, undefined, 2)}\n`)
-      return 0
+      return code
     }
     if (matches.length === 0) {
       process.stdout.write('no matches\n')
-      return 0
+      return code
     }
     const lines = matches.map(match => {
       const bindings = Object.entries(match.bindings)
@@ -186,7 +189,7 @@ const runQuery = async (source: string, values: Values, name: string): Promise<n
       return bindings !== '' ? bindings : match.row?.raw_line ?? values.query!
     })
     process.stdout.write(`${lines.join('\n')}\n`)
-    return 0
+    return code
   } finally {
     store.close()
   }
