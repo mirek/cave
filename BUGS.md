@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## mcp-tsconfig-refs: the MCP TypeScript project omits direct dependency references
-
-- **Source:** Merged PR review [#18](https://github.com/mirek/cave/pull/18)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/mcp`
-- **Relevant file:** `packages/mcp/tsconfig.json`
-
-### Summary
-
-MCP imports `@cavelang/fusion` and `@cavelang/rules`, but its composite project references still omit `../fusion` and `../rules`.
-
-### Impact
-
-A clean or filtered `tsc -b packages/mcp` can fail or consume stale dependency outputs.
-
-### Suggested fix
-
-Add both direct references and cover a clean filtered MCP build in CI.
-
 ## digest-path-lexing: ingest digest claims for paths that are not entity atoms never parse
 
 - **Source:** Found while writing the eval-glob-escape regression tests
