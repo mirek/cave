@@ -50,6 +50,9 @@
       "path": "packages/shape"
     },
     {
+      "path": "packages/solver"
+    },
+    {
       "path": "packages/store"
     },
     {
