@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## inline-splice-backticks: inline report splices only support one-backtick delimiters
-
-- **Source:** Merged PR review [#24](https://github.com/mirek/cave/pull/24)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/report.ts`
-
-### Summary
-
-The inline splice scanner remains a regular expression that hard-codes one-backtick delimiters. Valid Markdown code spans with longer delimiters, needed when the query contains a backtick code literal, are misparsed.
-
-### Impact
-
-Valid templates can be mangled or reported as invalid.
-
-### Suggested fix
-
-Scan Markdown code spans while honoring the full opening delimiter length, then recognize `cave-q:` inside the span.
-
 ## lineage-truncation-leaf: lineage depth truncation is rendered as a complete leaf
 
 - **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
