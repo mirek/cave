@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/automate",
-  "version": "0.27.3",
+  "version": "0.27.4",
   "type": "module",
   "description": "CAVE automations (spec §29) — the event-driven loop: in-band trigger patterns over new claims fire rules, actions, out-of-band hooks and agent prompts; cave automate settles the store whenever belief changes.",
   "license": "CC0-1.0",

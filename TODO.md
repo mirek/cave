@@ -84,11 +84,12 @@ re-verified here. Overlaps are cross-referenced in §3.
   already excludes them), deliberately untouched: whether §18
   reconstruction should collect retracted claims is a design question,
   not part of the entry.
-- **connect-fetch-timeout** open — `connect` URL fetch has no
-  timeout/headers and case-sensitive detection; the same detector
-  mis-routes `HTTPS://… --watch` past the no-URLs guard onto the file
-  path (`packages/connect/src/source.ts`, `main.ts`). No fetch injection
-  point, so the URL path is untestable.
+- **connect-fetch-timeout** fixed in 0.27.4 — `connect` URL fetch now
+  mirrors `ingest`: case-insensitive detection (which also restores the
+  `--watch` no-URLs guard for `HTTPS://…`), request headers, redirect
+  policy, `AbortSignal.timeout` (60s default), and a `fetchImpl`
+  injection point that makes the URL path testable
+  (`packages/connect/src/source.ts`).
 - **ci-releases-only** fixed — CI runs on pushes and PRs (#25); residual
   gaps in §3.4 below.
 - **multi-process-tx-order** open, narrowed — the §28.2 receive rule

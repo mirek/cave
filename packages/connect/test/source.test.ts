@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -55,6 +57,55 @@ test('sqlite sources read a table or a query, read-only (spec §23)', async () =
   assert.deepEqual(bySql.records, [{ name: 'Bob' }])
   await assert.rejects(Source.load(path), /--table or --sql/)
   await assert.rejects(Source.load(path, { table: 'people', sql: 'SELECT 1' }), /--table or --sql/)
+})
+
+test('isUrl recognizes http(s) sources case-insensitively', () => {
+  assert.ok(Source.isUrl('https://x.example/items.json'))
+  assert.ok(Source.isUrl('HTTPS://X.EXAMPLE/ITEMS.JSON'))
+  assert.ok(Source.isUrl('Http://localhost:8080/'))
+  assert.ok(!Source.isUrl('people.csv'))
+  assert.ok(!Source.isUrl('https.md'))
+  assert.ok(!Source.isUrl('file:///etc/hosts'))
+})
+
+test('url sources fetch with headers and a timeout signal, format from content-type', async () => {
+  const calls: { url: string, init: RequestInit }[] = []
+  const fetchImpl: Source.FetchLike = async (url, init) => {
+    calls.push({ url, init })
+    return new Response('[{"id":1}]', { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  const { records, format } = await Source.load('HTTPS://x.example/api/items', { fetchImpl })
+  assert.equal(format, 'json', 'extensionless URLs infer the format from content-type')
+  assert.deepEqual(records, [{ id: 1 }])
+  const { init } = calls[0]!
+  assert.ok(init.signal instanceof AbortSignal, 'the request carries a timeout signal')
+  assert.equal(init.redirect, 'follow')
+  const headers = init.headers as Record<string, string>
+  assert.equal(headers['user-agent'], 'cave-connect')
+  assert.match(headers.accept ?? '', /json/)
+
+  const failing: Source.FetchLike = async () => new Response('nope', { status: 500 })
+  await assert.rejects(Source.load('https://x.example/api/items', { fetchImpl: failing }), /HTTP 500/)
+})
+
+test('url sources time out instead of hanging on a stalled endpoint', async () => {
+  const server = createServer((_request, response) => {
+    setTimeout(() => {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end('[{"id":1}]')
+    }, 2000).unref()
+  })
+  await new Promise<void>(resolve => { server.listen(0, '127.0.0.1', () => { resolve() }) })
+  const { port } = server.address() as AddressInfo
+  try {
+    await assert.rejects(
+      Source.load(`http://127.0.0.1:${port}/slow.json`, { timeoutSeconds: 0.1 }),
+      (error: unknown) => error instanceof Error && /timeout|abort/i.test(error.name)
+    )
+  } finally {
+    server.closeAllConnections()
+    server.close()
+  }
 })
 
 test('formatOf infers from extension, nameOf names the source (spec §23.2)', () => {
