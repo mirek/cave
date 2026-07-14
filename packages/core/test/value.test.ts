@@ -114,6 +114,36 @@ test('interpolate and formatAt: linear, clamped, styled (spec §32.3)', () => {
   assert.equal(Value.formatAt(Value.parse('30ms'), 0.5), undefined)
 })
 
+test('formatNumber: plain decimal, never exponent notation (spec §16 number)', () => {
+  assert.equal(Value.formatNumber(42), '42')
+  assert.equal(Value.formatNumber(-3.5), '-3.5')
+  assert.equal(Value.formatNumber(0), '0')
+  assert.equal(Value.formatNumber(1e-7), '0.0000001')
+  assert.equal(Value.formatNumber(1.5e-7), '0.00000015')
+  assert.equal(Value.formatNumber(-1.23e-7), '-0.000000123')
+  assert.equal(Value.formatNumber(1e21), '1000000000000000000000')
+  assert.equal(Value.formatNumber(-1.5e21), '-1500000000000000000000')
+  // Full-precision round-trip through the CAVE number grammar.
+  for (const n of [1e-7, -1e-7, 5e-324, 1.7976931348623157e308, 123.456, 1e21, 2026]) {
+    const text = Value.formatNumber(n)
+    assert.doesNotMatch(text, /[eE]/, text)
+    const parsed = Value.parse(text)
+    assert.equal(parsed.kind, 'number', text)
+    assert.equal(parsed.num, n)
+  }
+  assert.throws(() => Value.formatNumber(Infinity))
+  assert.throws(() => Value.formatNumber(-Infinity))
+  assert.throws(() => Value.formatNumber(NaN))
+})
+
+test('formatAt keeps tiny interpolations in plain decimal (exponent-notation bug)', () => {
+  const drift = Value.parse('0.0000001 -> 0.0000005')
+  assert.equal(drift.kind, 'trajectory')
+  const at = Value.formatAt(drift, 0.5)
+  assert.equal(at, '0.0000003')
+  assert.equal(Value.parse(at!).kind, 'number', 'the emitted scalar re-parses as a number, not an atom')
+})
+
 test('quoted constructors and format round-trip', () => {
   assert.equal(Value.format(Value.ofText('install dependencies')), '"install dependencies"')
   assert.equal(Value.format(Value.ofCode('<=')), '`<=`')

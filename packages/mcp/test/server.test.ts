@@ -255,6 +255,27 @@ test('cave_fuse skips denials, retractions and non-estimates; aliases widen the 
   store.close()
 })
 
+test('cave_fuse posteriors stay CAVE-parseable decimals, never exponent notation (exponent-notation bug)', () => {
+  const store = open()
+  const server = createServer(store)
+  // Tiny magnitudes: String(2e-7) is '2e-7', which the CAVE number
+  // grammar (spec §16) does not accept — the write-back value must be
+  // plain decimal.
+  const tiny = contentText(call(server, 85, 'cave_fuse', {
+    text: 'sensor HAS drift: 0.0000001 +/- 0.00000004\nsensor HAS drift: 0.0000003 +/- 0.00000004'
+  }))
+  assert.match(tiny, /posterior: 0\.0000002 \+\/- 0\.00000002828 \(2σ\)/)
+  assert.doesNotMatch(tiny, /\de[+-]\d/, 'no exponent notation anywhere in the output')
+  // Huge magnitudes: beyond T-compression the residual still has to be
+  // plain digits (2e+22T is not a CAVE value; 20000000000000000000000T is).
+  const huge = contentText(call(server, 86, 'cave_fuse', {
+    text: 'star HAS mass: 20000000000000000000000000000000000 kg +/- 4000000000000000000000000000000000 kg'
+  }))
+  assert.match(huge, /posterior: 20000000000000000000000T kg \+\/- 4000000000000000000000T kg \(2σ\)/)
+  assert.doesNotMatch(huge, /\de[+-]\d/, 'no exponent notation anywhere in the output')
+  store.close()
+})
+
 test('cave_about, cave_neighbors and cave_search read the graph', () => {
   const store = open()
   store.ingest('monorepo CONTAINS packages/api\nauth USES jwt ; json web tokens')
