@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/cli",
-  "version": "0.27.5",
+  "version": "0.27.6",
   "type": "module",
   "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
   "license": "CC0-1.0",

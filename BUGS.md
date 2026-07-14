@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## export-error-contract: export output errors escape and its claim count includes qualifier lines
-
-- **Source:** Merged PR reviews [#2](https://github.com/mirek/cave/pull/2) and [#3](https://github.com/mirek/cave/pull/3)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/cli`
-- **Relevant file:** `packages/cli/src/cli.ts`
-
-### Summary
-
-`exportCommand` still has `try/finally` without `catch`, so output write failures throw instead of returning the command's `Output` contract. Its count filters transaction annotation lines only; indented qualifier/grouping lines are still reported as claims.
-
-### Impact
-
-Programmatic callers can crash, and successful exports report misleading claim counts.
-
-### Suggested fix
-
-Catch and return write/export failures, and count canonical root claims from structured rows or parser output.
-
 ## eval-glob-escape: eval passes discovered filenames back through glob expansion
 
 - **Source:** Merged PR review [#15](https://github.com/mirek/cave/pull/15)
