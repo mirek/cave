@@ -12,6 +12,9 @@ import { fieldOf } from './template.ts'
 
 export type Format = 'csv' | 'tsv' | 'json' | 'jsonl' | 'sqlite'
 
+/** Injection point for tests; the built-in fetch otherwise. */
+export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
+
 export type Options = {
   /** Explicit format; inferred from the extension when omitted. */
   readonly format?: Format
@@ -23,6 +26,10 @@ export type Options = {
   readonly sql?: string
   /** Dot path to the record array inside a JSON document. */
   readonly records?: string
+  /** URL fetch timeout in seconds (default 60). */
+  readonly timeoutSeconds?: number
+  /** Injection point for tests; the built-in fetch otherwise. */
+  readonly fetchImpl?: FetchLike
 }
 
 export type Loaded = {
@@ -31,7 +38,7 @@ export type Loaded = {
 }
 
 export const isUrl = (source: string): boolean =>
-  /^https?:\/\//.test(source)
+  /^https?:\/\//i.test(source)
 
 const extensionFormats: Record<string, Format> = {
   '.csv': 'csv',
@@ -179,8 +186,15 @@ const readSqlite = (path: string, options: Options): Record<string, unknown>[] =
   }
 }
 
-const fetchText = async (url: string): Promise<{ text: string, contentType: string }> => {
-  const response = await fetch(url)
+const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
+  const response = await (options.fetchImpl ?? fetch)(url, {
+    headers: {
+      'user-agent': 'cave-connect',
+      accept: 'application/json, text/csv;q=0.9, */*;q=0.8'
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout((options.timeoutSeconds ?? 60) * 1000)
+  })
   if (!response.ok) {
     throw new Error(`${url}: HTTP ${response.status}`)
   }
@@ -190,7 +204,7 @@ const fetchText = async (url: string): Promise<{ text: string, contentType: stri
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
 export const load = async (source: string, options: Options = {}): Promise<Loaded> => {
   if (isUrl(source)) {
-    const { text, contentType } = await fetchText(source)
+    const { text, contentType } = await fetchText(source, options)
     const format = options.format ??
       (contentType.includes('json') ? 'json' :
         contentType.includes('csv') ? 'csv' :

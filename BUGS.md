@@ -11,28 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## connect-fetch-timeout: `connect` URL fetching has no timeout and inconsistent URL detection
-
-- **Source:** GPT-5.5 Thinking
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/connect`
-- **Relevant files:**
-  - `packages/connect/src/source.ts`
-  - `packages/ingest/src/web.ts`
-
-### Summary
-
-`connect` loads URLs with plain `fetch(url)`, without timeout, custom headers, or an injected fetch implementation. Its URL detector is also case-sensitive. `ingest` has a more robust implementation: case-insensitive URL detection, request headers, redirect policy, and `AbortSignal.timeout(...)`.
-
-### Impact
-
-`cave connect <url>` can hang indefinitely on slow endpoints, behave differently from `cave ingest <url>`, or fail to recognize uppercase `HTTP://` / `HTTPS://` inputs that `ingest` would accept.
-
-### Suggested fix
-
-Share URL helper code between `ingest` and `connect`, or port the timeout/header behavior into `connect`. Make URL detection case-insensitive in both surfaces.
-
 ## connect-exit-zero: federated connect queries exit successfully after mapping failures
 
 - **Source:** Merged PR review [#10](https://github.com/mirek/cave/pull/10)
