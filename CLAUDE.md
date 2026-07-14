@@ -7,10 +7,10 @@ in README.md). `make check` runs typecheck + all tests.
 ## Versioning — changesets
 
 All `@cavelang/*` packages release together at one version (a changesets
-`fixed` group; `scripts/sync-versions.mjs` syncs the private root, website
-and VS Code manifests plus `tree-sitter.json` to it). **Never edit a
-`version` field by hand** — versions only move in the automated release
-PR.
+`fixed` group; `scripts/sync-versions.mjs` syncs the private root
+manifest and `tree-sitter.json` to it — the private website and VS Code
+manifests deliberately stay put). **Never edit a `version` field by
+hand** — versions only move in the automated release PR.
 
 **Every change adds a changeset instead of a version bump** — package
 source, docs, these instructions, or the spec skills in `.claude/skills/`.

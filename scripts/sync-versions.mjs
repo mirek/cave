@@ -1,9 +1,17 @@
 #!/usr/bin/env node
-// Propagates the lockstep version to manifests that `changeset version`
-// does not manage: the private root package, the private workspace members
-// (website, editors/vscode), and the tree-sitter grammar metadata. Runs as
-// part of `pnpm run version-packages` so the Version Packages PR carries
-// every version source in one commit.
+// Propagates the lockstep version to version sources that `changeset
+// version` does not manage: the private root package.json (not a
+// workspace member, so invisible to changesets tooling) and the
+// tree-sitter grammar metadata. Runs as part of `pnpm run
+// version-packages` so the version packages PR carries every version
+// source in one commit.
+//
+// Deliberately NOT synced: website/ and editors/vscode/. They are
+// private workspace members, so changesets/action treats any version
+// change to them as a released package and tries to read their
+// CHANGELOG.md (which changesets never writes for them) — that crashed
+// the first release run. Nothing consumes their versions; the VS Code
+// extension gets its own release lifecycle (todo/vscode-release-pipeline).
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -17,14 +25,12 @@ const write = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2
 // lockstep version after `changeset version` has run.
 const version = read(join(root, 'packages/core/package.json')).version
 
-for (const rel of ['package.json', 'website/package.json', 'editors/vscode/package.json']) {
-  const path = join(root, rel)
-  const manifest = read(path)
-  if (manifest.version !== version) {
-    manifest.version = version
-    write(path, manifest)
-    console.log(`${rel}: ${version}`)
-  }
+const rootManifestPath = join(root, 'package.json')
+const rootManifest = read(rootManifestPath)
+if (rootManifest.version !== version) {
+  rootManifest.version = version
+  write(rootManifestPath, rootManifest)
+  console.log(`package.json: ${version}`)
 }
 
 const grammarPath = join(root, 'packages/tree-sitter-cave/tree-sitter.json')
