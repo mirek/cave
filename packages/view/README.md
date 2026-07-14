@@ -34,7 +34,9 @@ surface never reinterprets them:
   *cites* answers "why is this believed" (`BECAUSE` premises, `VIA`
   rules, `WHEN` conditions), *cited by* answers "what depends on it";
   a row reached twice re-states without children (§28.4's convention),
-  so §24.5 support cycles terminate;
+  so §24.5 support cycles terminate; the walk is depth-capped and a
+  node whose further edges the cap cut off is marked `truncated` — an
+  incomplete explanation never renders as complete;
 - **search** — the store's FTS5 over subjects, objects, values,
   comments and raw lines.
 

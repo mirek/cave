@@ -252,6 +252,13 @@ export type LineageNode = {
    * the §28.4 convention.
    */
   readonly repeat?: boolean
+  /**
+   * The row cites (or is cited by) further rows the walk's depth cap
+   * cut off — the explanation continues below this node but is not
+   * shown; follow the row's own lineage to keep walking. Never set
+   * on a genuine leaf.
+   */
+  readonly truncated?: boolean
   readonly children: readonly LineageNode[]
 }
 
@@ -271,6 +278,8 @@ const maxLineageDepth = 16
  * behind a §24 derivation, conditions behind a qualified claim; up
  * answers "what depends on this". Edges form a graph; the tree re-states
  * a repeated row without children (`repeat`), so §24.5 cycles terminate.
+ * Depth is capped: a node whose further edges the cap cut off is marked
+ * `truncated`, so an incomplete explanation never renders as complete.
  */
 export const lineage = (store: Store, id: string): undefined | Lineage => {
   const root = store.db.prepare('SELECT * FROM cave_claim WHERE id = ?').get(id) as undefined | Row.t
@@ -278,9 +287,6 @@ export const lineage = (store: Store, id: string): undefined | Lineage => {
     return undefined
   }
   const walk = (direction: 'down' | 'up', rowId: string, seen: Set<string>, depth: number): LineageNode[] => {
-    if (depth >= maxLineageDepth) {
-      return []
-    }
     const edges = direction === 'down' ?
       store.db.prepare('SELECT role, child_id AS next FROM cave_edge WHERE parent_id = ? ORDER BY rowid') :
       store.db.prepare('SELECT role, parent_id AS next FROM cave_edge WHERE child_id = ? ORDER BY rowid')
@@ -291,11 +297,17 @@ export const lineage = (store: Store, id: string): undefined | Lineage => {
       }
       const repeat = seen.has(row.id)
       seen.add(row.id)
+      const view = toView(store, row)
+      // The view's own edge counts say whether the walk would continue —
+      // the cut and its marker share one condition, so they cannot drift.
+      const deeper = (direction === 'down' ? view.cites : view.citedBy) > 0
+      const truncated = !repeat && deeper && depth + 1 >= maxLineageDepth
       return [{
         role: edge.role,
-        row: toView(store, row),
+        row: view,
         ...repeat ? { repeat: true } : {},
-        children: repeat ? [] : walk(direction, row.id, seen, depth + 1)
+        ...truncated ? { truncated: true } : {},
+        children: repeat || truncated || !deeper ? [] : walk(direction, row.id, seen, depth + 1)
       }]
     })
   }

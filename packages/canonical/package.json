@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/canonical",
-  "version": "0.27.9",
+  "version": "0.27.10",
   "type": "module",
   "description": "CAVE canonicalization — verb registry, REVERSE inverse resolution, continuation expansion, canonical emitter.",
   "license": "CC0-1.0",

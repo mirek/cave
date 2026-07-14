@@ -11,26 +11,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## lineage-truncation-leaf: lineage depth truncation is rendered as a complete leaf
-
-- **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/view`
-- **Relevant file:** `packages/view/src/api.ts`
-
-### Summary
-
-At depth 16, lineage traversal still returns an empty child array with no truncation marker.
-
-### Impact
-
-The UI/API silently hides valid support and makes an incomplete explanation look complete.
-
-### Suggested fix
-
-Return an explicit truncated node/flag or expose pagination/depth metadata.
-
 ## search-limit-pushdown: view search materializes all matches before applying its limit
 
 - **Source:** Merged PR review [#23](https://github.com/mirek/cave/pull/23)
