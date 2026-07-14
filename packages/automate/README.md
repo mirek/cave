@@ -74,11 +74,14 @@ cave automate --db k.db --retract page-on-spike
 
 The loop settles at startup, then polls `MAX(tx)` (default every 2 s)
 and settles whenever it moves — one machine, one SQLite file: polling,
-not a bus. `--once` exits nonzero when a step failed or a stored
-declaration does not parse. Deliberately **not** an MCP tool (§28.5's
-reasoning) — the loop is a process the operator runs; but declarations
-are ordinary claims, so an agent can declare an automation through
-`cave_add` and a running loop serves it from the next cycle.
+not a bus. A cycle takes its boundary *before* settling and re-settles
+until `MAX(tx)` holds still across one, so a write landing mid-cycle is
+settled by that cycle rather than silently marked seen. `--once` exits
+nonzero when a step failed or a stored declaration does not parse.
+Deliberately **not** an MCP tool (§28.5's reasoning) — the loop is a
+process the operator runs; but declarations are ordinary claims, so an
+agent can declare an automation through `cave_add` and a running loop
+serves it from the next cycle.
 
 Part of the [CAVE monorepo](../..); the specification lives in the
 repository's `.claude/skills/` directory (spec §29 in

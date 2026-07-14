@@ -28,4 +28,4 @@ export {
   substituteHook, substitutePrompt, watermarkAttribute
 } from './engine.ts'
 export type { AutomationOutcome, DeriveTotals, FiringOutcome, SettleOptions, SettleReport, StepOutcome } from './engine.ts'
-export { runAutomate } from './main.ts'
+export { runAutomate, watchCycle } from './main.ts'

@@ -149,22 +149,50 @@ const settleOptions = (values: Values): SettleOptions => {
 const maxTxOf = (store: Store): null | string =>
   (store.db.prepare('SELECT MAX(tx) AS t FROM cave_claim').get() as { t: null | string }).t
 
+/**
+ * One watch cycle (spec §29.5): settle, report, and return the tx
+ * boundary the poll may treat as seen. The boundary is captured *before*
+ * each settle, and the cycle re-settles until `MAX(tx)` is unchanged
+ * across one — a write landing while a settle runs (or while its report
+ * renders) re-enters the loop instead of being marked seen unprocessed
+ * (BUGS.md watch-watermark-race). Settle's own appends move `MAX(tx)`
+ * too, so a cycle that fired ends with one confirming settle; quiescent
+ * write paths (§29.4) are what make the loop terminate.
+ */
+export const watchCycle = async (
+  store: Store,
+  options: SettleOptions,
+  onReport: (report: SettleReport) => void
+): Promise<null | string> => {
+  for (;;) {
+    const boundary = maxTxOf(store)
+    onReport(await settle(store, options))
+    if (maxTxOf(store) === boundary) {
+      return boundary
+    }
+  }
+}
+
 /** The daemon (spec §29.5): settle at startup, then settle when MAX(tx) moves. */
 const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: number): Promise<number> => {
   let seen: null | string = null
   let running = false
+  const onReport = (report: SettleReport): void => {
+    const fired = report.automations.some(automation => automation.fired > 0)
+    if (fired || report.problems.length > 0 || report.notes.length > 0) {
+      process.stdout.write(`${renderReport(report).join('\n')}\n`)
+    }
+  }
   const cycle = async (): Promise<void> => {
     running = true
     try {
-      const report = await settle(store, options)
-      const fired = report.automations.some(automation => automation.fired > 0)
-      if (fired || report.problems.length > 0 || report.notes.length > 0) {
-        process.stdout.write(`${renderReport(report).join('\n')}\n`)
-      }
+      seen = await watchCycle(store, options, onReport)
     } catch (error) {
       process.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
+      // `seen` stays put: the next tick retries the pending events —
+      // settling is idempotent (§29.3) — instead of stalling them
+      // behind an unrelated later append.
     }
-    seen = maxTxOf(store)
     running = false
   }
   await cycle()
