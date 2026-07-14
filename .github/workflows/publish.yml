@@ -1,19 +1,42 @@
 name: Publish
 
+# Changesets release automation. On every push to main:
+#   - pending .changeset/*.md files → opens/updates the
+#     `chore(release): version packages` PR (branch changeset-release/main),
+#     which bumps every version source in lockstep;
+#   - no pending changesets → runs scripts/release-publish.sh, which is a
+#     no-op when the current version is already on npm, and otherwise
+#     builds, tests, publishes all packages and tags v<version>.
+#
+# npm auth is OIDC trusted publishing (id-token: write) — no npm token;
+# each @cavelang package has this repo + THIS WORKFLOW FILENAME
+# (publish.yml) configured as a trusted publisher on npmjs.com, so don't
+# rename this file. Provenance is automatic. First-time publishes of new
+# packages still need `make publish` from a machine with npm auth, since
+# trusted publishing can only be configured on packages that already exist
+# on the registry.
+
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write # push the changeset-release branch and the v<version> tag
+  pull-requests: write # open/update the version packages PR
+  id-token: write # npm OIDC trusted publishing
+
+concurrency:
+  group: publish-main
+  cancel-in-progress: false # never cancel a run that may be mid-publish
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
 
@@ -25,33 +48,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Generated grammar artifacts (parser.c, WASM) are never committed —
-      # tree-sitter-cli (a devDependency) regenerates them here; its
-      # `build --wasm` downloads wasi-sdk into ~/.cache/tree-sitter on
-      # first use, so no extra toolchain setup is needed.
-      - run: pnpm --filter @cavelang/tree-sitter-cave build
-
-      - run: pnpm build
-
-      - run: pnpm test
-
-      - name: Set version from tag (single-version monorepo)
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "Publishing version ${VERSION}"
-          npm pkg set version="${VERSION}"
-          for pkg in packages/*/package.json; do
-            npm pkg set version="${VERSION}" --prefix "$(dirname "$pkg")"
-          done
-
-      - name: Copy license into packages
-        run: |
-          for dir in packages/*/; do
-            cp License.md "$dir"
-          done
-
-      # Auth via OIDC trusted publishing (id-token: write above) — no npm
-      # token; each @cavelang package must have this repo/workflow configured
-      # as a trusted publisher on npmjs.com. Provenance is automatic.
-      - name: Publish to npm
-        run: pnpm -r publish --access public --no-git-checks
+      # Note: the version packages PR is opened with GITHUB_TOKEN, so CI
+      # does not run on it automatically (GitHub suppresses workflows for
+      # events created by the default token). Its diff is only version
+      # fields; CI runs on main after merge, and the publish path below
+      # builds and tests before anything ships. If branch protection ever
+      # requires checks on that PR, give this step a PAT or GitHub App
+      # token instead.
+      - uses: changesets/action@v1
+        with:
+          version: pnpm run version-packages
+          publish: pnpm run release:publish
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+          createGithubReleases: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
