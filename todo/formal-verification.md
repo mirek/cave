@@ -56,7 +56,6 @@ snapshot is trustworthy. In particular, complete or explicitly account for:
 - [storage schema migrations](storage-schema-migrations.md);
 - [database-backed transaction ordering](database-backed-transaction-order.md);
 - [exact backup and restore](exact-backup-restore.md);
-- [metadata claim indexes](metadata-claim-indexes.md);
 - [transitive depth truncation](transitive-depth-truncation.md);
 - [shared query primitives](shared-query-primitives.md);
 - [stable external records](stable-external-records.md); and
@@ -70,26 +69,24 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Define the solver-neutral model](formal-verification/solver-neutral-model.md)
-   — establish the typed expression, capability, result, and limit contracts.
-2. [Bind typed scenario inputs](formal-verification/scenario-inputs.md) — read a
+1. [Bind typed scenario inputs](formal-verification/scenario-inputs.md) — read a
    precise CAVE snapshot, apply an ephemeral overlay, and reject ambiguous or
    dimensionally invalid inputs.
-3. [Prove Z3 feasibility](formal-verification/z3-feasibility-spike.md) — validate
+2. [Prove Z3 feasibility](formal-verification/z3-feasibility-spike.md) — validate
    the adapter, exact arithmetic, models, optimization, unsat cores, timeouts,
    packaging, and process cleanup.
-4. [Map explanations to provenance](formal-verification/explanations-provenance.md)
+3. [Map explanations to provenance](formal-verification/explanations-provenance.md)
    — make constraints and objective contributions traceable to exact claim
    rows and scenario inputs.
-5. [Add verification workflows](formal-verification/verification-workflows.md)
+4. [Add verification workflows](formal-verification/verification-workflows.md)
    — expose feasibility, optimization, counterexample, and sensitivity
    operations without inventing a second rule engine.
-6. [Govern result recording](formal-verification/result-governance.md) — keep
+5. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-7. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
+6. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
    when representative linear/MIP workloads justify a second adapter.
-8. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+7. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 

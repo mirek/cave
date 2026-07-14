@@ -339,6 +339,8 @@ importers:
         specifier: workspace:*
         version: link:../store
 
+  packages/solver: {}
+
   packages/store:
     dependencies:
       '@cavelang/canonical':

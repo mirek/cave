@@ -246,6 +246,7 @@ shell template. Action hooks run only after the database transaction commits.
 | Domain | `core`, `fusion` | Immutable claim/value types, keys, time, UUIDv7, probabilistic math. |
 | Language | `parser`, `canonical` | CAVE text, diagnostics, inverse registry, canonical claims, emission. |
 | Data | `store`, `query`, `shape` | SQLite persistence, CAVE-Q, resolution, expectations, health and write gates. |
+| Formal reasoning | `solver` | Portable exact models, validation, capabilities, limits, canonical identity, and backend-neutral results. |
 | Behavior | `rules`, `act`, `automate`, `loop` | Derivation, governed writes, event processing, active reconstruction policies. |
 | Movement | `connect`, `ingest`, `sync` | Deterministic records, agent extraction, and store union. |
 | Integration | `mcp`, `eval` | Agent tool protocol and repeatable quality evaluation. |
