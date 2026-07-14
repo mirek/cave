@@ -1500,9 +1500,15 @@ beliefs, the semantics follow §12 throughout: a retraction fires
 nothing (the fact stops matching), an unchanged re-assertion appends
 no row and so fires nothing, a value update fires (the new row is the
 current row), and a solution built entirely from old rows is state,
-not an event. Transitive (`VERB+`) premises constrain bindings but
-contribute no premise row (§24.2), so they never trigger by
-themselves — pair them with a direct pattern.
+not an event. A transitive (`VERB+`) premise cites its **supporting
+edge rows** — the current positive edges of its verb on some path
+between the matched endpoints — so a new, re-asserted or updated edge
+is an event exactly for the solutions whose connection it backs, with
+the exclusions above applied per edge row. Only edge rows are support:
+under the alias closure a new `ALIAS` row widens matching but is not
+itself an event. Rules are unchanged (§24.2: no confidence, no lineage
+edge from transitive premises — automations account for their events,
+derivations for their evidence).
 
 ### 29.3 Firing — the watermark first, then the steps
 

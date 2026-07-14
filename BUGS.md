@@ -10,26 +10,6 @@ Conventions:
 
 On 2026-07-10, all 25 merged pull requests and their submitted reviews/inline threads were audited against the current main branch. Review-derived entries below include only concerns still present after that verification; duplicate comments are clustered.
 
-## transitive-trigger-rows: transitive automation triggers cannot see event rows
-
-- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
-- **Severity:** Medium
-- **Status:** Open
-- **Area:** `@cavelang/automate`, `@cavelang/query`
-- **Relevant file:** `packages/automate/src/engine.ts`
-
-### Summary
-
-Transitive query matches carry no `found.row`, leaving a trigger solution's row list empty. The firing filter requires at least one row newer than the automation watermark.
-
-### Impact
-
-Automations using allowed `VERB+` premises never fire on newly added edges.
-
-### Suggested fix
-
-Return supporting/event edge rows for trigger evaluation, or separately test whether the transitive result depends on post-watermark edges.
-
 ## watch-watermark-race: automate watch can advance past an unprocessed concurrent write
 
 - **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
@@ -411,6 +391,28 @@ The reviewed phrases “payments goes through” and “its hand extraction to C
 ### Suggested fix
 
 Use “the payments service goes through” and “its hand extraction into CAVE” (or equivalent wording).
+
+## transitive-trigger-rows: transitive automation triggers cannot see event rows
+
+- **Source:** Merged PR review [#22](https://github.com/mirek/cave/pull/22)
+- **Severity:** Medium
+- **Status:** Fixed in 0.27.0; regression tests `a new edge is an event for a transitive trigger (BUGS.md transitive-trigger-rows, spec §29.2)`, `transitive supporting edges ride into prompts as trigger claims (spec §29.3)` and `an own action step’s edge never re-fires a transitive trigger — deaf to its echo (spec §29.2)` (`packages/automate/test/engine.test.ts`), plus the two `support` tests in `packages/query/test/query.test.ts`
+- **Area:** `@cavelang/automate`, `@cavelang/query`
+- **Relevant files:**
+  - `packages/automate/src/engine.ts`
+  - `packages/query/src/compile.ts`
+
+### Summary
+
+Transitive query matches carry no `found.row`, leaving a trigger solution's row list empty. The firing filter requires at least one row newer than the automation watermark.
+
+### Impact
+
+Automations using allowed `VERB+` premises never fire on newly added edges.
+
+### Resolution
+
+The first suggested fix (return supporting edge rows for trigger evaluation): CAVE-Q gains an opt-in `support` option — a transitive match then carries `rows`, the visible positive edges of the verb on some path between the matched endpoints, computed in the same recursive CTE universe matching uses (composes with `aliases`, `asOf`, `resolve`; alias links widen the paths but are not edges themselves, so a new `ALIAS` row alone is still not an event). `settle`'s trigger evaluation opts in and treats supporting edges as premise rows, so the existing §29.2 event filter applies verbatim: a new edge fires exactly the solutions whose connection it backs, engine bookkeeping and the automation's own output stay excluded per edge row (deaf to its echo), and the supporting path now also rides into hook stdin and agent prompts as §29.3's trigger claims. The alternative — separately testing whether a transitive result depends on post-watermark edges — was rejected: an as-of re-match cannot honour the echo/bookkeeping exclusions (a connection created by the automation's own action would fire it), and it would leave hooks and prompts without the transitive claims. Rules keep §24.2's behavior (no confidence, no lineage edge from transitive premises); spec §29.2 and the automate/query READMEs document the supporting-edge rule.
 
 ## stale-rule-watermark: re-declared rules inherit stale derive watermarks
 
