@@ -15,7 +15,9 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
 
 ## How it works
 
-1. **Select** — globs expand (`fs.globSync`), URLs are fetched with the
+1. **Select** — globs expand (`fs.globSync`; the library API additionally
+   takes `files`, literal paths selected without glob expansion — for
+   discovered names, which may contain `[]?*`), URLs are fetched with the
    built-in `fetch` (HTML is reduced to its readable article text with
    [@mozilla/readability](https://github.com/mozilla/readability) over
    linkedom; markdown/plain/JSON bodies pass through verbatim), and

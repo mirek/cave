@@ -469,7 +469,10 @@ const runOnce = async (
     const report = await Ingest.run({
       db,
       store,
-      patterns: [basename(kase.source)],
+      patterns: [],
+      // A literal path, not a pattern — discovered names may contain
+      // glob metacharacters (BUGS.md eval-glob-escape).
+      files: [basename(kase.source)],
       cwd: dirname(kase.source),
       mode: options.mode,
       ...agent === undefined ? {} : { agent },
