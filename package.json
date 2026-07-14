@@ -20,10 +20,13 @@
     "watch": "tsc -b --watch --preserveWatchOutput",
     "clean": "rm -rf packages/*/dist",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only --no-frozen-lockfile",
+    "release:publish": "./scripts/release-publish.sh"
   },
   "devDependencies": {
     "@cavelang/cli": "workspace:*",
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^22.15.0",
     "typescript": "^5.8.0"
   }
