@@ -296,7 +296,9 @@ function treeHtml (nodes) {
   return '<ul class="tree">' + nodes.map(function (node) {
     return '<li><span class="role">' + esc(node.role || '') + '</span>' +
       claimHtml(node.row) +
-      (node.repeat ? '<span class="rep">re-stated — rendered above</span>' : treeHtml0(node.children)) +
+      (node.repeat ? '<span class="rep">re-stated — rendered above</span>' :
+        node.truncated ? '<span class="rep">depth cap reached — deeper rows exist, continue from this row&#39;s lineage</span>' :
+          treeHtml0(node.children)) +
       '</li>'
   }).join('') + '</ul>'
 }

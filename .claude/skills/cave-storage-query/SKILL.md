@@ -1651,7 +1651,10 @@ reachable by clicking.
   edges — what depends on it). Edges form a graph and the render is a
   tree, reconciled exactly as §28.4 reconciles export: a row reached
   again re-states without children, so shared premises and §24.5
-  support cycles terminate.
+  support cycles terminate. The walk is depth-capped, and the cap is
+  honest: a node whose further edges it cut off is marked *truncated*
+  (never posing as a leaf), with the row's own lineage as the way to
+  keep walking.
 - **Search** — the store's FTS5 index (§13.1) over subjects, objects,
   values, comments and raw lines, newest first.
 

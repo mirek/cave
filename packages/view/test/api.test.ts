@@ -168,6 +168,49 @@ test('lineage terminates on §24.5 support cycles', () => {
   store.close()
 })
 
+test('lineage marks depth-capped nodes truncated, never as complete leaves', () => {
+  const store = open()
+  // A citation chain deeper than the render cap: step-19 cites step-18
+  // cites … cites step-0.
+  const chain = 20
+  const ids = store.ingest(
+    Array.from({ length: chain }, (_, i) => `step-${i} IS done`).join('\n'),
+    { source: 'test' }
+  ).ids
+  store.appendEdges(Array.from({ length: chain - 1 }, (_, i) =>
+    ({ parentId: ids[i + 1]!, role: 'BECAUSE' as const, childId: ids[i]! })))
+  const down = lineage(store, ids[chain - 1]!)!
+  // Walk to the deepest rendered node of the cites tree.
+  let node = down.cites[0]!
+  let rendered = 1
+  while (node.children.length > 0) {
+    node = node.children[0]!
+    rendered += 1
+  }
+  // The chain outruns what rendered, so the walk was cut at a node that
+  // still cites a premise — it must say so, not pose as a leaf.
+  assert.ok(rendered < chain - 1)
+  assert.equal(node.row.cites, 1)
+  assert.equal(node.truncated, true)
+  // The up walk is capped and marked the same way.
+  const up = lineage(store, ids[0]!)!
+  let dependent = up.citedBy[0]!
+  while (dependent.children.length > 0) {
+    dependent = dependent.children[0]!
+  }
+  assert.equal(dependent.row.citedBy, 1)
+  assert.equal(dependent.truncated, true)
+  // A genuine leaf — the chain's bottom reached within the cap — is unmarked.
+  const shallow = lineage(store, ids[2]!)!
+  let leaf = shallow.cites[0]!
+  while (leaf.children.length > 0) {
+    leaf = leaf.children[0]!
+  }
+  assert.equal(leaf.row.cites, 0)
+  assert.equal(leaf.truncated, undefined)
+  store.close()
+})
+
 test('search rides the store FTS, newest first', () => {
   const store = fixture()
   const matches = search(store, 'redis-cache')
