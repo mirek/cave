@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS cave_context (
   FOREIGN KEY (claim_id) REFERENCES cave_claim(id)
 );
 CREATE INDEX IF NOT EXISTS idx_cave_context ON cave_context (context);
+CREATE INDEX IF NOT EXISTS idx_cave_context_claim ON cave_context (claim_id, context);
 
 CREATE TABLE IF NOT EXISTS cave_tag (
   claim_id TEXT NOT NULL,
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS cave_tag (
   FOREIGN KEY (claim_id) REFERENCES cave_claim(id)
 );
 CREATE INDEX IF NOT EXISTS idx_cave_tag_key ON cave_tag (key, value);
+CREATE INDEX IF NOT EXISTS idx_cave_tag_claim ON cave_tag (claim_id, key, value);
 
 CREATE TABLE IF NOT EXISTS cave_edge (
   parent_id TEXT NOT NULL,

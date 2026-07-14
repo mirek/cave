@@ -56,7 +56,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Performance
 
-- [Metadata claim indexes](todo/metadata-claim-indexes.md) — Index context and tag claim references used by belief resolution.
 - [Set-based shape evaluation](todo/set-based-shape-evaluation.md) — Evaluate expectations without one full-store query per pair.
 - [Seeded transitive queries](todo/seeded-transitive-queries.md) — Constrain recursive closure from bound endpoints.
 
