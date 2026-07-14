@@ -471,7 +471,7 @@ test('export --out writes a file; import restores the full belief history', () =
 
     const exported = exportCommand(['--db', original, '--out', backup])
     assert.equal(exported.code, 0)
-    assert.match(exported.out, /exported 8 claim\(s\) to /)
+    assert.match(exported.out, /exported 7 claim\(s\) to /, 'the WHEN qualifier is part of its parent claim')
 
     const imported = importCommand([backup, '--db', restored])
     assert.equal(imported.code, 0, imported.err)
@@ -582,6 +582,48 @@ test('export refuses --out that would overwrite the source database (export-clob
 
     // The store survives every refused attempt and still answers.
     assert.equal(queryCommand(['auth USES ?x', '--db', db]).out, '?x = jwt\n')
+  })
+})
+
+test('export returns output write failures instead of throwing (export-error-contract)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, 'auth USES jwt\n')
+    addCommand([file, '--db', db])
+
+    const failed = exportCommand(['--db', db, '--out', join(dir, 'missing', 'backup.cave')])
+    assert.equal(failed.code, 1)
+    assert.equal(failed.out, '')
+    assert.match(failed.err, /ENOENT/)
+
+    // The store was still closed on the failure path and answers afterwards.
+    assert.equal(queryCommand(['auth USES ?x', '--db', db]).out, '?x = jwt\n')
+  })
+})
+
+test('export counts root claims — qualifier/grouping lines are not claims (export-error-contract)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'server CAUSE crash @ 80%',
+      '  WHEN load > ~1000 req/s',
+      'auth USES jwt',
+      '  auth OWNED-BY platform-team'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+
+    // Two root claims; the WHEN qualifier and the grouped claim re-indent
+    // under their parents and are part of those claims, not extra ones.
+    const plain = exportCommand(['--db', db, '--out', join(dir, 'backup.cave')])
+    assert.equal(plain.code, 0)
+    assert.match(plain.out, /exported 2 claim\(s\) to /)
+
+    // §28.4 transaction annotations are not claims either.
+    const annotated = exportCommand(['--db', db, '--tx', '--out', join(dir, 'backup.tx.cave')])
+    assert.equal(annotated.code, 0)
+    assert.match(annotated.out, /exported 2 claim\(s\) to /)
   })
 })
 
@@ -925,7 +967,7 @@ test('sync consumes cave export --tx text and validates plain text (spec §28.4)
     const annotated = join(dir, 'a.tx.cave')
     const exported = exportCommand(['--db', a, '--tx', '--out', annotated])
     assert.equal(exported.code, 0)
-    assert.match(exported.out, /exported 2 claim\(s\)/, 'annotations are not counted as claims')
+    assert.match(exported.out, /exported 1 claim\(s\)/, 'neither annotations nor the BECAUSE qualifier count as claims')
     assert.match(readFileSync(annotated, 'utf8'), /^;@ [0-9a-f-]{36}\n/)
 
     const synced = syncCommand(['--db', b, annotated, '--as', 'a', '--into', 'b'])

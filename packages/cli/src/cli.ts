@@ -53,7 +53,7 @@ import {
 import { labelOf, sanitizeLabel, syncFile, syncText } from '@cavelang/sync'
 import type { SyncReport } from '@cavelang/sync'
 import { report as caveReport } from '@cavelang/view'
-import { emitClaim, txOfLine } from '@cavelang/canonical'
+import { emitClaim } from '@cavelang/canonical'
 
 export type Output = {
   readonly code: number
@@ -1325,8 +1325,13 @@ export const exportCommand = (argv: readonly string[]): Output => {
       return ok(text)
     }
     writeFileSync(values.out, text)
-    const claims = text === '' ? 0 : text.trimEnd().split('\n').filter(line => txOfLine(line) === undefined).length
+    // Root claims only: indented qualifier/grouping lines are part of their
+    // parent claim, and §28.4 annotations parse as comments.
+    const claims = parseDocument(text).lines
+      .filter(line => line.kind === 'claim' && line.depth === 0).length
     return ok(`exported ${claims} claim(s) to ${values.out}\n`)
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {
     store.close()
   }
