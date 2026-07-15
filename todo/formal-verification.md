@@ -69,21 +69,18 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Prove Z3 feasibility](formal-verification/z3-feasibility-spike.md) — validate
-   the adapter, exact arithmetic, models, optimization, unsat cores, timeouts,
-   packaging, and process cleanup.
-2. [Map explanations to provenance](formal-verification/explanations-provenance.md)
+1. [Map explanations to provenance](formal-verification/explanations-provenance.md)
    — make constraints and objective contributions traceable to exact claim
    rows and scenario inputs.
-3. [Add verification workflows](formal-verification/verification-workflows.md)
+2. [Add verification workflows](formal-verification/verification-workflows.md)
    — expose feasibility, optimization, counterexample, and sensitivity
    operations without inventing a second rule engine.
-4. [Govern result recording](formal-verification/result-governance.md) — keep
+3. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-5. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
+4. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
    when representative linear/MIP workloads justify a second adapter.
-6. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+5. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 

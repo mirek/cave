@@ -23,6 +23,7 @@ Dependency order, bottom to top:
 | [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/solver`](packages/solver) | — | Dependency-free formal-reasoning boundary: immutable Boolean/integer/exact-real/finite-enum models, hard and weighted-soft constraints, lexicographic objectives, validation and resource limits, capability negotiation, canonical digests, result unions, and linear-subset recognition; concrete solver adapters remain optional |
+| [`@cavelang/solver-z3`](packages/solver-z3) | — | Optional Node.js adapter for official Z3 Wasm: lazy one-time initialization, exact portable-model compilation, tracked unsat cores, lexicographic and weighted-soft optimization, queued checks, bounded execution, and explicit worker shutdown |
 | [`@cavelang/scenario`](packages/scenario) | — | Typed, replayable evaluator inputs: explicit CAVE-Q snapshots, rolled-back hypothetical overlays, exact numeric/unit conversion, cardinality and conflict policies, durable row evidence, and stable scenario evidence IDs; async evaluators run only after rollback |
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
@@ -50,8 +51,9 @@ packages the same grammar WASM and highlight query as a VSCode extension
 - **SQLite is `node:sqlite`** — no native modules. (The original request
   said "builtin mssql"; Node has no builtin MSSQL driver and the spec's
   storage model is SQLite/FTS5, so `node:sqlite` is the interpretation.)
-- External runtime dependency: `@prelude/parser` (plus its radix-trie),
-  used by the tokenizer.
+- External runtime dependency: `@prelude/parser` (plus its radix-trie), used
+  by the tokenizer. The opt-in `solver-z3` package alone depends on the
+  official `z3-solver` threaded Wasm distribution.
 
 ```sh
 pnpm install

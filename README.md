@@ -436,7 +436,7 @@ pnpm typecheck
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (`@cavelang/core` → `parser` → `canonical` → `store` → `query` → `shape` → `connect` → `fusion` → `rules` → `act` → `sync` → `loop` → `automate` → `view` → `mcp` → `ingest` → `eval` → `tree-sitter-cave` → `highlight` → `cli`), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (including the solver-neutral `solver`, typed `scenario` bindings, optional `solver-z3` adapter, and the ordinary CAVE language, data, behavior, integration, and presentation packages), toolchain, and cross-package design decisions.
 
 ## The specification
 

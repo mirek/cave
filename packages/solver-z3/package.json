@@ -1,0 +1,50 @@
+{
+  "name": "@cavelang/solver-z3",
+  "version": "0.28.0",
+  "type": "module",
+  "description": "Optional Node.js Z3 WebAssembly adapter for CAVE's solver-neutral model.",
+  "license": "CC0-1.0",
+  "author": "Mirek Rusin (https://github.com/mirek)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirek/cave.git",
+    "directory": "packages/solver-z3"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist",
+    "!dist/test",
+    "!dist/tsconfig.tsbuildinfo",
+    "src",
+    "!src/**/*.test.ts",
+    "scripts",
+    "README.md",
+    "BENCHMARK.md",
+    "License.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/src/index.d.ts",
+        "default": "./dist/src/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "benchmark": "node --disable-warning=ExperimentalWarning scripts/benchmark.ts",
+    "build": "tsc -b",
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "typecheck": "tsc -b",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@cavelang/solver": "workspace:*",
+    "z3-solver": "4.16.0"
+  }
+}
