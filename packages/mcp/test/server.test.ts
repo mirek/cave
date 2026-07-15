@@ -101,6 +101,22 @@ test('read-only scope drops cave_add and cave_derive from list, call and instruc
   store.close()
 })
 
+test('permission scopes separate reads, ephemeral evaluation and durable recording', () => {
+  assert.deepEqual(scopedTools({ permissions: ['read'] }).map(tool => tool.name), [
+    'cave_query', 'cave_search', 'cave_about', 'cave_neighbors', 'cave_export'
+  ])
+  assert.deepEqual(scopedTools({ permissions: ['evaluate'] }).map(tool => tool.name), [
+    'cave_fuse', 'cave_reconstruct', 'cave_lint'
+  ])
+  assert.deepEqual(scopedTools({ permissions: ['record'] }).map(tool => tool.name), [
+    'cave_add', 'cave_derive'
+  ])
+  assert.throws(
+    () => scopedTools({ permissions: ['unknown' as 'read'] }),
+    /unknown permission\(s\): unknown/
+  )
+})
+
 test('a tools list serves exactly the named tools; --read-only narrows it', () => {
   const store = open()
   store.ingest('auth USES jwt')
@@ -532,5 +548,14 @@ test('scope composition covers action tools (spec §25.5)', () => {
   const actOnlyList = (actOnly.handle(request(73, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
   assert.deepEqual(actOnlyList.map(tool => tool.name), ['act_mark-deployed'])
   assert.match(contentText(call(actOnly, 74, 'act_mark-deployed', { service: 'api', version: '2' })), /\+1 appended/)
+
+  // Permission classes do not grant recording when only action execution is allowed.
+  const permittedAction = createServer(store, { permissions: ['action'] })
+  const permittedList = (permittedAction.handle(request(75, 'tools/list')) as Response).result?.['tools'] as { name: string }[]
+  assert.deepEqual(permittedList.map(tool => tool.name), ['act_mark-deployed'])
+  const addDenied = permittedAction.handle(request(76, 'tools/call', {
+    name: 'cave_add', arguments: { text: 'unexpected EXISTS' }
+  })) as Response
+  assert.equal(addDenied.error?.code, -32602)
   store.close()
 })

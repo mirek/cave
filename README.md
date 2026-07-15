@@ -437,11 +437,16 @@ cave-solver-workflow architecture optimization --team-size 10 --deployment-frequ
 cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
 ```
 
-Solver output is a recommendation, not a write. Passing proposed parameters to
-`actProposal` rechecks the current action declaration and preconditions before
-the governed action engine can append anything. See the
+Solver output is not a write. `@cavelang/scenario` exposes an explicit,
+atomic, idempotent `Record` transition for immutable result artifacts, then
+keeps recommendations, human decisions, action audit records, and external
+effect audit records in separate versioned namespaces. Replay reports model or
+solver-version drift without evaluating again. Passing proposed parameters to
+`actProposal` still rechecks the current action declaration and preconditions
+before the governed action engine can append anything. See the
 [`solver`](packages/solver), [`solver-z3`](packages/solver-z3), and
-[`act`](packages/act) package references for the exact APIs.
+[`scenario`](packages/scenario) and [`act`](packages/act) package references
+for the exact APIs.
 
 ### Syntax highlighting
 

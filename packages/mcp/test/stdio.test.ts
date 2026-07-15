@@ -133,3 +133,23 @@ test('cave mcp rejects an unknown --tools name before serving', async () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('cave mcp rejects an unknown permission before opening the database', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-mcp-'))
+  const db = join(dir, 'k.db')
+  const child = spawn(process.execPath, [
+    '--disable-warning=ExperimentalWarning', cliMain, 'mcp', '--db', db,
+    '--permissions', 'read,execute-anything'
+  ], { stdio: ['pipe', 'pipe', 'pipe'] })
+  try {
+    let stderr = ''
+    child.stderr.on('data', chunk => { stderr += String(chunk) })
+    const code = await new Promise<number | null>(resolve => child.on('close', resolve))
+    assert.equal(code, 2)
+    assert.match(stderr, /unknown permission\(s\): execute-anything/)
+    assert.ok(!existsSync(db), 'permission validation fails before the database is touched')
+  } finally {
+    child.kill()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

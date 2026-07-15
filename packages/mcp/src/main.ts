@@ -9,12 +9,13 @@ import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { defaultDbPath, open } from '@cavelang/store'
 import { serve, serverInfo } from './server.ts'
-import { scopedTools } from './tools.ts'
+import { scopedTools, type Permission, type Scope } from './tools.ts'
 
 export const usage = `cave mcp — serve a CAVE knowledge database as an MCP server on stdio
 
 Usage:
-  cave mcp [--db <path>] [--no-prelude] [--read-only] [--tools <list>]
+  cave mcp [--db <path>] [--no-prelude] [--read-only]
+           [--permissions <list>] [--tools <list>]
            [--src <context>] [--no-src] [--hooks <file>]
 
 Options:
@@ -22,6 +23,9 @@ Options:
   --no-prelude     open the store without the standard verb registry
   --read-only      serve only tools that never write (drops cave_add,
                    cave_derive and the generated act_<name> action tools)
+  --permissions    serve only operation classes from read,evaluate,record,
+                   action (comma-separated); evaluation is ephemeral,
+                   recording is durable, and action may execute effects
   --tools <list>   serve only these tools (comma-separated); --read-only
                    still drops writing tools from the list; act_<name>
                    entries scope whichever actions exist at call time
@@ -43,6 +47,8 @@ stderr.
 Examples:
   cave mcp --db k.db
   cave mcp --db k.db --read-only
+  cave mcp --db k.db --permissions read,evaluate
+  cave mcp --db k.db --permissions action --tools act_mark-deployed
   cave mcp --db k.db --tools cave_query,cave_about,cave_search
   cave mcp --db k.db --tools cave_query,act_mark-deployed
   cave mcp --db k.db --hooks hooks.json
@@ -71,6 +77,7 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
       db: { type: 'string' },
       'no-prelude': { type: 'boolean' },
       'read-only': { type: 'boolean' },
+      permissions: { type: 'string' },
       tools: { type: 'string' },
       src: { type: 'string' },
       'no-src': { type: 'boolean' },
@@ -87,8 +94,11 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
     process.stderr.write('cave mcp: --src must be a context token (letters, digits, . _ / : -)\n')
     return 2
   }
-  const scope = {
+  const scope: Scope = {
     ...values['read-only'] === true ? { readOnly: true } : {},
+    ...values.permissions === undefined ? {} : {
+      permissions: values.permissions.split(',').map(name => name.trim()).filter(name => name !== '') as Permission[]
+    },
     ...values.tools === undefined ? {} : {
       tools: values.tools.split(',').map(name => name.trim()).filter(name => name !== '')
     }
@@ -109,6 +119,7 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
   const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   const scopeNote = [
     ...values['read-only'] === true ? ['read-only'] : [],
+    ...scope.permissions === undefined ? [] : [`permissions ${scope.permissions.join(',')}`],
     ...scope.tools === undefined ? [] : [`tools ${scopedTools(scope).map(tool => tool.name).join(',')}`]
   ]
   process.stderr.write(`${serverInfo.name} mcp server ${serverInfo.version} — db ${db}` +

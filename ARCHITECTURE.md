@@ -243,7 +243,10 @@ shell template. Action hooks run only after the database transaction commits.
   savepoint, while the resulting exact values and evidence identifiers are
   plain replayable data passed to decision evaluators or solver adapters. Its
   explanation bridge retains authored values, binding queries, snapshot
-  policy, and exact evidence identities in a solver-neutral run context.
+  policy, and exact evidence identities in a solver-neutral run context. Its
+  explicit result-governance API records immutable run artifacts atomically
+  and idempotently, while recommendation, decision, action audit, and external
+  effect audit records remain distinct versioned types.
 - **`@cavelang/solver`** exposes bounded feasibility, optimization,
   counterexample, and sensitivity workflows over one portable model and can
   wrap backend results in a versioned explanation report. Deterministic
@@ -264,7 +267,7 @@ shell template. Action hooks run only after the database transaction commits.
 | Domain | `core`, `fusion` | Immutable claim/value types, keys, time, UUIDv7, probabilistic math. |
 | Language | `parser`, `canonical` | CAVE text, diagnostics, inverse registry, canonical claims, emission. |
 | Data | `store`, `query`, `shape` | SQLite persistence, CAVE-Q, resolution, expectations, health and write gates. |
-| Formal reasoning | `solver`, `scenario`, optional `solver-z3` | Portable exact models and backend-neutral results; typed snapshot bindings; opt-in Z3 search. |
+| Formal reasoning | `solver`, `scenario`, optional `solver-z3` | Portable exact models and backend-neutral results; typed snapshot bindings; explicit immutable result recording; opt-in Z3 search. |
 | Behavior | `rules`, `act`, `automate`, `loop` | Derivation, governed writes, event processing, active reconstruction policies. |
 | Movement | `connect`, `ingest`, `sync` | Deterministic records, agent extraction, and store union. |
 | Integration | `mcp`, `eval` | Agent tool protocol and repeatable quality evaluation. |

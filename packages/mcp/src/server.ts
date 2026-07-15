@@ -16,7 +16,7 @@
 import { createInterface } from 'node:readline'
 import { Version } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
-import { actToolPrefix, scopedActionTools, scopedTools, tools, type Scope, type Tool } from './tools.ts'
+import { actToolPrefix, allowsActions, scopedActionTools, scopedTools, tools, type Scope, type Tool } from './tools.ts'
 
 export type ServerOptions = Scope & {
   /**
@@ -109,8 +109,8 @@ export const instructionsFor = (served: readonly Tool[], options: { actions?: bo
       'preconditions checked against current belief, effects appended\n' +
       `atomically with provenance. Prefer them over ${has('cave_add') ? 'cave_add' : 'freeform appends'} when one fits.`
     ] : [],
-    ...served.some(tool => tool.writes) || options.actions === true ? [] :
-      ['This server is read-only: no tool writes to the knowledge database.']
+    ...(served.some(tool => tool.permission === 'record' || tool.permission === 'action') || options.actions === true ?
+      [] : ['This server is read-only: no tool writes to the knowledge database.'])
   ].join('\n')
   return guidance === '' ? specCard : `${specCard}\n\n${guidance}`
 }
@@ -161,8 +161,7 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
   // Action tools are generated from the store's current declarations per
   // request (spec §25.5) — an action declared mid-session appears in the
   // next tools/list without reconnecting.
-  const actionsPossible = options.readOnly !== true &&
-    (options.tools === undefined || options.tools.some(name => name.startsWith(actToolPrefix)))
+  const actionsPossible = allowsActions(options)
   const actServed = (): Tool[] =>
     actionsPossible ? scopedActionTools(store, options) : []
   const servedInstructions = instructionsFor(served, { actions: actionsPossible })
@@ -204,7 +203,8 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
-            ...tool.writes ? {} : { annotations: { readOnlyHint: true } }
+            ...(tool.permission === 'record' || tool.permission === 'action' ?
+              {} : { annotations: { readOnlyHint: true } })
           }))
         })
       case 'tools/call': {

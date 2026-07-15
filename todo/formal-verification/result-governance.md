@@ -1,7 +1,7 @@
 ---
 name: formal-verification-result-governance
 description: Keep solver artifacts, recommendations, decisions, and actions distinct.
-status: open
+status: completed
 priority: low
 area: governance
 source: solver-feasibility-analysis
@@ -60,3 +60,22 @@ Re-evaluation creates a new run. It does not mutate the old result.
 - Recorded artifacts replay or clearly report incompatible model/solver
   versions.
 - MCP permissions distinguish evaluation, recording, and action execution.
+
+## Outcome
+
+Implemented in `@cavelang/scenario` as five separate versioned artifact
+schemas. `Record.result` is the explicit atomic transition from a pure
+`cave.solver/explanation@1` report to one append-only CAVE artifact series.
+Stable run identities are idempotent for identical content and reject changed
+content. Recommendation, decision, action audit, and external-effect audit
+records live under different entity namespaces and validate their predecessor
+before appending; audit recording never invokes an action or hook.
+
+`Record.replay` reads the immutable historical report without solving and
+returns explicit model-digest, backend, and solver-version incompatibilities.
+Tests prove evaluation and replay make zero writes, reference failures roll
+back, and the full five-stage lifecycle stays separate.
+
+MCP tools now declare one of `read`, `evaluate`, `record`, or `action`.
+`--permissions` scopes those authorities independently, `--tools` narrows by
+name, and `--read-only` remains the read/evaluate-only compatibility boundary.
