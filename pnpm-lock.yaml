@@ -327,6 +327,24 @@ importers:
         specifier: workspace:*
         version: link:../store
 
+  packages/scenario:
+    dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cavelang/solver':
+        specifier: workspace:*
+        version: link:../solver
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/shape:
     dependencies:
       '@cavelang/canonical':
