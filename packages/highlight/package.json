@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/highlight",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "type": "module",
   "description": "CAVE syntax highlighting — web-tree-sitter over the @cavelang/tree-sitter-cave grammar, rendered to ANSI for terminals.",
   "license": "CC0-1.0",
