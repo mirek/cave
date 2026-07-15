@@ -355,7 +355,8 @@ Options:
   --no-prelude   open the store without the standard verb registry
 
 Reads the store against its own in-band EXPECTS declarations (spec §20.1)
-and reports shape violations, stale current beliefs, review candidates
+and reports actionable presence, #cardinality:one, and #unit:<unit>
+violations, stale current beliefs, review candidates
 (conf 0.3–0.7), alias disagreements (spec §13.6) and coverage stats.
 Exits 1 when violations exist; everything else is advisory.
 
@@ -620,9 +621,25 @@ export const highlightCommand = async (argv: readonly string[]): Promise<Output>
  * replays interchange text, which must preserve claim keys as exported,
  * so it never stamps.
  */
+const formatViolationProblem = (violation: Violation): string => {
+  const { entity, expectation, actualCount, actualUnits } = violation
+  if (actualCount === 0) {
+    return `${entity} missing ${expectation.kind} ${expectation.name}`
+  }
+  const problems: string[] = []
+  if (expectation.cardinality === 'one' && actualCount !== 1) {
+    problems.push(`${entity} has ${actualCount} ${expectation.kind}s ${expectation.name}; expected exactly one`)
+  }
+  if (expectation.unit !== undefined && actualUnits.some(unit => unit !== expectation.unit)) {
+    const units = actualUnits.map(unit => unit ?? '(none)').join(', ')
+    problems.push(`${entity} attribute ${expectation.name} has unit${actualUnits.length === 1 ? '' : 's'} ${units}; expected ${expectation.unit}`)
+  }
+  return problems.join('; ')
+}
+
 const formatViolation = (violation: Violation): string =>
-  `${violation.entity} missing ${violation.expectation.kind} ${violation.expectation.name} ` +
-  `(${violation.entity} IS ${violation.via}; ${violation.expectation.type} EXPECTS ${violation.expectation.name})`
+  `${formatViolationProblem(violation)} ` +
+  `(${violation.entity} IS ${violation.via}; ${violation.expectation.row.raw_line})`
 
 const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({

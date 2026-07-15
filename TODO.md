@@ -4,7 +4,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Product and architecture
 
-- [Value-shape expectations](todo/value-shape-expectations.md) — Add unit and cardinality constraints to `EXPECTS` and `cave check`.
 - [Verb lifecycle](todo/verb-lifecycle.md) — Define in-band aliasing and deprecation for verbs.
 - [Redaction and forgetting](todo/redaction-forgetting.md) — Decide and document how exceptional history rewriting works.
 - [Sensitivity-aware export](todo/sensitivity-aware-export.md) — Filter exports and serving by an in-band sensitivity convention.

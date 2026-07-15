@@ -55,6 +55,26 @@ test('overview: coverage, topics, violations, review candidates, recent (spec §
   store.close()
 })
 
+test('overview preserves actionable shape-constraint details (spec §20.2, §30.2)', () => {
+  const store = open()
+  store.ingest([
+    'service EXPECTS USES #cardinality:one',
+    'service EXPECTS latency #unit:ms',
+    'api IS service',
+    'api USES postgres',
+    'api USES redis',
+    'api HAS latency: 1s'
+  ].join('\n'))
+  const violations = overview(store).violations.items
+  const cardinality = violations.find(violation => violation.name === 'USES')!
+  assert.equal(cardinality.cardinality, 'one')
+  assert.equal(cardinality.actualCount, 2)
+  const unit = violations.find(violation => violation.name === 'latency')!
+  assert.equal(unit.unit, 'ms')
+  assert.deepEqual(unit.actualUnits, ['s'])
+  store.close()
+})
+
 test('entity 360: facts, both relation directions, topics, activity (spec §30.2)', () => {
   const store = fixture()
   const data = entity(store, 'api-gateway')

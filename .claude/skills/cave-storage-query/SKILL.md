@@ -1,6 +1,6 @@
 ---
 name: cave-storage-query
-description: CAVE persistence and query spec (§9, §12–§13, §20, §24–§32) — append-only belief evolution, claim keys, retraction and contradiction, actor provenance stamping, CAVE-Q graph patterns and filters, as-of resolution (cave query --as-of), SQLite schema (cave_claim/cave_context/cave_tag/cave_edge/FTS5), inverse-as-view storage, canonicalization pipeline, common SQL queries, shape expectations and knowledge health (EXPECTS, cave check), rules and derivation (premises => conclusion, cave derive, BECAUSE/VIA lineage, watermark incrementality), actions (cave act, governed writes, parameters and preconditions, out-of-band hooks, generated MCP tools), contradiction resolution (precedence classes, source reliability, source/<name> policy claims, cave query --resolve, cave resolve), alias discovery (cave suggest-alias, suggested ALIAS claims, string/graph similarity signals, optional LLM judge), store merge (cave sync, row identity, the tx receive rule, SYNCED-INTO merge records, cave export --tx transaction annotations, the branching convention — text under git, working stores rebuilt by sync, review on export diffs, union merge driver), automations (cave automate, event-driven trigger patterns over new claims firing rules, actions, out-of-band hooks and agent prompts, automate-watermark arming, the settle cycle), the human read surface (cave serve, one static self-contained page — entity 360, topic browse, belief-history timeline, BECAUSE/VIA lineage trees, the coverage/frontier dashboard, read-only GET endpoints), reports (cave report — templated markdown from CAVE-Q query blocks and inline splices, claim keys as footnote citations), temporal values (trajectories A -> B with linear interpolation, time-range contexts @2025..2028, valid-time anchoring with cave query --at, bitemporal composition with --as-of). Use when working on @cavelang/store, @cavelang/query, @cavelang/canonical, @cavelang/shape, @cavelang/rules, @cavelang/act, @cavelang/sync, @cavelang/automate, @cavelang/view, belief resolution, or writing SQL/CAVE-Q against a CAVE store.
+description: CAVE persistence and query specification (§9, §12–§13, §20, §24–§32). Covers append-only belief history, claim identity, SQLite storage, canonicalization, CAVE-Q and temporal reads, EXPECTS shape checks and gates, rules, actions, resolution, aliases, sync, automations, views, cited reports, and valid time. Use when working on @cavelang/store, @cavelang/query, @cavelang/canonical, @cavelang/shape, @cavelang/rules, @cavelang/act, @cavelang/sync, @cavelang/automate, @cavelang/view, belief resolution, or SQL/CAVE-Q over a CAVE store.
 ---
 
 # CAVE — Persistence, Query, Storage
@@ -463,7 +463,26 @@ service EXPECTS repo
 service EXPECTS USES         ; instances appear as subject of a USES claim
 team EXPECTS PART-OF         ; instances appear where PART-OF puts them —
                              ; the object side of a stored CONTAINS row
+team EXPECTS PART-OF #cardinality:one ; exactly one current parent relation
+service EXPECTS latency #unit:ms      ; current value uses normalized unit ms
 ```
+
+Two scoped tags add deliberately narrow value-shape constraints without a
+second schema language:
+
+- `#cardinality:one` requires exactly one current positive value or relation
+  endpoint. Without it, the compatible default is `some`: one or more matches,
+  preserving the original presence-only behavior. Attribute claim keys already
+  exclude their value (§9.2), so an attribute normally has at most one current
+  value; cardinality is chiefly useful for relation endpoints.
+- `#unit:<unit>` applies to attribute expectations and requires the current
+  value's normalized unit to equal `<unit>` exactly. No implicit conversions
+  are performed: `s` does not satisfy `#unit:ms`; conversion policy belongs at
+  an explicit typed evaluation boundary. A unitless value also fails.
+
+The tags are ordinary claim metadata and need no grammar extension. Other tag
+values retain their normal classification meaning; only
+`#cardinality:one` and `#unit:<unit>` affect shape evaluation.
 
 **Targets — binding through the taxonomy.** An entity is an *instance*
 of type `T` when it carries a current positive `IS` claim whose object is
@@ -492,6 +511,10 @@ verb` is a declaration (§5.4), not a membership.
   (§5.5). `team EXPECTS PART-OF` is met by a stored `org CONTAINS team-x`.
 
 Negated (`VERB NOT`) and retracted (`@ 0%`) claims satisfy nothing.
+When a constraint fails, the violation includes the observed match count and
+units so `cave check` can distinguish missing, over-cardinality, and wrong-unit
+knowledge. One `(instance, expectation)` pair remains one coverage check even
+when more than one constraint is unsatisfied.
 
 **Lifecycle.** Each expectation is its own claim key, so shapes evolve
 append-only like everything else: retract with `service EXPECTS owner

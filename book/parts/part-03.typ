@@ -73,11 +73,13 @@ service EXPECTS owner
 service EXPECTS repo
 service EXPECTS USES
 team EXPECTS PART-OF
+team EXPECTS PART-OF #cardinality:one
+service EXPECTS latency #unit:ms
 ```
 
-Expectations apply through the IS and EXTENDS taxonomy. A direct instance of a subtype inherits expectations from ancestor types. Attribute expectations look for a positive HAS attribute claim. Relation expectations account for inverse direction.
+Expectations apply through the IS and EXTENDS taxonomy. A direct instance of a subtype inherits expectations from ancestor types. Attribute expectations look for a positive HAS attribute claim. Relation expectations account for inverse direction. The compatible default is one or more matches. `#cardinality:one` requires exactly one current match, chiefly for relation endpoints because attribute claim keys already select one current value. `#unit:ms` requires an attribute value whose normalized unit is exactly `ms`; unitless values and implicit conversions do not satisfy it.
 
-cave check is a read-only health report. It lists unsatisfied expectations, stale beliefs, medium-confidence review candidates, alias disagreements, and aggregate coverage. Violations make the command fail; advisory sections identify the frontier without blocking normal reads.
+cave check is a read-only health report. It lists unsatisfied expectations with observed counts and units, stale beliefs, medium-confidence review candidates, alias disagreements, and aggregate coverage. Violations make the command fail; advisory sections identify the frontier without blocking normal reads.
 
 Write gating reuses the same checks transactionally. cave add --check and actions can append, evaluate newly introduced violations, and roll back only if the operation makes health worse. Existing violations do not prevent unrelated progress.
 

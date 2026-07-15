@@ -51,6 +51,11 @@ Every command answers `--help` with its options and examples (also
 | `version` | | Print the cave version. |
 | `help [command]` | | The overview, or one command's options and examples. |
 
+Shape declarations may add `#cardinality:one` or an attribute
+`#unit:<unit>` tag. `cave check` reports the observed count and normalized
+units when those constraints fail; declarations without either tag keep the
+compatible one-or-more presence check.
+
 ## Text backup / interchange
 
 ```

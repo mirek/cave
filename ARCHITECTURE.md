@@ -333,7 +333,7 @@ Changes should preserve these properties:
 | CAVE-Q patterns or SQL compilation | `packages/query` |
 | Scenario, decision, or solver input binding | `packages/scenario` |
 | Z3 compilation or runtime lifecycle | `packages/solver-z3` |
-| Expectations, gates, health, alias suggestions | `packages/shape` |
+| Expectations (presence, exact-one cardinality, exact unit), gates, health, alias suggestions | `packages/shape` |
 | Derived, governed, or event-driven writes | `packages/rules`, `packages/act`, `packages/automate` |
 | New data-source workflow | `packages/connect` or `packages/ingest` |
 | Agent tool surface | `packages/mcp` |

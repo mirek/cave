@@ -129,7 +129,17 @@ export type Overview = {
   readonly version: string
   /** The §20.2 coverage stats verbatim. */
   readonly coverage: ReturnType<typeof check>['coverage']
-  readonly violations: Capped<{ readonly entity: string, readonly via: string, readonly kind: string, readonly name: string, readonly type: string }>
+  readonly violations: Capped<{
+    readonly entity: string
+    readonly via: string
+    readonly kind: string
+    readonly name: string
+    readonly type: string
+    readonly cardinality: 'some' | 'one'
+    readonly unit?: string
+    readonly actualCount: number
+    readonly actualUnits: readonly (string | null)[]
+  }>
   readonly stale: Capped<{ readonly ageDays: number, readonly row: ClaimView }>
   readonly review: Capped<ClaimView>
   readonly disagreements: Capped<{ readonly kind: string, readonly about: string, readonly entities: readonly string[], readonly rows: readonly ClaimView[] }>
@@ -155,7 +165,11 @@ export const overview = (store: Store, options: { staleDays?: number, recent?: n
       via: violation.via,
       kind: violation.expectation.kind,
       name: violation.expectation.name,
-      type: violation.expectation.type
+      type: violation.expectation.type,
+      cardinality: violation.expectation.cardinality,
+      ...violation.expectation.unit === undefined ? {} : { unit: violation.expectation.unit },
+      actualCount: violation.actualCount,
+      actualUnits: violation.actualUnits
     })),
     stale: cap(report.stale, limit, stale => ({ ageDays: stale.ageDays, row: toView(store, stale.row) })),
     review: cap(report.review, limit, row => toView(store, row)),
