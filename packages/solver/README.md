@@ -130,6 +130,16 @@ process.stdout.write(Explain.render(report))
 The renderer is a deterministic human view over the same JSON report. Neither
 building nor rendering an explanation writes to the CAVE store.
 
+## Backend evaluations
+
+Z3 is the only shipped adapter. The [MiniZinc](MINIZINC-EVALUATION.md) and
+[direct HiGHS](HIGHS-EVALUATION.md) evaluations record why neither candidate
+currently crosses the portable boundary. MiniZinc lacks a motivating
+solver-neutral finite-domain schema. HiGHS materially outperforms Z3 on
+representative LP/MIP workloads and is much smaller, but its synchronous
+binary64 wrapper cannot yet honor CAVE's exact-result, cancellation, and
+working-memory contracts.
+
 ## Verification workflows
 
 `Workflow` gives feasibility, optimization, counterexample, and bounded
