@@ -94,6 +94,10 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
     process.stderr.write('cave mcp: --src must be a context token (letters, digits, . _ / : -)\n')
     return 2
   }
+  if (values.src?.startsWith('src:') === true) {
+    process.stderr.write('cave mcp: --src must not include the src: prefix\n')
+    return 2
+  }
   const scope: Scope = {
     ...values['read-only'] === true ? { readOnly: true } : {},
     ...values.permissions === undefined ? {} : {
