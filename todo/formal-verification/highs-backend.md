@@ -12,8 +12,9 @@ source: solver-feasibility-analysis
 ## Goal
 
 Determine whether a direct HiGHS adapter materially improves large numeric
-optimization after the portable model, Z3 backend, and
-[MiniZinc evaluation](minizinc-backend.md) are proven.
+optimization over the portable model and Z3 backend. The
+[MiniZinc evaluation](../../packages/solver/MINIZINC-EVALUATION.md) is complete
+and deferred adoption until CAVE has a solver-neutral finite-domain schema.
 
 HiGHS is a strong candidate for linear programming and mixed-integer linear
 programming. The maintained `highs` JavaScript package compiles HiGHS to a
@@ -21,10 +22,10 @@ substantially smaller Wasm artifact than Z3 and runs in Node and browsers, but
 its public input is primarily CPLEX LP text and its logical and explanation
 capabilities are narrower.
 
-MiniZinc can also target HiGHS while adding a solver-independent modeling
-layer and other finite-domain backends. A direct adapter is therefore not the
-default second backend: it must demonstrate useful performance, packaging, or
-diagnostic advantages over both Z3 and MiniZinc targeting HiGHS.
+MiniZinc can also target HiGHS, but no MiniZinc adapter currently ships. A
+direct adapter must demonstrate useful performance, packaging, or diagnostic
+advantages over Z3. Compare MiniZinc targeting HiGHS only if the deferred
+finite-domain work is reopened before this evaluation finishes.
 
 ## Scope
 
@@ -34,8 +35,8 @@ diagnostic advantages over both Z3 and MiniZinc targeting HiGHS.
   precision within documented backend limits.
 - Return feasible/optimal/infeasible/unknown without pretending to provide Z3
   theories or equivalent unsat cores.
-- Compare objective values and assignments with the Z3 adapter and MiniZinc
-  targeting HiGHS on shared linear fixtures.
+- Compare objective values and assignments with the Z3 adapter on shared
+  linear fixtures.
 
 ## Benchmark gate
 
@@ -48,7 +49,7 @@ Use representative CAVE workloads rather than toy LPs:
 
 Measure bundle size, cold and warm latency, memory, optimality, diagnostics,
 and packaging reliability. Include model sizes large enough to reveal a real
-difference between Z3, MiniZinc-to-HiGHS, and direct HiGHS.
+difference between Z3 and direct HiGHS.
 
 ## Done when
 
@@ -56,7 +57,6 @@ difference between Z3, MiniZinc-to-HiGHS, and direct HiGHS.
 - Shared fixtures give equivalent feasible sets and objective values within an
   explicit numeric tolerance.
 - Unsupported logical constructs fail before invoking HiGHS.
-- Benchmark evidence justifies maintaining a direct adapter in addition to
-  MiniZinc's HiGHS route.
+- Benchmark evidence justifies maintaining a direct adapter alongside Z3.
 - Backend selection is explicit or capability-driven, never a silent semantic
   fallback.
