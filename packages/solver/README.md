@@ -129,3 +129,51 @@ process.stdout.write(Explain.render(report))
 
 The renderer is a deterministic human view over the same JSON report. Neither
 building nor rendering an explanation writes to the CAVE store.
+
+## Verification workflows
+
+`Workflow` gives feasibility, optimization, counterexample, and bounded
+sensitivity distinct public semantics while keeping one validated model,
+snapshot context, adapter limits, and result vocabulary.
+
+```ts
+import { Workflow } from '@cavelang/solver'
+
+const feasible = await Workflow.feasibility(adapter, model, {
+  limits: { timeoutMs: 2_000 }
+}, context)
+
+const best = await Workflow.optimization(adapter, model, {}, context)
+const witness = await Workflow.counterexample(
+  adapter, model, 'declared-invariant-id', {}, context
+)
+const boundary = await Workflow.sensitivity(adapter, model, {
+  variableId: 'team-size',
+  samples: [
+    { sort: 'int', value: '4' },
+    { sort: 'int', value: '8' },
+    { sort: 'int', value: '12' }
+  ],
+  observe: ['architecture'],
+  operation: 'optimization',
+  maxRuns: 3
+}, {}, context)
+```
+
+Workflows require every real variable to have explicit lower and upper bounds.
+Sensitivity accepts an explicit, typed sample list and refuses more than
+`maxRuns` checks. Its report includes adjacent result transitions and
+contiguous `unknown` regions rather than interpolating across timeouts.
+
+Backend model choices are made deterministic with lexicographic objectives in
+stable variable-ID order: false before true, smaller exact numbers first, and
+enum values in lexical order. In optimization, authored objectives retain
+their declared order, explicitly weighted soft constraints follow, and the
+tie-break objectives come last. These generated objectives count against
+`maxObjectives`; the workflow fails preflight rather than silently dropping
+determinism. A merely feasible backend result is never promoted to `optimal`.
+
+Counterexample checks replace one declared invariant with its negation. A
+model is a concrete witness; an unsatisfied result means only that the
+invariant holds within the report's named assumptions, bounded domains, and
+declared Boolean/integer/rational/enum theories. `unknown` remains unknown.

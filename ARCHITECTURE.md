@@ -244,14 +244,18 @@ shell template. Action hooks run only after the database transaction commits.
   plain replayable data passed to decision evaluators or solver adapters. Its
   explanation bridge retains authored values, binding queries, snapshot
   policy, and exact evidence identities in a solver-neutral run context.
-- **`@cavelang/solver`** can wrap backend results in a versioned explanation
-  report. The report maps assignments, evaluated constraints, objective
+- **`@cavelang/solver`** exposes bounded feasibility, optimization,
+  counterexample, and sensitivity workflows over one portable model and can
+  wrap backend results in a versioned explanation report. Deterministic
+  tie-breaking, explicit scope, transitions, and unknown regions stay above
+  adapters. Reports map assignments, evaluated constraints, objective
   contributions, and unsatisfiable cores to stable model locations, CAVE rows,
-  and scenario inputs, with deterministic JSON and human renderings.
+  and scenario inputs.
 - **`@cavelang/solver-z3`** is the optional Node.js search backend. It lazily
   loads the official threaded Z3 Wasm package, compiles only solver-neutral
   models, queues checks through one process runtime, and shuts workers down
-  explicitly. No kernel, CLI, MCP, or browser package depends on it.
+  explicitly. Its allowlisted workflow fixture is a separate opt-in binary;
+  no kernel, main CLI, MCP, or browser package depends on it.
 
 ## Package layers
 

@@ -1,5 +1,5 @@
 /**
- * Solver-neutral formal reasoning contracts for CAVE.
+ * Solver-neutral formal reasoning contracts and bounded workflows for CAVE.
  *
  * This package contains no solver implementation and never imports Z3 or
  * another backend. Adapters receive only validated portable model data.
@@ -14,3 +14,4 @@ export * as Linear from './linear.ts'
 export * as Model from './model.ts'
 export * as Solve from './solve.ts'
 export * as Validate from './validate.ts'
+export * as Workflow from './workflow.ts'

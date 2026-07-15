@@ -420,6 +420,29 @@ The birth year traces to the birth certificate, not to Grandma — three sources
 
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
+### Optional formal reasoning
+
+[`@cavelang/solver`](packages/solver) adds bounded feasibility, optimization,
+counterexample, and sensitivity workflows over typed scenario snapshots. The
+operations preserve distinct `satisfied`, `optimal`, `unsatisfied`, and
+`unknown` results, record their model/snapshot scope, and use deterministic
+tie-breaking rather than accepting arbitrary backend assignments.
+
+Z3 remains an opt-in Node.js dependency. Its package includes one allowlisted
+architecture fixture for exercising the workflow boundary without accepting
+raw solver programs:
+
+```sh
+cave-solver-workflow architecture optimization --team-size 10 --deployment-frequency 6
+cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
+```
+
+Solver output is a recommendation, not a write. Passing proposed parameters to
+`actProposal` rechecks the current action declaration and preconditions before
+the governed action engine can append anything. See the
+[`solver`](packages/solver), [`solver-z3`](packages/solver-z3), and
+[`act`](packages/act) package references for the exact APIs.
+
 ### Syntax highlighting
 
 One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives every surface: `cave highlight` (and `cave export` on a terminal) colors CAVE text with the grammar's own `highlights.scm`, the [VSCode extension](editors/vscode) replays the same query as semantic tokens, and tree-sitter-native editors (Neovim, Helix, Zed) can point at the grammar directly.

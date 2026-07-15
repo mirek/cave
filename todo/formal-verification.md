@@ -36,12 +36,14 @@ Completed foundations are tracked in their child items:
 - `@cavelang/scenario` binds typed, replayable belief snapshots and rolls back
   hypothetical overlays;
 - `@cavelang/solver` defines exact portable models, result states, limits,
-  canonical digests, and provenance-aware explanations; and
+  canonical digests, provenance-aware explanations, and bounded feasibility,
+  optimization, counterexample, and sensitivity workflows; and
 - `@cavelang/solver-z3` proves optional Node.js feasibility, optimization,
-  tracked cores, timeout handling, and explicit worker lifecycle.
+  tracked cores, timeout handling, explicit worker lifecycle, and an
+  allowlisted architecture-workflow CLI fixture.
 
-Remaining work starts at governed workflows and product semantics:
-counterexample/sensitivity operations, result recording, HiGHS evaluation,
+Remaining work starts at result governance and additional backend/runtime
+tradeoffs: explicit result recording, MiniZinc and direct HiGHS evaluation,
 and hardened/browser delivery.
 
 ## Decision
@@ -90,19 +92,16 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Add verification workflows](formal-verification/verification-workflows.md)
-   — expose feasibility, optimization, counterexample, and sensitivity
-   operations without inventing a second rule engine.
-2. [Govern result recording](formal-verification/result-governance.md) — keep
+1. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-3. [Evaluate a MiniZinc backend](formal-verification/minizinc-backend.md) — add
+2. [Evaluate a MiniZinc backend](formal-verification/minizinc-backend.md) — add
    finite-domain and global-constraint solving, and test its worker-based
    browser delivery, without exposing raw MiniZinc programs.
-4. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
+3. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
    it only when representative linear/MIP workloads outperform or package more
    cleanly than both Z3 and MiniZinc's HiGHS route.
-5. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+4. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 

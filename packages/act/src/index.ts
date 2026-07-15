@@ -21,7 +21,7 @@
  */
 
 export * as Action from './action.ts'
-export { act, defaultHookTimeoutSeconds, shellQuote, substitute } from './engine.ts'
-export type { ActFailure, ActOptions, ActReport, ActSuccess, EffectOutcome, HookOutcome } from './engine.ts'
+export { act, actProposal, defaultHookTimeoutSeconds, shellQuote, substitute } from './engine.ts'
+export type { ActionProposal, ActFailure, ActOptions, ActReport, ActSuccess, EffectOutcome, HookOutcome } from './engine.ts'
 export { currentHook, declareActions, listActions, loadAction, provenanceContext, retractAction } from './declare.ts'
 export type { Declaration, ListedAction, ListedParam, Loaded, Retraction } from './declare.ts'

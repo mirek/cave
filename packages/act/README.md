@@ -31,6 +31,22 @@ act(store, 'mark-deployed', { service: 'api-gateway', version: '1.2.3' })
 //   linked BECAUSE to the matched precondition row and VIA to the declaration
 ```
 
+A solver recommendation is only an untrusted proposal. Route it through the
+same boundary; the action engine resolves the current declaration and repeats
+parameter, premise, shape, transaction, and hook checks at execution time:
+
+```ts
+import { actProposal } from '@cavelang/act'
+
+actProposal(store, {
+  action: 'mark-deployed',
+  parameters: { service: 'api-gateway', version: '1.2.3' }
+})
+```
+
+No solver result can append effects directly or preserve authority from an
+earlier snapshot whose preconditions have since changed.
+
 Or from the CLI:
 
 ```sh
