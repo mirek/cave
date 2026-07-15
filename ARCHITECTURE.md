@@ -241,7 +241,13 @@ shell template. Action hooks run only after the database transaction commits.
 - **`@cavelang/scenario`** freezes CAVE-Q snapshot options and binds typed
   evaluator inputs. Hypothetical claims live only inside a rolled-back
   savepoint, while the resulting exact values and evidence identifiers are
-  plain replayable data passed to decision evaluators or solver adapters.
+  plain replayable data passed to decision evaluators or solver adapters. Its
+  explanation bridge retains authored values, binding queries, snapshot
+  policy, and exact evidence identities in a solver-neutral run context.
+- **`@cavelang/solver`** can wrap backend results in a versioned explanation
+  report. The report maps assignments, evaluated constraints, objective
+  contributions, and unsatisfiable cores to stable model locations, CAVE rows,
+  and scenario inputs, with deterministic JSON and human renderings.
 - **`@cavelang/solver-z3`** is the optional Node.js search backend. It lazily
   loads the official threaded Z3 Wasm package, compiles only solver-neutral
   models, queues checks through one process runtime, and shuts workers down

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { bind, Model, run, ScenarioInputError } from '@cavelang/scenario'
+import { bind, explanationContext, Model, run, ScenarioInputError } from '@cavelang/scenario'
 import { open, type Store } from '@cavelang/store'
 
 const modelDigest = `sha256:${'0'.repeat(64)}`
@@ -219,6 +219,35 @@ test('replaying a frozen snapshot and overlay produces the same record digest', 
   assert.deepEqual(second, first)
   assert.match(first.digest, /^sha256:[0-9a-f]{64}$/)
   assertNoOverlay(store)
+  store.close()
+})
+
+test('explanation context retains authored inputs, queries, snapshots, and exact evidence IDs', () => {
+  const store = open()
+  store.ingest('system HAS team-size: 8 people')
+  const definition = baseDefinition({
+    snapshot: { ...snapshot, at: '2026-08-01', resolution: 'winner' },
+    bindings: [{
+      id: 'team-size', query: 'system HAS team-size: ?n', select: 'n', expected: { kind: 'integer', unit: 'people' },
+      cardinality: 'one', scenarioOverride: false, policies: policies()
+    }]
+  })
+  const record = bind(store, definition)
+  const context = explanationContext(definition, record)
+
+  assert.equal(context.modelDigest, modelDigest)
+  assert.deepEqual(context.scenario, {
+    id: definition.id, inputDigest: record.digest, overlayDigest: record.overlay.digest
+  })
+  assert.deepEqual(context.snapshot, {
+    transactionTime: record.snapshot.transactionTime,
+    validTime: '2026-08-01', aliases: 'exact', resolution: 'winner', minimumConfidence: 0.5
+  })
+  assert.deepEqual(context.inputs, [{
+    id: 'team-size', query: 'system HAS team-size: ?n',
+    value: { kind: 'integer', value: '8', unit: 'people', authored: '8 people', approximate: false },
+    authoredValue: '8 people', evidenceRowIds: record.supportingRowIds, scenarioClaimIds: []
+  }])
   store.close()
 })
 
