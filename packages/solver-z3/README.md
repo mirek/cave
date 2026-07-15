@@ -72,3 +72,22 @@ packaging, and lifecycle measurements. The spike accepts Z3 for optional
 Node.js use. Browser delivery remains deferred because threaded Wasm requires
 `SharedArrayBuffer`, cross-origin isolation headers, and separate worker asset
 handling.
+
+## Named workflow CLI fixture
+
+The optional package also ships one allowlisted architecture-decision fixture
+that exercises all four workflow operations without accepting model files,
+raw expressions, or SMT-LIB:
+
+```sh
+cave-solver-workflow architecture feasibility --team-size 10 --deployment-frequency 6
+cave-solver-workflow architecture optimization --team-size 10 --deployment-frequency 6
+cave-solver-workflow architecture counterexample
+cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
+```
+
+Inputs and sample ranges are typed and bounded before Z3 loads. Every command
+uses the workflow API, so model validation, capability negotiation, limits,
+deterministic tie-breaking, and `unknown` semantics cannot be bypassed. The
+JSON output is a versioned workflow/explanation report. The fixture's relative
+cost formula is deliberately illustrative and does not use belief confidence.

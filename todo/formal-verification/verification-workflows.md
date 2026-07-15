@@ -1,7 +1,7 @@
 ---
 name: formal-verification-workflows
 description: Expose bounded feasibility, optimization, counterexample, and sensitivity operations.
-status: open
+status: completed
 priority: low
 area: reasoning
 source: solver-feasibility-analysis
@@ -61,3 +61,19 @@ governed write.
 - CLI and eventual MCP surfaces cannot bypass model validation or resource
   limits.
 - Proposed action parameters are revalidated by the action engine before use.
+
+## Outcome
+
+Implemented in `@cavelang/solver` as the versioned
+`cave.solver/workflow@1` API. Feasibility, optimization, counterexample, and
+bounded sensitivity share the portable model, snapshot explanation context,
+adapter limits, and disjoint result vocabulary. Stable variable-ID ordering
+provides deterministic Boolean, numeric, and enum tie-breaking; sensitivity
+reports adjacent transitions and contiguous unknown regions without
+interpolating across timeouts.
+
+`@cavelang/solver-z3` ships the separate allowlisted
+`cave-solver-workflow architecture` fixture, which accepts bounded typed flags
+but no raw models or SMT-LIB. Solver recommendations remain non-authoritative:
+`@cavelang/act` routes `actProposal` through current parameter, premise, shape,
+transaction, and hook checks before any write.

@@ -5,11 +5,13 @@ CAVE-Q retrieves beliefs and rules derive claims, but neither searches a space o
 
 `@cavelang/scenario` binds explicit CAVE-Q inputs against a frozen transaction-time and valid-time snapshot. It applies hypothetical CAVE claims inside a savepoint, converts authored numeric values and units exactly, records the supporting belief row identities, and rolls the overlay back before any evaluator runs. Missing, contested, retracted, and multiple values require declared policies; no integration silently chooses the first match.
 
-`@cavelang/solver` is a dependency-free, solver-neutral TypeScript model for Boolean, bounded integer, exact real, and finite-enum variables. It distinguishes hard constraints, explicitly weighted soft constraints, and lexicographically ordered objectives. Results are disjoint: satisfied and optimal carry assignments, unsatisfied requires a proof of infeasibility, and timeout or backend failure remains unknown. CAVE confidence never becomes an optimization weight implicitly.
+`@cavelang/solver` is a dependency-free, solver-neutral TypeScript model for Boolean, bounded integer, exact real, and finite-enum variables. It distinguishes hard constraints, explicitly weighted soft constraints, and lexicographically ordered objectives. Its workflow API gives feasibility, optimization, counterexample, and bounded sensitivity distinct semantics while sharing one validated model, snapshot context, resource limits, and result vocabulary. Results are disjoint: satisfied and optimal carry assignments, unsatisfied requires a proof of infeasibility, and timeout or backend failure remains unknown. CAVE confidence never becomes an optimization weight implicitly.
 
-`@cavelang/solver-z3` is the optional Node.js adapter to the official threaded Z3 WebAssembly package. It loads lazily, queues checks through one process runtime, tracks named hard constraints for unsatisfiable cores, preserves exact rational arithmetic, applies bounded execution, and requires explicit worker shutdown. The normal CLI, MCP server, browser playground, and knowledge kernel do not depend on it.
+Workflow assignments are deterministic: variables are ordered by stable ID, with false before true, smaller exact numbers first, and enum values in lexical order. Authored optimization objectives remain first, explicit soft weights follow, and generated tie-break objectives come last. Sensitivity checks only an explicit typed sample list; its report identifies adjacent assignment transitions and contiguous unknown regions rather than interpolating through timeouts.
 
-Solver explanations map assignments, evaluated constraints, objective contributions, and non-minimal unsatisfiable cores back to stable model locations, scenario inputs, and exact CAVE evidence rows. The model digest, solver version, resource limits, and frozen snapshot travel with the report. Rendering an explanation is read-only; recording a recommendation or executing a decision remains a separate governed operation.
+`@cavelang/solver-z3` is the optional Node.js adapter to the official threaded Z3 WebAssembly package. It loads lazily, queues checks through one process runtime, tracks named hard constraints for unsatisfiable cores, preserves exact rational arithmetic, applies bounded execution, and requires explicit worker shutdown. Its separate `cave-solver-workflow architecture` binary is an allowlisted fixture that accepts bounded typed flags but no raw model or SMT-LIB input. The normal CAVE CLI, MCP server, browser playground, and knowledge kernel do not depend on Z3.
+
+Solver explanations map assignments, evaluated constraints, objective contributions, and non-minimal unsatisfiable cores back to stable model locations, scenario inputs, and exact CAVE evidence rows. Counterexample reports also state the assumptions, bounded domains, and theories in scope. The model digest, solver version, resource limits, and frozen snapshot travel with the report. Rendering an explanation is read-only; recording a recommendation remains separate, and `actProposal` rechecks the current action declaration, parameters, premises, shape gate, and transaction boundary before a proposed decision can write.
 
 #note([Boundary], [A solver proves statements only inside the selected model and snapshot. Optimal means optimal under those declared inputs and objectives, not objectively best in the world.])
 
@@ -108,6 +110,8 @@ Open design items and suspected bugs are tracked in TODO.md and BUGS.md. The pro
   [Serve tools to MCP clients.],
   [cave highlight],
   [Syntax-highlight CAVE text.],
+  [cave-solver-workflow],
+  [Run the optional allowlisted Z3 architecture fixture.],
 )
 
 Run pnpm exec cave help for the exact versioned option set. Package READMEs contain surface-specific examples, while the four specification skills preserve normative section numbering.

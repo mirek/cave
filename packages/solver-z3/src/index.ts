@@ -6,3 +6,5 @@
  */
 
 export { create, type Runtime } from './runtime.ts'
+export { architectureModel, runWorkflowFixture } from './workflow-fixture.ts'
+export type { ArchitectureInputs, Output as WorkflowFixtureOutput } from './workflow-fixture.ts'

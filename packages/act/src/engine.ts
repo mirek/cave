@@ -94,6 +94,17 @@ export type ActSuccess = {
 
 export type ActReport = ActFailure | ActSuccess
 
+/**
+ * An untrusted recommendation from a solver or another planning system.
+ * Possessing a proposal grants no authority: `actProposal` resolves the
+ * current declaration and repeats ordinary parameter, premise, shape, and
+ * hook checks at execution time.
+ */
+export type ActionProposal = {
+  readonly action: string
+  readonly parameters: Readonly<Record<string, unknown>>
+}
+
 const fail = (action: string, error: string, rest: Partial<ActFailure> = {}): ActFailure =>
   ({ ok: false, action, error, ...rest })
 
@@ -410,3 +421,10 @@ export const act = (
     ...hook === undefined ? {} : { hook }
   }
 }
+
+/** Execute an untrusted proposal through the governed action boundary. */
+export const actProposal = (
+  store: Store,
+  proposal: ActionProposal,
+  options: ActOptions = {}
+): ActReport => act(store, proposal.action, proposal.parameters, options)

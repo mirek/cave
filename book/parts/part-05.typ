@@ -117,7 +117,7 @@ The repository is a pnpm TypeScript monorepo. Packages form a dependency ladder 
   [Query],
   [CAVE-Q, filters, transitive paths, aliases, temporal reads.],
   [Formal reasoning],
-  [Typed scenario snapshots, solver-neutral exact models, optional Z3 search.],
+  [Typed scenario snapshots, solver-neutral exact models, bounded verification workflows, optional Z3 search.],
   [Policy],
   [Shape checks, fusion, resolution, derivation, actions.],
   [Orchestration],

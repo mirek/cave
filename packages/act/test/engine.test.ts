@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { open } from '@cavelang/store'
 import { query } from '@cavelang/query'
-import { act, declareActions, listActions, retractAction } from '@cavelang/act'
+import { act, actProposal, declareActions, listActions, retractAction } from '@cavelang/act'
 
 const claimCount = (store: ReturnType<typeof open>): number =>
   (store.db.prepare('SELECT COUNT(*) AS n FROM cave_claim').get() as { n: number }).n
@@ -62,6 +62,24 @@ test('a failed precondition appends nothing and names the premise (spec §25.2)'
   assert.match((report as { error: string }).error, /precondition failed/)
   assert.equal((report as { failedPremise?: string }).failedPremise, '?service IS service')
   assert.equal(claimCount(store), rows, 'nothing appended')
+  store.close()
+})
+
+test('solver proposals receive no authority and recheck current action preconditions', () => {
+  const store = open()
+  declareActions(store, deployAction)
+  const proposal = {
+    action: 'mark-deployed',
+    parameters: { service: 'api', version: '2.0' }
+  }
+  const stale = actProposal(store, proposal)
+  assert.equal(stale.ok, false)
+  assert.match((stale as { error: string }).error, /precondition failed/)
+  assert.equal(query(store, 'api HAS deployed-version: ?v').length, 0)
+
+  store.ingest('api IS service')
+  const current = actProposal(store, proposal)
+  assert.ok(current.ok && current.appended === 1)
   store.close()
 })
 
