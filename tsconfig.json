@@ -56,6 +56,9 @@
       "path": "packages/solver"
     },
     {
+      "path": "packages/solver-z3"
+    },
+    {
       "path": "packages/store"
     },
     {
