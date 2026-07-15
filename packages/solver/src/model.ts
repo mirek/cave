@@ -13,13 +13,31 @@ export type EnumDomain = {
   readonly id: string
   readonly values: readonly string[]
   readonly description?: string
+  readonly declaration?: Declaration
 }
 
-export type Variable =
-  | { readonly id: string, readonly sort: 'bool', readonly description?: string }
-  | { readonly id: string, readonly sort: 'int', readonly min: Integer, readonly max: Integer, readonly description?: string }
-  | { readonly id: string, readonly sort: 'real', readonly min?: Rational, readonly max?: Rational, readonly description?: string }
-  | { readonly id: string, readonly sort: 'enum', readonly domain: string, readonly description?: string }
+export type Declaration = {
+  /** Stable model source. Prefer a repository-relative URI over a machine-local path. */
+  readonly uri: string
+  readonly line?: number
+  readonly column?: number
+}
+
+export type Provenance = {
+  readonly description?: string
+  readonly declaration?: Declaration
+  readonly evidenceRowIds?: readonly string[]
+  readonly scenarioInputIds?: readonly string[]
+}
+
+type VariableDeclaration = { readonly id: string } & Provenance
+
+export type Variable = VariableDeclaration & (
+  | { readonly sort: 'bool' }
+  | { readonly sort: 'int', readonly min: Integer, readonly max: Integer }
+  | { readonly sort: 'real', readonly min?: Rational, readonly max?: Rational }
+  | { readonly sort: 'enum', readonly domain: string }
+)
 
 export type Literal =
   | { readonly kind: 'literal', readonly sort: 'bool', readonly value: boolean }
@@ -39,11 +57,9 @@ export type Expression =
   | { readonly kind: 'negate', readonly value: Expression }
   | { readonly kind: 'if', readonly condition: Expression, readonly then: Expression, readonly else: Expression }
 
-export type HardConstraint = {
+export type HardConstraint = Provenance & {
   readonly id: string
   readonly expression: Expression
-  readonly description?: string
-  readonly evidenceRowIds?: readonly string[]
 }
 
 export type SoftConstraint = HardConstraint & {
@@ -51,12 +67,10 @@ export type SoftConstraint = HardConstraint & {
   readonly weight: Rational
 }
 
-export type Objective = {
+export type Objective = Provenance & {
   readonly id: string
   readonly direction: 'minimize' | 'maximize'
   readonly expression: Expression
-  readonly description?: string
-  readonly evidenceRowIds?: readonly string[]
 }
 
 export type Model = {

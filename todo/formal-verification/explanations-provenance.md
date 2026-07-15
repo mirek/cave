@@ -1,7 +1,7 @@
 ---
 name: formal-verification-explanations-provenance
 description: Map constraints, objectives, models, and cores back to CAVE evidence.
-status: open
+status: completed
 priority: low
 area: provenance
 source: solver-feasibility-analysis
@@ -62,3 +62,18 @@ Historical or synced evidence IDs must retain their global identity.
   and row IDs are recorded.
 - Human labels can change without changing model identity.
 - Snapshot, model, and solver metadata appear in JSON and human reports.
+
+## Outcome
+
+Implemented in `@cavelang/solver` as portable provenance fields plus the
+versioned `cave.solver/explanation@1` report. `Solve.runWithExplanation` maps
+assignments, exact objective values, evaluated hard/soft constraints, mapped
+non-minimal unsatisfiable cores, and structured unknown reasons to model
+declarations, CAVE row IDs, and scenario input IDs. `Explain.render` provides a
+deterministic human view over the same JSON data without persisting anything.
+
+`@cavelang/scenario` supplies `explanationContext`, retaining the frozen
+transaction/valid-time snapshot, binding queries, typed and authored values,
+input/overlay digests, and exact belief or rolled-back scenario evidence. The
+canonical model digest is checked at the explanation boundary, so replaying a
+record against a different model fails explicitly.

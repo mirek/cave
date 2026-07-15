@@ -131,14 +131,46 @@ test('rejects unsupported expression kinds before solving', () => {
   assert.throws(() => Validate.model(invalid), /unsupported expression kind "quantifier"/)
 })
 
+test('validates provenance locations and stable reference lists', () => {
+  const invalid: Model.t = {
+    ...fixture(),
+    variables: fixture().variables.map((variable, index) => index === 0 ? {
+      ...variable,
+      declaration: { uri: '', line: 0 },
+      evidenceRowIds: ['row', 'row'],
+      scenarioInputIds: ['']
+    } : variable)
+  }
+  assert.throws(() => Validate.model(invalid), (error: unknown) => {
+    assert.ok(error instanceof Validate.ModelValidationError)
+    assert.match(error.message, /declaration\.uri must not be empty/)
+    assert.match(error.message, /declaration\.line must be a positive safe integer/)
+    assert.match(error.message, /evidenceRowIds contains duplicate identifiers/)
+    assert.match(error.message, /scenarioInputIds\[0\] must not be empty/)
+    return true
+  })
+})
+
 test('canonical digest ignores declaration order and labels but preserves objective order', () => {
   const original = fixture()
   const reordered: Model.t = {
     ...original,
     enums: original.enums?.map(domain => ({ ...domain, values: [...domain.values].reverse(), description: 'label changed' })),
-    variables: [...original.variables].reverse().map(variable => ({ ...variable, description: 'label changed' })),
-    constraints: [...original.constraints].reverse().map(constraint => ({ ...constraint, description: 'label changed', evidenceRowIds: ['new-row'] })),
-    softConstraints: original.softConstraints?.map(constraint => ({ ...constraint, weight: { numerator: 5, denominator: 2 } }))
+    variables: [...original.variables].reverse().map(variable => ({
+      ...variable, description: 'label changed', declaration: { uri: 'different/model.cave', line: 99 },
+      evidenceRowIds: ['new-row'], scenarioInputIds: ['new-input']
+    })),
+    constraints: [...original.constraints].reverse().map(constraint => ({
+      ...constraint, description: 'label changed', declaration: { uri: 'different/model.cave' },
+      evidenceRowIds: ['new-row'], scenarioInputIds: ['new-input']
+    })),
+    softConstraints: original.softConstraints?.map(constraint => ({
+      ...constraint, weight: { numerator: 5, denominator: 2 }, scenarioInputIds: ['new-input']
+    })),
+    objectives: original.objectives?.map(objective => ({
+      ...objective, description: 'label changed', declaration: { uri: 'different/model.cave' },
+      evidenceRowIds: ['new-row'], scenarioInputIds: ['new-input']
+    }))
   }
   assert.equal(Canonical.serialize(reordered), Canonical.serialize(original))
   assert.equal(Canonical.digest(reordered), Canonical.digest(original))

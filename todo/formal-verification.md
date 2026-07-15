@@ -69,18 +69,15 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Map explanations to provenance](formal-verification/explanations-provenance.md)
-   — make constraints and objective contributions traceable to exact claim
-   rows and scenario inputs.
-2. [Add verification workflows](formal-verification/verification-workflows.md)
+1. [Add verification workflows](formal-verification/verification-workflows.md)
    — expose feasibility, optimization, counterexample, and sensitivity
    operations without inventing a second rule engine.
-3. [Govern result recording](formal-verification/result-governance.md) — keep
+2. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-4. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
+3. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
    when representative linear/MIP workloads justify a second adapter.
-5. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+4. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 

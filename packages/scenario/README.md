@@ -7,7 +7,7 @@ rolled-back savepoint. The returned record is plain immutable data; no
 database transaction remains open while an evaluator or Wasm solver runs.
 
 ```ts
-import { bind, Model } from '@cavelang/scenario'
+import { bind, explanationContext, Model } from '@cavelang/scenario'
 
 const definition: Model.Definition = {
   id: 'architecture-choice',
@@ -60,3 +60,20 @@ const inputs = bind(store, definition)
 Use `run(store, definition, evaluate)` when convenient. It calls `bind`
 synchronously and invokes `evaluate` only after the overlay and verb registry
 have been restored, including when the evaluator later times out or crashes.
+
+For solver runs, `explanationContext(definition, inputs)` converts the frozen
+record into `@cavelang/solver` explanation metadata. It retains every binding's
+query, typed and authored value, exact belief/scenario evidence IDs, snapshot
+policy, input-record digest, and overlay digest. Passing that context to
+`Solve.runWithExplanation` also rejects replay against a different canonical
+model digest.
+
+```ts
+const inputs = bind(store, definition)
+const report = await Solve.runWithExplanation(
+  adapter,
+  model,
+  { unsatCore: true },
+  explanationContext(definition, inputs)
+)
+```

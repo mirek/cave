@@ -81,6 +81,49 @@ test('maps an unsatisfiable core back to stable constraint IDs', async () => {
   assert.deepEqual(result.core, ['policy/must-deploy', 'policy/must-not-deploy'])
 })
 
+test('renders a real Z3 core with CAVE evidence and scenario inputs', async () => {
+  const runtime = await runtimePromise
+  const model: Model.t = {
+    schema: Model.schema,
+    variables: [{ id: 'deploy', sort: 'bool' }],
+    constraints: [
+      {
+        id: 'policy/must-deploy', expression: ref('deploy'),
+        declaration: { uri: 'models/release.cave', line: 3 },
+        evidenceRowIds: ['row:release-policy'], scenarioInputIds: ['release-window']
+      },
+      {
+        id: 'policy/must-not-deploy', expression: { kind: 'not', value: ref('deploy') },
+        declaration: { uri: 'models/release.cave', line: 4 },
+        evidenceRowIds: ['row:freeze'], scenarioInputIds: ['release-window']
+      }
+    ]
+  }
+  const report = await Solve.runWithExplanation(runtime, model, { unsatCore: true }, {
+    inputs: [{
+      id: 'release-window', authoredValue: 'Friday 17:00',
+      evidenceRowIds: ['row:release-policy', 'row:freeze'], scenarioClaimIds: []
+    }]
+  })
+  assert.equal(report.outcome.status, 'unsatisfied')
+  if (report.outcome.status !== 'unsatisfied') return
+  assert.deepEqual(report.outcome.core?.map(constraint => ({
+    id: constraint.id,
+    declaration: constraint.declaration,
+    evidenceRowIds: constraint.evidenceRowIds,
+    scenarioInputIds: constraint.scenarioInputIds
+  })), [
+    {
+      id: 'policy/must-deploy', declaration: { uri: 'models/release.cave', line: 3 },
+      evidenceRowIds: ['row:release-policy'], scenarioInputIds: ['release-window']
+    },
+    {
+      id: 'policy/must-not-deploy', declaration: { uri: 'models/release.cave', line: 4 },
+      evidenceRowIds: ['row:freeze'], scenarioInputIds: ['release-window']
+    }
+  ])
+})
+
 test('canonical enum coding is stable across declaration reordering', async () => {
   const runtime = await runtimePromise
   const fixture = (values: readonly string[]): Model.t => ({

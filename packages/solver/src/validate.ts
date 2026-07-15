@@ -62,6 +62,32 @@ const requireId = (id: string, path: string, problems: string[]): void => {
   }
 }
 
+const provenance = (
+  value: { readonly declaration?: { readonly uri: string, readonly line?: number, readonly column?: number }, readonly evidenceRowIds?: readonly string[], readonly scenarioInputIds?: readonly string[] },
+  path: string,
+  problems: string[]
+): void => {
+  if (value.declaration !== undefined) {
+    if (value.declaration.uri.trim() === '') problems.push(`${path}.declaration.uri must not be empty`)
+    for (const position of ['line', 'column'] as const) {
+      const at = value.declaration[position]
+      if (at !== undefined && (!Number.isSafeInteger(at) || at <= 0)) {
+        problems.push(`${path}.declaration.${position} must be a positive safe integer`)
+      }
+    }
+  }
+  for (const [name, ids] of [
+    ['evidenceRowIds', value.evidenceRowIds],
+    ['scenarioInputIds', value.scenarioInputIds]
+  ] as const) {
+    if (ids === undefined) continue
+    if (new Set(ids).size !== ids.length) problems.push(`${path}.${name} contains duplicate identifiers`)
+    ids.forEach((id, index) => {
+      if (id.trim() === '') problems.push(`${path}.${name}[${index}] must not be empty`)
+    })
+  }
+}
+
 const duplicates = (ids: readonly string[], path: string, problems: string[]): void => {
   const seen = new Set<string>()
   for (const id of ids) {
@@ -229,6 +255,7 @@ export const model = (input: Model, limitInput: Partial<Limits> = {}): Stats => 
   duplicates(enumDeclarations.map(domain => domain.id), 'enums', problems)
   enumDeclarations.forEach((domain, index) => {
     requireId(domain.id, `enums[${index}].id`, problems)
+    provenance(domain, `enums[${index}]`, problems)
     if (domain.values.length === 0) problems.push(`enums[${index}] must contain at least one value`)
     if (new Set(domain.values).size !== domain.values.length) problems.push(`enums[${index}] contains duplicate values`)
     domains.set(domain.id, domain.values)
@@ -238,6 +265,7 @@ export const model = (input: Model, limitInput: Partial<Limits> = {}): Stats => 
   duplicates(input.variables.map(variable => variable.id), 'variables', problems)
   input.variables.forEach((variable, index) => {
     requireId(variable.id, `variables[${index}].id`, problems)
+    provenance(variable, `variables[${index}]`, problems)
     variables.set(variable.id, variable)
     if (variable.sort === 'enum' && !domains.has(variable.domain)) {
       problems.push(`variables[${index}] references unknown enum domain ${JSON.stringify(variable.domain)}`)
@@ -271,11 +299,13 @@ export const model = (input: Model, limitInput: Partial<Limits> = {}): Stats => 
   const walk: Walk = { nodes: 0, depth: 0 }
   input.constraints.forEach((constraint, index) => {
     requireId(constraint.id, `constraints[${index}].id`, problems)
+    provenance(constraint, `constraints[${index}]`, problems)
     const sort = infer(constraint.expression, `constraints[${index}].expression`, variables, domains, problems, walk, 1)
     if (sort.kind !== 'bool') problems.push(`constraints[${index}].expression must be boolean, received ${sort.kind}`)
   })
   ;(input.softConstraints ?? []).forEach((constraint, index) => {
     requireId(constraint.id, `softConstraints[${index}].id`, problems)
+    provenance(constraint, `softConstraints[${index}]`, problems)
     const sort = infer(constraint.expression, `softConstraints[${index}].expression`, variables, domains, problems, walk, 1)
     if (sort.kind !== 'bool') problems.push(`softConstraints[${index}].expression must be boolean, received ${sort.kind}`)
     pushExactProblem(problems, `softConstraints[${index}].weight`, () => {
@@ -284,6 +314,7 @@ export const model = (input: Model, limitInput: Partial<Limits> = {}): Stats => 
   })
   ;(input.objectives ?? []).forEach((objective, index) => {
     requireId(objective.id, `objectives[${index}].id`, problems)
+    provenance(objective, `objectives[${index}]`, problems)
     const sort = infer(objective.expression, `objectives[${index}].expression`, variables, domains, problems, walk, 1)
     if (!numeric(sort)) problems.push(`objectives[${index}].expression must be numeric, received ${sort.kind}`)
   })

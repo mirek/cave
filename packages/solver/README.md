@@ -6,7 +6,7 @@ resource limits; canonical model digests; result states; and linear-subset
 recognition. It does not depend on Z3, HiGHS, SQLite, or another CAVE package.
 
 ```ts
-import { Adapter, Model, Solve } from '@cavelang/solver'
+import { Adapter, Explain, Model, Solve } from '@cavelang/solver'
 
 const model: Model.t = {
   schema: Model.schema,
@@ -93,3 +93,39 @@ only then invokes it. Results are disjoint:
 A feasible assignment returned after an optimization timeout is `unknown`,
 not `optimal`. A timeout or unsupported capability is never rendered as proof
 that the model is infeasible.
+
+## Provenance and explanations
+
+Variables, constraints, soft constraints, and objectives may carry a stable
+declaration URI/line/column, exact CAVE evidence row IDs, and scenario input
+IDs. These fields and human descriptions never affect the canonical model
+digest.
+
+`Solve.runWithExplanation` wraps any adapter result in versioned, plain JSON.
+The report records the canonical digest, backend/version, resolved limits,
+diagnostics, optional frozen snapshot and authored inputs, assignments,
+evaluated hard and soft constraints, objective contributions, or a mapped
+unsatisfiable core. Cores are explicitly not promised minimal and `unknown`
+keeps its structured reason.
+
+```ts
+const report = await Solve.runWithExplanation(adapter, model, {
+  unsatCore: true,
+  limits: { timeoutMs: 2_000 }
+}, {
+  snapshot: { transactionTime: '019c…', validTime: '2026-08-01' },
+  inputs: [{
+    id: 'team-size',
+    query: 'system HAS team-size: ?n',
+    value: { kind: 'integer', value: '12', unit: 'people' },
+    authoredValue: '0.012K people',
+    evidenceRowIds: ['019c…'],
+    scenarioClaimIds: []
+  }]
+})
+
+process.stdout.write(Explain.render(report))
+```
+
+The renderer is a deterministic human view over the same JSON report. Neither
+building nor rendering an explanation writes to the CAVE store.
