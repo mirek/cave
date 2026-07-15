@@ -16,7 +16,7 @@ const store = memoryStoreOfText(knowledge)
 const { claims, trace } = reconstruct(store, heuristicPolicy(), ['reject-valid-tokens'])
 ```
 
-The LLM-driven policy (ROADMAP item 10) runs the same loop asynchronously,
+The LLM-driven policy (spec §18) runs the same loop asynchronously,
 with any shell-agent command deciding select/stop:
 
 ```ts
@@ -47,7 +47,7 @@ const { claims } = await reconstructAsync(store, policy, ['reject-valid-tokens']
   **eval baseline** every LLM policy is measured against
   (`cave eval` reconstruction cases run it when no agent is given).
 - **`llmPolicy`** — the model makes the select/stop decisions
-  (ROADMAP item 10): each step renders the query, the claims collected so
+  (spec §18): each step renders the query, the claims collected so
   far (canonical CAVE text) and the strongest frontier cues, and the model
   replies with the cue to expand next or `STOP`. One completion per step —
   stop rides on select, `done` only enforces the hard budgets. Scoring

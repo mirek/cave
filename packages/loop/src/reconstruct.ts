@@ -210,7 +210,7 @@ export type HeuristicOptions = {
  * Deterministic heuristic policy for dependency-free testing (spec §18):
  * greedy best-first by score (FIFO tiebreak), score = parent score ×
  * edge confidence × decay, hard budgets for steps and claims. Also the
- * eval baseline the LLM policy is measured against (ROADMAP item 10).
+ * eval baseline the LLM policy is measured against (spec §18).
  */
 export const heuristicPolicy = (options: HeuristicOptions = {}): Policy => {
   const decay = options.decay ?? 0.8

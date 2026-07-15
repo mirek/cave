@@ -82,8 +82,10 @@ the §26 winner — the fix when sources contest a fact). Every rendered
 row cites: `[^cN]` markers land at the fragment's `[^?]` placeholder
 (appended when absent), and the definitions — canonical line, tx date,
 claim key — collect at the end of the document, so a reader can pull the
-belief history behind any sentence. `--aliases` and `--as-of` compose
-exactly as on `cave query`; the template stays under version control and
+belief history behind any sentence. `--aliases`, `--as-of`, and `--at` compose
+exactly as on `cave query`; `--at` filters valid-time claims and interpolates
+trajectories while `--as-of` independently freezes transaction time. The
+template stays under version control and
 the report re-renders from current belief on demand.
 
 ## Programmatic
@@ -98,7 +100,11 @@ await handle.close()
 // the view models are plain functions over a store, no server needed
 const dash = overview(store)
 const gateway = entity(store, 'api-gateway', { aliases: true })
-const { markdown, problems } = report(store, template, { resolve: true })
+const { markdown, problems } = report(store, template, {
+  resolve: true,
+  asOf: '2026-01-15',
+  at: '1962'
+})
 ```
 
 Endpoints: `/api/overview`, `/api/entity?name=`, `/api/topic?name=`,

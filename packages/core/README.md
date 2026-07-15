@@ -37,6 +37,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 | `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, lexical shape of verbs. |
 | `Multiplier` | §7.1 | `T`/`B`/`M`/`K` scale factors. |
 | `Uuidv7` | §9.1 | Monotonic UUIDv7 transaction ids — lexicographic order ⇒ transaction order, so `MAX(tx)` resolves current belief. |
+| `Time` | §32 | Date-like instant/range parsing, valid-time coverage, and exact trajectory interpolation helpers. |
 
 ## Design decisions
 
@@ -58,8 +59,8 @@ Decisions this package pins down where the spec leaves latitude:
   attribute rule "the value may change over time; the key stays about the
   same property".
 - **Claim classification** (relation vs metric) is the parser's job; core
-  only defines the shapes. `IS` + numeric/date value ⇒ metric, anything
-  else ⇒ relation.
+  only defines the shapes. A numeric, date-like, or trajectory value after
+  any verb is a metric payload; other objects are relations.
 - **`Value.parse` never fails** — unparseable text degrades to an `atom`
   value with raw text preserved, honoring the LLM-friendliness goal (§1.6).
 - **UUIDv7 monotonicity**: same-millisecond calls increment a 12-bit

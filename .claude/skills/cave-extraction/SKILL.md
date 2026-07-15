@@ -1,6 +1,6 @@
 ---
 name: cave-extraction
-description: CAVE extraction guide (spec §14–§15, §21, §23) — rules for converting prose, conversations, code, and structured data into CAVE claims; granularity guide, conversation compaction, boundary cases, operating modes, worked example, deterministic structured ingestion (cave connect mapping templates, record digests, watch mode, query-time overlay). Use when "caving" text, prompting or implementing extraction (e.g. @cave/ingest), mapping structured data (@cavelang/connect), or reviewing extracted output.
+description: CAVE extraction guide (spec §14–§15, §21, §23) — rules for converting prose, conversations, code, and structured data into CAVE claims; granularity guide, conversation compaction, boundary cases, operating modes, worked example, deterministic structured ingestion (cave connect mapping templates, record digests, watch mode, query-time overlay). Use when "caving" text, prompting or implementing extraction (e.g. @cavelang/ingest), mapping structured data (@cavelang/connect), or reviewing extracted output.
 ---
 
 # CAVE — Extraction

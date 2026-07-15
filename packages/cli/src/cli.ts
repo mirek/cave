@@ -88,7 +88,7 @@ Usage:
   cave report [--db <path>] [template...]  render cited markdown from a CAVE-Q template (spec §31) [--out <file>] [--resolve]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
-  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals (items 9, 10)
+  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals
   cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec §23)
   cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec §18) [--agent] [--query] [--trace]
   cave demo                                run the cave-loop reconstruction demo

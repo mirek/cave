@@ -17,6 +17,15 @@ Versions, command tables, tool lists, and API descriptions are copied across roo
 
 Identify an authoritative source for each repeated fact and generate pages or validate copies during CI.
 
+## Progress
+
+`DOCUMENTATION.md` now indexes every maintained surface, names authoritative
+sources for repeated facts, provides a change-to-doc map, and defines the
+every-PR freshness contract. The PR template requires authors to record that
+review. The remaining work is automated validation or generation for command
+and API registries beyond the website's direct Markdown imports and derived
+version displays.
+
 ## Done when
 
 - Ownership of command, API, version, and specification text is explicit.

@@ -5,9 +5,11 @@ description: How to run and observe the cave CLI and MCP server end-to-end when 
 
 # Verifying changes in this repo
 
-No build step: `pnpm install` links workspace packages and puts `cave`
-on the workspace path (`node_modules/.bin/cave` runs TypeScript
-directly via Node ≥ 22.18 type stripping). Everything is driven
+No build is needed for source-level verification: `pnpm install` links
+workspace packages and puts `cave` on the workspace path
+(`node_modules/.bin/cave` runs TypeScript directly via Node ≥ 22.18 type
+stripping). Release and CI validation still run the emitting `pnpm build`
+described in `IMPLEMENTATION.md`. Everything here is driven
 through the real CLI against a scratch `--db`:
 
 ```sh

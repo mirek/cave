@@ -6,7 +6,7 @@
  * reconstruction is a *policy* over the graph. This package provides the
  * injectable `CaveStore` and `Policy` interfaces, an in-memory store and a
  * SQLite adapter, a deterministic heuristic policy (the eval baseline), the
- * LLM-driven policy over any shell-agent command template (ROADMAP item 10)
+ * LLM-driven policy over any shell-agent command template (spec §18)
  * and a runnable multi-hop recovery demo.
  */
 

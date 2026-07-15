@@ -1,7 +1,7 @@
 ---
 name: retired-roadmap-references
 description: Prefer specification references over retired numbering.
-status: open
+status: completed
 priority: low
 area: documentation
 source: implementation-audit
@@ -22,3 +22,10 @@ Replace user-facing roadmap references with specification sections or capability
 - User-facing help and package metadata contain no unexplained roadmap numbers.
 - Historical source comments are updated where the spec is a clearer anchor.
 - Links resolve to current documentation.
+
+## Outcome
+
+User-facing guides, skills, package descriptions, CLI help, example labels,
+and implementation comments now name current specification sections or
+capabilities. `todo/retired-roadmap.md` remains the deliberate historical map
+for old commits and external references.

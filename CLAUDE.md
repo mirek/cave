@@ -4,6 +4,17 @@ pnpm workspace of `@cavelang/*` packages implementing the CAVE
 specification; the spec itself lives in `.claude/skills/` (section index
 in README.md). `make check` runs typecheck + all tests.
 
+## Live documentation
+
+All documentation is maintained as live documentation. Every pull request
+must use [`DOCUMENTATION.md`](DOCUMENTATION.md) to review the surfaces affected
+by its changes and update them in the same PR, including package READMEs,
+architecture and implementation guides, specification skills, examples,
+website copy, TODO status, and the book source/PDF where applicable. A PR with
+stale documentation is incomplete; explicitly confirm the review when no
+documentation edit is needed. Historical changelogs, changesets, completed
+outcomes, authorship, and license records remain point-in-time records.
+
 ## Versioning — changesets
 
 All `@cavelang/*` packages release together at one version (a changesets

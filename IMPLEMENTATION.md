@@ -4,9 +4,10 @@ A pnpm TypeScript monorepo implementing the CAVE specification
 (split across the skills in [`.claude/skills/`](.claude/skills) — see the
 [README's section index](README.md#the-specification) for which skill holds
 which § sections).
-Functional style throughout (immutable values, namespace modules in the
-`@prelude` convention, no classes), built bottom-up — each package fully
-documented and tested before the next one starts.
+Functional style throughout (immutable domain values and namespace modules in
+the `@prelude` convention; classes are limited to typed `Error` subclasses),
+built bottom-up — each package is documented and tested alongside its public
+behavior.
 
 ## Packages
 
@@ -31,9 +32,9 @@ Dependency order, bottom to top:
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/automate`](packages/automate) | §29 | Automations — the event-driven loop: in-band `automation/<name>` declarations pair §24.1 trigger premises with steps (§25 actions, §25.4 hooks, agent prompts); solutions fire on rows newer than the automation's watermark, armed at declaration, deaf to their own echo; settle cycles interleave incremental derivation with trigger evaluation until quiescent |
 | [`@cavelang/view`](packages/view) | §30, §31 | The human read surface — `cave serve`: one static, self-contained HTML page over the store (entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, §20.2 coverage/frontier dashboard, FTS search) behind read-only GET endpoints; `cave report`: markdown templates rendered from CAVE-Q results with claim keys as footnote citations; view models and the report renderer are plain functions over a store |
-| [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` are named computation (§10.1 fusion, §24 derivation — ROADMAP item 12); `--read-only` / `--tools <list>` serving scope |
+| [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` expose named §10.1 fusion and §24 derivation; `--read-only` / `--tools <list>` serving scope |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
-| [`@cavelang/eval`](packages/eval) | — | Evals harness (ROADMAP items 9, 10): golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
+| [`@cavelang/eval`](packages/eval) | — | Extraction and reconstruction eval harness: golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
 | [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / suggest-alias / sync / export / report / serve / mcp / ingest / eval / connect / reconstruct / demo` |
@@ -44,16 +45,22 @@ packages the same grammar WASM and highlight query as a VSCode extension
 
 ## Toolchain
 
-- **No build step.** Node ≥ 22.18 runs `.ts` directly (type stripping);
-  workspace packages export `./src/index.ts` and resolve through pnpm
-  symlinks. `tsc --noEmit` (strict, `erasableSyntaxOnly`) typechecks.
+- **Build-free development, emitted releases.** Node ≥ 22.18 can run the
+  workspace `.ts` sources directly through type stripping and pnpm symlinks.
+  `pnpm build` / `pnpm typecheck` run composite `tsc -b`: they typecheck and
+  emit package `dist/` trees. CI builds before tests, and package `prepack`
+  scripts emit the JavaScript and declarations published to npm.
 - **Builtin test runner** — `node --test`, zero test dependencies.
 - **SQLite is `node:sqlite`** — no native modules. (The original request
   said "builtin mssql"; Node has no builtin MSSQL driver and the spec's
   storage model is SQLite/FTS5, so `node:sqlite` is the interpretation.)
-- External runtime dependency: `@prelude/parser` (plus its radix-trie), used
-  by the tokenizer. The opt-in `solver-z3` package alone depends on the
-  official `z3-solver` threaded Wasm distribution.
+- **Runtime dependencies stay at feature boundaries.** The parser uses
+  `@prelude/parser`; highlighting uses `web-tree-sitter`; web ingestion uses
+  `@mozilla/readability` and `linkedom`; and the opt-in `solver-z3` adapter
+  alone depends on the official threaded `z3-solver` Wasm distribution.
+  Website-only dependencies include React, Markdown rendering, `sql.js`, and
+  Tree-sitter. The domain and solver-neutral model packages remain
+  dependency-free.
 
 ```sh
 pnpm install
@@ -83,7 +90,7 @@ Package READMEs document local decisions; these are the global ones:
   same, while entity queries from §13.5 work verbatim.
 - **Traversal defaults**: graph reads (store, query, loop) skip negated
   and `@ 0%` rows; contradictions still coexist as data (§9.4).
-- **Alias closure is union-of-rows** (§13.6, roadmap open decision 2):
+- **Alias closure is union-of-rows** (§13.6):
   opt-in `aliases` on store traversal and CAVE-Q widens matching through
   current positive `ALIAS` claims (undirected recursive CTE), but stored
   rows, claim keys and bindings are never rewritten to a canonical name —
@@ -138,8 +145,8 @@ Package READMEs document local decisions; these are the global ones:
   and the appended claims on stdin, and its failure is reported, never
   rolled back. `cave mcp` generates one `act_<name>` tool per current
   action, recomputed per `tools/list`.
-- **Evals score normalized keys against self-checked fixtures**
-  (ROADMAP item 9): `@cavelang/eval` runs each case in a fresh throwaway
+- **Evals score normalized keys against self-checked fixtures**:
+  `@cavelang/eval` runs each case in a fresh throwaway
   store through `@cavelang/ingest` (one agent contract everywhere), then
   canonicalizes both golden and produced claims, strips §9.5 actor
   stamps (`src:cli`, `src:agent/*`, `src:ingest`) before re-keying —
@@ -150,7 +157,7 @@ Package READMEs document local decisions; these are the global ones:
   self-check against their own goldens before any agent run, and the
   optional judge only ever adds a parallel judged score.
 - **The LLM loop policy spends the model on select/stop only**
-  (ROADMAP item 10, spec §18): `llmPolicy` sends one completion per
+  (spec §18): `llmPolicy` sends one completion per
   step — the query, the collected claims as canonical CAVE, the scored
   frontier — and the reply is the next cue or `STOP` (stop rides on
   select; the `done` budget check costs nothing). Edge scoring stays the
@@ -275,4 +282,4 @@ Package READMEs document local decisions; these are the global ones:
   layer (§12) is implemented.
 - **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`,
   including the LLM-driven policy over shell-agent templates
-  (ROADMAP item 10) with the heuristic policy as its eval baseline.
+  with the heuristic policy as its eval baseline.

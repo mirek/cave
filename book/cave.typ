@@ -1,5 +1,7 @@
 // Generated and maintained for Typst 0.15.0.
 
+#let cave-version = json("../package.json").at("version")
+
 #set document(title: "CAVE: The Complete System Guide", author: "CAVE project")
 #set page(paper: "a4", margin: (x: 24mm, y: 22mm), numbering: "1")
 #set text(font: ("Libertinus Serif", "New Computer Modern"), size: 10.5pt, lang: "en")
@@ -7,7 +9,7 @@
 #set heading(numbering: "1.")
 #show heading.where(level: 1): it => { pagebreak(weak: true); set text(size: 20pt, weight: "bold"); it }
 #show heading.where(level: 2): set text(size: 14pt, weight: "bold")
-#show raw: set text(font: ("DejaVu Sans Mono", "Liberation Mono"), size: 8pt)
+#show raw: set text(font: "DejaVu Sans Mono", size: 8pt)
 #show raw.where(block: true): it => block(fill: luma(245), inset: 8pt, radius: 2pt, width: 100%)[#it]
 
 #align(center)[
@@ -18,13 +20,13 @@
   #v(8mm)
   #text(size: 11pt)[Compressed Atomic Verb Expressions]
   #v(24mm)
-  #text(size: 10pt)[Repository version 0.25.1\ 2026-07-12]
+  #text(size: 10pt)[Repository version #cave-version]
 ]
 #pagebreak()
 #heading(level: 1, outlined: false, numbering: none)[About this book]
 This book consolidates the implemented CAVE system and its normative repository specification into one continuous technical guide. The specification skills remain authoritative for exact normative wording and section numbers; this book explains how the pieces work together.
 
-Build target: Typst 0.15.0. Project version: 0.25.1.
+Build target: Typst 0.15.0. Project version: #cave-version.
 #pagebreak()
 #outline(title: [Contents], indent: auto)
 #pagebreak()

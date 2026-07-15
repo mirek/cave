@@ -1,5 +1,5 @@
 /**
- * Reconstruction (loop) cases — ROADMAP item 10.
+ * Reconstruction (loop) cases — spec §18 evaluation.
  *
  * A case whose golden has a `<stem>.loop.cave` sibling evals the
  * §18 reconstruction loop instead of extraction: the source is the

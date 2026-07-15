@@ -16,7 +16,7 @@ append-only belief updates, rule-derived grandparenthood with lineage
 
 ## [`eval/`](eval)
 
-The family-history extraction as an eval fixture (ROADMAP item 9):
+The family-history extraction as a golden eval fixture:
 `family-history.golden.cave` is the expected extraction of
 `family-history.md`, and `family-history.queries.cave` asserts the
 multi-hop questions the built store must answer — whatever the agent
@@ -33,7 +33,7 @@ examples/eval --stdout --agent 'cat family-history.golden.cave'` — the
 
 ## [`loop-eval/`](loop-eval)
 
-The incident knowledge as a *reconstruction* fixture (ROADMAP item 10,
+The incident knowledge as a *reconstruction* fixture (spec §18,
 spec §18): `postmortem.loop.cave` seeds the loop at the symptom
 (`loop SEEDS checkout/errors`, plus a query and a step budget),
 `postmortem.golden.cave` is what a good reconstruction collects — the

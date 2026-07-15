@@ -1,6 +1,6 @@
 # @cavelang/eval
 
-The evals harness (ROADMAP items 9 and 10): golden-fixture extraction,
+The evals harness for golden-fixture extraction and §18 reconstruction:
 query and reconstruction evals as plain files. Without it, changes to
 ingestion prompts, agent choice, extraction instructions or the loop
 policy are unfalsifiable — `cave eval` makes them a number.
@@ -51,7 +51,7 @@ does an invented one. Queries are where a fixture asserts usefulness
 golden spelled each claim; `--aliases` lets agents that declared `ALIAS`
 links pass them despite naming drift.
 
-## Reconstruction cases (ROADMAP item 10)
+## Reconstruction cases (spec §18)
 
 A `<stem>.loop.cave` sibling turns the case into a **reconstruction**
 eval of the §18 loop: the source is the *knowledge* (CAVE text), and the

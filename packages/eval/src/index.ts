@@ -1,6 +1,6 @@
 /**
  * `@cavelang/eval` — golden-fixture extraction and query evals
- * (ROADMAP item 9).
+ * and reconstruction policy evaluation.
  *
  * ```sh
  * cave eval suite/ --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'

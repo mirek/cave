@@ -1,5 +1,7 @@
 import readme from '../../README.md?raw'
+import architecture from '../../ARCHITECTURE.md?raw'
 import implementation from '../../IMPLEMENTATION.md?raw'
+import documentation from '../../DOCUMENTATION.md?raw'
 import todo from '../../TODO.md?raw'
 import core from '../../packages/core/README.md?raw'
 import parser from '../../packages/parser/README.md?raw'
@@ -19,6 +21,9 @@ import view from '../../packages/view/README.md?raw'
 import evalDocs from '../../packages/eval/README.md?raw'
 import loop from '../../packages/loop/README.md?raw'
 import mcp from '../../packages/mcp/README.md?raw'
+import scenario from '../../packages/scenario/README.md?raw'
+import solver from '../../packages/solver/README.md?raw'
+import solverZ3 from '../../packages/solver-z3/README.md?raw'
 import highlight from '../../packages/highlight/README.md?raw'
 import treeSitter from '../../packages/tree-sitter-cave/README.md?raw'
 import vscode from '../../editors/vscode/README.md?raw'
@@ -33,7 +38,8 @@ export type Doc = {
 
 export const docs: readonly Doc[] = [
   { slug: 'overview', label: 'Overview & language', group: 'Learn', markdown: readme, source: 'README.md' },
-  { slug: 'implementation', label: 'Architecture', group: 'Learn', markdown: implementation, source: 'IMPLEMENTATION.md' },
+  { slug: 'architecture', label: 'Architecture', group: 'Learn', markdown: architecture, source: 'ARCHITECTURE.md' },
+  { slug: 'implementation', label: 'Implementation', group: 'Learn', markdown: implementation, source: 'IMPLEMENTATION.md' },
   { slug: 'cli', label: 'Command line', group: 'Reference', markdown: cli, source: 'packages/cli/README.md' },
   { slug: 'core', label: 'Core model', group: 'Reference', markdown: core, source: 'packages/core/README.md' },
   { slug: 'parser', label: 'Parser', group: 'Reference', markdown: parser, source: 'packages/parser/README.md' },
@@ -45,6 +51,9 @@ export const docs: readonly Doc[] = [
   { slug: 'rules', label: 'Rules', group: 'Reference', markdown: rules, source: 'packages/rules/README.md' },
   { slug: 'act', label: 'Actions', group: 'Reference', markdown: act, source: 'packages/act/README.md' },
   { slug: 'automate', label: 'Automation', group: 'Reference', markdown: automate, source: 'packages/automate/README.md' },
+  { slug: 'scenario', label: 'Scenario inputs', group: 'Reference', markdown: scenario, source: 'packages/scenario/README.md' },
+  { slug: 'solver', label: 'Solver model', group: 'Reference', markdown: solver, source: 'packages/solver/README.md' },
+  { slug: 'solver-z3', label: 'Z3 adapter', group: 'Reference', markdown: solverZ3, source: 'packages/solver-z3/README.md' },
   { slug: 'ingest', label: 'LLM ingestion', group: 'Integrations', markdown: ingest, source: 'packages/ingest/README.md' },
   { slug: 'connect', label: 'Structured data', group: 'Integrations', markdown: connect, source: 'packages/connect/README.md' },
   { slug: 'mcp', label: 'MCP server', group: 'Integrations', markdown: mcp, source: 'packages/mcp/README.md' },
@@ -55,6 +64,7 @@ export const docs: readonly Doc[] = [
   { slug: 'highlight', label: 'Syntax highlighting', group: 'Integrations', markdown: highlight, source: 'packages/highlight/README.md' },
   { slug: 'tree-sitter', label: 'Tree-sitter grammar', group: 'Integrations', markdown: treeSitter, source: 'packages/tree-sitter-cave/README.md' },
   { slug: 'vscode', label: 'VS Code extension', group: 'Integrations', markdown: vscode, source: 'editors/vscode/README.md' },
+  { slug: 'documentation', label: 'Documentation index', group: 'Project', markdown: documentation, source: 'DOCUMENTATION.md' },
   { slug: 'todo', label: 'TODO', group: 'Project', markdown: todo, source: 'TODO.md' },
 ]
 

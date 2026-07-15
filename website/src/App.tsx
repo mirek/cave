@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Logo } from './components/Logo.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Home } from './pages/Home.tsx'
+import { caveVersion } from './version.ts'
 
 const Docs = lazy(() => import('./pages/Docs.tsx').then(module => ({ default: module.Docs })))
 const Playground = lazy(() => import('./pages/Playground.tsx').then(module => ({ default: module.Playground })))
@@ -43,7 +44,7 @@ export const App = () => {
         <footer className="site-footer">
           <Logo />
           <p>Compressed Atomic Verb Expressions.<br />Plain-text claims backed by SQLite.</p>
-          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="./cave-book.pdf">Book</a><a href="https://github.com/mirek/cave">GitHub</a><span>v0.25.1</span></div>
+          <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="./cave-book.pdf">Book</a><a href="https://github.com/mirek/cave">GitHub</a><span>v{caveVersion}</span></div>
         </footer>
       )}
     </div>

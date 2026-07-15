@@ -53,7 +53,7 @@ echo "==> cave reconstruct walks the graph from a seed cue (spec §18)"
   echo "error: cave reconstruct did not surface the fix" >&2
   exit 1
 }
-echo "==> cave eval reconstruction baseline (ROADMAP item 10)"
+echo "==> cave eval reconstruction baseline (spec §18)"
 "$cave" eval "$root/examples/loop-eval" | grep -q 'F1 100%' || {
   echo "error: the loop-eval heuristic baseline is not perfect" >&2
   exit 1

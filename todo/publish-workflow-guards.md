@@ -11,7 +11,10 @@ source: implementation-audit
 
 ## Problem
 
-The publish workflow accepts broad version tags, force-stamps manifests, does not prove the commit is on `main`, differs from CI's Node runtime, depends on an uncached SDK download, and cannot cleanly resume a partial publish.
+The publish script now checks every public package, safely resumes partial
+publishes, and can create a missing tag after an interrupted post-publish step.
+Remaining gaps are branch/tag reachability validation, authoritative committed
+versions, CI/publish runtime alignment, and external toolchain caching.
 
 ## Direction
 

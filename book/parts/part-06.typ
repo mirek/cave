@@ -1,5 +1,18 @@
 #import "../style.typ": note
 
+= Formal Reasoning and Scenario Inputs
+CAVE-Q retrieves beliefs and rules derive claims, but neither searches a space of possible assignments. The optional formal-reasoning layer handles feasibility, optimization, and proved infeasibility without turning a hypothetical model into durable knowledge.
+
+`@cavelang/scenario` binds explicit CAVE-Q inputs against a frozen transaction-time and valid-time snapshot. It applies hypothetical CAVE claims inside a savepoint, converts authored numeric values and units exactly, records the supporting belief row identities, and rolls the overlay back before any evaluator runs. Missing, contested, retracted, and multiple values require declared policies; no integration silently chooses the first match.
+
+`@cavelang/solver` is a dependency-free, solver-neutral TypeScript model for Boolean, bounded integer, exact real, and finite-enum variables. It distinguishes hard constraints, explicitly weighted soft constraints, and lexicographically ordered objectives. Results are disjoint: satisfied and optimal carry assignments, unsatisfied requires a proof of infeasibility, and timeout or backend failure remains unknown. CAVE confidence never becomes an optimization weight implicitly.
+
+`@cavelang/solver-z3` is the optional Node.js adapter to the official threaded Z3 WebAssembly package. It loads lazily, queues checks through one process runtime, tracks named hard constraints for unsatisfiable cores, preserves exact rational arithmetic, applies bounded execution, and requires explicit worker shutdown. The normal CLI, MCP server, browser playground, and knowledge kernel do not depend on it.
+
+Solver explanations map assignments, evaluated constraints, objective contributions, and non-minimal unsatisfiable cores back to stable model locations, scenario inputs, and exact CAVE evidence rows. The model digest, solver version, resource limits, and frozen snapshot travel with the report. Rendering an explanation is read-only; recording a recommendation or executing a decision remains a separate governed operation.
+
+#note([Boundary], [A solver proves statements only inside the selected model and snapshot. Optimal means optimal under those declared inputs and objectives, not objectively best in the world.])
+
 = End-to-End Example: Architecture Decision
 CAVE can model a decision such as monolith versus microservices by separating inputs, evidence, derived effects, and the decision itself. The system does not need a special decision object; ordinary claims plus rules and an action are enough.
 
@@ -19,7 +32,7 @@ platform-team NEEDS team-size: 8 people
 
 A report can query the current inputs, show the rules and evidence that support each option, and cite the exact claims. An action such as action/select-architecture can require that evaluation inputs exist and append the chosen architecture plus rationale lineage.
 
-As circumstances change, new input claims append. Derivation recalculates recommendations, but the prior decision remains historically visible. Resolution can prefer an explicit human selection over a generated recommendation. Valid-time contexts can describe planned future team size without overwriting current staffing.
+As circumstances change, new input claims append. Derivation recalculates recommendations, but the prior decision remains historically visible. Resolution can prefer an explicit human selection over a generated recommendation. Valid-time contexts can describe planned future team size without overwriting current staffing. If choices interact through hard capacity or isolation constraints, the same inputs can bind through `@cavelang/scenario` into an exact portable solver model; simple weighted guidance should remain ordinary deterministic evaluation.
 
 #note([Limiting factor], [CAVE can make the reasoning explicit and reproducible, but it cannot create reliable domain weights from nothing. The quality of a decision model is bounded by the declared factors, evidence, and rules. The next concrete step is to encode one narrow decision with measurable inputs and test it against known cases.])
 

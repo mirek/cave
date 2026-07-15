@@ -12,7 +12,6 @@ import { formatSolution } from './queries.ts'
 import type { Outcome } from './queries.ts'
 
 const usage = `cave eval — golden-fixture extraction, query and reconstruction evals
-(ROADMAP items 9 and 10)
 
 Usage:
   cave eval <suite-dir|golden-file...> --agent '<command>' [options]

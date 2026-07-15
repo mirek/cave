@@ -273,14 +273,16 @@ Higher-level packages compose lower-level functions; the lower layers do not
 call the CLI, MCP, HTTP, or agent surfaces. Some workflows intentionally reuse
 one another—for example, actions use connector template substitution and
 ingestion can expose MCP to an agent. The codebase favors small functions and
-immutable values, with no class-based domain model.
+immutable domain values rather than class-based domain entities; conventional
+`Error` subclasses carry typed failure details at API boundaries.
 
 ## Runtime variants
 
-The primary runtime is Node.js 22.18 or newer. TypeScript source is executed
-directly with type stripping, `node:sqlite` supplies persistence, and
-`node:test` supplies the test runner. `tsc -b` is a strict typecheck rather
-than a required production build.
+The primary runtime is Node.js 22.18 or newer. During development, TypeScript
+source can execute directly through Node's type stripping; `node:sqlite`
+supplies persistence and `node:test` supplies the test runner. Release and CI
+builds run composite `tsc -b`, which both typechecks and emits package `dist/`
+trees consumed by packed npm artifacts.
 
 The website playground reuses `core`, `parser`, `canonical`, `store`, and
 `query`. Vite aliases `node:sqlite` to a small compatibility adapter backed by

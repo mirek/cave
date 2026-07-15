@@ -4,7 +4,7 @@ Store merge (spec §28): two append-only CAVE stores become one, by row
 identity. The data model pre-solved the hard part — coexisting
 contradictions are legal (§9.4), resolved at read time (§26) — so
 merging can never conflict; this package settles what was left open
-(ROADMAP open decision 1): transaction semantics across stores.
+(spec §28): transaction semantics across stores.
 
 ```ts
 import { open } from '@cavelang/store'

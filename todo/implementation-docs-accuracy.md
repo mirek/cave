@@ -1,7 +1,7 @@
 ---
 name: implementation-docs-accuracy
 description: Correct build, dependency, and comparison documentation.
-status: open
+status: completed
 priority: medium
 area: documentation
 source: implementation-audit
@@ -22,3 +22,12 @@ Document run-from-source development separately from emitting build/publish beha
 - The implementation guide matches manifests and scripts.
 - Comparison examples round-trip.
 - Repeated claims in package READMEs are updated or generated.
+
+## Outcome
+
+`IMPLEMENTATION.md` now separates source execution from the emitting
+composite build used by CI and npm packaging, lists runtime dependencies by
+feature boundary, and no longer overstates a no-build/no-dependency model.
+Canonical documentation now scopes symbolic comparisons to attached
+qualifier conditions and points isolated-row emission at the remaining
+canonicalization backlog.
