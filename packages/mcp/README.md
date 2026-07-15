@@ -68,15 +68,21 @@ remain durable.
 
 ## Serving scope
 
-The full surface is read-write. `--read-only` serves only tools that
-never write (drops `cave_add`, `cave_derive`, and every generated action tool;
-`cave_fuse` computes without writing and survives); `--tools <list>` serves only the named
-tools (comma-separated). Each flag can only narrow, so the two compose
-as an intersection — `--read-only` still drops writing tools that
-`--tools` lists:
+The full surface includes four explicit permission classes: `read` retrieves
+stored data, `evaluate` performs ephemeral computation, `record` appends
+durable data, and `action` may execute governed effects. `--permissions
+<list>` serves only the named classes.
+
+`--read-only` is the compatibility shorthand that keeps `read` and `evaluate`
+but drops `record` and `action`; `cave_fuse` therefore survives while
+`cave_add`, `cave_derive`, and generated actions disappear. `--tools <list>`
+serves only named tools. Every scope composes by intersection:
 
 ```
 cave mcp --db k.db --read-only
+cave mcp --db k.db --permissions read,evaluate
+cave mcp --db k.db --permissions record --tools cave_add
+cave mcp --db k.db --permissions action --tools act_mark-deployed
 cave mcp --db k.db --tools cave_query,cave_about,cave_search
 ```
 
@@ -84,8 +90,8 @@ Tools outside the scope are absent from `tools/list` and
 indistinguishable from nonexistent in `tools/call`; the server
 `instructions` mention only served tools, and a surface with no writing
 tool declares itself read-only. A scope that names an unknown tool, or
-serves nothing, fails at startup — before the database is opened. Read
-tools carry the MCP `readOnlyHint` annotation, so clients can treat
+serves nothing, fails at startup — before the database is opened. Read and
+evaluation tools carry the MCP `readOnlyHint` annotation, so clients can treat
 them accordingly (e.g. auto-approve).
 
 ## Actor provenance

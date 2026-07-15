@@ -77,3 +77,34 @@ const report = await Solve.runWithExplanation(
   explanationContext(definition, inputs)
 )
 ```
+
+## Explicit result governance
+
+Evaluation remains ephemeral. The `Record` API is the only transition from a
+plain solver report into durable CAVE history:
+
+```ts
+import { Record } from '@cavelang/scenario'
+
+Record.result(store, {
+  schema: Record.resultSchema,
+  id: 'architecture-2026-07-15',
+  report
+})
+```
+
+Each stable ID owns one append-only artifact series. Re-recording identical
+content returns `existing`; reusing the ID for different content throws
+`RecordConflictError`. The write is one atomic claim, with canonical JSON
+encoded as a code value so export, backup, and sync preserve the complete
+model digest, backend/version, snapshot, inputs, evidence, limits, and outcome.
+
+`Record.recommendation`, `Record.decision`, `Record.action`, and
+`Record.externalEffect` use different versioned schemas and entity namespaces.
+Each checks its predecessor before appending. These latter two are audit
+records only: they never invoke `@cavelang/act` or a hook. Governed action
+execution remains the sole authority for an external effect.
+
+`Record.replay` reads the immutable report without solving again and returns
+explicit incompatibility reasons for a different model digest, backend, or
+solver version.

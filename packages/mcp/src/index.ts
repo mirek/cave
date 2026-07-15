@@ -21,5 +21,8 @@
 export { agentSource, createServer, serve, instructions, instructionsFor, protocolVersion, serverInfo, specCard } from './server.ts'
 export type { ServerOptions } from './server.ts'
 export { runMcp } from './main.ts'
-export { actionTools, actToolName, actToolPrefix, scopedActionTools, scopedTools, tools } from './tools.ts'
-export type { Scope, Tool, ToolContext } from './tools.ts'
+export {
+  actionTools, actToolName, actToolPrefix, allowsActions, permissions,
+  scopedActionTools, scopedTools, tools
+} from './tools.ts'
+export type { Permission, Scope, Tool, ToolContext } from './tools.ts'

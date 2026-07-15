@@ -40,11 +40,13 @@ Completed foundations are tracked in their child items:
   optimization, counterexample, and sensitivity workflows; and
 - `@cavelang/solver-z3` proves optional Node.js feasibility, optimization,
   tracked cores, timeout handling, explicit worker lifecycle, and an
-  allowlisted architecture-workflow CLI fixture.
+  allowlisted architecture-workflow CLI fixture; and
+- `@cavelang/scenario` explicitly records immutable solver artifacts while
+  keeping recommendations, decisions, action audits, and effect audits
+  separate, with compatibility-aware replay and scoped MCP authority.
 
-Remaining work starts at result governance and additional backend/runtime
-tradeoffs: explicit result recording, MiniZinc and direct HiGHS evaluation,
-and hardened/browser delivery.
+Remaining work starts with additional backend/runtime tradeoffs: MiniZinc and
+direct HiGHS evaluation, then hardened/browser delivery.
 
 ## Decision
 
@@ -92,7 +94,7 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Govern result recording](formal-verification/result-governance.md) — keep
+1. [Govern result recording](formal-verification/result-governance.md) *(completed)* — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
 2. [Evaluate a MiniZinc backend](formal-verification/minizinc-backend.md) — add

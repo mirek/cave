@@ -18,8 +18,8 @@
  * Results are text — canonical CAVE lines wherever claims are returned,
  * because that is the notation the client model is instructed with.
  *
- * Every tool declares whether it writes to the store; `scopedTools`
- * narrows the served surface to a `Scope` (`--read-only`, `--tools`) —
+ * Every tool declares its permission class; `scopedTools` narrows the
+ * served surface to a `Scope` (`--read-only`, `--permissions`, `--tools`) —
  * the minimum viable agent permission boundary.
  */
 
@@ -44,15 +44,14 @@ export type ToolContext = {
   readonly hooks?: Readonly<Record<string, string>>
 }
 
+export const permissions = ['read', 'evaluate', 'record', 'action'] as const
+export type Permission = typeof permissions[number]
+
 export type Tool = {
   readonly name: string
   readonly description: string
-  /**
-   * `true` when the tool appends to the store — read-only scopes drop it.
-   * Every tool declares this explicitly: the serving boundary must never
-   * depend on a forgotten default.
-   */
-  readonly writes: boolean
+  /** Evaluation is ephemeral, recording is durable, and action may cause effects. */
+  readonly permission: Permission
   readonly inputSchema: object
   readonly run: (store: Store, args: Record<string, unknown>, context: ToolContext) => string
 }
@@ -65,6 +64,8 @@ export type Tool = {
 export type Scope = {
   /** Serve only tools that never write to the store (drops `cave_add`). */
   readonly readOnly?: boolean
+  /** Serve only these operation classes; `readOnly` removes record/action. */
+  readonly permissions?: readonly Permission[]
   /**
    * Serve only these tools, by name. `readOnly` narrows further: a
    * writing tool listed here is still not served.
@@ -186,7 +187,7 @@ export const tools: readonly Tool[] = [
       'invalid lines are reported and skipped; set strict to reject the whole batch instead. ' +
       'Claims without a @src: context are stamped with the connected agent\'s source ' +
       'context (spec §9.5).',
-    writes: true,
+    permission: 'record',
     inputSchema: {
       type: 'object',
       required: ['text'],
@@ -213,7 +214,7 @@ export const tools: readonly Tool[] = [
       'all systems using jwt; "?x HAS bug: ?bug #security"; "?cause CAUSE app/crash\\nWHERE conf >= 0.7"; ' +
       '"terrier EXTENDS+ animal" (transitive); "?x PART-OF monorepo" (inverse verbs work). ' +
       'Runs over supported current beliefs by default.',
-    writes: false,
+    permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['pattern'],
@@ -260,7 +261,7 @@ export const tools: readonly Tool[] = [
       '20B USD/yr +/- 0.5B USD/yr"), or as literal CAVE text lines. Only positive claims with a ' +
       'numeric value and +/- uncertainty carry an estimate (σ = Δ/k, spec §7.2); confidence ' +
       'weights precision. Returns the posterior mean and sigma plus a value ready to write back.',
-    writes: false,
+    permission: 'evaluate',
     inputSchema: {
       type: 'object',
       properties: {
@@ -319,7 +320,7 @@ export const tools: readonly Tool[] = [
     name: 'cave_search',
     description: 'Full-text search over subjects, objects, values, comments and raw lines. ' +
       'The query is a literal phrase by default; set raw for FTS5 MATCH syntax (AND/OR/NEAR).',
-    writes: false,
+    permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['query'],
@@ -337,7 +338,7 @@ export const tools: readonly Tool[] = [
     name: 'cave_about',
     description: 'Everything currently believed about an entity — claims where it appears as ' +
       'subject or object, emitted as canonical CAVE lines.',
-    writes: false,
+    permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['entity'],
@@ -355,7 +356,7 @@ export const tools: readonly Tool[] = [
     name: 'cave_neighbors',
     description: 'Graph edges of an entity: forward relations (subject side) and inverse-named ' +
       'reverse relations (object side, spec §13.3). Use to walk the knowledge graph.',
-    writes: false,
+    permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['entity'],
@@ -384,7 +385,7 @@ export const tools: readonly Tool[] = [
     description: 'Active memory reconstruction (spec §18): starting from seed entities, walk the ' +
       'graph best-first across forward and inverse edges, collecting related claims. Use when a ' +
       'plain query is too narrow — e.g. reconstruct everything relevant to a symptom.',
-    writes: false,
+    permission: 'evaluate',
     inputSchema: {
       type: 'object',
       required: ['seeds'],
@@ -419,7 +420,7 @@ export const tools: readonly Tool[] = [
       'Declare rules first as ordinary claims via cave_add, e.g. ' +
       'rule/needs HAS rule: `?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z`. ' +
       'Set dryRun to preview without appending.',
-    writes: true,
+    permission: 'record',
     inputSchema: {
       type: 'object',
       properties: {
@@ -471,7 +472,7 @@ export const tools: readonly Tool[] = [
     name: 'cave_export',
     description: 'Export the knowledge database as canonical CAVE text — the interchange/backup ' +
       'format. Set current to export only current beliefs (drops superseded history).',
-    writes: false,
+    permission: 'read',
     inputSchema: {
       type: 'object',
       properties: { current: { type: 'boolean' } }
@@ -483,7 +484,7 @@ export const tools: readonly Tool[] = [
     name: 'cave_lint',
     description: 'Parse CAVE text and report diagnostics without storing anything. Use to ' +
       'validate extraction output before cave_add.',
-    writes: false,
+    permission: 'evaluate',
     inputSchema: {
       type: 'object',
       required: ['text'],
@@ -542,7 +543,7 @@ const actionTool = (action: ListedAction): Tool => ({
     'effects append atomically with provenance and lineage; a failed precondition ' +
     `appends nothing. Body: \`${action.text}\`` +
     (action.hook === undefined ? '' : ` — names the out-of-band hook "${action.hook}"`) + '.',
-  writes: true,
+  permission: 'action',
   inputSchema: {
     type: 'object',
     required: [...action.params.map(param => param.name)],
@@ -585,33 +586,52 @@ export const actionTools = (store: Store): Tool[] => {
 }
 
 /**
- * @returns the action tools served under a scope (spec §25.5): none when
- * `readOnly` (they all write), and only the listed names under `tools` —
+ * @returns the action tools served under a scope (spec §25.5): only with
+ * `action` permission, and only the listed names under `tools` —
  * an `act_`-prefixed scope entry is validated here, at call time, because
  * it scopes whichever actions exist when asked.
  */
+const allowedPermissions = (scope: Scope): ReadonlySet<Permission> => {
+  const requested = new Set(scope.permissions ?? permissions)
+  if (scope.readOnly === true) {
+    requested.delete('record')
+    requested.delete('action')
+  }
+  return requested
+}
+
+export const allowsActions = (scope: Scope = {}): boolean =>
+  allowedPermissions(scope).has('action') &&
+  (scope.tools === undefined || scope.tools.some(name => name.startsWith(actToolPrefix)))
+
 export const scopedActionTools = (store: Store, scope: Scope = {}): Tool[] =>
-  scope.readOnly === true ?
-    [] :
-    actionTools(store).filter(tool => scope.tools === undefined || scope.tools.includes(tool.name))
+  allowsActions(scope) ?
+    actionTools(store).filter(tool => scope.tools === undefined || scope.tools.includes(tool.name)) :
+    []
 
 /**
  * @returns the static tool surface actually served under a scope: `tools`
- * (when given) narrowed to writers-excluded under `readOnly`. Throws on
+ * (when given) narrowed by permission and by `readOnly`. Throws on
  * names that exist nowhere and on a scope that serves nothing — a
  * misconfigured permission boundary must fail loudly, not serve quietly.
  * `act_`-prefixed names pass through: they scope generated action tools
  * (spec §25.5), resolved against the store at call time.
  */
 export const scopedTools = (scope: Scope = {}): readonly Tool[] => {
+  const unknownPermissions = (scope.permissions ?? []).filter(permission =>
+    !(permissions as readonly string[]).includes(permission))
+  if (unknownPermissions.length > 0) {
+    throw new Error(`unknown permission(s): ${unknownPermissions.join(', ')} — available: ${permissions.join(', ')}`)
+  }
   const unknown = (scope.tools ?? []).filter(name => !byName.has(name) && !name.startsWith(actToolPrefix))
   if (unknown.length > 0) {
     throw new Error(`unknown tool(s): ${unknown.join(', ')} — available: ${tools.map(tool => tool.name).join(', ')}, act_<action>`)
   }
+  const allowed = allowedPermissions(scope)
   const served = tools.filter(tool =>
     (scope.tools === undefined || scope.tools.includes(tool.name)) &&
-    (scope.readOnly !== true || !tool.writes))
-  if (served.length === 0 && !(scope.tools ?? []).some(name => name.startsWith(actToolPrefix))) {
+    allowed.has(tool.permission))
+  if (served.length === 0 && !allowsActions(scope)) {
     throw new Error('the requested scope serves no tools')
   }
   return served
