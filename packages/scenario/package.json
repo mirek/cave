@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/scenario",
-  "version": "0.27.14",
+  "version": "0.28.0",
   "type": "module",
   "description": "Typed, replayable CAVE snapshot and ephemeral-overlay bindings for decision and solver inputs.",
   "license": "CC0-1.0",

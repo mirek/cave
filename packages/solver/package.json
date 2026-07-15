@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/solver",
-  "version": "0.27.14",
+  "version": "0.28.0",
   "type": "module",
   "description": "Solver-neutral models, validation, capability negotiation, and result contracts for CAVE formal reasoning.",
   "license": "CC0-1.0",
