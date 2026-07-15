@@ -21,6 +21,23 @@ export const digestAttribute = 'ingest-digest'
 /** Context marking provenance claims. */
 export const provenanceContext = 'src:cave-ingest'
 
+/**
+ * File paths normally remain entity atoms for compatibility with existing
+ * provenance. Paths that would be split or interpreted as metadata use a
+ * code literal so their exact spelling round-trips through CAVE text.
+ */
+const provenanceSubject = (path: string): Claim.Term => {
+  const isEntityAtom = path !== '' &&
+    !/[\s"`;]/u.test(path) &&
+    !/^(?:[@#]|\+\/-|!$|\(\d+(?:\.\d+)?σ\)$)/u.test(path)
+  if (isEntityAtom) {
+    return Claim.entity(path)
+  }
+  // Prefer a code literal for path-like data; use text when the path itself
+  // contains a backtick and can therefore only round-trip in double quotes.
+  return path.includes('`') && !path.includes('"') ? Claim.text(path) : Claim.code(path)
+}
+
 /** @returns matching regular-file paths — globs expanded, directories dropped, deduplicated, sorted. */
 export const expand = (patterns: readonly string[], cwd: string = process.cwd()): string[] => {
   const matched = patterns.flatMap(pattern => globSync(pattern, { cwd }))
@@ -36,7 +53,7 @@ export const digestOf = (content: string): string =>
 /** Claim key of a file's provenance claim (value excluded by design, §9.2). */
 const provenanceKey = (path: string): string =>
   Key.of(Claim.of({
-    subject: Claim.entity(path),
+    subject: provenanceSubject(path),
     verb: 'HAS',
     payload: Claim.attribute(digestAttribute, Value.parse('x')),
     contexts: [provenanceContext]
@@ -90,10 +107,20 @@ export const recordDigests = (store: Store, files: readonly Selected[]): void =>
   if (files.length === 0) {
     return
   }
-  const text = files
-    .map(file => `${file.path} HAS ${digestAttribute}: ${file.digest} @${provenanceContext}`)
-    .join('\n')
-  store.ingest(text)
+  store.insertResult({
+    claims: files.map((file, index) => ({
+      line: index + 1,
+      claim: Claim.of({
+        subject: provenanceSubject(file.path),
+        verb: 'HAS',
+        payload: Claim.attribute(digestAttribute, Value.parse(file.digest)),
+        contexts: [provenanceContext]
+      })
+    })),
+    edges: [],
+    registry: store.registry(),
+    problems: []
+  })
 }
 
 /** @returns `files` split into batches of at most `size`. */

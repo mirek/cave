@@ -62,6 +62,15 @@ test('provenance claims are ordinary CAVE claims with @src:cave-ingest', () => {
   store.close()
 })
 
+test('digest provenance supports paths that are not valid entity atoms (BUGS.md digest-path-lexing)', () => {
+  const store = open()
+  const file = { path: 'design notes.md', digest: 'abc123def456' }
+  Files.recordDigests(store, [file])
+  assert.equal(Files.isIngested(store, file.path, file.digest), true)
+  assert.equal(store.currentBeliefs()[0]!.subject, '`design notes.md`')
+  store.close()
+})
+
 test('path tokens skip noise segments', () => {
   assert.deepEqual(
     Context.pathTokens('packages/auth/src/token-expiry.test.ts'),
