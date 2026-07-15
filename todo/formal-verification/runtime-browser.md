@@ -45,8 +45,17 @@ test those requirements reliably.
 Evaluate browser delivery independently:
 
 - lazy Z3 behind a supported deployment configuration;
-- the smaller HiGHS adapter for linear-only models; or
+- MiniZinc's ordinary worker-based Wasm delivery for bounded finite-domain and
+  optimization models;
+- the smaller direct HiGHS adapter for linear-only models; or
 - no in-browser solver, preserving the local Node-first capability.
+
+MiniZinc is not automatically the portable choice merely because its browser
+build uses Web Workers. Its supported Node entrypoint launches a separately
+installed native `minizinc` executable, while its browser distribution ships a
+large Wasm module, data file, and worker. Test these as two distinct runtime
+profiles, keep every asset lazy, and report the exact MiniZinc and selected
+solver versions in results.
 
 Do not introduce a remote solver service merely to make the demo work; that
 would weaken CAVE's local-first boundary and add an operational trust surface.

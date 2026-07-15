@@ -32,8 +32,11 @@ Add an optional solver backend behind a small, solver-neutral TypeScript model.
 Use Z3 as the first formal backend because its official `z3-solver` package
 provides TypeScript bindings and WebAssembly for Boolean logic, exact integer
 and real arithmetic, optimization, soft constraints, models, and unsatisfiable
-cores. Keep HiGHS as a later backend for workloads that are naturally linear
-or mixed-integer optimization.
+cores. Evaluate MiniZinc as the preferred second backend for bounded
+finite-domain, scheduling, allocation, and other combinatorial models, and as
+a potentially simpler browser path. Keep a direct HiGHS adapter as a later
+option only when representative linear or mixed-integer workloads justify a
+narrower integration than MiniZinc's HiGHS route.
 
 This is an extension of the [decision and scenario
 layer](decision-scenario-layer.md), not a replacement for CAVE-Q or rules:
@@ -45,8 +48,8 @@ layer](decision-scenario-layer.md), not a replacement for CAVE-Q or rules:
 | Solver | Search assignments, prove infeasibility, optimize, and find counterexamples. |
 
 The solver is optional, lazily loaded, and outside the knowledge kernel. The
-core store, parser, query, and rule packages must not depend on Z3, HiGHS, or a
-particular solver expression type.
+core store, parser, query, and rule packages must not depend on Z3, MiniZinc,
+HiGHS, or a particular solver expression type.
 
 ## Preconditions
 
@@ -75,9 +78,13 @@ Implement the work in independently reviewable stages:
 2. [Govern result recording](formal-verification/result-governance.md) — keep
    ephemeral recommendations separate from facts, decisions, and executed
    actions.
-3. [Evaluate a HiGHS backend](formal-verification/highs-backend.md) — add it only
-   when representative linear/MIP workloads justify a second adapter.
-4. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+3. [Evaluate a MiniZinc backend](formal-verification/minizinc-backend.md) — add
+   finite-domain and global-constraint solving, and test its worker-based
+   browser delivery, without exposing raw MiniZinc programs.
+4. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
+   it only when representative linear/MIP workloads outperform or package more
+   cleanly than both Z3 and MiniZinc's HiGHS route.
+5. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 
@@ -142,5 +149,5 @@ value.
   explicit inputs, and provenance.
 - Time, memory, expression-count, and output-size limits are enforced.
 - Z3 and its worker assets are lazy optional dependencies.
-- A benchmark decides whether HiGHS and browser support provide enough value
-  to ship.
+- Benchmarks decide whether MiniZinc, direct HiGHS, and browser support provide
+  enough distinct value to ship.
