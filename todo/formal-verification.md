@@ -13,10 +13,12 @@ source: solver-feasibility-analysis
 
 CAVE-Q finds stored knowledge and the rules engine derives additional claims,
 but neither searches a space of possible assignments. The shipped
-solver-neutral TypeScript model and optional Z3 adapter now provide the
-low-level feasibility, optimization, exact-model, and unsatisfiable-core
-machinery. CAVE still lacks named end-user workflows that answer questions
-such as:
+solver-neutral TypeScript model, optional Z3 adapter, and named workflows now
+provide feasibility, optimization, counterexample, sensitivity, exact-model,
+and unsatisfiable-core machinery. Remaining work is to decide whether narrower
+numeric backends add enough value and to harden optional runtime delivery.
+
+The available workflows answer questions such as:
 
 - Is there any configuration that satisfies every hard requirement?
 - Which feasible configuration minimizes cost or operational complexity?
@@ -24,14 +26,13 @@ such as:
 - What counterexample disproves a proposed policy invariant?
 - At what input boundary does one recommendation overtake another?
 
-Application code can answer these questions ad hoc, but then typing,
-provenance, resource limits, and result semantics vary by integration. Putting
-solver state directly into the claim store would create the opposite problem:
-hypothetical assignments could be mistaken for durable beliefs.
+Application code should use those workflows rather than recreate typing,
+provenance, resource limits, and result semantics ad hoc. Solver state remains
+ephemeral unless it crosses the explicit immutable recording boundary.
 
 ## Current state
 
-Completed foundations are tracked in their child items:
+Available foundations are:
 
 - `@cavelang/scenario` binds typed, replayable belief snapshots and rolls back
   hypothetical overlays;
@@ -45,8 +46,10 @@ Completed foundations are tracked in their child items:
   keeping recommendations, decisions, action audits, and effect audits
   separate, with compatibility-aware replay and scoped MCP authority.
 
-Remaining work starts with additional backend/runtime tradeoffs: MiniZinc and
-direct HiGHS evaluation, then hardened/browser delivery.
+The [MiniZinc evaluation](../packages/solver/MINIZINC-EVALUATION.md) deferred an
+adapter until a concrete workflow justifies a solver-neutral indexed/global-
+constraint schema. Remaining work is direct HiGHS evaluation for the existing
+linear subset, followed by hardened/browser delivery.
 
 ## Decision
 
@@ -54,11 +57,10 @@ Add an optional solver backend behind a small, solver-neutral TypeScript model.
 Use Z3 as the first formal backend because its official `z3-solver` package
 provides TypeScript bindings and WebAssembly for Boolean logic, exact integer
 and real arithmetic, optimization, soft constraints, models, and unsatisfiable
-cores. Evaluate MiniZinc as the preferred second backend for bounded
-finite-domain, scheduling, allocation, and other combinatorial models, and as
-a potentially simpler browser path. Keep a direct HiGHS adapter as a later
-option only when representative linear or mixed-integer workloads justify a
-narrower integration than MiniZinc's HiGHS route.
+cores. MiniZinc remains a deferred candidate for bounded finite-domain,
+scheduling, allocation, and other combinatorial models after the portable
+schema has a real use case. Evaluate direct HiGHS independently for the
+already-recognized linear and mixed-integer subset.
 
 This is an extension of the [decision and scenario
 layer](decision-scenario-layer.md), not a replacement for CAVE-Q or rules:
@@ -94,16 +96,10 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Govern result recording](formal-verification/result-governance.md) *(completed)* — keep
-   ephemeral recommendations separate from facts, decisions, and executed
-   actions.
-2. [Evaluate a MiniZinc backend](formal-verification/minizinc-backend.md) — add
-   finite-domain and global-constraint solving, and test its worker-based
-   browser delivery, without exposing raw MiniZinc programs.
-3. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
+1. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
    it only when representative linear/MIP workloads outperform or package more
-   cleanly than both Z3 and MiniZinc's HiGHS route.
-4. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+   cleanly than Z3; compare MiniZinc's HiGHS route only if MiniZinc is revisited.
+2. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 
@@ -137,36 +133,10 @@ Implement the work in independently reviewable stages:
   base store.
 - Shipping Z3 in the default CLI, MCP, or website bundle when no model uses it.
 
-## Representative acceptance scenario
-
-The first end-to-end fixture should compare monolith and microservices using
-typed inputs such as team size, expected load, deployment frequency, regulatory
-isolation, and acceptable operational complexity. It must demonstrate:
-
-1. a feasible recommendation with named objective contributions;
-2. an infeasible scenario with an unsatisfiable core mapped to its source
-   claims;
-3. a counterfactual boundary where the preferred option changes;
-4. no durable store mutation without an explicit record operation; and
-5. deterministic replay against the same model digest and belief snapshot.
-
-The fixture should also prove that a simple weighted-score decision can remain
-on the ordinary decision evaluator: a solver is justified only where choices
-interact, constraints exclude combinations, or formal counterexamples add
-value.
-
 ## Done when
 
-- One solver-neutral model compiles through the Z3 adapter without exposing Z3
-  types above the adapter boundary.
-- Feasible, optimal, unsatisfied, and unknown results are distinct and tested.
-- Every generated constraint has a stable ID and optional evidence row IDs.
-- Scenario inputs and solver results are typed, versioned, replayable, and
-  non-mutating by default.
-- Unsatisfiable cores and counterexamples render as CAVE-aware explanations.
-- Recorded outputs include the model digest, solver/version, snapshot,
-  explicit inputs, and provenance.
 - Time, memory, expression-count, and output-size limits are enforced.
-- Z3 and its worker assets are lazy optional dependencies.
-- Benchmarks decide whether MiniZinc, direct HiGHS, and browser support provide
-  enough distinct value to ship.
+- Benchmarks decide whether direct HiGHS provides enough distinct value to
+  maintain alongside Z3.
+- Browser support ships only after explicit deployment, isolation, asset,
+  cancellation, and packed-package gates pass.

@@ -79,8 +79,3 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 - [Close integration test gaps](todo/integration-test-gaps.md) — Pin lifecycle, watcher, URL, and daemon behavior end to end.
 - [Close edge-case test gaps](todo/edge-case-test-gaps.md) — Cover parser, MCP, escaping, FTS, time, alias, and unit boundaries.
-
-## Project references
-
-- [Project boundaries](todo/project-boundaries.md) — Preserve the permanent non-goals that keep CAVE local and small.
-- [Retired roadmap](todo/retired-roadmap.md) — Resolve historical roadmap item and open-decision references.

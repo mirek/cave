@@ -1,15 +1,7 @@
----
-name: retired-roadmap
-description: Resolve historical roadmap item and open-decision references.
-status: reference
-priority: none
-area: project
-source: ROADMAP.md
----
-
 # Retired roadmap
 
-The original roadmap is complete. References of the form “ROADMAP item N” and “open decision N” resolve here.
+The original roadmap is complete. References of the form “ROADMAP item N” and
+“open decision N” resolve here.
 
 | item | shipped | capability |
 |---|---|---|
@@ -33,4 +25,10 @@ The original roadmap is complete. References of the form “ROADMAP item N” an
 | 18 | 0.23.0 | reports with citations `cave report` (§31) |
 | 19 | 0.24.0 | temporal values + `cave query --at` (§32) |
 
-Open decision 1 (sync transaction semantics) was decided in 0.19.0 as spec §28: keep origin transaction order, use row id as global identity, and apply the Lamport receive rule. Open decision 2 (alias closure versus claim-key identity) was decided in 0.6.0 as spec §13.6: use the union of rows and surface disagreement. Open decisions 3 and 4 remain active as [redaction and forgetting](redaction-forgetting.md) and [verb lifecycle](verb-lifecycle.md).
+Open decision 1 (sync transaction semantics) was decided in 0.19.0 as spec
+§28: keep origin transaction order, use row id as global identity, and apply
+the Lamport receive rule. Open decision 2 (alias closure versus claim-key
+identity) was decided in 0.6.0 as spec §13.6: use the union of rows and surface
+disagreement. Open decisions 3 and 4 remain active as
+[redaction and forgetting](todo/redaction-forgetting.md) and
+[verb lifecycle](todo/verb-lifecycle.md).

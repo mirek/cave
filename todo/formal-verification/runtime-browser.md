@@ -42,11 +42,13 @@ isolation headers, and separately loadable worker assets. Do not make the
 existing GitHub Pages playground depend on it until deployment can provide and
 test those requirements reliably.
 
-Evaluate browser delivery independently:
+Evaluate browser delivery independently, using the
+[MiniZinc evaluation](../../packages/solver/MINIZINC-EVALUATION.md) as the
+current deferred baseline:
 
 - lazy Z3 behind a supported deployment configuration;
-- MiniZinc's ordinary worker-based Wasm delivery for bounded finite-domain and
-  optimization models;
+- MiniZinc's ordinary worker-based Wasm delivery only after a portable
+  finite-domain model has a concrete CAVE use case;
 - the smaller direct HiGHS adapter for linear-only models; or
 - no in-browser solver, preserving the local Node-first capability.
 
