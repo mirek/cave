@@ -25,8 +25,11 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    successful batch the orchestrator records `<path-or-url> HAS
    ingest-digest: <sha256/12> @src:cave-ingest` — provenance as ordinary
    CAVE claims, so incremental re-runs come free and live in the same
-   append-only store. A URL's digest is taken over the *extracted* text,
-   so a page re-ingests only when its readable content changes.
+   append-only store. Paths that are not valid entity atoms (for example,
+   names containing spaces) are preserved as code-literal subjects, so they
+   participate in incremental skipping as well. A URL's digest is taken over
+   the *extracted* text, so a page re-ingests only when its readable content
+   changes.
 2. **Batch & prompt** — files are batched (`--batch`, default 8) and each
    batch gets a prompt built from: the CAVE writing card (shared with the
    MCP server), the spec §14 extraction rules, your `--instructions`
