@@ -1,5 +1,5 @@
 /**
- * The optional LLM judge (roadmap item 9) — semantic-equivalence pairing
+ * The optional LLM judge — semantic-equivalence pairing
  * of what claim-key scoring could not match.
  *
  * Exact keys are deliberately strict: `grandma-maria` and `maria` are

@@ -29,7 +29,7 @@ test('term slots resolve through the alias closure only when opted in (spec §13
   store.close()
 })
 
-test('bindings and rows keep stored names untouched (spec §13.6, open decision 2)', () => {
+test('bindings and rows keep stored names untouched (spec §13.6)', () => {
   const store = fixture()
   const matches = query(store, 'pg HAS license: ?l', { aliases: true })
   assert.equal(matches.length, 1)

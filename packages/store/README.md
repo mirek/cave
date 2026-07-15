@@ -86,7 +86,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `search(q, {raw, limit})` | §13.2 | FTS5; literal phrase by default, `limit` caps in the query |
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
-| `exportText({current})` | | emit canonical CAVE text |
+| `exportText({current, tx})` | | emit canonical CAVE text; `tx` includes replayable `;@` row identities |
 | `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
 
 ## Storage decisions

@@ -1,5 +1,5 @@
 /**
- * Suite discovery — eval fixtures as plain files (roadmap item 9).
+ * Suite discovery — eval fixtures as plain files.
  *
  * A suite is any directory; a *case* is named by its golden file:
  *
@@ -18,7 +18,7 @@
  * several candidates is a fixture problem, reported instead of guessed.
  *
  * A `<stem>.loop.cave` sibling makes the case a *reconstruction* case
- * (ROADMAP item 10): the source is the knowledge (CAVE text), the loop
+ * (spec §18): the source is the knowledge (CAVE text), the loop
  * file declares seeds and budgets, and the golden is the expected
  * reconstruction — see `loop.ts`.
  *

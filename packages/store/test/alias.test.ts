@@ -83,7 +83,7 @@ test('forward through the closure widens the subject side (spec §13.6)', () => 
   store.close()
 })
 
-test('claimsAbout through the closure keeps both belief series visible (spec §13.6, open decision 2)', () => {
+test('claimsAbout through the closure keeps both belief series visible (spec §13.6)', () => {
   const store = open()
   store.ingest([
     'postgres ALIAS postgresql',

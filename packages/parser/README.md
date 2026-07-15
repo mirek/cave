@@ -86,9 +86,11 @@ examples and are tried in order:
 - **No escape sequences in literals** — the spec defines none. A quoted
   literal runs to the next matching delimiter; an unterminated one degrades
   to a plain word.
-- **Metadata problems don't kill lines.** `a USES b stray` parses with a
-  diagnostic; only structural failures (missing verb/object) invalidate a
-  line. Confidence must end in `%` and stay ≤ 100 (`@ 2026`, `@ 90`,
+- **Metadata problems don't kill lines.** `a USES b @production stray-token`
+  parses the claim with a diagnostic for text after metadata; multiword
+  relation objects such as `a USES b stray` are valid. Only structural
+  failures (missing verb/object) invalidate a line. Confidence must end in `%`
+  and stay ≤ 100 (`@ 2026`, `@ 90`,
   `@ 250%` are diagnosed rather than silently clamped); repeating a
   non-repeatable metadata item (`@ N%`, `+/-`, `(Nσ)`, `!`) is diagnosed
   with last-wins retention (§3.2 allows repetition only for contexts and

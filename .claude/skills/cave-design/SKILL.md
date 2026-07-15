@@ -90,7 +90,7 @@ For normally distributed estimates with `+/- Δ` at kσ: σ = Δ/k, precision = 
 
 Worked: A gives σ=1.5B, w=0.444×0.60=0.267; B gives σ=0.25B, w=16.0×0.95=15.2. Posterior μ ≈ 19.97B, σ ≈ 0.25B. The filing dominates — more precise and higher confidence.
 
-The engine serves this computation by name: the MCP `cave_fuse` tool (ROADMAP item 12) fuses estimates selected by CAVE-Q pattern, by entity (`about` — the reach into metric `IS` series, whose values CAVE-Q variables never bind), or from literal CAVE lines, so agents delegate the arithmetic instead of doing it in tokens. Fused estimates must agree on one quantity — one claim key modulo `@src:` contexts (§26.1's group identity, widened through the §13.6 alias closure on request) — and one unit; selections that span quantities or mix units fail loudly.
+The engine serves this computation by name: the MCP `cave_fuse` tool fuses estimates selected by CAVE-Q pattern, by entity (`about` — the reach into metric `IS` series, whose values CAVE-Q variables never bind), or from literal CAVE lines, so agents delegate the arithmetic instead of doing it in tokens. Fused estimates must agree on one quantity — one claim key modulo `@src:` contexts (§26.1's group identity, widened through the §13.6 alias closure on request) — and one unit; selections that span quantities or mix units fail loudly.
 
 ### 10.2 Conditional confidence (noisy-AND)
 
@@ -273,12 +273,12 @@ Identifier  <- [a-zA-Z_][a-zA-Z0-9_-]*
 - Injectable `CaveStore` and `Policy` interfaces (plus the `AsyncPolicy` twin, run by the async loop)
 - In-memory store with inverse-aware reverse traversal (built directly on §5.5 / §13.3), and a SQLite adapter over the §13 store — the same contract behind the MCP `cave_reconstruct` tool and the CLI `cave reconstruct` command
 - A deterministic heuristic policy for dependency-free testing — and the eval baseline every learned policy is measured against
-- The LLM-driven policy (ROADMAP item 10): per step, the model reads the query, the collected claims as canonical CAVE text and the scored frontier, and replies with the cue to expand or `STOP` — one completion per step (stop rides on select; budgets stay local), scoring stays the local heuristic arithmetic, and unparseable replies degrade to the strongest cue rather than ending the reconstruction. The model itself stays out-of-band (§19.5): a shell-agent command template (the `--agent` contract shared with `cave ingest`/`cave eval`) adapts any headless agent, and no LLM SDK enters the package
+- The LLM-driven policy (spec §18): per step, the model reads the query, the collected claims as canonical CAVE text and the scored frontier, and replies with the cue to expand or `STOP` — one completion per step (stop rides on select; budgets stay local), scoring stays the local heuristic arithmetic, and unparseable replies degrade to the strongest cue rather than ending the reconstruction. The model itself stays out-of-band (§19.5): a shell-agent command template (the `--agent` contract shared with `cave ingest`/`cave eval`) adapts any headless agent, and no LLM SDK enters the package
 - A runnable demo exercising the multi-hop recovery pattern central to the paper's thesis
 
 The store contract the language guarantees the agent: forward reads via the subject index, named inverse reads via the object index plus `inverse_of()`, current-belief resolution via claim keys, and topic expansion via `CONTAINS` in both directions.
 
-Policies are falsifiable through the evals harness (ROADMAP item 9): a reconstruction fixture (`<stem>.loop.cave` — seeds, optional query, budgets, all ordinary CAVE lines about the entity `loop`) scores what a policy collects against a golden by claim key; `cave eval` without an agent runs the heuristic baseline, with `--agent` the LLM policy — same budgets, same scoring, comparable like for like.
+Policies are falsifiable through the evals harness: a reconstruction fixture (`<stem>.loop.cave` — seeds, optional query, budgets, all ordinary CAVE lines about the entity `loop`) scores what a policy collects against a golden by claim key; `cave eval` without an agent runs the heuristic baseline, with `--agent` the LLM policy — same budgets, same scoring, comparable like for like.
 
 ---
 

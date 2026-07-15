@@ -1,7 +1,7 @@
 ---
 name: package-readme-accuracy
 description: Correct smaller package API inaccuracies.
-status: open
+status: completed
 priority: low
 area: documentation
 source: implementation-audit
@@ -22,3 +22,11 @@ Audit examples against executable behavior and either correct implementation or 
 - Public options and classification rules match code and types.
 - Every corrected example has a focused test or reproducible command.
 - Similar claims across READMEs are searched and aligned.
+
+## Outcome
+
+Store documentation includes transaction-annotated export, core documentation
+matches any-verb numeric/date/trajectory classification and exposes `Time`,
+and parser documentation distinguishes valid multiword relation objects from
+stray tokens after the metadata boundary. The earlier colonless-attribute
+diagnostic gap was already covered by parser behavior and tests.

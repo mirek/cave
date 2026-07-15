@@ -72,15 +72,8 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Documentation
 
-- [Fix the README action example](todo/readme-action-example.md) — Make the documented `cave act` walkthrough executable.
-- [Correct implementation documentation](todo/implementation-docs-accuracy.md) — Describe build output, dependencies, and comparison emission accurately.
-- [Document temporal features](todo/temporal-docs-coverage.md) — Cover `--at`, trajectories, and temporal APIs across package READMEs.
-- [Document command surfaces](todo/command-docs-coverage.md) — Add missing report, action-tool, hook, and read-only behavior.
-- [Correct package README details](todo/package-readme-accuracy.md) — Fix smaller store, parser, and core API inaccuracies.
-- [Replace retired roadmap references](todo/retired-roadmap-references.md) — Prefer specification references in help and package descriptions.
+- [Validate command documentation](todo/command-docs-coverage.md) — Detect CLI and MCP registry drift automatically.
 - [Choose a documentation source of truth](todo/documentation-source-of-truth.md) — Generate or validate repeated command and API descriptions.
-- [Derive website versions](todo/website-version-source.md) — Remove hard-coded stale release numbers from the site.
-- [Fix the website install command](todo/website-install-command.md) — Show a valid published-package installation path.
 
 ## Testing
 

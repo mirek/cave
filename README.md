@@ -222,7 +222,7 @@ parameters — bare `?name` segments the caller supplies — declared in-band
 under a stable name:
 
 ```cave
-action/record-birth HAS action: `?parent, ?child, ?parent EXISTS => ?parent PARENT-OF ?child` ; record a birth in the family tree
+action/record-birth HAS action: `?parent, ?child, ?parent PARENT-OF me => ?parent PARENT-OF ?child` ; record a birth in the family tree
 ```
 
 ```
@@ -321,7 +321,7 @@ rollback FIX checkout/errors @src:cli
 config-push CAUSE redis-cache/failover @src:cli @ 85%
 ```
 
-By default a deterministic heuristic picks each expansion. With `--agent 'claude -p' --query 'what caused the checkout errors?'` an LLM makes the select/stop decision instead — one prompt per step showing the claims collected so far and the scored frontier (ROADMAP item 10). The heuristic is the *baseline*: reconstruction eval fixtures (`<stem>.loop.cave`, see [`examples/loop-eval`](examples/loop-eval)) score both policies with the same claim-key F1, so "does the model beat the heuristic" is two `cave eval` runs. See [`@cavelang/loop`](packages/loop).
+By default a deterministic heuristic picks each expansion. With `--agent 'claude -p' --query 'what caused the checkout errors?'` an LLM makes the select/stop decision instead — one prompt per step showing the claims collected so far and the scored frontier (spec §18). The heuristic is the *baseline*: reconstruction eval fixtures (`<stem>.loop.cave`, see [`examples/loop-eval`](examples/loop-eval)) score both policies with the same claim-key F1, so "does the model beat the heuristic" is two `cave eval` runs. See [`@cavelang/loop`](packages/loop).
 
 ### Two stores become one — `cave sync`
 

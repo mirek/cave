@@ -1,5 +1,5 @@
 /**
- * LLM-driven policy (spec §18, ROADMAP item 10) — the model makes the
+ * LLM-driven policy (spec §18) — the model makes the
  * select/stop decisions; the loop stays unchanged.
  *
  * The deterministic heuristic in `reconstruct.ts` spends no tokens and is

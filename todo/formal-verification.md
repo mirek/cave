@@ -12,8 +12,11 @@ source: solver-feasibility-analysis
 ## Problem
 
 CAVE-Q finds stored knowledge and the rules engine derives additional claims,
-but neither searches a space of possible assignments. CAVE therefore cannot
-yet answer questions such as:
+but neither searches a space of possible assignments. The shipped
+solver-neutral TypeScript model and optional Z3 adapter now provide the
+low-level feasibility, optimization, exact-model, and unsatisfiable-core
+machinery. CAVE still lacks named end-user workflows that answer questions
+such as:
 
 - Is there any configuration that satisfies every hard requirement?
 - Which feasible configuration minimizes cost or operational complexity?
@@ -25,6 +28,21 @@ Application code can answer these questions ad hoc, but then typing,
 provenance, resource limits, and result semantics vary by integration. Putting
 solver state directly into the claim store would create the opposite problem:
 hypothetical assignments could be mistaken for durable beliefs.
+
+## Current state
+
+Completed foundations are tracked in their child items:
+
+- `@cavelang/scenario` binds typed, replayable belief snapshots and rolls back
+  hypothetical overlays;
+- `@cavelang/solver` defines exact portable models, result states, limits,
+  canonical digests, and provenance-aware explanations; and
+- `@cavelang/solver-z3` proves optional Node.js feasibility, optimization,
+  tracked cores, timeout handling, and explicit worker lifecycle.
+
+Remaining work starts at governed workflows and product semantics:
+counterexample/sensitivity operations, result recording, HiGHS evaluation,
+and hardened/browser delivery.
 
 ## Decision
 

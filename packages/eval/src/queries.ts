@@ -1,6 +1,6 @@
 /**
  * Query expectations — behavioral checks over the extracted store
- * (roadmap item 9).
+ * used by extraction and reconstruction evals.
  *
  * A queries file holds CAVE-Q patterns, each followed by indented
  * expectation lines written exactly as `cave query` prints solutions:

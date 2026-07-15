@@ -1,5 +1,5 @@
 /**
- * The eval orchestrator (roadmap item 9).
+ * The extraction, query, and reconstruction eval orchestrator.
  *
  * For every case, N times: open a fresh throwaway store, drive the agent
  * over the case's source through `@cavelang/ingest` (same prompts, same
@@ -9,7 +9,7 @@
  * digest skipping, no cross-case naming leakage — and make N runs measure
  * extraction *variance*, not accumulation.
  *
- * Reconstruction cases (a `<stem>.loop.cave` sibling, ROADMAP item 10)
+ * Reconstruction cases (a `<stem>.loop.cave` sibling, spec §18)
  * run the §18 loop instead: build an in-memory graph from the source
  * knowledge, reconstruct from the declared seeds — the deterministic
  * heuristic without an agent (the baseline), `llmPolicy` over the agent

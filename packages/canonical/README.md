@@ -62,8 +62,11 @@ effect for *subsequent* lines only. Rules:
 - §3.2 anatomy order: payload, `+/- delta`, `(Nσ)`, contexts, tags,
   `@ N%` (omitted at 100%), `!`, `; comment`.
 
-Emission is stable: `emit ∘ canonicalize ∘ emit ≡ emit`, and claim keys
-survive the round trip (tested).
+Emission of a complete canonicalization result is stable:
+`emit ∘ canonicalize ∘ emit ≡ emit`, and claim keys survive the round trip
+(tested). Symbolic comparison rows are valid only as attached qualifier
+conditions; callers emitting an isolated child row must retain that context
+until the canonical comparison-verb work tracked in the backlog is complete.
 
 ## Design decisions
 

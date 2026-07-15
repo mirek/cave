@@ -19,6 +19,7 @@ query(store, 'terrier EXTENDS+ animal') // transitive
 
 query(store, '?x USES postgres', { aliases: true }) // + rows about aliased names (§13.6)
 query(store, 'server IS compromised', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
+query(store, 'mill/wage IS', { at: '1962' }) // valid-time filtering + trajectory interpolation (§32.4)
 query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only — one row per contested fact
 ```
 
@@ -91,6 +92,11 @@ covers one second.
   transaction id (that append included). The alias closure and transitive
   hops reconstruct at the same instant; `{ all: true }` composes as
   full-history-up-to-the-boundary.
+- **`{ at }` anchors valid time** (§32.4): timeless claims always remain
+  visible; date-like contexts and ranges must cover the selected instant; and
+  a trajectory value such as `200 -> 900 PLN/mo @1950..1974` is returned with
+  its exact interpolated value. It composes with `asOf`: transaction time
+  selects what was believed, while valid time selects when that belief applies.
 - **`{ resolve: true }` matches resolved winners only** (§26): coexisting
   series about one fact — §9.5 actor stamps, content sources, opposite
   polarity — collapse to the row the resolution policy picks (precedence
@@ -116,3 +122,5 @@ retraction, value/attribute exemption), §12.3 as-of resolution
 and transitive edges) and §26 winners-only matching (ingest re-runs vs
 human corrections, polarity suppression, reliability steering,
 resolved transitive paths, composition with aliases and as-of).
+Valid-time coverage, bitemporal composition, and trajectory interpolation are
+covered by the temporal query tests.

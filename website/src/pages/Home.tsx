@@ -38,8 +38,9 @@ const capabilities = [
 
 export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
   const [copied, setCopied] = useState(false)
+  const installCommand = 'pnpm dlx @cavelang/cli version'
   const copyInstall = async () => {
-    await navigator.clipboard.writeText('pnpm add @cavelang/cli')
+    await navigator.clipboard.writeText(installCommand)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1_500)
   }
@@ -59,7 +60,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             <Button size="lg" variant="outline" onClick={() => navigate('docs/overview')}>Read the documentation</Button>
           </div>
           <button className="install-command" onClick={copyInstall} aria-label="Copy install command">
-            <span>$</span> pnpm add @cavelang/cli <b>{copied ? 'copied' : 'copy'}</b>
+            <span>$</span> {installCommand} <b>{copied ? 'copied' : 'copy'}</b>
           </button>
         </div>
         <Card className="hero-console" aria-label="CAVE code example">
