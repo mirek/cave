@@ -43,13 +43,15 @@ existing GitHub Pages playground depend on it until deployment can provide and
 test those requirements reliably.
 
 Evaluate browser delivery independently, using the
-[MiniZinc evaluation](../../packages/solver/MINIZINC-EVALUATION.md) as the
-current deferred baseline:
+[MiniZinc evaluation](../../packages/solver/MINIZINC-EVALUATION.md) and [direct
+HiGHS evaluation](../../packages/solver/HIGHS-EVALUATION.md) as the current
+deferred baselines:
 
 - lazy Z3 behind a supported deployment configuration;
 - MiniZinc's ordinary worker-based Wasm delivery only after a portable
   finite-domain model has a concrete CAVE use case;
-- the smaller direct HiGHS adapter for linear-only models; or
+- direct HiGHS only after host isolation enforces cancellation and a memory
+  ceiling and the portable API names its numeric tolerance semantics; or
 - no in-browser solver, preserving the local Node-first capability.
 
 MiniZinc is not automatically the portable choice merely because its browser

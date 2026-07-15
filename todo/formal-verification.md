@@ -15,8 +15,8 @@ CAVE-Q finds stored knowledge and the rules engine derives additional claims,
 but neither searches a space of possible assignments. The shipped
 solver-neutral TypeScript model, optional Z3 adapter, and named workflows now
 provide feasibility, optimization, counterexample, sensitivity, exact-model,
-and unsatisfiable-core machinery. Remaining work is to decide whether narrower
-numeric backends add enough value and to harden optional runtime delivery.
+and unsatisfiable-core machinery. The narrower backend evaluations are now
+complete. Remaining work is to harden optional runtime delivery.
 
 The available workflows answer questions such as:
 
@@ -48,8 +48,12 @@ Available foundations are:
 
 The [MiniZinc evaluation](../packages/solver/MINIZINC-EVALUATION.md) deferred an
 adapter until a concrete workflow justifies a solver-neutral indexed/global-
-constraint schema. Remaining work is direct HiGHS evaluation for the existing
-linear subset, followed by hardened/browser delivery.
+constraint schema. The [direct HiGHS
+evaluation](../packages/solver/HIGHS-EVALUATION.md) measured a decisive size
+and LP/MIP performance advantage but deferred an adapter because the
+synchronous binary64 wrapper cannot enforce the current exact-result,
+cancellation, and working-memory contracts. Remaining work is
+hardened/browser delivery.
 
 ## Decision
 
@@ -59,8 +63,9 @@ provides TypeScript bindings and WebAssembly for Boolean logic, exact integer
 and real arithmetic, optimization, soft constraints, models, and unsatisfiable
 cores. MiniZinc remains a deferred candidate for bounded finite-domain,
 scheduling, allocation, and other combinatorial models after the portable
-schema has a real use case. Evaluate direct HiGHS independently for the
-already-recognized linear and mixed-integer subset.
+schema has a real use case. Direct HiGHS remains the preferred large LP/MIP
+candidate once an isolated runtime and explicit approximate-numeric or
+proved-safe exact profile exist.
 
 This is an extension of the [decision and scenario
 layer](decision-scenario-layer.md), not a replacement for CAVE-Q or rules:
@@ -86,7 +91,7 @@ snapshot is trustworthy. In particular, complete or explicitly account for:
 - [transitive depth truncation](transitive-depth-truncation.md);
 - [shared query primitives](shared-query-primitives.md);
 - [stable external records](stable-external-records.md); and
-- [value-shape expectations](value-shape-expectations.md) for units and
+- [value-shape expectations](../packages/shape/README.md) for units and
   cardinality.
 
 These are ordering constraints, not reasons to couple solver code to storage
@@ -96,10 +101,7 @@ internals.
 
 Implement the work in independently reviewable stages:
 
-1. [Evaluate a direct HiGHS backend](formal-verification/highs-backend.md) — add
-   it only when representative linear/MIP workloads outperform or package more
-   cleanly than Z3; compare MiniZinc's HiGHS route only if MiniZinc is revisited.
-2. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
+1. [Harden runtime and browser delivery](formal-verification/runtime-browser.md)
    — bound hostile models, isolate execution, and keep large Wasm artifacts out
    of default bundles.
 
@@ -136,7 +138,7 @@ Implement the work in independently reviewable stages:
 ## Done when
 
 - Time, memory, expression-count, and output-size limits are enforced.
-- Benchmarks decide whether direct HiGHS provides enough distinct value to
-  maintain alongside Z3.
+- Deferred backend decisions retain measured gates and explicit revisit
+  criteria without weakening the portable model.
 - Browser support ships only after explicit deployment, isolation, asset,
   cancellation, and packed-package gates pass.
