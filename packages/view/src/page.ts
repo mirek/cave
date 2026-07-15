@@ -209,6 +209,19 @@ function tile (value, label) {
   return '<div class="tile"><b>' + value + '</b><span>' + label + '</span></div>'
 }
 
+function shapeProblem (violation) {
+  if (violation.actualCount === 0) return 'missing ' + violation.kind + ' ' + violation.name
+  var problems = []
+  if (violation.cardinality === 'one' && violation.actualCount !== 1) {
+    problems.push('has ' + violation.actualCount + ' ' + violation.kind + 's ' + violation.name + '; expected exactly one')
+  }
+  if (violation.unit !== undefined && violation.actualUnits.some(function (unit) { return unit !== violation.unit })) {
+    var units = violation.actualUnits.map(function (unit) { return unit === null ? '(none)' : unit }).join(', ')
+    problems.push('attribute ' + violation.name + ' has unit' + (violation.actualUnits.length === 1 ? '' : 's') + ' ' + units + '; expected ' + violation.unit)
+  }
+  return problems.join('; ')
+}
+
 function dashboard (data) {
   var cov = data.coverage
   var html = ''
@@ -227,7 +240,7 @@ function dashboard (data) {
   if (data.violations.total > 0) {
     html += section('shape violations', data.violations.items.map(function (violation) {
       return '<div class="claim">' + entityHtml(violation.entity) +
-        '<span class="cmt">missing ' + esc(violation.kind) + '</span> <span class="v">' + esc(violation.name) + '</span>' +
+        '<span class="cmt">' + esc(shapeProblem(violation)) + '</span>' +
         '<span class="cmt">; ' + esc(violation.entity) + ' IS ' + esc(violation.via) + ', ' + esc(violation.type) + ' EXPECTS ' + esc(violation.name) + '</span></div>'
     }).join('') + capNote(data.violations), data.violations.total)
   }

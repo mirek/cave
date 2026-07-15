@@ -669,6 +669,26 @@ test('check reports violations with exit 1 and satisfied shapes with exit 0 (spe
   })
 })
 
+test('check explains cardinality and unit violations with observed values (spec §20.2)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'service EXPECTS USES #cardinality:one',
+      'service EXPECTS latency #unit:ms',
+      'api IS service',
+      'api USES postgres',
+      'api USES redis',
+      'api HAS latency: 1s'
+    ].join('\n'))
+    assert.equal(addCommand(['--db', db, file]).code, 0)
+    const result = checkCommand(['--db', db])
+    assert.equal(result.code, 1)
+    assert.match(result.out, /api has 2 relations USES; expected exactly one/)
+    assert.match(result.out, /api attribute latency has unit s; expected ms/)
+  })
+})
+
 test('suggest-alias prints suggested claims that cave add accepts (spec §27)', () =>
   withDirAsync(async dir => {
     const db = join(dir, 'k.db')

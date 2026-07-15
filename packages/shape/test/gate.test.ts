@@ -44,6 +44,24 @@ test('the gate sees expectations the text itself declares (spec §20.3)', () => 
   store.close()
 })
 
+test('the gate rejects new cardinality and unit violations', () => {
+  const cardinality = open()
+  cardinality.ingest('service EXPECTS USES #cardinality:one\napi IS service\napi USES postgres')
+  const extra = gatedIngest(cardinality, 'api USES redis')
+  assert.equal(extra.ok, false)
+  if (!extra.ok) assert.equal(extra.violations[0]!.actualCount, 2)
+  assert.equal(cardinality.claimsAbout('api').filter(row => row.verb === 'USES').length, 1, 'extra relation rolled back')
+  cardinality.close()
+
+  const units = open()
+  units.ingest('service EXPECTS latency #unit:ms\napi IS service\napi HAS latency: 20ms')
+  const wrongUnit = gatedIngest(units, 'api HAS latency: 1s')
+  assert.equal(wrongUnit.ok, false)
+  if (!wrongUnit.ok) assert.deepEqual(wrongUnit.violations[0]!.actualUnits, ['s'])
+  assert.equal(units.claimsAbout('api').filter(row => row.attribute === 'latency').length, 1, 'wrong unit rolled back')
+  units.close()
+})
+
 test('rollback restores in-band registry declarations (spec §20.3)', () => {
   const store = open()
   store.ingest('service EXPECTS owner')

@@ -21,7 +21,9 @@ surface never reinterprets them:
 
 - **dashboard** — the §20.2 coverage tiles and the frontier: shape
   violations, review candidates (conf 0.3–0.7), stale beliefs, alias
-  disagreements — plus topics and the latest appends;
+  disagreements — plus topics and the latest appends. Shape violations retain
+  observed counts and units, so `#cardinality:one` and `#unit:<unit>` failures
+  render as actionable mismatches rather than generic missing fields;
 - **entity 360** — everything currently believed about one name:
   types, object-less facts, both relation directions (inverse names
   from the registry, §13.3), topics, the §13.6 alias closure on a

@@ -22,6 +22,25 @@ test('EXPECTS declarations read back as expectations (spec §20.1)', () => {
   store.close()
 })
 
+test('EXPECTS reads optional cardinality and unit constraints from scoped tags (spec §20.1)', () => {
+  const store = open()
+  store.ingest([
+    'service EXPECTS owner #cardinality:one',
+    'service EXPECTS latency #unit:ms',
+    'service EXPECTS USES'
+  ].join('\n'))
+  assert.deepEqual(
+    expectations(store).map(({ type, kind, name, cardinality, unit }) =>
+      ({ type, kind, name, cardinality, unit })),
+    [
+      { type: 'service', kind: 'attribute', name: 'owner', cardinality: 'one', unit: undefined },
+      { type: 'service', kind: 'attribute', name: 'latency', cardinality: 'some', unit: 'ms' },
+      { type: 'service', kind: 'relation', name: 'USES', cardinality: 'some', unit: undefined }
+    ]
+  )
+  store.close()
+})
+
 test('retracting an expectation stops it checking (spec §20.1)', () => {
   const store = open()
   store.ingest('service EXPECTS owner\napi IS service')
@@ -71,6 +90,54 @@ test('attribute expectations are satisfied by current positive HAS claims (spec 
   assert.equal(evaluate(store).violations.length, 0)
   store.ingest('api HAS owner: platform-team @ 0% ; team dissolved')
   assert.equal(evaluate(store).violations.length, 1, 'retraction re-opens the violation')
+  store.close()
+})
+
+test('cardinality one requires exactly one current value while legacy expectations allow many (spec §20.1)', () => {
+  const store = open()
+  store.ingest([
+    'service EXPECTS USES #cardinality:one',
+    'service EXPECTS NEEDS',
+    'api IS service',
+    'api USES postgres',
+    'api USES redis',
+    'api NEEDS network',
+    'api NEEDS compute'
+  ].join('\n'))
+  const { violations, checks } = evaluate(store)
+  assert.equal(checks, 2)
+  assert.equal(violations.length, 1)
+  assert.equal(violations[0]!.expectation.name, 'USES')
+  assert.equal(violations[0]!.actualCount, 2)
+  store.ingest('api USES redis @ 0% ; dependency retired')
+  assert.equal(evaluate(store).violations.length, 0)
+  store.close()
+})
+
+test('unit constraints require every current attribute value to use the exact normalized unit (spec §20.1)', () => {
+  const store = open()
+  store.ingest([
+    'service EXPECTS latency #unit:ms',
+    'api IS service',
+    'api HAS latency: 1s'
+  ].join('\n'))
+  const violation = evaluate(store).violations[0]!
+  assert.equal(violation.expectation.unit, 'ms')
+  assert.equal(violation.actualCount, 1)
+  assert.deepEqual(violation.actualUnits, ['s'])
+  store.ingest('api HAS latency: 20ms ; corrected to the required unit')
+  assert.equal(evaluate(store).violations.length, 0)
+  store.close()
+})
+
+test('a missing constrained value stays one failed shape check with observed details (spec §20.2)', () => {
+  const store = open()
+  store.ingest('service EXPECTS latency #cardinality:one #unit:ms\napi IS service')
+  const { violations, checks } = evaluate(store)
+  assert.equal(checks, 1)
+  assert.equal(violations.length, 1)
+  assert.equal(violations[0]!.actualCount, 0)
+  assert.deepEqual(violations[0]!.actualUnits, [])
   store.close()
 })
 

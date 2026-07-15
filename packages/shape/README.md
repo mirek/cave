@@ -12,9 +12,18 @@ Expectations are ordinary in-band claims on the `EXPECTS` meta-verb
 service EXPECTS owner        ; instances carry HAS owner: …
 service EXPECTS USES         ; instances appear as subject of a USES claim
 team EXPECTS PART-OF         ; met by a stored `org CONTAINS team-x` (§5.5)
+team EXPECTS PART-OF #cardinality:one ; exactly one current parent
+service EXPECTS latency #unit:ms      ; current value must use ms
 microservice EXTENDS service ; instances of microservice inherit the shape
 api-gateway IS microservice
 ```
+
+`#cardinality:one` changes the compatible one-or-more default into exactly
+one current match. It is primarily useful for relations because an attribute
+claim key already has one current value. `#unit:<unit>` applies to attributes
+and requires exact normalized-unit equality; unitless values and implicit
+conversions such as `s` to `ms` do not satisfy it. Violations carry the
+observed count and distinct units, so CLI and JSON reports explain the mismatch.
 
 ```ts
 import { check, gatedIngest } from '@cavelang/shape'
@@ -102,3 +111,6 @@ writeSuggestions(store, suggestAliases(store))  // append, stamped @src:suggest/
 - **Each expectation is its own claim key**, so shapes evolve append-only
   like everything else: retract with `service EXPECTS owner @ 0%`;
   history survives.
+- **Constraints are tags, not a type system.** Only `#cardinality:one` and
+  attribute `#unit:<unit>` have shape semantics. Omitting them preserves the
+  original presence check, and unit conversion remains explicit elsewhere.

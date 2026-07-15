@@ -28,6 +28,10 @@ export type Expectation = {
   readonly kind: 'attribute' | 'relation'
   /** Expected attribute name or verb. */
   readonly name: string
+  /** `some` preserves the original one-or-more presence check; `one` requires exactly one current value. */
+  readonly cardinality: 'some' | 'one'
+  /** Exact normalized unit required on attribute values; absent means units are unconstrained. */
+  readonly unit?: string
   /** The declaring row. */
   readonly row: Row.t
 }
@@ -38,6 +42,10 @@ export type Violation = {
   /** The type the entity `IS`-ed into — `expectation.type` or an `EXTENDS+` descendant. */
   readonly via: string
   readonly expectation: Expectation
+  /** Number of current positive values or relation endpoints observed in the expected slot. */
+  readonly actualCount: number
+  /** Distinct normalized units observed on attribute values; `null` denotes no unit. */
+  readonly actualUnits: readonly (string | null)[]
 }
 
 /** A current belief older than the staleness horizon (spec §20.2). */
@@ -110,6 +118,26 @@ const isEntityName = (name: string): boolean =>
 const all = (store: Store, sql: string, ...params: (string | number)[]): Row.t[] =>
   store.db.prepare(sql).all(...params) as unknown as Row.t[]
 
+const tagValue = (store: Store, row: Row.t, key: string): undefined | string =>
+  (store.db.prepare('SELECT value FROM cave_tag WHERE claim_id = ? AND key = ? ORDER BY rowid LIMIT 1')
+    .get(row.id, key) as undefined | { value: null | string })?.value ?? undefined
+
+const expectationOf = (store: Store, row: Row.t): undefined | Expectation => {
+  if (!isEntityName(row.subject) || row.object === null || row.object.startsWith('"') || row.object.startsWith('`')) {
+    return undefined
+  }
+  const kind = Verb.isVerbToken(row.object) ? 'relation' as const : 'attribute' as const
+  const unit = kind === 'attribute' ? tagValue(store, row, 'unit') : undefined
+  return {
+    type: row.subject,
+    kind,
+    name: row.object,
+    cardinality: tagValue(store, row, 'cardinality') === 'one' ? 'one' : 'some',
+    ...unit === undefined ? {} : { unit },
+    row
+  }
+}
+
 /**
  * Current positive `EXPECTS` declarations (spec §20.1), oldest first.
  * Qualifier condition rows never declare, mirroring the registry's
@@ -122,15 +150,10 @@ export const expectations = (store: Store): Expectation[] =>
     WHERE c.verb = 'EXPECTS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
       AND c.id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
     ORDER BY c.tx
-  `).flatMap(row =>
-    isEntityName(row.subject) && !row.object!.startsWith('"') && !row.object!.startsWith('`') ?
-      [{
-        type: row.subject,
-        kind: Verb.isVerbToken(row.object!) ? 'relation' as const : 'attribute' as const,
-        name: row.object!,
-        row
-      }] :
-      [])
+  `).flatMap(row => {
+    const expectation = expectationOf(store, row)
+    return expectation === undefined ? [] : [expectation]
+  })
 
 /**
  * Instances of a type (spec §20.1): entities with a current positive `IS`
@@ -162,26 +185,42 @@ const instancesOf = (store: Store, type: string): Map<string, string> => {
   return instances
 }
 
-/** @returns `true` when `entity` satisfies `expectation` (spec §20.1). */
-const satisfies = (store: Store, entity: string, expectation: Expectation): boolean => {
+type Observed = {
+  readonly count: number
+  readonly units: readonly (string | null)[]
+}
+
+const unitsOf = (rows: readonly Row.t[]): (string | null)[] =>
+  [...new Set(rows.map(row => row.value_unit))]
+    .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+
+/** Current positive rows occupying the expected slot (spec §20.1). */
+const observed = (store: Store, entity: string, expectation: Expectation): Observed => {
   if (expectation.kind === 'attribute') {
-    return store.db.prepare(`
-      SELECT 1 FROM (${currentSql}) c
+    const rows = all(store, `
+      SELECT c.* FROM (${currentSql}) c
       WHERE c.subject = ? AND c.verb = 'HAS' AND c.attribute = ?
-        AND c.negated = 0 AND c.conf > 0 LIMIT 1
-    `).get(entity, expectation.name) !== undefined
+        AND c.negated = 0 AND c.conf > 0 ORDER BY c.tx
+    `, entity, expectation.name)
+    return { count: rows.length, units: unitsOf(rows) }
   }
   // Relation: the expected verb reads from the subject side when primary,
   // from the object side of the stored primary row when it is a declared
   // inverse (spec §5.5) — `team EXPECTS PART-OF` is met by `org CONTAINS team-x`.
   const { primary, isInverse } = Registry.primaryOf(store.registry(), expectation.name)
   const side = isInverse ? 'c.object = ?' : 'c.subject = ?'
-  return store.db.prepare(`
-    SELECT 1 FROM (${currentSql}) c
+  const rows = all(store, `
+    SELECT c.* FROM (${currentSql}) c
     WHERE ${side} AND c.verb = ? AND c.object IS NOT NULL
-      AND c.negated = 0 AND c.conf > 0 LIMIT 1
-  `).get(entity, primary) !== undefined
+      AND c.negated = 0 AND c.conf > 0 ORDER BY c.tx
+  `, entity, primary)
+  return { count: rows.length, units: [] }
 }
+
+const satisfies = (expectation: Expectation, actual: Observed): boolean =>
+  actual.count > 0 &&
+  (expectation.cardinality === 'some' || actual.count === 1) &&
+  (expectation.unit === undefined || actual.units.every(unit => unit === expectation.unit))
 
 /** Shape evaluation — expectations, targets and violations in one pass. */
 export type Evaluation = {
@@ -208,8 +247,15 @@ export const evaluate = (store: Store): Evaluation => {
       targeted.add(entity)
       for (const expectation of typeExpectations) {
         checks += 1
-        if (!satisfies(store, entity, expectation)) {
-          violations.push({ entity, via, expectation })
+        const actual = observed(store, entity, expectation)
+        if (!satisfies(expectation, actual)) {
+          violations.push({
+            entity,
+            via,
+            expectation,
+            actualCount: actual.count,
+            actualUnits: actual.units
+          })
         }
       }
     }
