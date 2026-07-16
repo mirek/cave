@@ -21,6 +21,14 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
 
 ## Semantics
 
+- **Schema upgrades are explicit** (§13.2.1): `PRAGMA user_version` records
+  the local format (current version 1; version 0 is the unversioned legacy
+  baseline). `open()` rejects newer stores, applies every older migration in
+  order with its backfill and version update in one `BEGIN IMMEDIATE`
+  transaction, then validates required tables, indexes, and columns. A crash
+  leaves a resumable old or complete new version—never a committed half-step.
+  Migrations are forward-only; make rollback points by closing all users and
+  copying the closed SQLite file before upgrade.
 - **Append-only** (§9.1): `ingest` only inserts; every row carries a
   monotonic UUIDv7 in `id` and `tx`, so `MAX(tx)` per `claim_key` is the
   current belief. Each ingest call is one SQLite transaction. Outer writes
@@ -166,4 +174,5 @@ cross-actor retraction, stamped round-trips), the §26 resolution policy
 specificity, polarity contests, no self-elevation, alias-widened
 groups, contested ranking), the §11.2 topic reads, edge persistence,
 registry and lifecycle rebuild across reopen, transactional strict ingest and export
-round-trips.
+round-trips, ordered schema migration, newer-version rejection, transactional
+rollback/retry, and closed-file backup recovery.

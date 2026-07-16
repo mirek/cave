@@ -209,23 +209,11 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   // failing immediately with SQLITE_BUSY.
   db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
-  const hadProvenance = db.prepare(`
-    SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'cave_provenance'
-  `).get() !== undefined
-  if (hadProvenance) {
+  try {
     Schema.init(db)
-  } else {
-    // The first provenance projection is one migration boundary: a crash
-    // cannot leave the new table present but only partly backfilled.
-    db.exec('BEGIN IMMEDIATE')
-    try {
-      Schema.init(db)
-      Provenance.backfill(db)
-      db.exec('COMMIT')
-    } catch (error) {
-      db.exec('ROLLBACK')
-      throw error
-    }
+  } catch (error) {
+    db.close()
+    throw error
   }
 
   // The receive rule (spec §28.2): the store, not the wall clock, is the

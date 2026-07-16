@@ -110,6 +110,7 @@ test('db merge derives provenance when the source predates the dimension table',
     source.close()
     const legacy = new DatabaseSync(sourcePath)
     legacy.exec('DROP TABLE cave_provenance')
+    legacy.exec('PRAGMA user_version = 0')
     legacy.close()
 
     const target = open(join(dir, 'target.db'))
@@ -295,6 +296,23 @@ test('source validation: missing file, non-store database, text file', () => {
     assert.throws(() => syncDb(a, join(dir, 'notes.cave')), /not a CAVE store/)
     assert.equal(rowCount(a), 0, 'failed syncs leave the store untouched')
     a.close()
+  } finally {
+    done()
+  }
+})
+
+test('sync rejects a store from a newer incompatible schema version', () => {
+  const { dir, done } = scratch()
+  try {
+    const target = open(join(dir, 'target.db'))
+    const futurePath = join(dir, 'future.db')
+    const future = open(futurePath)
+    future.ingest('future IS knowledge')
+    future.db.exec('PRAGMA user_version = 2')
+    future.close()
+    assert.throws(() => syncDb(target, futurePath), /schema version 2 is newer than this runtime supports \(1\)/)
+    assert.equal(rowCount(target), 0)
+    target.close()
   } finally {
     done()
   }
