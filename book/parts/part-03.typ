@@ -20,7 +20,7 @@ The canonicalization pipeline normalizes verb casing, resolves inverse verbs, ex
 
 The core current-belief query joins each claim key to its maximum transaction. As-of queries apply the same grouping after restricting rows to a transaction boundary. Inverse reads use subject and object indexes without adding rows.
 
-#note([Portability], [Canonical CAVE text is the backup and interchange form. SQLite is the efficient working representation, not a proprietary source of truth.])
+#note([Portability], [Canonical CAVE text is the portable interchange form. SQLite snapshots are the exact temporal backup. Neither representation is proprietary.])
 
 = Versioned Schema Migrations
 Every SQLite store records `PRAGMA user_version`. Version 0 identifies the legacy unversioned format; version 1 is the current baseline. Opening an older supported store applies each forward migration in order. DDL, provenance backfill, structural validation, and the version advance share one immediate transaction, so interruption leaves either the old version or the complete new one and a later open can resume.
@@ -28,6 +28,15 @@ Every SQLite store records `PRAGMA user_version`. Version 0 identifies the legac
 A newer store fails before any write and names the unsupported version; exact database sync applies the same compatibility gate. A current store validates its required tables, indexes, and columns instead of silently replaying creation statements.
 
 #note([Rollback point], [Migrations are forward-only. Before an upgrade that needs a rollback point, stop every user of the store, close it, and copy the SQLite file. Restore means replacing the upgraded file with that untouched backup while writers remain stopped, then using a compatible CAVE runtime.])
+
+= Exact Snapshot Backup and Restore
+Canonical CAVE text is portable interchange, but import mints fresh transaction identifiers. `cave backup --db knowledge.db --out knowledge.snapshot.db` instead creates one complete SQLite snapshot of the live store. It preserves every claim id and transaction, provenance row, context, tag, edge, FTS entry, and historical belief.
+
+Backup uses SQLite VACUUM INTO against a temporary sibling file. The completed database is a consistent committed snapshot, including WAL-visible commits, while other readers and writers can stay active. CAVE fsyncs it, checks integrity, foreign keys, schema version and structure, computes SHA-256, then publishes atomically.
+
+Verify independently with `cave backup --verify knowledge.snapshot.db --sha256 <hex>`. Restore with `cave restore knowledge.snapshot.db --db restored.db --sha256 <hex>`. Restore verifies before and after its temporary copy, then atomically publishes the same bytes. Stop all destination users first; WAL or SHM sidecars cause a refusal. Existing destinations require `--force`, and any failure leaves the prior destination untouched.
+
+#note([Two distinct tools], [Exact snapshots are complete and unfiltered. Canonical export remains the reviewable, sensitivity-scoped interchange path; restricted exports include complete portable history but do not preserve original transaction ids.])
 
 = Permanent History and Sensitive Data
 Retraction changes current belief by appending a zero-confidence row. It does not erase the earlier row, authored text, metadata, search index, full export, sync peer, or backup. A current-only export is a compact view, not a sanitizer: the surviving rows may themselves carry sensitive subjects, values, contexts, or comments.
@@ -41,7 +50,7 @@ Claims can carry `#sensitivity:public`, `#sensitivity:internal`, `#sensitivity:c
 
 Export, reports, and the human HTTP view default to an internal ceiling and can select another maximum explicitly. Filtering is structural: dashboard counts, aliases, history, search, lineage, and edges derive only from visible rows. Current belief resolves first, then the selected latest row is filtered, so a hidden update never revives an older public belief.
 
-#note([Boundary], [Sensitivity is routing metadata, not encryption, authorization, deletion, or a retention policy. Use --max-sensitivity restricted for an exact canonical backup or transaction-annotated replica. Sync remains exact and preserves every row and label.])
+#note([Boundary], [Sensitivity is routing metadata, not encryption, authorization, deletion, or a retention policy. Use --max-sensitivity restricted for complete canonical history or a transaction-annotated replica. Exact SQLite snapshots are deliberately unfiltered. Sync remains exact and preserves every row and label.])
 
 = Source-Span Provenance
 A source context can cite one exact one-based inclusive source line or range: `@src:docs/auth.md#L10` or `@src:docs/auth.md#L10-L20`. The source locator is percent-escaped; a literal hash is `%23`, a space is `%20`, and the unescaped hash is reserved for the line fragment.

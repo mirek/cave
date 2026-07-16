@@ -16,7 +16,7 @@ monorepo CONTAINS packages/api @ 90%
 store.currentBeliefs()                       // one row — one fact, one key, conf 0.9
 store.reverse('packages/api')                // [{ verb: 'CONTAINS', rel: 'PART-OF', source: 'monorepo' }]
 store.exportText({ current: true })          // canonical text through internal
-store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
+store.exportText({ maxSensitivity: 'restricted' }) // complete portable history
 ```
 
 ## Semantics
@@ -29,6 +29,12 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
   leaves a resumable old or complete new version—never a committed half-step.
   Migrations are forward-only; make rollback points by closing all users and
   copying the closed SQLite file before upgrade.
+- **Exact backup is an online SQLite snapshot** (§13.2.2): `backup()` runs
+  `VACUUM INTO` to a temporary sibling, verifies integrity, foreign keys and
+  schema, fsyncs it, computes SHA-256, and atomically publishes it. WAL-visible
+  committed rows and concurrent readers/writers are safe. `restoreBackup()`
+  verifies the source and temporary copy before atomic publication and refuses
+  destination WAL/SHM/journal sidecars. `verifyBackup()` supports independent checks.
 - **Append-only** (§9.1): `ingest` only inserts; every row carries a
   monotonic UUIDv7 in `id` and `tx`, so `MAX(tx)` per `claim_key` is the
   current belief. Each ingest call is one SQLite transaction. Outer writes
@@ -46,7 +52,7 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
   `#sensitivity:public|internal|confidential|restricted` labels each immutable
   row; unlabeled means `internal`, while flat, malformed and unknown labels
   fail closed as `restricted`. Export defaults to a maximum of `internal`.
-  Select `restricted` explicitly for an exact backup. This is routing metadata,
+  Select `restricted` explicitly for complete portable text history. This is routing metadata,
   not encryption, access control, erasure or a retention boundary.
 - **One row per fact** (§13.3): inverse writes are canonicalized before
   keying (`@cavelang/canonical`), inverse *reads* are query-time views —
@@ -130,7 +136,8 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
 | `registry()` / `baseRegistry()` | §5.5 | current registry and its configured pre-declaration base |
-| `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; exact backup requires `restricted` |
+| `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
+| `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
 | `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
 
 ## Storage decisions

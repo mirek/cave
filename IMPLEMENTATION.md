@@ -18,7 +18,7 @@ Dependency order, bottom to top:
 | [`@cavelang/core`](packages/core) | §2, §6, §7, §9, §32 | Domain model: claims, values/units/multipliers (incl. `A -> B` trajectories), uncertainty, confidence, tags, contexts, percent-escaped source spans (`SourceSpan`), valid-time periods/ranges (`Time`), claim keys, monotonic UUIDv7 |
 | [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, `RENAMED-TO`, extensions), inverse and lifecycle resolution, continuation expansion, qualifier edges, canonical emitter |
-| [`@cavelang/store`](packages/store) | §9.5, §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — append-only belief series, explicit actor/source/run/domain provenance, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
+| [`@cavelang/store`](packages/store) | §9.5, §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — append-only belief series, explicit actor/source/run/domain provenance, versioned migrations, exact verified snapshot backup/restore, inverse-aware reads, FTS5, contradiction resolution |
 | [`@cavelang/query`](packages/query) | §12, §26, §32 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse and lifecycle verb resolution, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching, `at` valid-time filtering + trajectory interpolation |
 | [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` through `EXTENDS`, exact-one and exact-unit tags), health report, write gating, deterministic versioned TypeScript client generation with strict ambiguity checks; alias discovery (`suggestAliases`, optional judge contract) |
 | [`@cavelang/connect`](packages/connect) | §9.8, §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; physical source identity, CSV/TSV/JSONL record spans, per-record digest incrementality, watch mode, query-time overlay |
@@ -37,7 +37,7 @@ Dependency order, bottom to top:
 | [`@cavelang/eval`](packages/eval) | — | Extraction and reconstruction eval harness: golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / generate / suggest-alias / sync / export / report / serve / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / backup / restore / generate / suggest-alias / sync / export / report / serve / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -60,6 +60,11 @@ packages the same grammar WASM and highlight query as a VSCode extension
   advancement in one immediate transaction. Open and database sync reject
   newer formats; rollback is restoration of a closed pre-upgrade copy, never
   a down migration.
+- **Exact backup uses verified SQLite snapshots** (§13.2.2): `VACUUM INTO`
+  captures a consistent online WAL-aware snapshot in a temporary sibling;
+  integrity, foreign keys, current schema, fsync, and SHA-256 gate atomic
+  publication. Restore verifies the source and temporary copy, rejects stale
+  WAL/SHM sidecars, and atomically publishes identical snapshot bytes.
 - **Runtime dependencies stay at feature boundaries.** The parser uses
   `@prelude/parser`; highlighting uses `web-tree-sitter`; web ingestion uses
   `@mozilla/readability` and `linkedom`; and the opt-in `solver-z3` adapter
@@ -121,8 +126,9 @@ Package READMEs document local decisions; these are the global ones:
   report, and serve default to an `internal` ceiling. Current belief resolves
   before filtering, hidden edge endpoints are pruned, and view summaries run
   over a scoped snapshot so counts, aliases, history, search, and lineage do
-  not leak excluded rows. Exact backup requires an explicit `restricted`
-  ceiling; sync remains exact and preserves labels.
+  not leak excluded rows. Complete text history requires an explicit
+  `restricted` ceiling; exact SQLite backup is unfiltered and preserves all
+  labels.
 - **Source spans retain both anchor and identity** (§9.8):
   `SourceSpan` formats/parses `src:<escaped-source>#Lx-Ly`; the exact context
   survives interchange while §26 source policy ignores the line fragment.

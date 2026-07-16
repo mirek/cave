@@ -152,10 +152,17 @@ history allowed by its sensitivity ceiling as canonical text, and `--current`
 emits just today's allowed beliefs. Claims may be labelled
 `#sensitivity:public`, `internal`, `confidential`, or `restricted`; unlabeled
 claims and publication surfaces default to `internal`, while malformed labels
-fail closed as `restricted`. Use `--max-sensitivity restricted` only when an
-exact backup or replica is intended. This text *is* the backup/interchange
-format (`cave import` restores it), but neither `--current` nor sensitivity
+fail closed as `restricted`. Use `--max-sensitivity restricted` for complete
+portable history or a replica. This text is the interchange format (`cave
+import` replays it with fresh transaction ids), but neither `--current` nor sensitivity
 filtering erases permanent history (§9.6–§9.7).
+
+For an exact point-in-time backup, use `cave backup --db family.db --out
+family.snapshot.db`. It snapshots the live SQLite store safely under WAL,
+verifies integrity/schema/foreign keys, records SHA-256, and publishes
+atomically. `cave restore family.snapshot.db --db restored.db --sha256 <hex>`
+preserves row identities, transaction order, provenance, lineage, and full
+history (spec §13.2.2).
 
 **Time is an axis of the world, not just of the store.** Transaction time — when the store learned something — is reconstructable with `--as-of`. Claims can also say *when in the world* they hold (spec §32): a date-like context scopes a claim to a period or range, and a trajectory value (`A -> B`) interpolates linearly across its range:
 

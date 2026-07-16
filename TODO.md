@@ -8,7 +8,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Core grammar variables](todo/core-grammar-variables.md) — Decide whether query variables belong in the core grammar.
 - [Claim reification](todo/claim-reification.md) — Add nested claims only when a concrete use case justifies the syntax.
 - [Temporal functions](todo/temporal-functions.md) — Design the gated temporal function layer.
-- [Exact backup and restore](todo/exact-backup-restore.md) — Preserve transaction history and temporal semantics through backup and restore.
 - [Consolidate the package surface](todo/package-surface-consolidation.md) — Reduce the number of independently published public artifacts.
 - [Unify CLI dispatch](todo/unified-cli-dispatch.md) — Give synchronous and asynchronous commands one execution and error path.
 - [Define a SQLite adapter](todo/sqlite-adapter-interface.md) — Replace build-time module aliasing with an explicit storage adapter boundary.

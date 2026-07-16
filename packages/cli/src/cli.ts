@@ -14,6 +14,8 @@
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async, routed in `main.ts`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
+ * - `cave backup [--db <path>] --out <path>` — exact verified SQLite snapshot
+ * - `cave restore <snapshot> --db <path>` — verify and atomically restore a snapshot
  * - `cave generate [--db <path>]` — versioned TypeScript client from EXPECTS declarations
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
@@ -37,7 +39,7 @@ import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { Sensitivity, defaultDbPath, open } from '@cavelang/store'
+import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -82,6 +84,8 @@ Usage:
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave automate [--db <path>]              event-driven loop (spec §29): new claims fire rules/actions/hooks/agent prompts [--once]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
+  cave backup [--db <path>] --out <file>   exact verified SQLite snapshot [--force]
+  cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]
   cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
@@ -367,6 +371,46 @@ Examples:
   cave check --db k.db --stale 30
   cave check --db k.db --json | jq '.violations'`,
 
+  backup: `cave backup — exact, verified SQLite snapshot (spec §13.2.2)
+
+Usage:
+  cave backup [--db <path>] --out <file> [--force]
+  cave backup --verify <file> [--sha256 <hex>]
+
+Options:
+  ${dbHelp}
+  --out <file>      destination snapshot (required when creating)
+  --force           atomically replace an existing snapshot
+  --verify <file>   verify integrity, foreign keys, schema and SHA-256 only
+  --sha256 <hex>    expected digest for --verify
+
+The source remains online. SQLite VACUUM INTO takes one consistent committed
+snapshot, including WAL-visible rows; CAVE writes to a temporary file,
+validates it, fsyncs it, then publishes it atomically. The summary SHA-256 is
+the restore verification token.
+
+Examples:
+  cave backup --db k.db --out backups/k.db
+  cave backup --verify backups/k.db --sha256 <hex>`,
+
+  restore: `cave restore — verify and atomically restore an exact SQLite snapshot (spec §13.2.2)
+
+Usage:
+  cave restore <snapshot> --db <path> [--force] [--sha256 <hex>]
+
+Options:
+  --db <path>       destination database (required)
+  --force           atomically replace an existing destination
+  --sha256 <hex>    require the recorded backup digest
+
+Stop every process using the destination first. Restore refuses WAL/SHM
+sidecars, verifies the input and copied temporary database, then publishes one
+atomic file. WAL, SHM, or rollback-journal sidecars cause a refusal. On
+failure the prior destination remains untouched.
+
+Example:
+  cave restore backups/k.db --db restored.db --sha256 <hex>`,
+
   generate: `cave generate — deterministic TypeScript client from EXPECTS declarations (spec §20.4)
 
 Usage:
@@ -492,7 +536,7 @@ Options:
                  view, not sanitization or selective erasure (spec §9.6)
   --max-sensitivity <level>
                  public, internal, confidential, or restricted (default
-                 internal; restricted is the complete exact backup)
+                 internal; restricted includes complete portable history)
   --tx           precede every claim line with its ;@ transaction
                  annotation (spec §28.4) — the text carries row identity,
                  so cave sync replays it idempotently; other readers see
@@ -505,7 +549,7 @@ guarantee erasure from the store, exports, peers, or backups (spec §9.6).
 Examples:
   cave export --db k.db
   cave export --db k.db --out internal-export.cave
-  cave export --db k.db --max-sensitivity restricted --out exact-backup.cave
+  cave export --db k.db --max-sensitivity restricted --out complete-history.cave
   cave export --db k.db --current --out snapshot.cave
   cave export --db k.db --tx --max-sensitivity restricted | cave sync --db other.db -
   cave export --db work.db --tx --max-sensitivity restricted --out knowledge.cave
@@ -1162,6 +1206,83 @@ export const checkCommand = (argv: readonly string[]): Output => {
   }
 }
 
+const snapshotLine = (
+  action: 'created' | 'verified' | 'restored',
+  snapshot: ReturnType<typeof verifyBackup>
+): string =>
+  `${action} exact backup (${snapshot.rows} row(s), schema v${snapshot.schemaVersion}, ` +
+  `${snapshot.bytes} bytes, sha256:${snapshot.sha256}) at ${snapshot.path}\n`
+
+/** `cave backup` — create or verify an exact SQLite snapshot (§13.2.2). */
+export const backupCommand = (argv: readonly string[]): Output => {
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      out: { type: 'string' },
+      force: { type: 'boolean' },
+      verify: { type: 'string' },
+      sha256: { type: 'string' }
+    },
+    allowPositionals: false
+  })
+  if (values.sha256 !== undefined && !/^[0-9a-f]{64}$/i.test(values.sha256)) {
+    return fail('cave backup: --sha256 must be 64 hexadecimal characters\n')
+  }
+  try {
+    if (values.verify !== undefined) {
+      if (values.out !== undefined || values.force === true || values.db !== undefined) {
+        return fail('cave backup: --verify excludes --db, --out, and --force\n')
+      }
+      return ok(snapshotLine('verified', verifyBackup(values.verify, values.sha256)))
+    }
+    if (values.sha256 !== undefined) {
+      return fail('cave backup: --sha256 requires --verify\n')
+    }
+    if (values.out === undefined) {
+      return fail('cave backup: --out <file> is required\n')
+    }
+    const store = open(values.db ?? defaultDbPath())
+    try {
+      return ok(snapshotLine('created', backupStore(store, values.out, { force: values.force === true })))
+    } finally {
+      store.close()
+    }
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  }
+}
+
+/** `cave restore` — verify and atomically restore an exact snapshot (§13.2.2). */
+export const restoreCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      force: { type: 'boolean' },
+      sha256: { type: 'string' }
+    },
+    allowPositionals: true
+  })
+  if (positionals.length !== 1) {
+    return fail('cave restore: exactly one snapshot file is required\n')
+  }
+  if (values.db === undefined) {
+    return fail('cave restore: --db <path> destination is required\n')
+  }
+  if (values.sha256 !== undefined && !/^[0-9a-f]{64}$/i.test(values.sha256)) {
+    return fail('cave restore: --sha256 must be 64 hexadecimal characters\n')
+  }
+  try {
+    return ok(snapshotLine('restored', restoreBackup(positionals[0]!, values.db, {
+      force: values.force === true,
+      ...values.sha256 === undefined ? {} : { expectedSha256: values.sha256 }
+    })))
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  }
+}
+
 /**
  * `cave suggest-alias` — alias discovery (spec §27): same-entity
  * candidates as suggested `ALIAS` claims for review. Async (the optional
@@ -1564,6 +1685,10 @@ export const cave = (argv: readonly string[]): Output => {
         return actCommand(rest)
       case 'check':
         return checkCommand(rest)
+      case 'backup':
+        return backupCommand(rest)
+      case 'restore':
+        return restoreCommand(rest)
       case 'generate':
         return generateCommand(rest)
       case 'sync':

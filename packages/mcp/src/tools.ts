@@ -472,7 +472,7 @@ export const tools: readonly Tool[] = [
   {
     name: 'cave_export',
     description: 'Export sensitivity-scoped canonical CAVE text (default maximum internal). ' +
-      'Set maxSensitivity to restricted for an exact backup; current drops superseded history.',
+      'Set maxSensitivity to restricted for complete portable history; current drops superseded history.',
     permission: 'read',
     inputSchema: {
       type: 'object',
