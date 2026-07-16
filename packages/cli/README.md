@@ -38,6 +38,19 @@ updating an import from a former standalone package name.
 
 ## Commands
 
+### JSON compatibility
+
+JSON that contains claims is storage-independent and versioned. `cave query
+--json` emits an array of `cave.query-match/v1` objects whose `claim` and
+`support` members are `cave.claim/v1`; resolve, rule, action, and health JSON
+replace any nested database rows with the same claim record and never expose
+`claim_key`, `raw_line`, or `value_text` columns. New optional fields may be
+added within a version; incompatible shape changes require a new version.
+
+`cave parse --json` is the parser AST/debug surface, not a persisted claim
+record. `cave export` remains canonical CAVE text (with optional `;@` identity
+annotations), which is the language interchange contract rather than JSON.
+
 Every command answers `--help` with its options and examples (also
 `cave help <command>`). `--db` is optional everywhere: it defaults to
 `$CAVE_DB`, or `cave.db` in the current directory.

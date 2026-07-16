@@ -23,7 +23,11 @@ import { QuerySql, Resolve, Row } from '@cavelang/store/adapter'
 import type { Store } from '@cavelang/store/adapter'
 import * as Pattern from './pattern.ts'
 
-/** One query solution: variable bindings plus the matched row (absent for transitive hops). */
+/**
+ * One storage-oriented query solution. `row`/`rows` expose SQLite-shaped
+ * data for in-process reasoning engines; use `queryRecords()` for versioned
+ * public JSON and cross-process integrations.
+ */
 export type Match = {
   readonly bindings: Readonly<Record<string, string>>
   readonly row?: Row.t

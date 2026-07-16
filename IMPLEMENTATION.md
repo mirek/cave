@@ -74,6 +74,11 @@ packages the same grammar WASM and highlight query as a VSCode extension
   `QuerySql` fragments for current belief, alias closure, and transaction-time
   boundaries. Store, query, shape, generated clients, and view consume them;
   cross-package conformance tests pin retraction, alias, and as-of results.
+- **External claim records are versioned.** Storage rows stay inside
+  storage-oriented APIs; `cave.claim/v1` carries transaction identity,
+  semantic claims, canonical text, and provenance. CLI/federated query JSON
+  composes it as `cave.query-match/v1`; MCP and export remain canonical CAVE
+  text. Checked-in fixtures and strict decoders preserve old versions.
 - **Exact backup uses verified SQLite snapshots** (§13.2.2): `VACUUM INTO`
   captures a consistent online WAL-aware snapshot in a temporary sibling;
   integrity, foreign keys, current schema, fsync, and SHA-256 gate atomic

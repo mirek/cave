@@ -40,7 +40,8 @@ import { Version } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
-import { query as caveQuery } from '@cavelang/query'
+import type { Store } from '@cavelang/store'
+import { query as caveQuery, Record as QueryRecord } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
   generateClient, suggestAliases, writeSuggestions
@@ -63,6 +64,39 @@ export type Output = {
   readonly out: string
   readonly err: string
 }
+
+const storageRow = (value: unknown): value is Parameters<Store['recordOf']>[0] =>
+  typeof value === 'object' && value !== null &&
+  typeof (value as Record<string, unknown>)['id'] === 'string' &&
+  typeof (value as Record<string, unknown>)['tx'] === 'string' &&
+  typeof (value as Record<string, unknown>)['claim_key'] === 'string' &&
+  typeof (value as Record<string, unknown>)['raw_line'] === 'string'
+
+/** Recursively replace storage rows in JSON reports with cave.claim/v1 records. */
+const stableJsonValue = (store: Store, value: unknown): unknown => {
+  if (storageRow(value)) {
+    const record = store.recordOf(value)
+    const ranked = value as typeof value & Record<string, unknown>
+    return typeof ranked['res_rank'] === 'number' ? {
+      ...record,
+      resolution: {
+        group: ranked['res_group'],
+        class: ranked['res_class'],
+        effectiveConfidence: ranked['res_conf'],
+        rank: ranked['res_rank'],
+      },
+    } : record
+  }
+  if (Array.isArray(value)) return value.map(entry => stableJsonValue(store, entry))
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) =>
+      [key, stableJsonValue(store, entry)]))
+  }
+  return value
+}
+
+const stableJson = (store: Store, value: unknown): string =>
+  JSON.stringify(stableJsonValue(store, value), undefined, 2)
 
 const ok = (out: string): Output =>
   ({ code: 0, out, err: '' })
@@ -828,7 +862,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       ...values.at === undefined ? {} : { at: values.at }
     })
     if (values.json === true) {
-      return ok(`${JSON.stringify(matches, undefined, 2)}\n`)
+      return ok(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
     }
     if (matches.length === 0) {
       return ok('no matches\n')
@@ -892,7 +926,7 @@ export const resolveCommand = (argv: readonly string[]): Output => {
     }
     const contested = store.contested({ aliases: values.aliases === true })
     if (values.json === true) {
-      return ok(`${JSON.stringify(contested, undefined, 2)}\n`)
+      return ok(`${stableJson(store, contested)}\n`)
     }
     if (contested.length === 0) {
       return ok('no contested facts\n')
@@ -940,7 +974,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
     if (values.list === true) {
       const rules = listRules(store)
       if (values.json === true) {
-        return ok(`${JSON.stringify(rules, undefined, 2)}\n`)
+        return ok(`${stableJson(store, rules)}\n`)
       }
       if (rules.length === 0) {
         return ok('no rules\n')
@@ -1002,7 +1036,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
         (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : ''))
     }
     if (values.json === true) {
-      return { code: report.problems.length > 0 ? 1 : 0, out: `${JSON.stringify(report, undefined, 2)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
+      return { code: report.problems.length > 0 ? 1 : 0, out: `${stableJson(store, report)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
     }
     for (const problem of report.problems) {
       err.push(`${problem.subject}: ${problem.problems.join('; ')}`)
@@ -1106,7 +1140,7 @@ export const actCommand = (argv: readonly string[]): Output => {
     if (values.list === true) {
       const actions = listActions(store)
       if (values.json === true) {
-        return ok(`${JSON.stringify(actions, undefined, 2)}\n`)
+        return ok(`${stableJson(store, actions)}\n`)
       }
       if (actions.length === 0) {
         return ok('no actions\n')
@@ -1147,7 +1181,7 @@ export const actCommand = (argv: readonly string[]): Output => {
       ...hooksPath === undefined ? {} : { hooks: readHooks(hooksPath) }
     })
     if (values.json === true) {
-      return { code: report.ok && report.hook?.error === undefined ? 0 : 1, out: `${JSON.stringify(report, undefined, 2)}\n`, err: '' }
+      return { code: report.ok && report.hook?.error === undefined ? 0 : 1, out: `${stableJson(store, report)}\n`, err: '' }
     }
     const { lines, code } = renderActReport(report)
     return report.ok ?
@@ -1214,7 +1248,7 @@ export const checkCommand = (argv: readonly string[]): Output => {
   try {
     const report = caveCheck(store, { staleDays })
     const out = values.json === true ?
-      `${JSON.stringify(report, undefined, 2)}\n` :
+      `${stableJson(store, report)}\n` :
       renderReport(report, staleDays)
     // Violations fail the check (spec §20.2); the other sections are advisory.
     return { code: report.violations.length > 0 ? 1 : 0, out, err: '' }

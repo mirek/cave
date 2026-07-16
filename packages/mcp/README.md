@@ -1,5 +1,12 @@
 # @cavelang/mcp
 
+MCP claim results intentionally remain canonical CAVE text, not database rows
+or an unversioned JSON object. This is the agent-facing compatibility contract:
+`cave_query`, `cave_about`, `cave_neighbors`, `cave_search`, and `cave_export`
+return CAVE lines, while MCP's JSON-RPC envelope follows the negotiated
+protocol version. Clients needing structured durable records should use the
+library `cave.claim/v1` / `cave.query-match/v1` APIs.
+
 The CAVE engine as an **MCP server**: `cave mcp --db knowledge.db` serves
 the Model Context Protocol on stdio, so any MCP client (Claude Code,
 Claude Desktop, …) can read and write a CAVE knowledge database directly.
