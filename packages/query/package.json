@@ -17,6 +17,7 @@
     ".": "./src/index.ts"
   },
   "files": [
+    "bench",
     "dist",
     "!dist/test",
     "!dist/tsconfig.tsbuildinfo",
@@ -35,6 +36,7 @@
     }
   },
   "scripts": {
+    "bench:transitive": "node --disable-warning=ExperimentalWarning bench/transitive.ts",
     "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",

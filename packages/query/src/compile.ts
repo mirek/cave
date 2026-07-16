@@ -192,7 +192,7 @@ type Compiled = {
   readonly valueVars: readonly string[]
 }
 
-const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
+export const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
   // Inverse resolution (spec §12.1): swap the pattern's endpoint slots and
   // query the primary verb.
   let verb = pattern.verb
@@ -408,19 +408,23 @@ const compileTransitive = (
     aliases ? aliasSame(left, right) : `${left} = ${right}`
   const conditions: string[] = []
   const params: (string | number)[] = [verb]
-  if (subjectSlot.kind === 'term') {
-    conditions.push(same('h.src', '?'))
-    params.push(subjectSlot.text)
-    if (aliases) {
-      params.push(subjectSlot.text)
-    }
+  const pushTerm = (term: string): void => {
+    params.push(term)
+    if (aliases) params.push(term)
   }
-  if (objectSlot?.kind === 'term') {
+  // A concrete source gives forward recursion its smallest seed. If only the
+  // destination is concrete, recurse backwards over the object index. Both
+  // forms retain normal (src, dst) orientation in their output.
+  const direction = subjectSlot.kind === 'term' ? 'forward' :
+    objectSlot?.kind === 'term' ? 'reverse' : 'all-pairs'
+  if (subjectSlot.kind === 'term') {
+    pushTerm(subjectSlot.text)
+  } else if (objectSlot?.kind === 'term') {
+    pushTerm(objectSlot.text)
+  }
+  if (objectSlot?.kind === 'term' && direction !== 'reverse') {
     conditions.push(same('h.dst', '?'))
-    params.push(objectSlot.text)
-    if (aliases) {
-      params.push(objectSlot.text)
-    }
+    pushTerm(objectSlot.text)
   }
   // A repeated variable forces equality here just as in single-hop
   // patterns: `?x EXTENDS+ ?x` asks for nodes on a cycle, not for every
@@ -432,28 +436,50 @@ const compileTransitive = (
   // Reachable pairs are the complete recursive state. UNION (not UNION ALL)
   // deduplicates each pair before it can be expanded again, so a finite graph
   // reaches a fixed point even with cycles and no hop-depth cutoff.
+  const seedSql = direction === 'forward' ?
+    `SELECT src, dst FROM cur WHERE ${same('src', '?')}` :
+    direction === 'reverse' ?
+      `SELECT src, dst FROM cur WHERE ${same('dst', '?')}` :
+      'SELECT src, dst FROM cur'
+  const recursiveSql = direction === 'reverse' ?
+    `SELECT cur.src, h.dst FROM hops h JOIN cur ON ${same('cur.dst', 'h.src')}` :
+    `SELECT h.src, cur.dst FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}`
   const hopsSql = `hops(src, dst) AS (
-  SELECT src, dst FROM cur
+  ${seedSql}
   UNION
-  SELECT h.src, cur.dst FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}
+  ${recursiveSql}
 )`
-  // Support (an opt-in): an edge row backs a pair when its endpoints sit
-  // on some path between them — reflexive or through the same hop
-  // closure, so alias-equal endpoints connect exactly as matching did.
+  // Support (an opt-in): propagate each edge id with every reachable pair it
+  // supports. The triple is finite and UNION-deduplicated like `hops`, while
+  // preserving forward/reverse seeding instead of rebuilding all-pairs
+  // reachability merely to recover path evidence.
+  const supportAddedSql = direction === 'reverse' ?
+    `SELECT cur.src, h.dst, cur.edge_id FROM hops h JOIN cur ON ${same('cur.dst', 'h.src')}` :
+    `SELECT h.src, cur.dst, cur.edge_id FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}`
+  const supportRecursiveSql = direction === 'reverse' ?
+    `SELECT cur.src, s.dst, s.edge_id FROM support s JOIN cur ON ${same('cur.dst', 's.src')}` :
+    `SELECT s.src, cur.dst, s.edge_id FROM support s JOIN cur ON ${same('cur.src', 's.dst')}`
+  const supportSql = `support(src, dst, edge_id) AS (
+  SELECT h.src, h.dst, cur.edge_id FROM hops h JOIN cur
+    ON ${same('cur.src', 'h.src')} AND ${same('cur.dst', 'h.dst')}
+  UNION
+  ${supportAddedSql}
+  UNION
+  ${supportRecursiveSql}
+)`
   const sql = options.support === true ? `
 ${withRecursive}edge AS (
   SELECT c.* FROM (${base}) c
   WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
 ), cur AS (
-  SELECT DISTINCT subject AS src, object AS dst FROM edge
-), ${hopsSql}, pair(src, dst) AS (
+  SELECT subject AS src, object AS dst, id AS edge_id FROM edge
+), ${hopsSql}, ${supportSql}, pair(src, dst) AS (
   SELECT DISTINCT h.src, h.dst FROM hops h
   ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 )
 SELECT p.src AS src, p.dst AS dst, e.*
-FROM pair p JOIN edge e
-  ON (${same('e.subject', 'p.src')} OR EXISTS (SELECT 1 FROM hops f WHERE ${same('f.src', 'p.src')} AND ${same('f.dst', 'e.subject')}))
- AND (${same('e.object', 'p.dst')} OR EXISTS (SELECT 1 FROM hops b WHERE ${same('b.src', 'e.object')} AND ${same('b.dst', 'p.dst')}))
+FROM pair p JOIN support s ON ${same('s.src', 'p.src')} AND ${same('s.dst', 'p.dst')}
+JOIN edge e ON e.id = s.edge_id
 ORDER BY p.src, p.dst, e.tx` : `
 ${withRecursive}cur AS (
   SELECT c.subject AS src, c.object AS dst
