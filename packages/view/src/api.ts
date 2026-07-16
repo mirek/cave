@@ -15,17 +15,11 @@
 import { SourceSpan, Uuidv7, Verb, Version } from '@cavelang/core'
 import type { SourceReference } from '@cavelang/core'
 import { check, defaultStaleDays } from '@cavelang/shape'
-import { Sensitivity } from '@cavelang/store'
+import { QuerySql, Sensitivity } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 import { withScopedStore } from './scope.ts'
 
-const currentSql = `
-SELECT c.* FROM cave_claim c
-JOIN (
-  SELECT claim_key, MAX(tx) AS max_tx
-  FROM cave_claim GROUP BY claim_key
-) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
-`
+const currentSql = QuerySql.current()
 
 /** One claim row, shaped for rendering (spec §30.2). */
 export type ClaimView = {

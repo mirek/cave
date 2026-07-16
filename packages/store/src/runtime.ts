@@ -1,6 +1,7 @@
-import { Uuidv7, Verb } from '@cavelang/core'
+import { Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import type { Adapter } from './adapter.ts'
+import * as QuerySql from './query-sql.ts'
 import { open as openStore } from './store.ts'
 import type { Store as BaseStore } from './store.ts'
 
@@ -22,28 +23,18 @@ type Declaration = {
   readonly object: string
 }
 
-const upperTxBound = (text: string): string => {
-  const hasTime = text.includes('T')
-  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(start)) {
-    throw new Error(`CAVE: cannot parse as-of boundary ${JSON.stringify(text)}`)
-  }
-  const end = start + (hasTime ? 1_000 : 86_400_000)
-  return Uuidv7.at(end, 0, new Uint8Array(8))
-}
-
 const declarationsAsOf = (store: BaseStore, asOf: string): Declaration[] => {
-  const id = asOf.toLowerCase()
-  const [condition, boundary] = Uuidv7.is(id) ?
-    ['tx <= ?', id] as const :
-    ['tx < ?', upperTxBound(asOf)] as const
+  const boundary = QuerySql.asOfBoundary(asOf)
+  if (boundary === undefined) {
+    throw new Error(`CAVE: cannot parse as-of boundary ${JSON.stringify(asOf)}`)
+  }
   return store.db.prepare(`
     SELECT subject, verb, object FROM cave_claim
-    WHERE ${condition}
+    WHERE tx ${boundary.operator} ?
       AND negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'RENAMED-TO', 'IS')
       AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
     ORDER BY tx
-  `).all(boundary) as Declaration[]
+  `).all(boundary.tx) as Declaration[]
 }
 
 const applyDeclarations = (

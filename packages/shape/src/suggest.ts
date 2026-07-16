@@ -13,15 +13,10 @@
  */
 
 import { Verb } from '@cavelang/core'
+import { QuerySql } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 
-const currentSql = `
-SELECT c.* FROM cave_claim c
-JOIN (
-  SELECT claim_key, MAX(tx) AS max_tx
-  FROM cave_claim GROUP BY claim_key
-) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
-`
+const currentSql = QuerySql.current()
 
 /** One piece of evidence behind a suggestion (spec §27.2). */
 export type Signal = {

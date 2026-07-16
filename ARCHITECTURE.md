@@ -387,6 +387,12 @@ The Tree-sitter grammar is a parallel syntax artifact for highlighting. It is
 the shared source for terminal, website, and VS Code highlighting, but the
 semantic parser remains `@cavelang/parser`.
 
+Shared SQL semantics live in `@cavelang/store`'s public `QuerySql` namespace.
+Store reads, CAVE-Q, shape discovery, generated typed clients, and view models
+compose its latest-per-key, alias-closure, and transaction-boundary fragments.
+Retraction and negation remain explicit consumer predicates: “current” means
+the latest row in every belief series, including a latest `@ 0%` or denial.
+
 ## Architectural invariants
 
 Changes should preserve these properties:

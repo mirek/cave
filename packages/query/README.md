@@ -3,6 +3,11 @@
 CAVE-Q — the graph-pattern query layer (spec §12), compiled to SQL over an
 open `@cavelang/store`.
 
+Current-belief selection, transaction boundaries, and alias closure come from
+the store's public `QuerySql` primitives; CAVE-Q adds pattern joins, filters,
+resolution, transitive traversal, and result binding without redefining those
+shared semantics.
+
 ```ts
 import { open } from '@cavelang/store'
 import { query } from '@cavelang/query'
