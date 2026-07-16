@@ -36,7 +36,7 @@ import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { defaultDbPath, open } from '@cavelang/store'
+import { Sensitivity, defaultDbPath, open } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -83,9 +83,9 @@ Usage:
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
-  cave export [--db <path>] [--out <file>] emit canonical CAVE text [--current] [--tx] [--no-prelude]
-  cave serve [--db <path>]                 browse the store in a browser (spec §30) [--port <n>] [--host <a>]
-  cave report [--db <path>] [template...]  render cited markdown from a CAVE-Q template (spec §31) [--out <file>] [--resolve]
+  cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]
+  cave serve [--db <path>]                 browse a filtered store (spec §30) [--max-sensitivity <level>]
+  cave report [--db <path>] [template...]  render filtered cited markdown (spec §31) [--max-sensitivity <level>]
   cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals
@@ -178,7 +178,7 @@ file read as ordinary comments; to merge under the recorded row
 identity, use \`cave sync\` (spec §28.4).
 
 Examples:
-  cave export --db old.db --out backup.cave
+  cave export --db old.db --max-sensitivity restricted --out backup.cave
   cave import --db new.db backup.cave`,
 
   query: `cave query — run a CAVE-Q pattern against a store
@@ -448,7 +448,7 @@ a merge driver on *.cave files.
 Examples:
   cave sync --db main.db laptop.db
   cave sync --db main.db laptop.db --dry-run --json
-  cave export --db laptop.db --tx | cave sync --db main.db -
+  cave export --db laptop.db --tx --max-sensitivity restricted | cave sync --db main.db -
   cave sync --db a.db b.db && cave sync --db b.db a.db   # converge both
   cave sync --db work.db knowledge.cave --no-record      # checkout (§28.6)
   cave sync --db main.db knowledge.cave --as reorg-auth  # land the branch`,
@@ -456,7 +456,8 @@ Examples:
   export: `cave export — emit canonical CAVE text from a store
 
 Usage:
-  cave export [--db <path>] [--out <file>] [--current] [--tx] [--no-prelude]
+  cave export [--db <path>] [--out <file>] [--current] [--tx]
+              [--max-sensitivity <level>] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -464,6 +465,9 @@ Options:
                  names the store's own database file
   --current      current beliefs only (skip superseded rows); compacting
                  view, not sanitization or selective erasure (spec §9.6)
+  --max-sensitivity <level>
+                 public, internal, confidential, or restricted (default
+                 internal; restricted is the complete exact backup)
   --tx           precede every claim line with its ;@ transaction
                  annotation (spec §28.4) — the text carries row identity,
                  so cave sync replays it idempotently; other readers see
@@ -475,17 +479,20 @@ guarantee erasure from the store, exports, peers, or backups (spec §9.6).
 
 Examples:
   cave export --db k.db
-  cave export --db k.db --out backup.cave
+  cave export --db k.db --out internal-export.cave
+  cave export --db k.db --max-sensitivity restricted --out exact-backup.cave
   cave export --db k.db --current --out snapshot.cave
-  cave export --db k.db --tx | cave sync --db other.db -
-  cave export --db work.db --tx --out knowledge.cave    # the committed,
+  cave export --db k.db --tx --max-sensitivity restricted | cave sync --db other.db -
+  cave export --db work.db --tx --max-sensitivity restricted --out knowledge.cave
+                                                        # the committed,
                                     # reviewable store text (spec §28.6)`,
 
   report: `cave report — render cited markdown from a CAVE-Q template (spec §31)
 
 Usage:
   cave report [--db <path>] [template.md...] [--out <file>]
-              [--aliases] [--resolve] [--as-of <t>] [--at <t>] [--no-prelude]
+              [--aliases] [--resolve] [--as-of <t>] [--at <t>]
+              [--max-sensitivity <level>] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -498,6 +505,9 @@ Options:
   --at <t>       anchor every query in valid time (spec §32.4): claims
                  whose time contexts don't cover the instant drop out,
                  trajectory values render interpolated
+  --max-sensitivity <level>
+                 public, internal, confidential, or restricted (default
+                 internal; malformed/unknown claim labels fail closed)
   --no-prelude   open the store without the standard verb registry
 
 Reads stdin when no file (or \`-\`) is given. A template is ordinary
@@ -1272,16 +1282,22 @@ export const reportCommand = (argv: readonly string[]): Output => {
       resolve: { type: 'boolean' },
       'as-of': { type: 'string' },
       at: { type: 'string' },
+      'max-sensitivity': { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
   })
   const template = readInput(positionals)
+  const maximum = Sensitivity.parse(values['max-sensitivity'] ?? Sensitivity.defaultMaximum)
+  if (maximum === undefined) {
+    return fail(`cave report: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
+  }
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
     const rendered = caveReport(store, template, {
       aliases: values.aliases === true,
       resolve: values.resolve === true,
+      maxSensitivity: maximum,
       ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
       ...values.at === undefined ? {} : { at: values.at }
     })
@@ -1331,17 +1347,22 @@ export const exportCommand = (argv: readonly string[]): Output => {
       current: { type: 'boolean' },
       tx: { type: 'boolean' },
       out: { type: 'string' },
+      'max-sensitivity': { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: false
   })
   const db = values.db ?? defaultDbPath()
+  const maximum = Sensitivity.parse(values['max-sensitivity'] ?? Sensitivity.defaultMaximum)
+  if (maximum === undefined) {
+    return fail(`cave export: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
+  }
   if (values.out !== undefined && sameFile(db, values.out)) {
     return fail(`cave export: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
   const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const text = store.exportText({ current: values.current === true, tx: values.tx === true })
+    const text = store.exportText({ current: values.current === true, tx: values.tx === true, maxSensitivity: maximum })
     if (values.out === undefined) {
       return ok(text)
     }

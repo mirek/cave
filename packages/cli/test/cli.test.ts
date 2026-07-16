@@ -554,6 +554,30 @@ test('export --current --out backs up only current beliefs', () => {
   })
 })
 
+test('export uses the shared sensitivity ceiling and validates labels (spec §9.7)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const source = join(dir, 's.cave')
+    writeFileSync(source, [
+      'public-item IS visible #sensitivity:public',
+      'internal-item IS visible',
+      'secret-item IS visible #sensitivity:confidential',
+      'restricted-item IS visible #sensitivity:restricted'
+    ].join('\n'))
+    addCommand([source, '--db', db])
+    const ordinary = exportCommand(['--db', db]).out
+    assert.match(ordinary, /public-item/)
+    assert.match(ordinary, /internal-item/)
+    assert.doesNotMatch(ordinary, /secret-item|restricted-item/)
+    const complete = exportCommand(['--db', db, '--max-sensitivity', 'restricted']).out
+    assert.match(complete, /secret-item/)
+    assert.match(complete, /restricted-item/)
+    const invalid = exportCommand(['--db', db, '--max-sensitivity', 'secret'])
+    assert.equal(invalid.code, 1)
+    assert.match(invalid.err, /public, internal, confidential, restricted/)
+  })
+})
+
 test('export refuses --out that would overwrite the source database (export-clobbers-db)', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
@@ -1066,5 +1090,33 @@ test('report renders cited markdown from a template (spec §31)', () => {
     assert.match(written.out, /rendered 3 citation\(s\) to /)
     assert.match(readFileSync(out, 'utf8'), /\[\^c3\]:/)
     assert.match(commandHelp['report']!, /claim key/)
+  })
+})
+
+test('report uses the shared sensitivity ceiling and validates labels (spec §9.7)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const claims = join(dir, 'k.cave')
+    const template = join(dir, 'report.md')
+    writeFileSync(claims, [
+      'public-item HAS status: ready #sensitivity:public',
+      'internal-item HAS status: ready',
+      'secret-item HAS status: ready #sensitivity:confidential'
+    ].join('\n'))
+    writeFileSync(template, '```cave-q\n?item HAS status: ?status\n- ?item: ?status [^?]\n```\n')
+    assert.equal(addCommand([claims, '--db', db]).code, 0)
+
+    const ordinary = reportCommand([template, '--db', db])
+    assert.equal(ordinary.code, 0, ordinary.err)
+    assert.match(ordinary.out, /public-item|internal-item/)
+    assert.doesNotMatch(ordinary.out, /secret-item/)
+
+    const complete = reportCommand([template, '--db', db, '--max-sensitivity', 'confidential'])
+    assert.equal(complete.code, 0, complete.err)
+    assert.match(complete.out, /secret-item/)
+
+    const invalid = reportCommand([template, '--db', db, '--max-sensitivity', 'secret'])
+    assert.equal(invalid.code, 1)
+    assert.match(invalid.err, /public, internal, confidential, restricted/)
   })
 })

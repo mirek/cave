@@ -20,7 +20,7 @@ Or from the CLI:
 
 ```sh
 cave sync --db main.db laptop.db          # store file → merged through SQL
-cave export --db laptop.db --tx > l.cave  # §28.4 annotated canonical text
+cave export --db laptop.db --tx --max-sensitivity restricted > l.cave
 cave sync --db main.db l.cave             # text → replayed under its ids
 cave sync --db main.db laptop.db --dry-run --json
 ```
@@ -38,6 +38,11 @@ cave sync --db main.db laptop.db --dry-run --json
   including retracted history and authored raw text. There is no selective
   forgetting protocol or tombstone (§9.6); never sync an affected store into
   a reviewed replacement after accidental sensitive-data ingestion.
+- **Sync is exact, not audience-filtered.** It preserves every row's §9.7
+  sensitivity label and does not enforce a publication ceiling. Producing a
+  complete annotated text replica therefore requires
+  `cave export --tx --max-sensitivity restricted`; lower ceilings intentionally
+  create partial views that must not be treated as full replicas.
 - **The receive rule.** Opening a store observes its `MAX(tx)`; merging
   observes the merged maximum — the UUIDv7 generator never mints below
   what it observed, so *everything appended after a merge outsorts
@@ -81,11 +86,11 @@ SQLite file — and a branch is a git branch plus a private store rebuilt
 from it:
 
 ```sh
-cave export --db main.db --tx --out knowledge.cave     # regenerate before every commit
+cave export --db main.db --tx --max-sensitivity restricted --out knowledge.cave
 git switch -c reorg-auth
 cave sync --db work.db knowledge.cave --no-record      # checkout: plumbing, no record
 cave add --db work.db …                                # ordinary appends
-cave export --db work.db --tx --out knowledge.cave     # the PR diff = the appended claims
+cave export --db work.db --tx --max-sensitivity restricted --out knowledge.cave
 ```
 
 Rows are immutable and export order is transaction order, so review
@@ -99,7 +104,7 @@ re-export the union — configurable as a git merge driver
 ```ini
 [merge "cave"]
 	name = CAVE store union
-	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --out $1 && rm -rf $t' - %A %B
+	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --max-sensitivity restricted --out $1 && rm -rf $t' - %A %B
 ```
 
 Landing is a sync — `cave sync --db main.db knowledge.cave --as

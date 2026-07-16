@@ -7,9 +7,17 @@ markdown deliverables** from CAVE-Q templates. No build step, no
 framework, no external resource of any kind: the page renders offline
 and the server's CSP denies every non-self source.
 
+Both surfaces apply the spec §9.7 ceiling (`public < internal < confidential <
+restricted`) and default to `internal`; unlabeled claims are `internal`, while
+malformed and unknown labels fail closed as `restricted`. Use
+`--max-sensitivity <level>` (or `maxSensitivity` programmatically) to select a
+different audience. Filtering happens before view semantics: dashboard counts,
+aliases, history, search and lineage cannot disclose hidden rows indirectly,
+and lineage edges survive only when both endpoints are visible.
+
 ```sh
 cave serve --db k.db
-# serving k.db at http://127.0.0.1:2283/ (read-only, ctrl-c to stop)
+# serving k.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)
 
 cave report --db k.db weekly.md > report.md
 ```
@@ -52,8 +60,10 @@ the whole store is reachable by clicking.
 Only GET/HEAD are answered (anything else is 405), no endpoint writes,
 and every request reads the live store — a running `cave automate`
 loop's appends show on the next refresh. The server binds `127.0.0.1`
-by default; `--host` widens deliberately (it shares the whole store,
-read-only). Recording knowledge stays with `cave add`, the MCP tools
+by default; `--host` widens deliberately (it shares the selected sensitivity
+view, read-only). Sensitivity is routing metadata, not authentication or
+encryption; a widened server still belongs behind an appropriate access layer.
+Recording knowledge stays with `cave add`, the MCP tools
 and the kinetic layer.
 
 ## Reports — cited deliverables (spec §31)
@@ -95,7 +105,7 @@ the report re-renders from current belief on demand.
 ```ts
 import { serve, report, overview, entity, history, lineage } from '@cavelang/view'
 
-const handle = await serve(store, { port: 0, label: 'k.db' })
+const handle = await serve(store, { port: 0, label: 'k.db', maxSensitivity: 'public' })
 // handle.url → http://127.0.0.1:<port>/
 await handle.close()
 
@@ -103,6 +113,7 @@ await handle.close()
 const dash = overview(store)
 const gateway = entity(store, 'api-gateway', { aliases: true })
 const { markdown, problems } = report(store, template, {
+  maxSensitivity: 'confidential',
   resolve: true,
   asOf: '2026-01-15',
   at: '1962'

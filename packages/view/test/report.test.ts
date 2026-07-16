@@ -39,6 +39,26 @@ test('markdown without live constructs passes through verbatim (spec §31.1)', (
   store.close()
 })
 
+test('reports default to internal and accept an explicit sensitivity ceiling (spec §9.7, §31)', () => {
+  const store = open()
+  store.ingest([
+    'public-service IS service #sensitivity:public',
+    'internal-service IS service',
+    'secret-service IS service #sensitivity:confidential'
+  ].join('\n'))
+  const template = '```cave-q\n?svc IS service\n- ?svc\n```'
+  const ordinary = report(store, template)
+  assert.match(ordinary.markdown, /public-service/)
+  assert.match(ordinary.markdown, /internal-service/)
+  assert.doesNotMatch(ordinary.markdown, /secret-service/)
+  const publicOnly = report(store, template, { maxSensitivity: 'public' })
+  assert.match(publicOnly.markdown, /public-service/)
+  assert.doesNotMatch(publicOnly.markdown, /internal-service|secret-service/)
+  const confidential = report(store, template, { maxSensitivity: 'confidential' })
+  assert.match(confidential.markdown, /secret-service/)
+  store.close()
+})
+
 test('query block without a fragment renders cited bullets (spec §31.1)', () => {
   const store = fixture()
   const rendered = report(store, [

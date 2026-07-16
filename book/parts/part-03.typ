@@ -28,6 +28,13 @@ CAVE deliberately provides no claim-level redact or forget command. A local rewr
 
 #note([Accidental secret response], [Rotate or revoke the secret first. Stop writers and sync, inventory every database/export/clone/backup/snapshot, rebuild from reviewed safe input, verify the replacement independently, then explicitly destroy or expire every affected copy using the storage provider's confirmed procedure. Never merge an affected store into the replacement.])
 
+= Sensitivity-Scoped Publication
+Claims can carry `#sensitivity:public`, `#sensitivity:internal`, `#sensitivity:confidential`, or `#sensitivity:restricted`. The order is public, internal, confidential, then restricted. Unlabeled rows are internal; flat, malformed, and unknown sensitivity labels fail closed as restricted. If several labels occur, the most restrictive wins.
+
+Export, reports, and the human HTTP view default to an internal ceiling and can select another maximum explicitly. Filtering is structural: dashboard counts, aliases, history, search, lineage, and edges derive only from visible rows. Current belief resolves first, then the selected latest row is filtered, so a hidden update never revives an older public belief.
+
+#note([Boundary], [Sensitivity is routing metadata, not encryption, authorization, deletion, or a retention policy. Use --max-sensitivity restricted for an exact canonical backup or transaction-annotated replica. Sync remains exact and preserves every row and label.])
+
 
 = CAVE-Q Query Language
 CAVE-Q reuses the claim shape as a graph pattern language. Slots beginning with ? are named variables. An underscore is an anonymous wildcard. A plus suffix requests one-or-more transitive hops.

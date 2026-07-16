@@ -7,7 +7,7 @@
  * and every entity name, claim key and row id links onward: entity 360,
  * topic browse, belief-history timeline, lineage, search.
  *
- * `__CAVE_DB__` and `__CAVE_VERSION__` are stamped by the server
+ * `__CAVE_DB__`, `__CAVE_VERSION__`, and `__CAVE_SENSITIVITY__` are stamped by the server
  * (HTML-escaped) when the page is requested.
  */
 
@@ -109,7 +109,7 @@ mark { background: var(--mark); color: inherit; border-radius: .2rem; }
   <label><input id="aliases" type="checkbox"> aliases</label>
 </header>
 <main id="view"></main>
-<footer>cave __CAVE_VERSION__ &middot; __CAVE_DB__ &middot; read-only view — the store changes only through the CLI, MCP and the kinetic layer</footer>
+<footer>cave __CAVE_VERSION__ &middot; __CAVE_DB__ &middot; sensitivity &le; __CAVE_SENSITIVITY__ &middot; read-only view</footer>
 <script>
 'use strict'
 var view = document.getElementById('view')

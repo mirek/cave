@@ -117,7 +117,7 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.
 
 That permanence includes mistakes and sensitive text. Retraction and
 `--current` queries change what is believed; they do not erase earlier rows,
-`raw_line`, metadata, full exports, synced copies, or backups. CAVE deliberately
+`raw_line`, metadata, exact exports, synced copies, or backups. CAVE deliberately
 has no claim-level redact/forget command because it cannot guarantee erasure
 across SQLite remnants, FTS, peers, snapshots, and storage devices. Do not
 ingest credentials or data requiring selective deletion. After accidental
@@ -139,7 +139,15 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' --resolve
 
 The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts a source in-band — and a built-in precedence ladder makes a human correction (`@src:cli`) outrank a machine ingest re-run, whatever landed last.
 
-The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it). `--current` is compact backup, not a sanitization guarantee; inspect every emitted row before treating a replacement store as safe (§9.6).
+The 70% row is still there: `cave export --db family.db` replays the belief
+history allowed by its sensitivity ceiling as canonical text, and `--current`
+emits just today's allowed beliefs. Claims may be labelled
+`#sensitivity:public`, `internal`, `confidential`, or `restricted`; unlabeled
+claims and publication surfaces default to `internal`, while malformed labels
+fail closed as `restricted`. Use `--max-sensitivity restricted` only when an
+exact backup or replica is intended. This text *is* the backup/interchange
+format (`cave import` restores it), but neither `--current` nor sensitivity
+filtering erases permanent history (§9.6–§9.7).
 
 **Time is an axis of the world, not just of the store.** Transaction time — when the store learned something — is reconstructable with `--as-of`. Claims can also say *when in the world* they hold (spec §32): a date-like context scopes a claim to a period or range, and a trajectory value (`A -> B`) interpolates linearly across its range:
 
@@ -349,7 +357,7 @@ merged 0 claim(s), 0 edge(s), 42 already present
 Present rows skip, re-runs merge nothing, two stores syncing each other converge — and the merge itself is a claim (stamped `@src:sync`) whose belief series is the sync log. Local appends after a merge always outsort merged history, whatever the origin machine's clock read (the §28.2 receive rule). Plain text crosses air gaps the same way: `cave export --tx` precedes every claim line with a `;@` transaction annotation — an ordinary comment to every other reader — and `cave sync` replays it under the recorded identity:
 
 ```
-$ pnpm exec cave export --db laptop.db --tx | cave sync --db main.db - --as laptop
+$ pnpm exec cave export --db laptop.db --tx --max-sensitivity restricted | cave sync --db main.db - --as laptop
 ```
 
 And because the annotated export is a complete replica, **the store can
@@ -390,10 +398,10 @@ Everything above serves programs. `cave serve` is for the person (spec §30): on
 
 ```
 $ pnpm exec cave serve --db family.db
-serving family.db at http://127.0.0.1:2283/ (read-only, ctrl-c to stop)
+serving family.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)
 ```
 
-The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search covers everything, and every request reads the live store, so a running `cave automate` loop's appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §30.
+The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search, counts, aliases, history and lineage all obey the same sensitivity ceiling; raise it explicitly with `--max-sensitivity`. Every request reads the live store, so a running `cave automate` loop's visible appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §9.7, §30.
 
 ### Ship a document that cites its claims — `cave report`
 
@@ -411,7 +419,7 @@ Jan was born in `cave-q: jan HAS birth-year: ?y` in `cave-q: jan HAS birthplace:
 ````
 
 ```
-$ pnpm exec cave report --db family.db brief.md --resolve
+$ pnpm exec cave report --db family.db brief.md --resolve --max-sensitivity internal
 Jan was born in 1931[^c1] in Kraków[^c2].
 
 ## The ancestor line

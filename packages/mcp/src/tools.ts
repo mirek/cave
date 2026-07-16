@@ -26,6 +26,7 @@
 import { Claim, Key, Multiplier, Value } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
+import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import { estimateOf, fuse } from '@cavelang/fusion'
@@ -470,15 +471,25 @@ export const tools: readonly Tool[] = [
   },
   {
     name: 'cave_export',
-    description: 'Export the knowledge database as canonical CAVE text — the interchange/backup ' +
-      'format. Set current to export only current beliefs (drops superseded history).',
+    description: 'Export sensitivity-scoped canonical CAVE text (default maximum internal). ' +
+      'Set maxSensitivity to restricted for an exact backup; current drops superseded history.',
     permission: 'read',
     inputSchema: {
       type: 'object',
-      properties: { current: { type: 'boolean' } }
+      properties: {
+        current: { type: 'boolean' },
+        maxSensitivity: { type: 'string', enum: Sensitivity.levels }
+      }
     },
-    run: (store, args) =>
-      store.exportText({ current: args['current'] === true }) || '; empty store'
+    run: (store, args) => {
+      const maximum = args['maxSensitivity'] === undefined ?
+        Sensitivity.defaultMaximum :
+        Sensitivity.parse(text(args['maxSensitivity'], 'maxSensitivity'))
+      if (maximum === undefined) {
+        throw new Error(`maxSensitivity must be one of ${Sensitivity.levels.join(', ')}`)
+      }
+      return store.exportText({ current: args['current'] === true, maxSensitivity: maximum }) || '; empty store'
+    }
   },
   {
     name: 'cave_lint',

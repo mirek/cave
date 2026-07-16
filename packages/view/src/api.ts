@@ -14,7 +14,9 @@
 
 import { Uuidv7, Verb, Version } from '@cavelang/core'
 import { check, defaultStaleDays } from '@cavelang/shape'
+import { Sensitivity } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
+import { withScopedStore } from './scope.ts'
 
 const currentSql = `
 SELECT c.* FROM cave_claim c
@@ -57,19 +59,28 @@ export type ClaimView = {
 export type Options = {
   /** Match entities through the §13.6 alias closure (default `false`). */
   readonly aliases?: boolean
+  /** Highest sensitivity level allowed to leave the store (default `internal`, spec §9.7). */
+  readonly maxSensitivity?: Sensitivity.Level
 }
+
+const maximumOf = (options: { maxSensitivity?: Sensitivity.Level }): Sensitivity.Level =>
+  options.maxSensitivity ?? Sensitivity.defaultMaximum
 
 const rows = (store: Store, sql: string, ...params: (string | number)[]): Row.t[] =>
   store.db.prepare(sql).all(...params) as unknown as Row.t[]
 
-const toView = (store: Store, row: Row.t): ClaimView => {
+const toView = (store: Store, row: Row.t, maximum?: Sensitivity.Level): ClaimView => {
   const contexts = (store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(row.id) as
     { context: string }[]).map(entry => entry.context)
   const tags = (store.db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ?').all(row.id) as
     { key: string, value: null | string }[])
     .map(tag => tag.value === null ? { key: tag.key } : { key: tag.key, value: tag.value })
-  const cites = (store.db.prepare('SELECT COUNT(*) AS n FROM cave_edge WHERE parent_id = ?').get(row.id) as { n: number }).n
-  const citedBy = (store.db.prepare('SELECT COUNT(*) AS n FROM cave_edge WHERE child_id = ?').get(row.id) as { n: number }).n
+  const visibleChild = maximum === undefined ? '' :
+    ` JOIN cave_claim visible ON visible.id = cave_edge.child_id AND ${Sensitivity.sql('visible', maximum)}`
+  const visibleParent = maximum === undefined ? '' :
+    ` JOIN cave_claim visible ON visible.id = cave_edge.parent_id AND ${Sensitivity.sql('visible', maximum)}`
+  const cites = (store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleChild} WHERE parent_id = ?`).get(row.id) as { n: number }).n
+  const citedBy = (store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleParent} WHERE child_id = ?`).get(row.id) as { n: number }).n
   return {
     id: row.id,
     tx: row.tx,
@@ -93,8 +104,8 @@ const toView = (store: Store, row: Row.t): ClaimView => {
   }
 }
 
-const views = (store: Store, list: readonly Row.t[]): ClaimView[] =>
-  list.map(row => toView(store, row))
+const views = (store: Store, list: readonly Row.t[], maximum?: Sensitivity.Level): ClaimView[] =>
+  list.map(row => toView(store, row, maximum))
 
 /** Entity test mirroring §20.2's: not a verb token, not a stored literal. */
 const isEntityName = (name: string): boolean =>
@@ -107,7 +118,7 @@ export type Topic = {
 }
 
 /** Topics — subjects of current positive `CONTAINS` claims, largest first. */
-export const topics = (store: Store): Topic[] =>
+const topicsRaw = (store: Store): Topic[] =>
   (store.db.prepare(`
     SELECT c.subject AS name, COUNT(*) AS members FROM (${currentSql}) c
     WHERE c.verb = 'CONTAINS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
@@ -115,6 +126,9 @@ export const topics = (store: Store): Topic[] =>
   `).all() as { name: string, members: number }[])
     .filter(topic => isEntityName(topic.name))
     .map(({ name, members }) => ({ name, members }))
+
+export const topics = (store: Store, options: Pick<Options, 'maxSensitivity'> = {}): Topic[] =>
+  withScopedStore(store, maximumOf(options), topicsRaw)
 
 /** A §20.2 section capped for the page, with the uncapped count. */
 export type Capped<T> = {
@@ -153,10 +167,11 @@ export type Overview = {
  * and the latest appends. Long sections are capped (the report is the
  * uncapped surface); `total` counts what the store has.
  */
-export const overview = (store: Store, options: { staleDays?: number, recent?: number, limit?: number } = {}): Overview => {
+export const overview = (store: Store, options: { staleDays?: number, recent?: number, limit?: number, maxSensitivity?: Sensitivity.Level } = {}): Overview =>
+  withScopedStore(store, maximumOf(options), scoped => {
   const limit = options.limit ?? 100
-  const report = check(store, { staleDays: options.staleDays ?? defaultStaleDays })
-  const recent = rows(store, 'SELECT * FROM cave_claim ORDER BY tx DESC LIMIT ?', options.recent ?? 30)
+  const report = check(scoped, { staleDays: options.staleDays ?? defaultStaleDays })
+  const recent = rows(scoped, 'SELECT * FROM cave_claim ORDER BY tx DESC LIMIT ?', options.recent ?? 30)
   return {
     version: Version.current(),
     coverage: report.coverage,
@@ -171,18 +186,18 @@ export const overview = (store: Store, options: { staleDays?: number, recent?: n
       actualCount: violation.actualCount,
       actualUnits: violation.actualUnits
     })),
-    stale: cap(report.stale, limit, stale => ({ ageDays: stale.ageDays, row: toView(store, stale.row) })),
-    review: cap(report.review, limit, row => toView(store, row)),
+    stale: cap(report.stale, limit, stale => ({ ageDays: stale.ageDays, row: toView(scoped, stale.row) })),
+    review: cap(report.review, limit, row => toView(scoped, row)),
     disagreements: cap(report.disagreements, limit, disagreement => ({
       kind: disagreement.kind,
       about: disagreement.about,
       entities: disagreement.entities,
-      rows: views(store, disagreement.rows)
+      rows: views(scoped, disagreement.rows)
     })),
-    topics: topics(store),
-    recent: views(store, recent)
+    topics: topicsRaw(scoped),
+    recent: views(scoped, recent)
   }
-}
+  })
 
 export type Entity = {
   readonly name: string
@@ -211,30 +226,31 @@ export type Entity = {
  * claims are shown (they are knowledge); retracted ones only appear in
  * the activity feed and in each fact's own history.
  */
-export const entity = (store: Store, name: string, options: Options & { activity?: number } = {}): Entity => {
-  const aliases = options.aliases === true ? store.aliasesOf(name) : [name]
+export const entity = (store: Store, name: string, options: Options & { activity?: number } = {}): Entity =>
+  withScopedStore(store, maximumOf(options), scoped => {
+  const aliases = options.aliases === true ? scoped.aliasesOf(name) : [name]
   const marks = aliases.map(() => '?').join(', ')
-  const facts = rows(store, `
+  const facts = rows(scoped, `
     SELECT c.* FROM (${currentSql}) c
     WHERE c.subject IN (${marks}) AND c.object IS NULL AND c.conf > 0
     ORDER BY c.verb, c.attribute, c.tx
   `, ...aliases)
   const traverse = { negated: true, ...options.aliases === true ? { aliases: true } : {} }
-  const about = store.claimsAbout(name, traverse)
-  const out = store.forward(name, traverse).map(fact => fact.row)
+  const about = scoped.claimsAbout(name, traverse)
+  const out = scoped.forward(name, traverse).map(fact => fact.row)
   return {
     name,
     aliases,
     types: [...new Set(out.filter(row => row.verb === 'IS' && row.negated === 0).map(row => row.object!))],
-    facts: views(store, facts),
-    out: views(store, out),
-    in: store.reverse(name, traverse).map(fact =>
-      ({ ...toView(store, fact.row), ...fact.rel === undefined ? {} : { rel: fact.rel } })),
-    topics: store.topicsOf(name, traverse),
+    facts: views(scoped, facts),
+    out: views(scoped, out),
+    in: scoped.reverse(name, traverse).map(fact =>
+      ({ ...toView(scoped, fact.row), ...fact.rel === undefined ? {} : { rel: fact.rel } })),
+    topics: scoped.topicsOf(name, traverse),
     total: about.length,
-    activity: views(store, about.slice(0, options.activity ?? 30))
+    activity: views(scoped, about.slice(0, options.activity ?? 30))
   }
-}
+  })
 
 export type TopicPage = {
   readonly name: string
@@ -243,7 +259,8 @@ export type TopicPage = {
 
 /** One topic's members — the forward `CONTAINS` read (spec §11.2). */
 export const topic = (store: Store, name: string, options: Options = {}): TopicPage =>
-  ({ name, members: store.topicMembers(name, options) })
+  withScopedStore(store, maximumOf(options), scoped =>
+    ({ name, members: scoped.topicMembers(name, { aliases: options.aliases }) }))
 
 export type History = {
   readonly key: string
@@ -252,8 +269,9 @@ export type History = {
 }
 
 /** The belief-history timeline of one claim key (spec §30.2). */
-export const history = (store: Store, key: string): History =>
-  ({ key, rows: views(store, store.history(key)) })
+export const history = (store: Store, key: string, options: Pick<Options, 'maxSensitivity'> = {}): History =>
+  withScopedStore(store, maximumOf(options), scoped =>
+    ({ key, rows: views(scoped, scoped.history(key)) }))
 
 /** One node of a lineage tree (spec §30.2). */
 export type LineageNode = {
@@ -295,7 +313,9 @@ const maxLineageDepth = 16
  * Depth is capped: a node whose further edges the cap cut off is marked
  * `truncated`, so an incomplete explanation never renders as complete.
  */
-export const lineage = (store: Store, id: string): undefined | Lineage => {
+export const lineage = (store: Store, id: string, options: Pick<Options, 'maxSensitivity'> = {}): undefined | Lineage =>
+  withScopedStore(store, maximumOf(options), scoped => {
+  store = scoped
   const root = store.db.prepare('SELECT * FROM cave_claim WHERE id = ?').get(id) as undefined | Row.t
   if (root === undefined) {
     return undefined
@@ -330,8 +350,11 @@ export const lineage = (store: Store, id: string): undefined | Lineage => {
     cites: walk('down', id, new Set([id]), 0),
     citedBy: walk('up', id, new Set([id]), 0)
   }
-}
+  })
 
 /** Full-text search (§13.5's FTS surface), newest first, capped in the query. */
-export const search = (store: Store, text: string, options: { limit?: number } = {}): ClaimView[] =>
-  views(store, store.search(text, { limit: options.limit ?? 100 }))
+export const search = (store: Store, text: string, options: { limit?: number, maxSensitivity?: Sensitivity.Level } = {}): ClaimView[] =>
+  views(store, store.search(text, {
+    limit: options.limit ?? 100,
+    maxSensitivity: maximumOf(options)
+  }), maximumOf(options))

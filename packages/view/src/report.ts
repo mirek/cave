@@ -29,7 +29,9 @@ import { emitClaim } from '@cavelang/canonical'
 import { Pattern, query } from '@cavelang/query'
 import type { Match } from '@cavelang/query'
 import { Row } from '@cavelang/store'
+import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
+import { withScopedStore } from './scope.ts'
 
 export type Problem = {
   /** 1-based template line of the query that failed. */
@@ -38,6 +40,8 @@ export type Problem = {
 }
 
 export type ReportOptions = {
+  /** Highest sensitivity level allowed in the deliverable (default `internal`, spec §9.7). */
+  readonly maxSensitivity?: Sensitivity.Level
   /** Queries match through the §13.6 alias closure. */
   readonly aliases?: boolean
   /** Queries match resolved winners only (spec §26). */
@@ -316,7 +320,7 @@ const renderInline = (line: string, lineNo: number, renderer: Renderer): string 
  * appended as footnote definitions. Problems don't stop the render;
  * they mark the text and are returned with template line numbers.
  */
-export const report = (store: Store, template: string, options: ReportOptions = {}): Report => {
+const renderReport = (store: Store, template: string, options: ReportOptions): Report => {
   const problems: Problem[] = []
   /** Footnote number per cited row id — repeats share a marker. */
   const numbers = new Map<string, number>()
@@ -413,3 +417,7 @@ export const report = (store: Store, template: string, options: ReportOptions = 
   const markdown = body === '' ? '' : `${body}\n`
   return { markdown, citations: definitions.length, problems }
 }
+
+export const report = (store: Store, template: string, options: ReportOptions = {}): Report =>
+  withScopedStore(store, options.maxSensitivity ?? Sensitivity.defaultMaximum, scoped =>
+    renderReport(scoped, template, options))

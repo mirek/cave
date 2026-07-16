@@ -28,7 +28,7 @@ connected model knows how to write CAVE claims without further prompting.
 | `cave_neighbors` | named forward + inverse edges (§13.3) for graph walking; `aliases` / `resolve` opt-ins |
 | `cave_reconstruct` | cave-loop active reconstruction from seed cues (§18) — pull everything related to a symptom before reasoning |
 | `cave_derive` | fire the stored rules (§24) — named computation; `dryRun`, `full`, `aliases`, `minConf`, `maxPasses` |
-| `cave_export` | canonical text backup (`current` for beliefs only) |
+| `cave_export` | sensitivity-scoped canonical text (default `internal`; `maxSensitivity: restricted` for an exact backup; `current` for beliefs only) |
 | `cave_lint` | validate CAVE text without storing |
 | `act_<name>` | one generated governed-write tool per current action declaration (§25.5); parameters come from the declaration and hooks stay out of band |
 
