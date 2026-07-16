@@ -1,6 +1,7 @@
 {
   "name": "@cavelang/sync",
   "version": "0.28.1",
+  "private": true,
   "type": "module",
   "description": "CAVE store merge (spec §28) — merge append-only stores by row identity: idempotent, transitive, conflict-free by construction; SYNCED-INTO merge records, the tx receive rule, and `;@` transaction-annotated text interchange.",
   "license": "CC0-1.0",
@@ -40,7 +41,7 @@
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },
-  "dependencies": {
+  "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/store": "workspace:*"

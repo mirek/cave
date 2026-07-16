@@ -1,6 +1,7 @@
 {
   "name": "@cavelang/eval",
   "version": "0.28.1",
+  "private": true,
   "type": "module",
   "description": "CAVE golden-fixture extraction, query, and reconstruction evals: plain-file suites, N runs against any agent, claim-key scoring with value tolerance, optional LLM judge.",
   "license": "CC0-1.0",
@@ -40,7 +41,7 @@
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },
-  "dependencies": {
+  "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/ingest": "workspace:*",

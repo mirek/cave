@@ -25,8 +25,10 @@ cd "$root"
 
 version="$(node -p "require('./package.json').version")"
 
-# Every lockstep version source must agree before anything ships.
+# Every independently published lockstep package must agree before anything ships.
 for manifest in packages/*/package.json; do
+  is_private="$(node -p "require('./${manifest}').private === true")"
+  [ "$is_private" = "true" ] && continue
   pkg_version="$(node -p "require('./${manifest}').version")"
   if [ "$pkg_version" != "$version" ]; then
     echo "error: ${manifest} is at ${pkg_version}, expected ${version}" >&2
@@ -87,8 +89,10 @@ pnpm build
 pnpm test
 
 echo "==> publishing v${version} to npm"
-for dir in packages/*/; do
-  cp License.md "$dir"
+for manifest in packages/*/package.json; do
+  is_private="$(node -p "require('./${manifest}').private === true")"
+  [ "$is_private" = "true" ] && continue
+  cp License.md "$(dirname "$manifest")"
 done
 # Recursive publish skips versions that are already on the registry, so a
 # retry after a partial failure only publishes what's missing.

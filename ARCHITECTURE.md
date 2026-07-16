@@ -33,6 +33,16 @@ The arrows show dependency direction, not a mandatory request path. A simple
 directly; `cave ingest` adds an agent-mediated workflow before reaching the
 same store.
 
+Workspace boundaries and release boundaries are intentionally different.
+Core libraries with independent consumers remain public npm packages. Rules,
+actions, automation, ingestion, MCP, views, and related command
+implementations remain focused private workspace packages, bundled and
+versioned through documented `@cavelang/cli/<feature>` subpaths. The grammar
+and highlighting packages remain independent public tooling for editors. The
+machine-enforced classification and migration map live in
+[`package-surfaces.json`](package-surfaces.json); rationale and consumer
+guidance live in [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md).
+
 Three boundaries shape the design:
 
 1. **Text becomes data once.** CAVE text is parsed and canonicalized before it

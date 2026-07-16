@@ -1,6 +1,7 @@
 {
   "name": "@cavelang/connect",
   "version": "0.28.1",
+  "private": true,
   "type": "module",
   "description": "Deterministic structured ingestion (spec §23) — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with ?field variables into claims, with per-record digest incrementality, watch mode, and query-time overlay.",
   "license": "CC0-1.0",
@@ -40,7 +41,7 @@
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },
-  "dependencies": {
+  "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/parser": "workspace:*",

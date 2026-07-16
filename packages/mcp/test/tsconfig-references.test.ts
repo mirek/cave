@@ -13,11 +13,27 @@ import { fileURLToPath } from 'node:url'
 const packagesDir = fileURLToPath(new URL('../..', import.meta.url))
 
 type Manifest = {
+  name?: string
+  private?: boolean
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+  exports?: Record<string, unknown>
+  publishConfig?: { exports?: Record<string, unknown> }
   scripts?: Record<string, string>
 }
 type Tsconfig = { references?: { path: string }[] }
+type Surface = {
+  consumer?: string
+  published?: boolean
+  replacement?: string
+  stability?: string
+}
+type Surfaces = {
+  public: Record<string, Surface>
+  internal: Record<string, Surface>
+  tooling: Record<string, Surface>
+}
+type ChangesetConfig = { fixed: string[][] }
 
 const parse = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
 
@@ -72,5 +88,51 @@ test('package test globs use shell-portable quoting', () => {
       /'[^']*[*?][^']*'/,
       `packages/${name}/package.json passes POSIX single quotes literally on Windows: ${script}`
     )
+  }
+})
+
+test('every package has one enforced public, internal, or tooling classification', () => {
+  const surfaces = parse<Surfaces>(fileURLToPath(new URL('../../../package-surfaces.json', import.meta.url)))
+  const classified = [...Object.keys(surfaces.public), ...Object.keys(surfaces.internal), ...Object.keys(surfaces.tooling)]
+  assert.equal(new Set(classified).size, classified.length, 'surface classifications must not overlap')
+  const manifests = readdirSync(packagesDir).sort()
+    .map(name => join(packagesDir, name, 'package.json'))
+    .filter(existsSync)
+    .map(path => parse<Manifest>(path))
+  assert.deepEqual(classified.sort(), manifests.map(manifest => manifest.name!).sort())
+
+  const published = new Set([
+    ...Object.keys(surfaces.public),
+    ...Object.entries(surfaces.tooling).filter(([, surface]) => surface.published).map(([name]) => name)
+  ])
+  assert.deepEqual(
+    manifests.filter(manifest => manifest.private !== true).map(manifest => manifest.name!).sort(),
+    [...published].sort(),
+    'only classified public packages may reach npm'
+  )
+  const changesets = parse<ChangesetConfig>(fileURLToPath(new URL('../../../.changeset/config.json', import.meta.url)))
+  assert.deepEqual(changesets.fixed.flat().sort(), [...published].sort(), 'the release lockstep must contain only public packages')
+  for (const name of published) {
+    const surface = surfaces.public[name] ?? surfaces.tooling[name]!
+    assert.ok(surface.consumer, `${name} needs an independent consumer`)
+    assert.ok(surface.stability, `${name} needs a stability promise`)
+  }
+})
+
+test('retired package names are private and built into documented CLI subpaths', () => {
+  const surfaces = parse<Surfaces>(fileURLToPath(new URL('../../../package-surfaces.json', import.meta.url)))
+  const retired = new Map([
+    ...Object.entries(surfaces.internal),
+    ...Object.entries(surfaces.tooling).filter(([, surface]) => surface.published === false)
+  ])
+  const cli = parse<Manifest>(join(packagesDir, 'cli', 'package.json'))
+  for (const [name, surface] of retired) {
+    const directory = name.slice('@cavelang/'.length)
+    const manifest = parse<Manifest>(join(packagesDir, directory, 'package.json'))
+    assert.equal(manifest.private, true, `${name} must not publish independently`)
+    const subpath = surface.replacement?.replace('@cavelang/cli', '.')
+    assert.ok(subpath && cli.exports?.[subpath], `${surface.replacement} must be exported`)
+    assert.ok(subpath && cli.publishConfig?.exports?.[subpath], `${surface.replacement} must ship emitted code`)
+    assert.equal(cli.devDependencies?.[name], 'workspace:*', `${name} must remain a workspace build boundary`)
   }
 })
