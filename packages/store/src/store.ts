@@ -9,7 +9,7 @@
  *   open, so a reopened database keeps its inverse and lifecycle vocabulary;
  * - full-text search over subjects, objects, values, comments and raw
  *   lines via FTS5;
- * - appends can stamp actor provenance (spec §9.5): pass `source` and every
+ * - appends record actor provenance and keep compatibility stamps (spec §9.5): pass `source` and every
  *   claim without a `src:` context gets `@src:<actor>` — applied before the
  *   claim key is computed, so different actors keep separate belief series;
  * - contradiction resolution (spec §26): coexisting series about one fact
@@ -25,6 +25,7 @@ import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
 import * as Sensitivity from './sensitivity.ts'
+import * as Provenance from './provenance.ts'
 
 const currentSql = `
 SELECT c.* FROM cave_claim c
@@ -91,7 +92,8 @@ export type IngestResult = {
 
 export type AppendOptions = {
   /**
-   * Actor provenance (spec §9.5): stamp `@src:<source>` on every appended
+   * Actor provenance (spec §9.5): record actor `<source>` and stamp
+   * `@src:<source>` on every appended
    * claim that carries no `src:` context — e.g. `cli`, `agent/claude-code`,
    * `ingest/93a01c626b3f`. Applied before the claim key is computed, so the
    * stamp is part of claim identity; claims that already name a source keep
@@ -100,11 +102,12 @@ export type AppendOptions = {
    */
   readonly source?: string
   /**
-   * Lifecycle stamping (spec §9.5): stamp `@src:<source>` even when the
+   * Lifecycle ownership (spec §9.5.1): record run `<source>` and stamp
+   * `@src:<source>` even when the
    * claim already names a source. Connect records, rule conclusions and
-   * action effects are found for retraction and attribution by their
-   * stamp, so an authored `src:` context must not displace it — both are
-   * kept (multi-source rows resolve per §26.3). The exact stamp context
+   * action effects are found for retraction and attribution by their run,
+   * so an authored `src:` context must not displace it — both contexts are
+   * kept for compatibility (multi-source rows resolve per §26.3). The exact stamp context
    * is never duplicated. Without this flag an authored source suppresses
    * the stamp.
    */
@@ -114,6 +117,8 @@ export type AppendOptions = {
    * by connectors to attach source spans without rewriting generated text.
    */
   readonly contexts?: readonly Context.t[]
+  /** Explicit provenance dimensions; compact contexts remain unchanged. */
+  readonly provenance?: Provenance.Input
   /**
    * Explicit row identity (spec §28.1), index-aligned with the result's
    * claims: a claim with an id here is replayed under it — inserted with
@@ -204,7 +209,24 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   // failing immediately with SQLITE_BUSY.
   db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
-  Schema.init(db)
+  const hadProvenance = db.prepare(`
+    SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'cave_provenance'
+  `).get() !== undefined
+  if (hadProvenance) {
+    Schema.init(db)
+  } else {
+    // The first provenance projection is one migration boundary: a crash
+    // cannot leave the new table present but only partly backfilled.
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      Schema.init(db)
+      Provenance.backfill(db)
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
 
   // The receive rule (spec §28.2): the store, not the wall clock, is the
   // monotonic authority — every append outsorts every tx already stored,
@@ -230,6 +252,8 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertContext = db.prepare('INSERT INTO cave_context (claim_id, context) VALUES (?, ?)')
+  const insertProvenance = db.prepare(
+    'INSERT OR IGNORE INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)')
   const insertTag = db.prepare('INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)')
   const insertEdge = db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
   const insertFts = db.prepare(`
@@ -330,10 +354,14 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
             return
           }
         }
-        const claim = addContexts(
-          stampSource(entry.claim, options_.source, options_.lifecycle === true),
-          options_.contexts
-        )
+        const authored = addContexts(entry.claim, options_.contexts)
+        const claim = stampSource(authored, options_.source, options_.lifecycle === true)
+        const provided = options_.provenance ?? {}
+        const provenance = Provenance.entries(authored.contexts, {
+          ...provided,
+          actor: provided.actor ?? options_.source,
+          run: provided.run ?? (options_.lifecycle === true ? options_.source : undefined)
+        })
         const id = explicit ?? Uuidv7.next()
         const columns = Row.toColumns(claim)
         const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine
@@ -348,6 +376,9 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
         )
         for (const context of claim.contexts) {
           insertContext.run(id, context)
+        }
+        for (const entry of provenance) {
+          insertProvenance.run(id, entry.dimension, entry.value)
         }
         for (const tag of claim.tags) {
           insertTag.run(id, tag.key, tag.value ?? null)
@@ -384,6 +415,14 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
 
   const toClaim = (row: Row.t): Claim.t =>
     Row.toClaim(row, contextsOf(row.id), tagsOf(row.id))
+
+  const provenanceOf = (row: Row.t | string): Provenance.t => {
+    const id = typeof row === 'string' ? row : row.id
+    const entries = db.prepare(`
+      SELECT dimension, value FROM cave_provenance WHERE claim_id = ? ORDER BY dimension, value
+    `).all(id) as Provenance.Entry[]
+    return Provenance.fromEntries(entries)
+  }
 
   const traversalFilter = (options: TraverseOptions): string =>
     (options.negated === true ? '' : ' AND negated = 0') +
@@ -596,6 +635,16 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
         SELECT c.* FROM cave_claim c JOIN cave_context ctx ON c.id = ctx.claim_id
         WHERE ctx.context = ? ORDER BY c.tx DESC`, context)
     },
+
+    /** Rows carrying one explicit provenance dimension, newest first. */
+    byProvenance(dimension: Provenance.Dimension, value: string): Row.t[] {
+      return rows(`
+        SELECT c.* FROM cave_claim c JOIN cave_provenance p ON c.id = p.claim_id
+        WHERE p.dimension = ? AND p.value = ? ORDER BY c.tx DESC`, dimension, value)
+    },
+
+    /** Explicit actor, physical source, lifecycle run, and domain metadata. */
+    provenanceOf,
 
     /** Members of a topic — forward `CONTAINS` traversal (spec §11.2). */
     topicMembers(topic: string, options_: TraverseOptions = {}): string[] {

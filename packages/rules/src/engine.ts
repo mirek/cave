@@ -486,7 +486,7 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   }
 
   const suspend = (entry: Loaded): void => {
-    const rows = store.byContext(Context.source(ruleSubject(entry.rule.digest)))
+    const rows = store.byProvenance('run', ruleSubject(entry.rule.digest))
     for (const row of latestPerKey(rows).values()) {
       if (row.conf > 0 && !isDeclaration(row)) {
         suspended.set(row.id, { row, outcome: entry.outcome })

@@ -104,10 +104,11 @@ Rules:
 - A claim that already names a source (any `src:` context, e.g. extraction
   anchors like `@src:path/to/file`) is never re-stamped — author-provided
   provenance wins. **Lifecycle stamps are the exception**: connect records
-  (§23.2), rule conclusions (§24.3) and action effects (§25.2) are found
-  for retraction and attribution by their stamp, so those surfaces stamp
-  unconditionally — an authored source is kept *alongside* the lifecycle
-  context, and such multi-source rows resolve per §26.3.
+  (§23.2), rule conclusions (§24.3) and action effects (§25.2) stamp
+  unconditionally for compatible text identity and record an explicit
+  lifecycle run (§9.5.1) for ownership — an authored source is kept
+  *alongside* the lifecycle context, and such multi-source rows resolve per
+  §26.3.
 - The stamp is applied **before the claim key is computed**. Contexts are
   key components (§9.2), so the same fact asserted by different actors
   keeps separate belief series — coexisting per §9.4, resolved at query
@@ -121,6 +122,36 @@ Rules:
 - Stamps apply uniformly to every appended row, including qualifier
   condition rows and in-band declarations (`REVERSE`, `RENAMED-TO`, extension verbs) —
   which is what makes schema changes attributable and reviewable.
+
+#### 9.5.1 Explicit provenance dimensions
+
+The compact context spelling is preserved, but storage MUST NOT treat every
+context as the same kind of provenance. Each row has a separate, indexed
+provenance projection with four dimensions:
+
+| Dimension | Meaning |
+|---|---|
+| `actor` | surface or agent that appended the row |
+| `source` | physical evidence locator, with a line fragment removed |
+| `run` | engine-owned lifecycle identity used for retraction and echo suppression |
+| `domain` | explicit `scope:<name>` partition |
+
+Append options provide the actor and, for lifecycle writes, the run before
+compatibility `@src:` stamping. Authored `src:` contexts are physical sources;
+`SourceSpan` decodes them and removes line fragments. `scope:` contexts become
+domains. Connect, derive, act, and automate locate their own rows by `run`,
+never by searching an authored context string, so user evidence cannot escape
+engine ownership. The compatibility contexts, claim key, raw line, query
+filters, and canonical export remain unchanged.
+
+`cave_provenance(claim_id, dimension, value)` stores this projection.
+`Store.provenanceOf(rowOrId)` reads all four lists and
+`Store.byProvenance(dimension, value)` performs indexed lookup. Opening an
+older store creates the table and conservatively backfills established actor
+and lifecycle prefixes, decoded physical sources, and `scope:` domains.
+Ambiguous legacy `src:` values stay sources rather than being guessed as
+actors. Sync copies explicit rows when present and derives the same safe
+fallback for older peers.
 
 ### 9.6 Retention and accidental secrets
 
@@ -848,10 +879,10 @@ the tool writes, so a `--read-only` serving scope drops it.
 
 A derived claim is an ordinary append with three §9/§13 obligations:
 
-- **actor provenance** (§9.5): stamped `@src:rule/<digest>` — a lifecycle
-  stamp, applied even when the conclusion template names its own `src:`
-  (both contexts are kept), so §24.5 support and `--retract` always find
-  the rule's output. A rule's output is one belief series per conclusion,
+- **actor provenance** (§9.5): stamped `@src:rule/<digest>` and owned by the
+  explicit `run = rule/<digest>` dimension — applied even when the conclusion
+  template names its own `src:` (both contexts are kept), so §24.5 support
+  and `--retract` always find the rule's output. A rule's output is one belief series per conclusion,
   separate from any hand-written series about the same fact — coexisting
   per §9.4, never silently overriding;
 - **lineage** (`cave_edge`, §13.2): `BECAUSE` edges to the *specific
@@ -1006,9 +1037,9 @@ which is why it may live in-band where executable content must not
    rows (§24.2): an action is the caller's assertion, and its premises
    are gates, not evidence.
 6. Appended rows carry the §24.3 obligations: stamped
-   `@src:action/<name>` (a §9.5 lifecycle stamp — applied even when the
-   template names its own `src:`, both kept: execution attribution is
-   mandatory), `BECAUSE` edges to the premise rows of the justifying
+   `@src:action/<name>` and owned by explicit `run = action/<name>` provenance
+   (applied even when the template names its own `src:`, both kept: execution
+   attribution is mandatory), `BECAUSE` edges to the premise rows of the justifying
    solution (the first, when several survive) and a `VIA` edge to the
    declaration row. Executions by different callers land in one belief series per
    effect key — the action, not the caller, is the acting surface.

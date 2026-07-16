@@ -11,9 +11,9 @@
  * (spec §9.5), so a changed record diffs against itself: current claims
  * still carrying the record's stamp but no longer produced by it are
  * retracted (`@ 0%`). `--prune` extends the diff to records that vanished
- * from the source. The stamp is a lifecycle identity, so it is applied
- * even when a template names its own `@src:` context (both are kept) —
- * otherwise such claims would escape the diff and never be retracted.
+ * from the source. Explicit `run` provenance is the lifecycle identity;
+ * the compatibility stamp is also applied when a template names its own
+ * `@src:` context (both are kept).
  */
 
 import { createHash } from 'node:crypto'
@@ -132,9 +132,9 @@ const isDeclaration = (row: Row.t): boolean =>
  * of a stamped series carries the stamp — the latest row per key among the
  * stamped rows *is* the series' current belief.
  */
-const retractStale = (store: Store, context: string, keepIds: ReadonlySet<string>): number => {
+const retractStale = (store: Store, run: string, keepIds: ReadonlySet<string>): number => {
   const latest = new Map<string, Row.t>()
-  for (const row of store.byContext(context)) {
+  for (const row of store.byProvenance('run', run)) {
     const seen = latest.get(row.claim_key)
     if (seen === undefined || seen.tx < row.tx) {
       latest.set(row.claim_key, row)
@@ -197,7 +197,7 @@ export const connect = (
         failRecord(result.problems.map(problem => `line ${problem.line}: ${problem.message}`))
       }
       added += result.ids.length
-      retracted += retractStale(store, `src:${subject}`, new Set(result.ids))
+      retracted += retractStale(store, subject, new Set(result.ids))
       recordDigest(store, subject, digest)
     })
   }
@@ -274,7 +274,7 @@ export const connect = (
         continue
       }
       store.transaction(() => {
-        retracted += retractStale(store, `src:${row.subject}`, new Set())
+        retracted += retractStale(store, row.subject, new Set())
         store.insertResult({
           claims: [{ claim: { ...store.toClaim(row), conf: 0, raw: '', comment: 'retracted: record left the source' }, line: 0 }],
           edges: [],

@@ -18,7 +18,7 @@ Dependency order, bottom to top:
 | [`@cavelang/core`](packages/core) | §2, §6, §7, §9, §32 | Domain model: claims, values/units/multipliers (incl. `A -> B` trajectories), uncertainty, confidence, tags, contexts, percent-escaped source spans (`SourceSpan`), valid-time periods/ranges (`Time`), claim keys, monotonic UUIDv7 |
 | [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, `RENAMED-TO`, extensions), inverse and lifecycle resolution, continuation expansion, qualifier edges, canonical emitter |
-| [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
+| [`@cavelang/store`](packages/store) | §9.5, §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — append-only belief series, explicit actor/source/run/domain provenance, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
 | [`@cavelang/query`](packages/query) | §12, §26, §32 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse and lifecycle verb resolution, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching, `at` valid-time filtering + trajectory interpolation |
 | [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` through `EXTENDS`, exact-one and exact-unit tags), health report, write gating, deterministic versioned TypeScript client generation with strict ambiguity checks; alias discovery (`suggestAliases`, optional judge contract) |
 | [`@cavelang/connect`](packages/connect) | §9.8, §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; physical source identity, CSV/TSV/JSONL record spans, per-record digest incrementality, watch mode, query-time overlay |
@@ -122,6 +122,12 @@ Package READMEs document local decisions; these are the global ones:
   survives interchange while §26 source policy ignores the line fragment.
   Ingest prompts line-number embedded text, connect carries CSV/TSV/JSONL
   record ranges, and view/report outputs share the parsed location/link shape.
+- **Provenance dimensions are explicit** (§9.5.1): `cave_provenance`
+  separates actor, physical source, lifecycle run, and domain while compact
+  contexts and claim keys remain unchanged. Store appends classify dimensions
+  before compatibility stamping; connect/rules/actions/automations own rows by
+  `run`, resolution reads actor/source, sync preserves the side table, and open
+  conservatively backfills old stores.
 - **Typed clients are versioned schema projections** (§20.4): current
   expectations normalize in code-point order, hash with SHA-256, and emit
   interfaces plus store-backed readers. Exact-one fields check runtime shape;

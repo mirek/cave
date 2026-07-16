@@ -50,6 +50,15 @@ CREATE TABLE IF NOT EXISTS cave_context (
 CREATE INDEX IF NOT EXISTS idx_cave_context ON cave_context (context);
 CREATE INDEX IF NOT EXISTS idx_cave_context_claim ON cave_context (claim_id, context);
 
+CREATE TABLE IF NOT EXISTS cave_provenance (
+  claim_id   TEXT NOT NULL,
+  dimension  TEXT NOT NULL CHECK (dimension IN ('actor', 'source', 'run', 'domain')),
+  value      TEXT NOT NULL,
+  PRIMARY KEY (claim_id, dimension, value),
+  FOREIGN KEY (claim_id) REFERENCES cave_claim(id)
+);
+CREATE INDEX IF NOT EXISTS idx_cave_provenance_lookup ON cave_provenance (dimension, value, claim_id);
+
 CREATE TABLE IF NOT EXISTS cave_tag (
   claim_id TEXT NOT NULL,
   key      TEXT NOT NULL,

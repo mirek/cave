@@ -93,6 +93,15 @@ underlying source identity. Ingestion numbers embedded text, structured
 connectors attach physical record ranges where the format provides them, and
 view/report surfaces expose one shared reference shape.
 
+Contexts remain the compact, identity-bearing text representation, while
+`cave_provenance` projects four indexed dimensions per row: actor, physical
+source, lifecycle run, and domain (§9.5.1). Append callers supply actor/run;
+source spans and `scope:` contexts provide source/domain. Lifecycle retraction
+and automation echo suppression query the run dimension, so authored source
+contexts cannot impersonate or displace engine ownership. Existing claim keys,
+context queries, and canonical exports stay compatible; opening old stores
+backfills only safely inferable dimensions.
+
 Typed clients are derived, not authoritative (§20.4). Current `EXPECTS`
 claims normalize to a versioned, SHA-256-stamped TypeScript module whose
 readers reuse store traversal and current-belief SQL. Generation is strict on
@@ -361,14 +370,17 @@ Changes should preserve these properties:
 6. **Keep generated clients derived and reproducible.** Version the normalized
    schema, sort by code point, fail ambiguous mappings, and never make generated
    TypeScript the schema source of truth.
-7. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+7. **Keep provenance dimensions separate.** Preserve compact contexts for
+   identity and interchange, but use explicit actor/source/run/domain rows for
+   policy and lifecycle ownership.
+8. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-8. **Use the store transaction boundary for compound writes.** Validation and
+9. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-9. **Keep external effects after commit and out of the store.** Persist names,
+10. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-10. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+11. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 

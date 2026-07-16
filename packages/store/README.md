@@ -2,7 +2,7 @@
 
 CAVE persistence on the **Node.js builtin `node:sqlite`** — no native
 dependencies. Implements the spec §13 storage model: the exact §13.1/§13.2
-schema (`cave_claim`, `cave_context`, `cave_tag`, `cave_edge`, `cave_fts`
+schema (`cave_claim`, `cave_context`, `cave_provenance`, `cave_tag`, `cave_edge`, `cave_fts`
 FTS5), append-only belief series, and inverse-aware reads.
 
 ```ts
@@ -74,6 +74,12 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
   different actors keeps separate belief series (§9.4). A written `@src:`
   always wins; `raw_line` stays as authored. Interchange replay (`cave
   import`) passes no source, preserving exported keys.
+- **Provenance dimensions are explicit** (§9.5.1): every row projects
+  actor, physical source, lifecycle run, and `scope:` domain into indexed
+  `cave_provenance` entries. Contexts and keys remain the compatibility text
+  representation. Lifecycle systems use `run` lookup rather than authored
+  `src:` strings; resolution reads actor/source. Opening old stores backfills
+  only established actor/run prefixes, decoded sources, and explicit scopes.
 - **Source spans retain source identity** (§9.8):
   `@src:docs/design%20notes.md#L10-L20` carries a one-based inclusive range;
   `SourceSpan` owns escaping and parsing. The exact context remains in the
@@ -102,6 +108,7 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
 | `insertResult(result, {source})` | | append a pre-canonicalized `@cavelang/canonical` result |
 | `currentBeliefs({minConf})` | §13.5 | latest row per key |
 | `currentBelief(key)` / `history(key)` | §9.1 | one fact's belief series |
+| `provenanceOf(rowOrId)` / `byProvenance(dimension, value)` | §9.5.1 | inspect or filter actor/source/run/domain |
 | `resolvedBeliefs({aliases})` | §26 | one winner per resolution group |
 | `contested({aliases})` | §26.4 | contested groups, candidates ranked winner-first — the fusion feed |
 | `resolutionPolicy()` | §26.3 | effective policy: built-ins merged with in-band declarations |

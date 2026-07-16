@@ -42,6 +42,13 @@ The full context remains claim-key metadata and survives export, import, and syn
 
 #note([Evidence lifetime], [A line span points into the cited source version; it is not a content hash or archive. Retain or version the source when evidence must remain immutable.])
 
+= Explicit Provenance Dimensions
+Contexts remain CAVE's compact, identity-bearing text, but the store projects four indexed dimensions for every row: the actor that appended it, the physical evidence source, the lifecycle run that owns generated output, and an explicit `scope:` domain. Source line fragments belong to the evidence anchor, not source identity.
+
+Connect, derive, act, and automate use the run dimension for retraction and echo suppression. An authored `@src:` citation can therefore coexist with generated ownership but cannot displace it. Resolution reads actor and physical-source dimensions; ordinary context queries, claim keys, canonical export, and existing text stay unchanged.
+
+#note([Compatible migration], [Opening an older database creates and conservatively backfills the provenance projection. Known engine prefixes become actors and runs; decoded source contexts and scope contexts become sources and domains. Ambiguous legacy source values are not guessed as actors.])
+
 
 = CAVE-Q Query Language
 CAVE-Q reuses the claim shape as a graph pattern language. Slots beginning with ? are named variables. An underscore is an anonymous wildcard. A plus suffix requests one-or-more transitive hops.

@@ -139,6 +139,14 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' --resolve
 
 The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts a source in-band — and a built-in precedence ladder makes a human correction (`@src:cli`) outrank a machine ingest re-run, whatever landed last.
 
+Under the compact context syntax, the store keeps actor, physical source,
+lifecycle run, and domain as separate indexed provenance dimensions. This
+lets a source citation such as `@src:inventory` coexist with engine ownership:
+connect, rules, actions, and automations retract or ignore their own output by
+the run dimension, not by trusting an authored context string. Existing CAVE
+text, claim keys, context filters, exports, and old databases remain compatible
+(spec §9.5.1).
+
 The 70% row is still there: `cave export --db family.db` replays the belief
 history allowed by its sensitivity ceiling as canonical text, and `--current`
 emits just today's allowed beliefs. Claims may be labelled
