@@ -462,12 +462,16 @@ Options:
   ${dbHelp}
   --out <file>   write to a file instead of stdout — refused when it
                  names the store's own database file
-  --current      current beliefs only (skip superseded rows)
+  --current      current beliefs only (skip superseded rows); compacting
+                 view, not sanitization or selective erasure (spec §9.6)
   --tx           precede every claim line with its ;@ transaction
                  annotation (spec §28.4) — the text carries row identity,
                  so cave sync replays it idempotently; other readers see
                  ordinary comments
   --no-prelude   open the store without the standard verb registry
+
+Retention: claim history is permanent. Retraction and --current do not
+guarantee erasure from the store, exports, peers, or backups (spec §9.6).
 
 Examples:
   cave export --db k.db

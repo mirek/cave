@@ -26,6 +26,13 @@ store.exportText({ current: true })          // canonical CAVE text back out
   reserve SQLite's write lock and re-observe `MAX(tx)` before minting, so
   concurrent processes allocate in commit order; lock contention waits for
   up to five seconds before surfacing `SQLITE_BUSY`.
+- **History is permanent** (§9.6): retraction appends a `0%` row; it never
+  erases the earlier row, `raw_line`, metadata, FTS text, export, backup, or
+  peer copy. The store has no row-level redact/forget API because local
+  deletion cannot guarantee erasure across SQLite remnants and distributed
+  copies. Keep secrets and selectively erasable data out of CAVE; recover
+  from accidental ingestion by quarantining every copy and rebuilding from
+  reviewed safe input.
 - **One row per fact** (§13.3): inverse writes are canonicalized before
   keying (`@cavelang/canonical`), inverse *reads* are query-time views —
   `forward()` uses the subject index, `reverse()` the object index with the
@@ -94,7 +101,7 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `search(q, {raw, limit})` | §13.2 | FTS5; literal phrase by default, `limit` caps in the query |
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
-| `exportText({current, tx})` | | emit canonical CAVE text; `tx` includes replayable `;@` row identities |
+| `exportText({current, tx})` | | emit canonical CAVE text; `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes |
 | `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
 
 ## Storage decisions

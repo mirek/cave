@@ -21,6 +21,13 @@ The core current-belief query joins each claim key to its maximum transaction. A
 
 #note([Portability], [Canonical CAVE text is the backup and interchange form. SQLite is the efficient working representation, not a proprietary source of truth.])
 
+= Permanent History and Sensitive Data
+Retraction changes current belief by appending a zero-confidence row. It does not erase the earlier row, authored text, metadata, search index, full export, sync peer, or backup. A current-only export is a compact view, not a sanitizer: the surviving rows may themselves carry sensitive subjects, values, contexts, or comments.
+
+CAVE deliberately provides no claim-level redact or forget command. A local rewrite could not guarantee erasure across SQLite remnants, FTS tables, transaction files, copied databases, annotated exports, version-control history, peers, backups, snapshots, and storage media; an older peer could also reintroduce the globally identified row. Keep credentials and selectively erasable personal data outside the store.
+
+#note([Accidental secret response], [Rotate or revoke the secret first. Stop writers and sync, inventory every database/export/clone/backup/snapshot, rebuild from reviewed safe input, verify the replacement independently, then explicitly destroy or expire every affected copy using the storage provider's confirmed procedure. Never merge an affected store into the replacement.])
+
 
 = CAVE-Q Query Language
 CAVE-Q reuses the claim shape as a graph pattern language. Slots beginning with ? are named variables. An underscore is an anonymous wildcard. A plus suffix requests one-or-more transitive hops.

@@ -115,6 +115,16 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.
 ?y = 1931
 ```
 
+That permanence includes mistakes and sensitive text. Retraction and
+`--current` queries change what is believed; they do not erase earlier rows,
+`raw_line`, metadata, full exports, synced copies, or backups. CAVE deliberately
+has no claim-level redact/forget command because it cannot guarantee erasure
+across SQLite remnants, FTS, peers, snapshots, and storage devices. Do not
+ingest credentials or data requiring selective deletion. After accidental
+secret ingestion, rotate the secret, stop sync, inventory every copy, rebuild
+from reviewed safe input, verify the replacement, and explicitly destroy or
+expire all affected databases, exports, backups, and snapshots (spec §9.6).
+
 **Or let the store pick a winner.** The three sources still coexist — one fact, three voices. `cave resolve` shows the contest as the resolution policy (spec §26) ranks it — precedence class, reliability-weighted confidence, then recency — and `--resolve` on any query matches only the winners:
 
 ```
@@ -129,7 +139,7 @@ $ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' --resolve
 
 The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts a source in-band — and a built-in precedence ladder makes a human correction (`@src:cli`) outrank a machine ingest re-run, whatever landed last.
 
-The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it).
+The 70% row is still there: `cave export --db family.db` replays the full belief history as canonical text, `--current` emits just today's beliefs — and that text *is* the backup/interchange format (`cave import` restores it). `--current` is compact backup, not a sanitization guarantee; inspect every emitted row before treating a replacement store as safe (§9.6).
 
 **Time is an axis of the world, not just of the store.** Transaction time — when the store learned something — is reconstructable with `--as-of`. Claims can also say *when in the world* they hold (spec §32): a date-like context scopes a claim to a period or range, and a trajectory value (`A -> B`) interpolates linearly across its range:
 

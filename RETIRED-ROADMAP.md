@@ -29,8 +29,10 @@ Open decision 1 (sync transaction semantics) was decided in 0.19.0 as spec
 §28: keep origin transaction order, use row id as global identity, and apply
 the Lamport receive rule. Open decision 2 (alias closure versus claim-key
 identity) was decided in 0.6.0 as spec §13.6: use the union of rows and surface
-disagreement. Open decision 3 remains active as
-[redaction and forgetting](todo/redaction-forgetting.md). Open decision 4 is
-resolved by the directional `OLD RENAMED-TO NEW` convention (spec §5.8): the
-old spelling remains stable storage identity while the replacement becomes
-preferred, preserving append-only history and compatibility.
+disagreement. Open decision 3 is resolved by permanent claim history (spec
+§9.6): CAVE provides no selective redaction whose guarantees could be undone
+by SQLite remnants, exports, peers, backups, snapshots, or storage media.
+Open decision 4 is resolved by the directional `OLD RENAMED-TO NEW`
+convention (spec §5.8): the old spelling remains stable storage identity while
+the replacement becomes preferred, preserving append-only history and
+compatibility.

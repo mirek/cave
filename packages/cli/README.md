@@ -39,7 +39,7 @@ Every command answers `--help` with its options and examples (also
 | `check [--db p]` | `--stale <days>`, `--json`, `--no-prelude` | Knowledge health report (spec §20, see [`@cavelang/shape`](../shape)): shape violations against in-band `EXPECTS` declarations, stale current beliefs (default horizon 90 days), review candidates (conf 0.3–0.7), alias disagreements, coverage stats. Exit 1 on violations; everything else is advisory. |
 | `suggest-alias [--db p]` | `--min <s>`, `--limit <n>`, `--agent <template>`, `--timeout <s>`, `--write`, `--json`, `--no-prelude` | Alias discovery (spec §27, see [`@cavelang/shape`](../shape)): same-entity candidates from string/graph similarity as suggested `ALIAS` claims at review-band confidence (0.3–0.5). Prints pipeable CAVE text; `--write` appends stamped `@src:suggest/alias`; `--agent` runs an LLM judge over the candidates (the ingest/eval shell contract). Pairs with any recorded `ALIAS` history are never re-suggested. |
 | `sync [--db p] <source>` | `--as <label>`, `--into <label>`, `--dry-run`, `--no-record`, `--json`, `--no-prelude` | Store merge (spec §28, see [`@cavelang/sync`](../sync)): another CAVE store file — or `;@`-annotated canonical text, `-` for stdin — merges by row identity; present rows skip, re-runs merge nothing, effective merges append a `SYNCED-INTO` record (`--no-record` for checkouts, spec §28.6). |
-| `export [--db p]` | `--out <file>`, `--current`, `--tx`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. `--tx` precedes every claim line with its `;@` transaction annotation (spec §28.4), so the text carries row identity: the committed, reviewable store text of the §28.6 branching convention. Stdout by default; `--out` writes a file and reports the claim count. |
+| `export [--db p]` | `--out <file>`, `--current`, `--tx`, `--no-prelude` | Canonical CAVE text — all rows in tx order, or current beliefs only. `--current` compacts but never sanitizes permanent history (§9.6). `--tx` precedes every claim line with its `;@` transaction annotation (spec §28.4), so the text carries row identity: the committed, reviewable store text of the §28.6 branching convention. Stdout by default; `--out` writes a file and reports the claim count. |
 | `report [--db p] [template…]` | `--out <file>`, `--aliases`, `--resolve`, `--as-of <t>`, `--at <t>`, `--no-prelude` | Render cited Markdown from fenced and inline CAVE-Q templates (spec §31, see [`@cavelang/view`](../view)). Every query uses the same alias, resolution, transaction-time, and valid-time snapshot options. |
 | `serve [--db p]` | `--port <n>`, `--host <a>`, `--no-prelude` | The human read surface (spec §30, see [`@cavelang/view`](../view)): one static, self-contained page over the store — §20.2 coverage/frontier dashboard, entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, FTS search. Strictly read-only (GET only), localhost by default, every request reads the live store. |
 | `mcp [--db p]` | `--read-only`, `--permissions <list>`, `--tools <list>`, `--hooks <file>`, `--no-prelude`, `--src <ctx>`, `--no-src` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — static tools for add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint plus one generated `act_<name>` tool per current action. Permission classes separate `read`, ephemeral `evaluate`, durable `record`, and effect-capable `action`; `--read-only` keeps only read/evaluate. Permission, tool, and read-only scopes intersect. `--hooks` supplies reviewed out-of-band commands for action tools. Appends are stamped `@src:agent/<client-name>` (spec §9.5); `--src` replaces the stamp, `--no-src` disables it. |
@@ -73,7 +73,13 @@ qualifier/grouping edges, and in-band registry declarations (`REVERSE`,
 `RENAMED-TO`, `X IS verb`) — a restored database answers queries identically,
 including inverse and lifecycle spellings. Original transaction timestamps are re-minted: canonical
 CAVE text carries no transaction identity. Use `--current` for a compact
-backup of current beliefs only (history intentionally dropped).
+backup of current beliefs only (history intentionally omitted from that
+view). It is not a sanitization tool: current claim text and every other
+database, export, sync peer, backup, snapshot, or clone may still retain
+sensitive content. CAVE has no claim-level redact command (§9.6); after an
+accidental secret ingest, rotate it, stop sync, rebuild a reviewed safe store,
+then explicitly destroy or expire every affected copy with the relevant
+storage provider's confirmation.
 
 Everything is testable without spawning: each command is a pure function
 `(argv) → { code, out, err }` (`@cavelang/cli` exports them), and `main.ts` is

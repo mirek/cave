@@ -70,6 +70,14 @@ deletion. Multiple sources intentionally form separate series and may coexist
 as a contested fact. Resolution is an optional read mode that ranks those
 current rows without rewriting them.
 
+Claim history is permanent (§9.6). CAVE deliberately has no selective redact
+or forget operation: a local rewrite could not guarantee erasure from FTS,
+SQLite remnants, exports, synced peers, backups, snapshots, or storage media,
+and would break row-identity convergence. Secrets and selectively erasable
+personal data must stay outside the store; accidental ingestion is handled by
+quarantining all copies and rebuilding a replacement store from reviewed safe
+input.
+
 ### Canonical direction and the verb registry
 
 Relations have one physical direction. In-band declarations such as
@@ -317,8 +325,9 @@ Changes should preserve these properties:
 
 1. **Canonicalize before identity.** Inverse spellings and continuations must
    converge before claim-key computation.
-2. **Never update or delete belief rows in normal operation.** Append a new
-   belief or a `0%` retraction; keep history observable.
+2. **Never update or delete belief rows.** Append a new belief or a `0%`
+   retraction; claim history is permanent, and retraction is not sanitization
+   (§9.6).
 3. **Treat row IDs as global identities.** Sync must preserve IDs, transaction
    order, side tables, raw text, keys, and lineage edges.
 4. **Keep reads non-destructive.** Aliasing, contradiction resolution,

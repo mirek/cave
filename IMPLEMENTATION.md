@@ -105,6 +105,10 @@ Package READMEs document local decisions; these are the global ones:
   ingest `ingest/<batch-digest>` (content-derived for key-stable
   re-runs) — and `cave import` passes nothing, because interchange
   replay must preserve exported claim keys.
+- **Retention is permanent** (§9.6): retraction is an append-only belief
+  update, not erasure; store, export/import, and sync expose no selective
+  redact path. Accidental sensitive-data recovery is whole-copy quarantine
+  and reviewed rebuild, outside the claim model.
 - **Checking is a read; gating is a transaction** (§20):
   `@cavelang/shape` evaluates in-band `EXPECTS` declarations with SQL
   over current beliefs and never writes; `cave add --check` wraps

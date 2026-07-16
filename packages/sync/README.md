@@ -34,6 +34,10 @@ cave sync --db main.db laptop.db --dry-run --json
   rows travel onward under their own identity), bidirectional (`a ← b`
   then `b ← a` converges), and never re-stamped — merge is interchange
   replay, so §9.5's no-stamp rule applies.
+- **Retention travels with identity.** Sync copies retained rows verbatim,
+  including retracted history and authored raw text. There is no selective
+  forgetting protocol or tombstone (§9.6); never sync an affected store into
+  a reviewed replacement after accidental sensitive-data ingestion.
 - **The receive rule.** Opening a store observes its `MAX(tx)`; merging
   observes the merged maximum — the UUIDv7 generator never mints below
   what it observed, so *everything appended after a merge outsorts

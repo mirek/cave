@@ -122,6 +122,48 @@ Rules:
   condition rows and in-band declarations (`REVERSE`, `RENAMED-TO`, extension verbs) —
   which is what makes schema changes attributable and reviewable.
 
+### 9.6 Retention and accidental secrets
+
+CAVE claim history is permanent. There is no claim-level redact, purge, or
+forget operation. Retraction (§9.3) changes current belief by appending another
+row; it does not remove the earlier row, its `raw_line`, metadata, FTS content,
+or appearances in full-history exports. `export --current` is a view, not a
+sanitizer: a current row can itself contain the sensitive subject, relation,
+value, context, comment, or authored raw text.
+
+This is a deliberate auditability and convergence choice. A local delete
+could not make a truthful forgetting guarantee across SQLite free pages and
+FTS shadow tables, transaction journals, copied databases, `export --tx`
+identity replays, sync peers, version-control history, backups, filesystem
+snapshots, and storage-device remanence. It would also let an older peer
+silently reintroduce the row under its global id. CAVE therefore chooses one
+clear invariant over a partial erasure that looks safer than it is.
+
+Consequences:
+
+- Treat every claim, context, tag, value, comment, source line, and imported
+  row as permanently retainable before ingest. Do not put credentials,
+  private keys, access tokens, or data whose retention policy requires
+  selective erasure into a CAVE store.
+- Full export, text backup, exact `--tx` export, import, and sync preserve the
+  retained history. Encryption and access control protect copies; they do not
+  change retention semantics.
+- CAVE exposes no destructive claim command and therefore no misleading
+  confirmation prompt or in-band tombstone. Normal operation never updates or
+  deletes a belief row.
+
+If sensitive data is ingested accidentally, rotate or revoke any credential
+first, stop writers and sync, and inventory every database, export, clone,
+backup, log, snapshot, and downstream copy. Build a replacement store only
+from reviewed safe inputs (or a reviewed current export when its contents are
+known safe), verify it independently, then explicitly destroy or expire every
+affected copy using the storage provider's confirmed deletion procedure.
+Secure deletion is an operating-system, backup-provider, and hardware concern;
+CAVE cannot attest to it. Keep an affected copy only when incident-response or
+legal requirements demand it, encrypted and access-restricted. Recovery of
+non-sensitive knowledge means restoring the verified replacement or a
+pre-incident safe backup — never merging an affected store back into it.
+
 ---
 
 ## 12. Query Model
