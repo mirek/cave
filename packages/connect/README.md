@@ -57,7 +57,8 @@ content digest when unkeyed). Two conventions reuse §9.5 mechanics:
   mapping changes or a moved record re-fire it.
 - **Record stamps** — every produced claim is auto-stamped
   `@src:connect/<name>/<key>`, even when the template writes its own
-  `@src:` (both are kept — the stamp is the record's lifecycle identity),
+  `@src:` (both are kept), and explicit `run = connect/<name>/<key>`
+  provenance is the record's lifecycle identity,
   so a changed keyed record diffs against itself: attributes supersede in
   place (the value is outside the claim key, §9.2), vanished relation
   claims are retracted `@ 0%`. `--prune` extends the diff to records that

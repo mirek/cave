@@ -1,5 +1,9 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { DatabaseSync } from 'node:sqlite'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { open, type Store } from '@cavelang/store'
 
 const contextsOf = (store: Store, at = 0): readonly string[] =>
@@ -34,6 +38,76 @@ test('lifecycle stamping never duplicates an already-present stamp (spec §9.5)'
   store.ingest('auth USES redis @src:rule/abc123', { source: 'rule/abc123', lifecycle: true })
   assert.deepEqual(contextsOf(store), ['src:rule/abc123'])
   store.close()
+})
+
+test('actor, physical source, lifecycle run, and domain are distinct dimensions', () => {
+  const store = open()
+  const result = store.ingest(
+    'auth USES jwt @src:docs/auth%20design.md#L7-L9 @scope:identity',
+    { source: 'cli', provenance: { domains: ['tenant/acme'] } }
+  )
+  const row = store.currentBeliefs().find(candidate => candidate.id === result.ids[0])!
+  assert.deepEqual(store.provenanceOf(row), {
+    actors: ['cli'],
+    sources: ['docs/auth design.md'],
+    runs: [],
+    domains: ['identity', 'tenant/acme']
+  })
+  assert.equal(store.byProvenance('actor', 'cli')[0]?.id, row.id)
+  assert.equal(store.byProvenance('source', 'docs/auth design.md')[0]?.id, row.id)
+  assert.equal(store.byProvenance('domain', 'identity')[0]?.id, row.id)
+  assert.deepEqual([...store.toClaim(row).contexts].sort(), [
+    'scope:identity',
+    'src:docs/auth%20design.md#L7-L9'
+  ], 'compatibility contexts and claim identity stay unchanged')
+  store.close()
+})
+
+test('lifecycle ownership is explicit and cannot be displaced by an authored source', () => {
+  const store = open()
+  store.ingest('api USES postgres @src:inventory', {
+    source: 'action/deploy',
+    lifecycle: true
+  })
+  const [row] = store.byProvenance('run', 'action/deploy')
+  assert.ok(row)
+  assert.deepEqual(store.provenanceOf(row!), {
+    actors: ['action/deploy'],
+    sources: ['inventory'],
+    runs: ['action/deploy'],
+    domains: []
+  })
+  assert.deepEqual([...store.toClaim(row!).contexts].sort(), ['src:action/deploy', 'src:inventory'])
+  store.close()
+})
+
+test('opening a legacy store backfills safely inferable provenance dimensions', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-provenance-'))
+  const path = join(dir, 'legacy.db')
+  try {
+    const initial = open(path)
+    initial.ingest('api USES postgres @src:inventory @scope:billing', {
+      source: 'rule/abc123',
+      lifecycle: true
+    })
+    const id = initial.currentBeliefs()[0]!.id
+    initial.close()
+    const legacy = new DatabaseSync(path)
+    legacy.exec('DROP TABLE cave_provenance')
+    legacy.close()
+
+    const upgraded = open(path)
+    assert.deepEqual(upgraded.provenanceOf(id), {
+      actors: ['rule/abc123'],
+      sources: ['inventory'],
+      runs: ['rule/abc123'],
+      domains: ['billing']
+    })
+    assert.equal(upgraded.exportText(), 'api USES postgres @scope:billing @src:inventory @src:rule/abc123\n')
+    upgraded.close()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('non-source contexts do not suppress the stamp (spec §9.5)', () => {

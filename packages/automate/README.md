@@ -53,10 +53,11 @@ await settle(store, { hooks, complete })
   `automate-watermark` claim (§24.4's convention, counts in the
   comment) *before* the steps run — a crash never replays outside-world
   steps, re-runs never re-notify, and quiescent cycles append nothing.
-- **Deaf to its own echo.** Engine bookkeeping (`src:cave-automate`,
-  `src:cave-derive`, `src:cave-act`) and the automation's own output
-  (`src:automation/<name>`, its action steps' `src:action/<x>`) are
-  never events for it. Another automation's output triggers normally —
+- **Deaf to its own echo.** Explicit actor provenance excludes engine
+  bookkeeping (`cave-automate`, `cave-derive`, `cave-act`), while lifecycle
+  runs exclude the automation's own output (`automation/<name>` and its
+  `action/<x>` steps). Authored sources cannot bypass either check. Another
+  automation's output triggers normally —
   chains are the composition mechanism, and they converge because every
   write path is idempotent.
 - **Out-of-band execution** (§19.5): the store only ever *names* hooks

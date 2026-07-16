@@ -308,9 +308,10 @@ test('alias closure widens premise matching when opted in (spec §13.6)', () => 
 test('a conclusion naming its own @src: still carries the rule stamp — retraction propagates (BUGS.md src-stamp-bypass, spec §24.5)', () => {
   const store = open()
   store.ingest('a NEEDS b', { source: 'cli' })
-  declareRules(store, '?x NEEDS ?y => ?x LIKE ?y @src:mine')
+  const declaration = declareRules(store, '?x NEEDS ?y => ?x LIKE ?y @src:mine')
   derive(store)
   assert.equal(query(store, 'a LIKE b').length, 1)
+  assert.equal(store.byProvenance('run', `rule/${declaration.rules[0]!.digest}`).length > 0, true)
   // Retract the premise — the derivation must not outlive it.
   store.ingest('a NEEDS b @ 0%', { source: 'cli' })
   const report = derive(store)

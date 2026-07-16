@@ -283,6 +283,7 @@ test('an effect naming its own @src: still carries execution attribution (BUGS.m
   const matches = query(store, 'api-gateway HAS deployed-version: ?v @src:action/mark-deployed')
   assert.equal(matches.length, 1, 'the execution stamp is mandatory')
   assert.ok(store.toClaim(matches[0]!.row!).contexts.includes('src:release-bot'), 'the authored source is kept')
+  assert.equal(store.byProvenance('run', 'action/mark-deployed').some(row => row.id === matches[0]!.row!.id), true)
   store.close()
 })
 

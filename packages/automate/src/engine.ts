@@ -7,8 +7,8 @@
  *   join over current positive beliefs); a solution **fires** only when
  *   it cites at least one *event row* — a premise row newer than the
  *   automation's watermark that is neither engine bookkeeping
- *   (`src:cave-automate` / `src:cave-derive` / `src:cave-act`) nor the
- *   automation's own output (`src:automation/<name>`, or `src:action/<x>`
+ *   (actors `cave-automate` / `cave-derive` / `cave-act`) nor the
+ *   automation's own lifecycle run (`automation/<name>`, or `action/<x>`
  *   for its action steps). An automation is deaf to its own echo; other
  *   automations' output triggers normally, which is how automations chain.
  *   A transitive (`VERB+`) premise cites its supporting edge rows (the
@@ -46,7 +46,7 @@ export const defaultMaxPasses = 20
 export const defaultAgentTimeoutSeconds = 120
 
 /** Engine bookkeeping sources — never event rows (spec §29.2). */
-const infrastructureSources: readonly string[] = ['src:cave-automate', 'src:cave-derive', 'src:cave-act']
+const infrastructureActors: readonly string[] = ['cave-automate', 'cave-derive', 'cave-act']
 
 export type SettleOptions = {
   /** Premises match through the alias closure (spec §13.6). */
@@ -160,10 +160,10 @@ const evaluateTrigger = (store: Store, automation: Automation.t, aliases: boolea
  * Sources whose rows an automation must not treat as events — its own
  * agent replies and the effects of its own action steps (spec §29.2).
  */
-const echoSources = (automation: Automation.t): string[] => [
-  Context.source(automation.subject),
+const echoRuns = (automation: Automation.t): string[] => [
+  automation.subject,
   ...automation.steps.flatMap(step =>
-    step.kind === 'action' ? [Context.source(`action/${step.name}`)] : [])
+    step.kind === 'action' ? [`action/${step.name}`] : [])
 ]
 
 /**
@@ -322,9 +322,10 @@ export const appendReply = (store: Store, automation: Automation.t, reply: strin
   }
   const keep: number[] = []
   result.claims.forEach((entry, index) => {
-    const stamped = Context.hasSource(entry.claim.contexts) ?
+    const stamp = Context.source(automation.subject)
+    const stamped = entry.claim.contexts.includes(stamp) ?
       entry.claim :
-      { ...entry.claim, contexts: [...entry.claim.contexts, Context.source(automation.subject)] }
+      { ...entry.claim, contexts: [...entry.claim.contexts, stamp] }
     const current = store.currentBelief(Key.of(stamped))
     const columns = Row.toColumns(entry.claim)
     const unchanged = current !== undefined && Math.abs(current.conf - entry.claim.conf) < 1e-9 &&
@@ -342,7 +343,7 @@ export const appendReply = (store: Store, automation: Automation.t, reply: strin
     edges: result.edges.map(edge => ({ parent: remap.get(edge.parent)!, role: edge.role, child: remap.get(edge.child)! })),
     registry: result.registry,
     problems: []
-  }, { source: automation.subject })
+  }, { source: automation.subject, lifecycle: true })
   return { appended: inserted.ids.length, problems }
 }
 
@@ -455,10 +456,13 @@ export const settle = async (store: Store, options: SettleOptions = {}): Promise
 
       outcome.evaluations += 1
       const solutions = evaluateTrigger(store, automation, aliases)
-      const excluded = new Set([...infrastructureSources, ...echoSources(automation)])
-      const isEvent = (premiseRow: Row.t): boolean =>
-        premiseRow.tx > mark &&
-        !store.toClaim(premiseRow).contexts.some(context => excluded.has(context))
+      const excludedRuns = new Set(echoRuns(automation))
+      const isEvent = (premiseRow: Row.t): boolean => {
+        const provenance = store.provenanceOf(premiseRow)
+        return premiseRow.tx > mark &&
+          !provenance.actors.some(actor => infrastructureActors.includes(actor)) &&
+          !provenance.runs.some(run => excludedRuns.has(run))
+      }
       const firing = solutions.filter(solution => solution.rows.some(isEvent))
       if (firing.length === 0) {
         continue

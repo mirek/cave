@@ -212,7 +212,7 @@ test('prompt steps substitute bindings, append the stamped reply, and stay deaf 
   const report = await settle(store, {
     complete: async prompt => {
       prompts.push(prompt)
-      return 'api HAS triage-note: "scale up"\n'
+      return 'api HAS triage-note: "scale up" @src:model-output\n'
     }
   })
   assert.equal(firedOf(report, 'automation/triage'), 1)
@@ -221,11 +221,14 @@ test('prompt steps substitute bindings, append the stamped reply, and stay deaf 
   assert.match(prompts[0]!, /api IS overloaded/, 'trigger claims ride in the prompt')
   assert.match(prompts[0]!, /triage overloads/, 'the description frames the prompt')
   assert.equal(query(store, 'api HAS triage-note: ?n @src:automation/triage').length, 1)
+  const reply = query(store, 'api HAS triage-note: ?n @src:automation/triage')[0]!.row!
+  assert.ok(store.toClaim(reply).contexts.includes('src:model-output'))
+  assert.ok(store.provenanceOf(reply).runs.includes('automation/triage'))
 
   // The reply is this automation's own output — no re-fire, and an
   // identical reply appends nothing anywhere.
   const rows = claimCount(store)
-  const again = await settle(store, { complete: async () => 'api HAS triage-note: "scale up"\n' })
+  const again = await settle(store, { complete: async () => 'api HAS triage-note: "scale up" @src:model-output\n' })
   assert.equal(firedOf(again, 'automation/triage'), 0)
   assert.equal(claimCount(store), rows)
   store.close()

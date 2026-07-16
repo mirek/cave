@@ -53,6 +53,7 @@ test('db merge unions disjoint stores — rows verbatim, side tables, record (sp
     // Side tables came along: context, tag, comment, FTS.
     const merged = a.currentBeliefs().find(row => row.verb === 'USES' && row.object === 'postgres')!
     assert.deepEqual(a.toClaim(merged).contexts, ['src:maria'])
+    assert.deepEqual(a.provenanceOf(merged).sources, ['maria'])
     assert.deepEqual(a.toClaim(merged).tags, [{ key: 'security' }])
     assert.equal(merged.comment, 'from the runbook')
     assert.equal(a.search('postgres').length, 1)
@@ -66,6 +67,7 @@ test('db merge unions disjoint stores — rows verbatim, side tables, record (sp
     assert.equal(record.length, 1)
     assert.equal(record[0]!.subject, 'store/b')
     assert.equal(record[0]!.object, 'store/a')
+    assert.deepEqual(a.provenanceOf(record[0]!).actors, ['sync'])
     const declaration = a.currentBeliefs().find(row => row.subject === 'SYNCED-INTO' && row.verb === 'IS')
     assert.equal(declaration?.object, 'verb')
     a.close()
@@ -91,6 +93,36 @@ test('re-sync is idempotent: nothing merges, no record appends (spec §28.1, §2
     assert.equal(again.record, undefined)
     assert.equal(rowCount(a), after, 'an idle sync appends nothing — record included')
     a.close()
+  } finally {
+    done()
+  }
+})
+
+test('db merge derives provenance when the source predates the dimension table', () => {
+  const { dir, done } = scratch()
+  try {
+    const sourcePath = join(dir, 'legacy.db')
+    const source = open(sourcePath)
+    source.ingest('api USES postgres @src:inventory @scope:billing', {
+      source: 'rule/abc123',
+      lifecycle: true
+    })
+    source.close()
+    const legacy = new DatabaseSync(sourcePath)
+    legacy.exec('DROP TABLE cave_provenance')
+    legacy.close()
+
+    const target = open(join(dir, 'target.db'))
+    const report = syncDb(target, sourcePath, { record: false })
+    assert.equal(report.merged, 1)
+    const row = target.currentBeliefs()[0]!
+    assert.deepEqual(target.provenanceOf(row), {
+      actors: ['rule/abc123'],
+      sources: ['inventory'],
+      runs: ['rule/abc123'],
+      domains: ['billing']
+    })
+    target.close()
   } finally {
     done()
   }

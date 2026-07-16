@@ -8,7 +8,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Core grammar variables](todo/core-grammar-variables.md) — Decide whether query variables belong in the core grammar.
 - [Claim reification](todo/claim-reification.md) — Add nested claims only when a concrete use case justifies the syntax.
 - [Temporal functions](todo/temporal-functions.md) — Design the gated temporal function layer.
-- [Separate provenance dimensions](todo/provenance-dimensions.md) — Stop overloading context with actor, source, run, and domain identity.
 - [Storage schema migrations](todo/storage-schema-migrations.md) — Version and migrate SQLite schemas explicitly.
 - [Exact backup and restore](todo/exact-backup-restore.md) — Preserve transaction history and temporal semantics through backup and restore.
 - [Consolidate the package surface](todo/package-surface-consolidation.md) — Reduce the number of independently published public artifacts.
@@ -25,7 +24,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Correctness
 
-- [Lifecycle source-stamp bypass](todo/lifecycle-source-stamp-bypass.md) — Prevent authored `src:` contexts from escaping lifecycle ownership.
 - [Zoneless timestamps](todo/zoneless-timestamps.md) — Reject zoneless timestamps or interpret them consistently as UTC.
 - [Comparison operator emission](todo/comparison-operator-emission.md) — Emit every comparison as valid, parseable CAVE.
 - [Partial URL ingest failure](todo/ingest-partial-url-failure.md) — Isolate failed URLs instead of aborting unrelated healthy sources.

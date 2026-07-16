@@ -14,10 +14,12 @@
 
 export * as Resolve from './resolve.ts'
 export * as Row from './row.ts'
+export * as Provenance from './provenance.ts'
 export * as Schema from './schema.ts'
 export * as Sensitivity from './sensitivity.ts'
 export { open } from './open.ts'
 export type { Store } from './open.ts'
 export { defaultDbPath } from './store.ts'
 export type { AppendOptions, ForwardFact, IngestResult, ReverseFact, TraverseOptions } from './store.ts'
+export type { Dimension as ProvenanceDimension, Input as ProvenanceInput, t as ProvenanceRecord } from './provenance.ts'
 export type { Level as SensitivityLevel } from './sensitivity.ts'

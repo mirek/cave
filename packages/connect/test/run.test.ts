@@ -204,6 +204,8 @@ test('an authored @src: context cannot bypass the record lifecycle stamp (BUGS.m
   // The record stamp lands alongside the authored source (spec §9.5).
   const stamped = store.byContext('src:connect/systems/billing')
   assert.ok(stamped.some(row => row.verb === 'USES' && row.object === 'postgres'))
+  assert.ok(store.byProvenance('run', 'connect/systems/billing')
+    .some(row => row.verb === 'USES' && row.object === 'postgres'))
   // A changed record still retracts the claim it no longer yields (spec §23.2).
   const report = connect(store, mapping, [{ id: 'billing', tool: 'mysql' }], { name: 'systems', key: 'id' })
   assert.equal(report.retracted, 1)

@@ -25,6 +25,10 @@ test('metadata lookups by claim use covering indexes', () => {
       queryPlan(store, 'SELECT key, value FROM cave_tag WHERE claim_id = ?'),
       /USING COVERING INDEX idx_cave_tag_claim \(claim_id=\?\)/
     )
+    assert.match(
+      queryPlan(store, "SELECT claim_id FROM cave_provenance WHERE dimension = 'run' AND value = ?"),
+      /USING COVERING INDEX idx_cave_provenance_lookup \(dimension=\? AND value=\?\)/
+    )
   } finally {
     store.close()
   }
@@ -38,17 +42,21 @@ test('opening an existing store installs metadata claim indexes without losing d
     existing.ingest('api HAS owner: platform @production #team:core')
     existing.db.exec('DROP INDEX IF EXISTS idx_cave_context_claim')
     existing.db.exec('DROP INDEX IF EXISTS idx_cave_tag_claim')
+    existing.db.exec('DROP INDEX IF EXISTS idx_cave_provenance_lookup')
     existing.close()
 
     const upgraded = open(path)
     try {
       const indexes = upgraded.db.prepare(`
         SELECT name FROM sqlite_schema
-        WHERE type = 'index' AND name IN ('idx_cave_context_claim', 'idx_cave_tag_claim')
+        WHERE type = 'index' AND name IN (
+          'idx_cave_context_claim', 'idx_cave_provenance_lookup', 'idx_cave_tag_claim'
+        )
         ORDER BY name
       `).all() as { name: string }[]
       assert.deepEqual(indexes.map(row => row.name), [
         'idx_cave_context_claim',
+        'idx_cave_provenance_lookup',
         'idx_cave_tag_claim'
       ])
       assert.equal(upgraded.byContext('production').length, 1)

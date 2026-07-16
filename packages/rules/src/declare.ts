@@ -11,7 +11,7 @@
  * prelude) appends nothing.
  */
 
-import { Claim, Context, Key, Value } from '@cavelang/core'
+import { Claim, Key, Value } from '@cavelang/core'
 import { Row, type Store } from '@cavelang/store'
 import * as Rule from './rule.ts'
 import { provenanceContext, ruleAttribute, ruleSubject } from './engine.ts'
@@ -162,7 +162,7 @@ export const retractRule = (store: Store, ref: string): Retraction => {
         registry: store.registry(),
         problems: []
       })
-      const rows = store.byContext(Context.source(declaration.subject))
+      const rows = store.byProvenance('run', declaration.subject)
       const latest = new Map<string, Row.t>()
       for (const row of rows) {
         const seen = latest.get(row.claim_key)

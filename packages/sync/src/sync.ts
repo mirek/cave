@@ -25,7 +25,7 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
 import { Uuidv7 } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
-import type { Store } from '@cavelang/store'
+import { Provenance, type Store } from '@cavelang/store'
 
 export type SyncOptions = {
   /** Origin label of the §28.3 merge record (default `origin`; `syncFile` defaults to the source's basename stem). */
@@ -185,6 +185,35 @@ export const syncDb = (store: Store, sourcePath: string, options: SyncOptions = 
         db.exec(`INSERT INTO main.cave_context (claim_id, context)
           SELECT claim_id, context FROM cave_sync_src.cave_context
           WHERE claim_id IN (SELECT id FROM temp.cave_sync_new)`)
+        const hasProvenance = db.prepare(`
+          SELECT 1 FROM cave_sync_src.sqlite_master
+          WHERE type = 'table' AND name = 'cave_provenance'
+        `).get() !== undefined
+        if (hasProvenance) {
+          db.exec(`INSERT OR IGNORE INTO main.cave_provenance (claim_id, dimension, value)
+            SELECT claim_id, dimension, value FROM cave_sync_src.cave_provenance
+            WHERE claim_id IN (SELECT id FROM temp.cave_sync_new)`)
+        }
+        // Older stores have no dimension table. Derive every safely
+        // inferable dimension from their compact contexts after copying;
+        // INSERT OR IGNORE also fills gaps in partially upgraded stores.
+        const contextRows = db.prepare(`
+          SELECT n.id, ctx.context FROM temp.cave_sync_new n
+          LEFT JOIN main.cave_context ctx ON ctx.claim_id = n.id
+          ORDER BY n.id, ctx.rowid
+        `).all() as { id: string, context: null | string }[]
+        const contexts = new Map<string, string[]>()
+        for (const row of contextRows) {
+          contexts.set(row.id, [...contexts.get(row.id) ?? [], ...row.context === null ? [] : [row.context]])
+        }
+        const insertProvenance = db.prepare(`
+          INSERT OR IGNORE INTO main.cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)
+        `)
+        for (const [id, values] of contexts) {
+          for (const entry of Provenance.entries(values)) {
+            insertProvenance.run(id, entry.dimension, entry.value)
+          }
+        }
         db.exec(`INSERT INTO main.cave_tag (claim_id, key, value)
           SELECT claim_id, key, value FROM cave_sync_src.cave_tag
           WHERE claim_id IN (SELECT id FROM temp.cave_sync_new)`)
