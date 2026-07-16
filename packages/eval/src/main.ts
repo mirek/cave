@@ -170,7 +170,16 @@ export const meetsMin = (report: Report, min: number): boolean => {
   return f1 >= min && (report.mean.queryRate === undefined || report.mean.queryRate >= min)
 }
 
-export const runEval = async (argv: readonly string[]): Promise<number> => {
+export type RunContext = {
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+export const runEval = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const stdout = context.stdout ?? process.stdout
+  const stderr = context.stderr ?? process.stderr
+  context.signal?.throwIfAborted()
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -192,31 +201,31 @@ export const runEval = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: true
   })
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    stdout.write(`${usage}\n`)
     return 0
   }
   if (positionals.length === 0) {
-    process.stderr.write(`cave eval: suite directories (or golden files) are required\n\n${usage}\n`)
+    stderr.write(`cave eval: suite directories (or golden files) are required\n\n${usage}\n`)
     return 1
   }
   const runs = values.runs === undefined ? undefined : Number(values.runs)
   if (runs !== undefined && (!Number.isInteger(runs) || runs < 1)) {
-    process.stderr.write(`cave eval: --runs must be a positive integer, got '${values.runs}'\n`)
+    stderr.write(`cave eval: --runs must be a positive integer, got '${values.runs}'\n`)
     return 1
   }
   const tolerance = values.tolerance === undefined ? undefined : parseRatio(values.tolerance)
   if (values.tolerance !== undefined && tolerance === undefined) {
-    process.stderr.write(`cave eval: --tolerance expects 0..1 or N%, got '${values.tolerance}'\n`)
+    stderr.write(`cave eval: --tolerance expects 0..1 or N%, got '${values.tolerance}'\n`)
     return 1
   }
   const min = values.min === undefined ? undefined : parseRatio(values.min)
   if (values.min !== undefined && min === undefined) {
-    process.stderr.write(`cave eval: --min expects 0..1 or N%, got '${values.min}'\n`)
+    stderr.write(`cave eval: --min expects 0..1 or N%, got '${values.min}'\n`)
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
   if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    process.stderr.write(`cave eval: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    stderr.write(`cave eval: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     return 1
   }
   const mode: Mode = values.stdout === true ? 'stdout' : 'mcp'
@@ -234,13 +243,14 @@ export const runEval = async (argv: readonly string[]): Promise<number> => {
     ...tolerance === undefined ? {} : { tolerance },
     ...timeoutSeconds === undefined ? {} : { timeoutSeconds }
   })
-  process.stdout.write(values.json === true ? `${JSON.stringify(report, undefined, 2)}\n` : render(report))
+  context.signal?.throwIfAborted()
+  stdout.write(values.json === true ? `${JSON.stringify(report, undefined, 2)}\n` : render(report))
   if (fixtureCount(report) > 0 || report.failedRuns > 0) {
     return 1
   }
   if (min !== undefined && !meetsMin(report, min)) {
     if (values.json !== true) {
-      process.stderr.write(`cave eval: below --min ${values.min}\n`)
+      stderr.write(`cave eval: below --min ${values.min}\n`)
     }
     return 1
   }

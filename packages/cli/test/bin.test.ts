@@ -3,8 +3,10 @@ import * as assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { PassThrough, Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
+import { dispatch } from '@cavelang/cli'
 
 const main = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'main.ts')
 
@@ -14,10 +16,50 @@ const run = (args: string[], input?: string) =>
     ...input === undefined ? {} : { input }
   })
 
+const exitOf = (child: ReturnType<typeof spawn>): Promise<{ code: null | number, signal: null | NodeJS.Signals }> =>
+  new Promise((resolve, reject) => {
+    child.once('error', reject)
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  })
+
 test('binary: help exits 0', () => {
   const result = run(['help'])
   assert.equal(result.status, 0)
   assert.match(result.stdout, /Usage:/)
+})
+
+test('dispatcher gives synchronous and asynchronous commands one I/O and exit contract', async () => {
+  const captured = async (argv: string[], input = ''): Promise<{ code: number, out: string, err: string }> => {
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    let out = ''
+    let err = ''
+    stdout.on('data', chunk => { out += String(chunk) })
+    stderr.on('data', chunk => { err += String(chunk) })
+    const code = await dispatch(argv, { stdin: Readable.from([input]), stdout, stderr })
+    return { code, out, err }
+  }
+  const sync = await captured(['query', '--help'])
+  assert.equal(sync.code, 0)
+  assert.match(sync.out, /cave query/)
+  const async = await captured(['ingest', '--help'])
+  assert.equal(async.code, 0)
+  assert.match(async.out, /LLM-driven ingestion/)
+})
+
+test('binary: synchronous and asynchronous argument failures share formatting and exit behavior', () => {
+  for (const command of ['parse', 'ingest']) {
+    const result = run([command, '--definitely-invalid'])
+    assert.equal(result.status, 1)
+    assert.equal(result.stdout, '')
+    assert.match(result.stderr, new RegExp(`^cave ${command}: Unknown option`))
+    assert.doesNotMatch(result.stderr, /\n\s+at /, 'default diagnostics are stack-free')
+  }
+  const debug = spawnSync(process.execPath, [
+    '--disable-warning=ExperimentalWarning', main, 'ingest', '--definitely-invalid'
+  ], { encoding: 'utf8', env: { ...process.env, CAVE_DEBUG: '1' } })
+  assert.equal(debug.status, 1)
+  assert.match(debug.stderr, /\n\s+at /, 'CAVE_DEBUG=1 retains the diagnostic stack')
 })
 
 test('binary: per-command help is discoverable', () => {
@@ -64,6 +106,7 @@ test('binary: serve routes through main and answers over HTTP (spec §30.3)', as
   assert.equal(run(['add', '--db', db], 'api IS hot\n').status, 0)
 
   const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', main, 'serve', '--db', db, '--port', '0'])
+  const exited = exitOf(child)
   try {
     const url = await new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('serve did not print its URL')), 15_000)
@@ -87,8 +130,36 @@ test('binary: serve routes through main and answers over HTTP (spec §30.3)', as
     const matches = await (await fetch(`${url}api/search?q=hot`)).json() as { subject: string }[]
     assert.equal(matches.length, 1)
     assert.equal(matches[0]!.subject, 'api')
+    child.kill('SIGTERM')
+    assert.deepEqual(await exited, { code: 143, signal: null }, 'SIGTERM is handled after awaited server/store cleanup')
   } finally {
-    child.kill()
+    if (child.exitCode === null && child.signalCode === null) child.kill()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('binary: automate awaits timer and store cleanup before the signal exit', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  const db = join(dir, 'k.db')
+  const child = spawn(process.execPath, [
+    '--disable-warning=ExperimentalWarning', main, 'automate', '--db', db, '--interval', '0.05'
+  ])
+  const exited = exitOf(child)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('automate did not enter watch mode')), 15_000)
+      child.stdout.on('data', chunk => {
+        if (String(chunk).includes('watching')) {
+          clearTimeout(timer)
+          resolve()
+        }
+      })
+    })
+    child.kill('SIGINT')
+    assert.deepEqual(await exited, { code: 130, signal: null })
+    assert.equal(run(['automate', '--db', db, '--once']).status, 0, 'the cleaned store reopens immediately')
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill()
     rmSync(dir, { recursive: true, force: true })
   }
 })

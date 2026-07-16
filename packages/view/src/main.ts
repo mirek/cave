@@ -1,7 +1,6 @@
 /**
  * `cave serve` entry (spec §30.3) — argument parsing, then the server
- * until interrupted. Long-running, so `main.ts` in the CLI routes it
- * like `mcp` and `automate`.
+ * until the shared CLI abort signal requests an awaited shutdown.
  */
 
 import { parseArgs } from 'node:util'
@@ -42,7 +41,18 @@ Examples:
   cave serve --db k.db --port 8080
   CAVE_DB=k.db cave serve`
 
-export const runServe = async (argv: readonly string[]): Promise<number> => {
+export type RunContext = {
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+const waitForAbort = (signal?: AbortSignal): Promise<void> =>
+  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+
+export const runServe = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const stdout = context.stdout ?? process.stdout
+  const stderr = context.stderr ?? process.stderr
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -56,37 +66,42 @@ export const runServe = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: true
   })
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    stdout.write(`${usage}\n`)
     return 0
   }
   if (positionals.length > 0) {
-    process.stderr.write(`cave serve: unexpected argument ${JSON.stringify(positionals[0])}\n`)
+    stderr.write(`cave serve: unexpected argument ${JSON.stringify(positionals[0])}\n`)
     return 1
   }
   const port = values.port === undefined ? defaultPort : Number(values.port)
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    process.stderr.write(`cave serve: --port expects 0..65535, got '${values.port}'\n`)
+    stderr.write(`cave serve: --port expects 0..65535, got '${values.port}'\n`)
     return 1
   }
   const maximum = Sensitivity.parse(values['max-sensitivity'] ?? Sensitivity.defaultMaximum)
   if (maximum === undefined) {
-    process.stderr.write(`cave serve: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
+    stderr.write(`cave serve: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
     return 1
   }
   const dbPath = values.db ?? defaultDbPath()
   const store = open(dbPath, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  let handle: Awaited<ReturnType<typeof serve>> | undefined
   try {
-    const handle = await serve(store, {
+    handle = await serve(store, {
       port,
       label: dbPath,
       maxSensitivity: maximum,
       ...values.host === undefined ? {} : { host: values.host }
     })
-    process.stdout.write(`serving ${dbPath} at ${handle.url} (sensitivity <= ${maximum}, read-only, ctrl-c to stop)\n`)
-    return await new Promise<number>(() => {})
-  } catch (error) {
+    stdout.write(`serving ${dbPath} at ${handle.url} (sensitivity <= ${maximum}, read-only, ctrl-c to stop)\n`)
+    await waitForAbort(context.signal)
+    return 0
+  } finally {
+    if (handle?.server.listening === true) {
+      const closing = handle.close()
+      handle.server.closeAllConnections()
+      await closing
+    }
     store.close()
-    process.stderr.write(`cave serve: ${error instanceof Error ? error.message : String(error)}\n`)
-    return 1
   }
 }

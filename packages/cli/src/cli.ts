@@ -1,30 +1,30 @@
 /**
  * `cave` command implementation — pure functions from parsed arguments to
- * `{ code, out, err }`, so tests can call commands directly and `main.ts`
- * stays a thin dispatcher.
+ * `{ code, out, err }`, so tests can call commands directly while
+ * `dispatch.ts` gives every command one awaited process lifecycle.
  *
  * Commands:
  *
  * - `cave parse [file]` — lint / dump the AST (`--json`)
- * - `cave highlight [file]` — ANSI syntax colors (async, routed in `main.ts`)
+ * - `cave highlight [file]` — ANSI syntax colors (async)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`, `--resolve`)
  * - `cave resolve [--db <path>]` — contested facts under the §26 policy (`--aliases`, `--policy`, `--json`)
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
- * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async, routed in `main.ts`)
+ * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
  * - `cave backup [--db <path>] --out <path>` — exact verified SQLite snapshot
  * - `cave restore <snapshot> --db <path>` — verify and atomically restore a snapshot
  * - `cave generate [--db <path>]` — versioned TypeScript client from EXPECTS declarations
- * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
+ * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async)
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
  * - `cave export [--db <path>]` — canonical text out (`--current`, `--tx`)
- * - `cave serve [--db <path>]` — the human read surface in a browser (spec §30; async, routed in `main.ts`)
+ * - `cave serve [--db <path>]` — the human read surface in a browser (spec §30; async)
  * - `cave report [--db <path>] [template.md…]` — cited markdown from CAVE-Q template blocks (spec §31)
- * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async, routed in `main.ts`)
- * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async, routed in `main.ts`)
- * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async, routed in `main.ts`)
+ * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async)
+ * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async)
+ * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async)
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
  * - `cave help [command]` — overview, or one command's help
@@ -33,7 +33,7 @@
  * `cave.db`. Every command answers `--help` with options and examples.
  */
 
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
@@ -652,9 +652,27 @@ Usage:
   cave version`
 }
 
+const readStdin = (): string => {
+  const chunks: Buffer[] = []
+  const buffer = Buffer.allocUnsafe(64 * 1024)
+  const pause = new Int32Array(new SharedArrayBuffer(4))
+  for (;;) {
+    try {
+      const size = readSync(0, buffer, 0, buffer.length, null)
+      if (size === 0) return Buffer.concat(chunks).toString('utf8')
+      chunks.push(Buffer.from(buffer.subarray(0, size)))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EAGAIN') throw error
+      // A pipe may be non-blocking on macOS. The producer is another process,
+      // so a short synchronous retry does not prevent it from making progress.
+      Atomics.wait(pause, 0, 0, 5)
+    }
+  }
+}
+
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?
-    readFileSync(0, 'utf8') :
+    readStdin() :
     files.map(file => readFileSync(file, 'utf8')).join('\n')
 
 export const parseCommand = (argv: readonly string[]): Output => {
@@ -686,8 +704,7 @@ export const parseCommand = (argv: readonly string[]): Output => {
 
 /**
  * `cave highlight` — ANSI syntax colors from the tree-sitter grammar's own
- * highlight query. Async (the grammar WASM loads on first use), so `main.ts`
- * routes it separately, like `mcp` and `ingest`.
+ * highlight query. Async because the grammar WASM loads on first use.
  */
 export const highlightCommand = async (argv: readonly string[]): Promise<Output> => {
   const { positionals } = parseArgs({ args: [...argv], options: {}, allowPositionals: true })
@@ -1285,9 +1302,8 @@ export const restoreCommand = (argv: readonly string[]): Output => {
 
 /**
  * `cave suggest-alias` — alias discovery (spec §27): same-entity
- * candidates as suggested `ALIAS` claims for review. Async (the optional
- * judge runs a shell agent), so `main.ts` routes it separately, like
- * `reconstruct`.
+ * candidates as suggested `ALIAS` claims for review. Async when the optional
+ * judge runs a shell agent.
  */
 export const suggestAliasCommand = async (argv: readonly string[]): Promise<Output> => {
   try {
@@ -1386,7 +1402,7 @@ export const syncCommand = (argv: readonly string[]): Output => {
       ...values.as === undefined ? {} : { from: sanitizeLabel(values.as) }
     }
     const report: SyncReport = source === '-' ?
-      syncText(store, readFileSync(0, 'utf8'), { from: 'stdin', ...options }) :
+      syncText(store, readStdin(), { from: 'stdin', ...options }) :
       syncFile(store, source, options)
     if (values.json === true) {
       return { code: report.problems.length > 0 ? 1 : 0, out: `${JSON.stringify(report, undefined, 2)}\n`, err: '' }
@@ -1567,8 +1583,7 @@ export const generateCommand = (argv: readonly string[]): Output => {
 /**
  * `cave reconstruct` — the §18 loop over the store: heuristic policy by
  * default (the eval baseline), the LLM policy over a shell-agent template
- * with `--agent`. Async (the agent runs once per step), so `main.ts`
- * routes it separately, like `connect`.
+ * with `--agent`. Async because the agent runs once per step.
  */
 export const reconstructCommand = async (argv: readonly string[]): Promise<Output> => {
   try {
@@ -1652,7 +1667,7 @@ export const helpCommand = (argv: readonly string[]): Output => {
   if (text !== undefined) {
     return ok(`${text}\n`)
   }
-  // mcp, ingest, connect, eval, automate and serve own their help (main.ts forwards `help X` to `X --help`).
+  // Delegated commands own their help; dispatch.ts forwards `help X` to `X --help`.
   if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval' || topic === 'automate' || topic === 'serve') {
     return ok(`see: cave ${topic} --help\n`)
   }
@@ -1663,56 +1678,52 @@ export const helpCommand = (argv: readonly string[]): Output => {
 export const cave = (argv: readonly string[]): Output => {
   const [command, ...rest] = argv
   const canonical = command === 'q' ? 'query' : command
-  try {
-    if (canonical !== undefined && canonical in commandHelp &&
-        (rest.includes('--help') || rest.includes('-h'))) {
-      return ok(`${commandHelp[canonical]}\n`)
-    }
-    switch (canonical) {
-      case 'parse':
-        return parseCommand(rest)
-      case 'add':
-        return addCommand(rest)
-      case 'import':
-        return importCommand(rest)
-      case 'query':
-        return queryCommand(rest)
-      case 'resolve':
-        return resolveCommand(rest)
-      case 'derive':
-        return deriveCommand(rest)
-      case 'act':
-        return actCommand(rest)
-      case 'check':
-        return checkCommand(rest)
-      case 'backup':
-        return backupCommand(rest)
-      case 'restore':
-        return restoreCommand(rest)
-      case 'generate':
-        return generateCommand(rest)
-      case 'sync':
-        return syncCommand(rest)
-      case 'export':
-        return exportCommand(rest)
-      case 'report':
-        return reportCommand(rest)
-      case 'demo':
-        return demoCommand()
-      case 'version':
-      case '--version':
-      case '-v':
-        return versionCommand()
-      case 'help':
-        return helpCommand(rest)
-      case undefined:
-      case '--help':
-      case '-h':
-        return ok(`${usage}\n`)
-      default:
-        return fail(`cave: unknown command ${JSON.stringify(command)}\n\n${usage}\n`, 2)
-    }
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  if (canonical !== undefined && canonical in commandHelp &&
+      (rest.includes('--help') || rest.includes('-h'))) {
+    return ok(`${commandHelp[canonical]}\n`)
+  }
+  switch (canonical) {
+    case 'parse':
+      return parseCommand(rest)
+    case 'add':
+      return addCommand(rest)
+    case 'import':
+      return importCommand(rest)
+    case 'query':
+      return queryCommand(rest)
+    case 'resolve':
+      return resolveCommand(rest)
+    case 'derive':
+      return deriveCommand(rest)
+    case 'act':
+      return actCommand(rest)
+    case 'check':
+      return checkCommand(rest)
+    case 'backup':
+      return backupCommand(rest)
+    case 'restore':
+      return restoreCommand(rest)
+    case 'generate':
+      return generateCommand(rest)
+    case 'sync':
+      return syncCommand(rest)
+    case 'export':
+      return exportCommand(rest)
+    case 'report':
+      return reportCommand(rest)
+    case 'demo':
+      return demoCommand()
+    case 'version':
+    case '--version':
+    case '-v':
+      return versionCommand()
+    case 'help':
+      return helpCommand(rest)
+    case undefined:
+    case '--help':
+    case '-h':
+      return ok(`${usage}\n`)
+    default:
+      return fail(`cave: unknown command ${JSON.stringify(command)}\n\n${usage}\n`, 2)
   }
 }

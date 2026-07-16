@@ -27,6 +27,8 @@ export type ServerOptions = Scope & {
   readonly source?: string | false
   /** Out-of-band hook command templates for action tools (spec §25.4). */
   readonly hooks?: Readonly<Record<string, string>>
+  /** Stop accepting protocol input and resolve after the current message. */
+  readonly signal?: AbortSignal
 }
 
 /**
@@ -252,6 +254,8 @@ export const serve = (
   const server = createServer(store, options)
   return new Promise(resolve => {
     const lines = createInterface({ input })
+    const abort = (): void => lines.close()
+    options.signal?.addEventListener('abort', abort, { once: true })
     lines.on('line', line => {
       if (line.trim() === '') {
         return
@@ -268,6 +272,12 @@ export const serve = (
         output.write(`${JSON.stringify(response)}\n`)
       }
     })
-    lines.on('close', resolve)
+    lines.on('close', () => {
+      options.signal?.removeEventListener('abort', abort)
+      resolve()
+    })
+    if (options.signal?.aborted === true) {
+      lines.close()
+    }
   })
 }

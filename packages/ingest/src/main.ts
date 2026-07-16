@@ -42,7 +42,16 @@ Examples:
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
   cave ingest --db k.db 'packages/*/README.md' --plan > plan.ndjson`
 
-export const runIngest = async (argv: readonly string[]): Promise<number> => {
+export type RunContext = {
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+export const runIngest = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const stdout = context.stdout ?? process.stdout
+  const stderr = context.stderr ?? process.stderr
+  context.signal?.throwIfAborted()
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -62,27 +71,27 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: true
   })
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    stdout.write(`${usage}\n`)
     return 0
   }
   if (positionals.length === 0) {
-    process.stderr.write(`cave ingest: sources (files, globs, urls) are required\n\n${usage}\n`)
+    stderr.write(`cave ingest: sources (files, globs, urls) are required\n\n${usage}\n`)
     return 1
   }
   const db = values.db ?? defaultDbPath()
   const planning = values.plan === true || values['dry-run'] === true
   if (values.agent === undefined && !planning) {
-    process.stderr.write('cave ingest: --agent is required (or use --plan / --dry-run)\n')
+    stderr.write('cave ingest: --agent is required (or use --plan / --dry-run)\n')
     return 1
   }
   const batchSize = values.batch === undefined ? undefined : Number(values.batch)
   if (batchSize !== undefined && (!Number.isInteger(batchSize) || batchSize < 1)) {
-    process.stderr.write(`cave ingest: --batch must be a positive integer, got '${values.batch}'\n`)
+    stderr.write(`cave ingest: --batch must be a positive integer, got '${values.batch}'\n`)
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
   if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    process.stderr.write(`cave ingest: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    stderr.write(`cave ingest: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     return 1
   }
   const noPrelude = values['no-prelude'] === true
@@ -107,11 +116,11 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
         const mcpConfig = writeMcpConfig(db, { noPrelude })
         for (const files of batches) {
           const prompt = promptFor(store, files, options)
-          process.stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db })}\n`)
+          stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db })}\n`)
         }
         return 0
       }
-      process.stdout.write([
+      stdout.write([
         `ingest plan: ${selection.files.length} file(s) in ${batches.length} batch(es), ${selection.skipped.length} skipped (unchanged)`,
         ...selection.skipped.map(path => `  skip ${path}`),
         ...batches.map((files, index) => `  batch ${index + 1}: ${files.map(file => file.path).join(', ')}`),
@@ -120,6 +129,7 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
       return 0
     }
     const report = await run(options)
+    context.signal?.throwIfAborted()
     const lines = [
       `ingest: ${report.matched} file(s) matched, ${report.skipped.length} skipped (unchanged), ${report.batches.length} batch(es)`
     ]
@@ -134,7 +144,7 @@ export const runIngest = async (argv: readonly string[]): Promise<number> => {
       }
     })
     lines.push(`done: +${report.added} claim(s)${report.failed > 0 ? `, ${report.failed} failed batch(es)` : ''}`)
-    process.stdout.write(`${lines.join('\n')}\n`)
+    stdout.write(`${lines.join('\n')}\n`)
     return report.failed > 0 ? 1 : 0
   } finally {
     store.close()

@@ -69,8 +69,18 @@ export const readHooks = (path: string): Record<string, string> => {
   return parsed as Record<string, string>
 }
 
+export type RunContext = {
+  readonly stdin?: NodeJS.ReadableStream
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
 /** Runs the server; resolves with the process exit code. */
-export const runMcp = async (argv: readonly string[]): Promise<number> => {
+export const runMcp = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const stdin = context.stdin ?? process.stdin
+  const stdout = context.stdout ?? process.stdout
+  const stderr = context.stderr ?? process.stderr
   const { values } = parseArgs({
     args: [...argv],
     options: {
@@ -87,15 +97,15 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: false
   })
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    stdout.write(`${usage}\n`)
     return 0
   }
   if (values.src !== undefined && !/^[A-Za-z0-9._/:-]+$/.test(values.src)) {
-    process.stderr.write('cave mcp: --src must be a context token (letters, digits, . _ / : -)\n')
+    stderr.write('cave mcp: --src must be a context token (letters, digits, . _ / : -)\n')
     return 2
   }
   if (values.src?.startsWith('src:') === true) {
-    process.stderr.write('cave mcp: --src must not include the src: prefix\n')
+    stderr.write('cave mcp: --src must not include the src: prefix\n')
     return 2
   }
   const scope: Scope = {
@@ -116,7 +126,7 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
     const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
     hooks = hooksPath === undefined ? undefined : readHooks(hooksPath)
   } catch (error) {
-    process.stderr.write(`cave mcp: ${error instanceof Error ? error.message : String(error)}\n`)
+    stderr.write(`cave mcp: ${error instanceof Error ? error.message : String(error)}\n`)
     return 2
   }
   const db = values.db ?? defaultDbPath()
@@ -126,13 +136,14 @@ export const runMcp = async (argv: readonly string[]): Promise<number> => {
     ...scope.permissions === undefined ? [] : [`permissions ${scope.permissions.join(',')}`],
     ...scope.tools === undefined ? [] : [`tools ${scopedTools(scope).map(tool => tool.name).join(',')}`]
   ]
-  process.stderr.write(`${serverInfo.name} mcp server ${serverInfo.version} — db ${db}` +
+  stderr.write(`${serverInfo.name} mcp server ${serverInfo.version} — db ${db}` +
     `${scopeNote.length > 0 ? ` (${scopeNote.join('; ')})` : ''}\n`)
   try {
-    await serve(store, process.stdin, process.stdout, {
+    await serve(store, stdin, stdout, {
       ...scope,
       ...values['no-src'] === true ? { source: false } : values.src === undefined ? {} : { source: values.src },
-      ...hooks === undefined ? {} : { hooks }
+      ...hooks === undefined ? {} : { hooks },
+      ...context.signal === undefined ? {} : { signal: context.signal }
     })
   } finally {
     store.close()
