@@ -3,8 +3,8 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
-import { open } from '@cavelang/store'
+import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { open, Schema } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
@@ -334,6 +334,95 @@ test('--db defaults to $CAVE_DB, then cave.db in the cwd', () => {
     } finally {
       process.chdir(cwd)
     }
+  })
+})
+
+test('doctor reports a missing store without creating it and emits safe JSON', () => {
+  withDir(dir => {
+    const secret = 'customer-velvet-secret'
+    const db = join(dir, `${secret}.db`)
+    const hooks = join(dir, `${secret}-hooks.json`)
+    writeFileSync(hooks, JSON.stringify({ [secret]: `curl https://${secret}.example` }))
+
+    const result = doctorCommand(['--db', db, '--hooks', hooks, '--json'])
+    assert.equal(result.code, 0, result.err)
+    const report = JSON.parse(result.out)
+    assert.equal(report.format, 'cave.doctor')
+    assert.equal(report.version, 1)
+    assert.equal(report.ok, true)
+    assert.equal(report.configuration.database.source, 'flag')
+    assert.equal(report.configuration.database.exists, false)
+    assert.equal(report.configuration.hooks.entries, 1)
+    assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.database' && entry.status === 'warn'))
+    assert.doesNotMatch(result.out, new RegExp(secret))
+    assert.doesNotMatch(result.out, /curl|https:/)
+    assert.equal(existsSync(db), false, 'doctor must not create a missing database')
+  })
+})
+
+test('doctor validates an existing store without modifying or migrating it', () => {
+  withDir(dir => {
+    const db = join(dir, 'knowledge.db')
+    const file = join(dir, 'knowledge.cave')
+    writeFileSync(file, 'auth USES jwt\n')
+    assert.equal(addCommand([file, '--db', db]).code, 0)
+
+    const before = readFileSync(db)
+    const healthy = doctorCommand(['--db', db, '--json'])
+    const report = JSON.parse(healthy.out)
+    assert.equal(healthy.code, 0, healthy.err)
+    assert.equal(report.configuration.database.schemaVersion, Schema.currentVersion)
+    assert.equal(report.configuration.database.claims, 1)
+    assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.integrity' && entry.status === 'pass'))
+    assert.deepEqual(readFileSync(db), before, 'doctor must leave a healthy database byte-for-byte unchanged')
+
+    const future = open(db)
+    future.db.exec(`PRAGMA user_version = ${Schema.currentVersion + 1}`)
+    future.close()
+    const futureBytes = readFileSync(db)
+    const unsupported = doctorCommand(['--db', db, '--json'])
+    assert.equal(unsupported.code, 1)
+    assert.match(unsupported.out, /newer than supported/)
+    assert.deepEqual(readFileSync(db), futureBytes, 'doctor must not downgrade a future schema')
+  })
+})
+
+test('doctor reports a damaged current schema without exposing SQLite details', () => {
+  withDir(dir => {
+    const secret = 'private-corrupt-store'
+    const db = join(dir, `${secret}.db`)
+    const store = open(db)
+    store.db.exec('DROP TABLE cave_context')
+    store.close()
+    const before = readFileSync(db)
+
+    const result = doctorCommand(['--db', db, '--json'])
+    assert.equal(result.code, 1)
+    const report = JSON.parse(result.out)
+    assert.equal(report.configuration.database.schemaVersion, Schema.currentVersion)
+    assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.database' && entry.status === 'fail'))
+    assert.doesNotMatch(result.out, new RegExp(secret))
+    assert.deepEqual(readFileSync(db), before, 'doctor must not attempt schema repair')
+  })
+})
+
+test('doctor targets malformed hooks and validates its arguments without leaking input', () => {
+  withDir(dir => {
+    const secret = 'hook-secret-command'
+    const hooks = join(dir, `${secret}.json`)
+    writeFileSync(hooks, JSON.stringify([secret]))
+    const malformed = doctorCommand(['--hooks', hooks, '--json'])
+    assert.equal(malformed.code, 1)
+    assert.match(malformed.out, /hooks file is unreadable or malformed/)
+    assert.doesNotMatch(malformed.out, new RegExp(secret))
+
+    const unexpected = doctorCommand(['private-positional-value'])
+    assert.equal(unexpected.code, 2)
+    assert.equal(unexpected.err, 'cave doctor: unexpected positional arguments\n')
+    assert.doesNotMatch(unexpected.err, /private-positional-value/)
   })
 })
 
