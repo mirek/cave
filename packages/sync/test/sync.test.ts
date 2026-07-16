@@ -516,3 +516,18 @@ test('receive rule holds across reopen: open() observes MAX(tx) (spec §28.2)', 
     done()
   }
 })
+
+test('text dry runs leave future transaction ids unobserved', () => {
+  const store = open()
+  const uncommitted = futureId(4 * 60 * 60 * 1000, 0x800)
+  const report = syncText(store, `;@ ${uncommitted}\nremote EXISTS\n`, {
+    dryRun: true,
+    record: false
+  })
+  assert.equal(report.merged, 1)
+  assert.equal(rowCount(store), 0, 'the remote row rolled back')
+
+  const local = store.ingest('local EXISTS').ids[0]!
+  assert.ok(local < uncommitted, `${local} stays below uncommitted ${uncommitted}`)
+  store.close()
+})

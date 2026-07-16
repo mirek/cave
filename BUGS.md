@@ -15,6 +15,5 @@ review comments are consolidated into one bug file.
 
 ## Known bugs
 
-- [Dry-run UUID clock](bugs/dry-run-uuid-clock.md) — Keep text-sync dry-runs from changing later transaction ordering.
 - [Multi-process transaction order](bugs/multi-process-tx-order.md) — Define or enforce current-belief ordering across concurrent writers.
 - [Example wording](bugs/example-wording.md) — Correct reviewed wording in incident examples.

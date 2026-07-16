@@ -112,9 +112,9 @@ scale, and stated rather than hidden.
 - `syncFile(store, sourcePath, options?)` — sniff the SQLite header and
   route; origin label defaults to the file's basename stem.
 - Options: `from` / `into` (record labels), `record: false` (skip the
-  merge record), `dryRun` (full report inside a rolled-back
-  transaction). Reports: `{ merged, skipped, edges, dryRun, record?,
-  problems }`.
+  merge record), `dryRun` (full report inside a rolled-back transaction,
+  without advancing the process UUID clock). Reports:
+  `{ merged, skipped, edges, dryRun, record?, problems }`.
 
 Sync is an operator surface, deliberately not served over MCP: store
 files are machine-local paths, and an agent's write surface stays the

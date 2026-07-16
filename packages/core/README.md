@@ -36,7 +36,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 | `Entity` | §4.1 | Name normalization (whitespace → `-`, casing preserved) and advisory checks. |
 | `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, lexical shape of verbs. |
 | `Multiplier` | §7.1 | `T`/`B`/`M`/`K` scale factors. |
-| `Uuidv7` | §9.1 | Monotonic UUIDv7 transaction ids — lexicographic order ⇒ transaction order, so `MAX(tx)` resolves current belief. |
+| `Uuidv7` | §9.1 | Monotonic UUIDv7 transaction ids — lexicographic order ⇒ transaction order, so `MAX(tx)` resolves current belief; `withStatePreserved` isolates synchronous speculative work. |
 | `Time` | §32 | Date-like instant/range parsing, valid-time coverage, and exact trajectory interpolation helpers. |
 
 ## Design decisions
