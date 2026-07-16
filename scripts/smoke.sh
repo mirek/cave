@@ -51,6 +51,18 @@ for (const [name, entry] of Object.entries(expected)) {
 cave=./node_modules/.bin/cave
 echo "==> cave --help"
 "$cave" --help >/dev/null
+echo "==> cave doctor validates the packed runtime"
+"$cave" doctor --db "$tmp/not-created.db" --json | node -e "
+let input = ''
+process.stdin.setEncoding('utf8').on('data', chunk => { input += chunk }).on('end', () => {
+  const report = JSON.parse(input)
+  if (report.format !== 'cave.doctor' || report.version !== 1 || report.ok !== true) {
+    throw new Error('cave doctor did not report a healthy packed runtime')
+  }
+  if (report.checks.some(check => check.status === 'fail')) {
+    throw new Error('cave doctor reported a failed packed-runtime check')
+  }
+})"
 echo "==> cave parse"
 "$cave" parse "$root/examples/incident/incident.cave" >/dev/null
 echo "==> cave add / query / export round-trip"

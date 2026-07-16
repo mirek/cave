@@ -8,3 +8,5 @@ export { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp,
 export { dispatch, runCli } from './dispatch.ts'
 export type { CommandRuntime } from './dispatch.ts'
 export type { Output } from './cli.ts'
+export { diagnose, doctorCommand } from './doctor.ts'
+export type { DoctorCheck, DoctorOutput, DoctorReport, DoctorStatus } from './doctor.ts'

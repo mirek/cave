@@ -25,6 +25,7 @@
  * - `cave connect [--db <path>] <source>` — deterministic structured ingestion (async)
  * - `cave eval <suite...>` — golden-fixture extraction/query/reconstruction evals (async)
  * - `cave reconstruct [--db <path>] <seed...>` — §18 reconstruction from seed cues (async)
+ * - `cave doctor [--db <path>]` — read-only runtime, installation, and store diagnostics
  * - `cave demo` — the cave-loop multi-hop recovery demo
  * - `cave version` — print the cave version
  * - `cave help [command]` — overview, or one command's help
@@ -58,6 +59,7 @@ import { labelOf, sanitizeLabel, syncFile, syncText } from '@cavelang/sync'
 import type { SyncReport } from '@cavelang/sync'
 import { report as caveReport } from '@cavelang/view'
 import { emitClaim } from '@cavelang/canonical'
+import { doctorCommand } from './doctor.ts'
 
 export type Output = {
   readonly code: number
@@ -131,6 +133,7 @@ Usage:
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals
   cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec §23)
   cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec §18) [--agent] [--query] [--trace]
+  cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]
   cave demo                                run the cave-loop reconstruction demo
   cave version                             print the cave version
   cave help [command]                      this text, or one command's options and examples
@@ -143,6 +146,26 @@ const dbHelp = `--db <path>    database file (default: $CAVE_DB, or cave.db)`
 
 /** Per-command help, printed for \`cave <command> --help\` and \`cave help <command>\`. */
 export const commandHelp: Record<string, string> = {
+  doctor: `cave doctor — diagnose runtime, installation, and store health
+
+Usage:
+  cave doctor [--db <path>] [--hooks <file>] [--json]
+
+Options:
+  ${dbHelp}
+  --hooks <file>  validate an optional hooks JSON file
+  --json          emit the versioned cave.doctor/v1 report
+
+The command is read-only: it never creates or migrates a database and never
+runs hooks. Its output is safe to share — database and hooks paths, hook names
+and commands, URLs, and environment values are not included. Warnings such as
+a not-yet-created database exit 0; failed required checks exit 1.
+
+Examples:
+  cave doctor
+  cave doctor --db knowledge.db
+  cave doctor --hooks hooks.json --json`,
+
   parse: `cave parse — lint CAVE text, or dump the parsed document
 
 Usage:
@@ -1745,6 +1768,8 @@ export const cave = (argv: readonly string[]): Output => {
       return exportCommand(rest)
     case 'report':
       return reportCommand(rest)
+    case 'doctor':
+      return doctorCommand(rest)
     case 'demo':
       return demoCommand()
     case 'version':
