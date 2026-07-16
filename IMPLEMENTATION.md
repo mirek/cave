@@ -79,6 +79,11 @@ packages the same grammar WASM and highlight query as a VSCode extension
   semantic claims, canonical text, and provenance. CLI/federated query JSON
   composes it as `cave.query-match/v1`; MCP and export remain canonical CAVE
   text. Checked-in fixtures and strict decoders preserve old versions.
+- **Scenarios separate evaluation from authority.** Rolled-back overlays feed
+  versioned typed inputs to solver or ordinary deterministic evaluators.
+  Evaluation results, recommendations, human decisions, action audits, and
+  external-effect audits are explicit predecessor-checked artifact series;
+  recording one never executes policy or mutates the hypothetical inputs.
 - **Exact backup uses verified SQLite snapshots** (§13.2.2): `VACUUM INTO`
   captures a consistent online WAL-aware snapshot in a temporary sibling;
   integrity, foreign keys, current schema, fsync, and SHA-256 gate atomic

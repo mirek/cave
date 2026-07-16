@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { open } from '@cavelang/store'
 import { Adapter, Explain, Model, Solve } from '@cavelang/solver'
-import { Record } from '@cavelang/scenario'
+import { Model as ScenarioModel, Record, run } from '@cavelang/scenario'
 
 const model: Model.t = {
   schema: Model.schema,
@@ -50,6 +50,69 @@ test('solver evaluation is ephemeral until result recording is explicit', async 
   assert.equal(again.rowId, first.rowId)
   assert.equal(count(store), 1, 'idempotent recording appends no duplicate row')
   assert.deepEqual(Record.read<Record.Result>(store, 'result', artifact.id), artifact)
+  store.close()
+})
+
+test('ordinary deterministic evaluation drives an explicit recommendation and decision', async () => {
+  const store = open()
+  store.ingest('system HAS team-size: 8 people')
+  const definition: ScenarioModel.Definition = {
+    id: 'architecture-choice',
+    modelDigest: `sha256:${'1'.repeat(64)}`,
+    snapshot: {
+      aliases: 'exact', resolution: 'winner', minimumConfidence: 0.5
+    },
+    overlay: 'system HAS team-size: 12 people',
+    bindings: [{
+      id: 'team-size',
+      query: 'system HAS team-size: ?n',
+      select: 'n',
+      expected: { kind: 'integer', unit: 'people' },
+      cardinality: 'one',
+      scenarioOverride: true,
+      policies: {
+        missing: 'reject', contested: 'reject', retracted: 'exclude', unresolved: 'reject'
+      }
+    }]
+  }
+
+  const evaluation = await run(store, definition, inputs => {
+    const teamSize = inputs.values['team-size'] as Extract<ScenarioModel.Value, { kind: 'integer' }>
+    return {
+      schema: Record.evaluationSchema,
+      id: 'architecture-evaluation',
+      inputs,
+      evaluator: { name: 'architecture-threshold', version: '1.0.0' },
+      output: { architecture: BigInt(teamSize.value) <= 15n ? 'monolith' : 'services' }
+    } satisfies Record.Evaluation
+  })
+
+  assert.equal(store.currentBeliefs().find(row => row.attribute === 'team-size')?.value_text, '8 people',
+    'the hypothetical team size rolled back before evaluation returned')
+  Record.result(store, evaluation)
+  Record.recommendation(store, {
+    schema: Record.recommendationSchema,
+    id: 'architecture-recommendation',
+    resultId: evaluation.id,
+    value: evaluation.output,
+    rationale: 'small teams minimize coordination overhead in one deployment unit'
+  })
+  Record.decision(store, {
+    schema: Record.decisionSchema,
+    id: 'architecture-decision',
+    resultId: evaluation.id,
+    recommendationId: 'architecture-recommendation',
+    selected: evaluation.output,
+    decidedBy: 'human/mirek'
+  })
+
+  assert.equal(Record.read<Record.Evaluation>(store, 'result', evaluation.id).inputs.digest,
+    evaluation.inputs.digest)
+  assert.deepEqual(Record.read<Record.Decision>(store, 'decision', 'architecture-decision').selected,
+    { architecture: 'monolith' })
+  assert.throws(() => Record.replay(store, evaluation.id, {
+    modelDigest: evaluation.inputs.modelDigest
+  }), /external evaluation, not a solver result/)
   store.close()
 })
 

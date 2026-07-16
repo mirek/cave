@@ -81,7 +81,7 @@ const report = await Solve.runWithExplanation(
 ## Explicit result governance
 
 Evaluation remains ephemeral. The `Record` API is the only transition from a
-plain solver report into durable CAVE history:
+plain solver report or ordinary evaluator output into durable CAVE history:
 
 ```ts
 import { Record } from '@cavelang/scenario'
@@ -92,6 +92,41 @@ Record.result(store, {
   report
 })
 ```
+
+An ordinary deterministic evaluator uses the same frozen input record and a
+separately versioned result—no solver is required:
+
+```ts
+const evaluation = await run(store, definition, inputs => ({
+  schema: Record.evaluationSchema,
+  id: 'architecture-evaluation',
+  inputs,
+  evaluator: { name: 'architecture-threshold', version: '1.0.0' },
+  output: { architecture: 'monolith' }
+} satisfies Record.Evaluation))
+
+Record.result(store, evaluation)
+Record.recommendation(store, {
+  schema: Record.recommendationSchema,
+  id: 'architecture-recommendation',
+  resultId: evaluation.id,
+  value: evaluation.output
+})
+Record.decision(store, {
+  schema: Record.decisionSchema,
+  id: 'architecture-decision',
+  resultId: evaluation.id,
+  recommendationId: 'architecture-recommendation',
+  selected: evaluation.output,
+  decidedBy: 'human/mirek'
+})
+```
+
+`cave.scenario/evaluation@1` records the exact `inputs` (snapshot, overlay,
+evidence, and digest), evaluator name/version, and JSON output. The evaluator
+runs only after rollback; recording, recommendation, and human decision remain
+three explicit operations. The package test suite exercises this complete
+non-solver architecture-choice workflow.
 
 Each stable ID owns one append-only artifact series. Re-recording identical
 content returns `existing`; reusing the ID for different content throws
@@ -105,6 +140,7 @@ Each checks its predecessor before appending. These latter two are audit
 records only: they never invoke `@cavelang/act` or a hook. Governed action
 execution remains the sole authority for an external effect.
 
-`Record.replay` reads the immutable report without solving again and returns
+`Record.replay` reads an immutable solver report without solving again and returns
 explicit incompatibility reasons for a different model digest, backend, or
-solver version.
+solver version. External evaluations retain their exact evaluator identity and
+input digest through `Record.read`; they are never mistaken for solver replay.

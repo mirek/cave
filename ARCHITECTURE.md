@@ -400,6 +400,12 @@ fixtures. Raw rows remain available to in-process storage/reasoning code. MCP
 and text export use canonical CAVE lines as their explicit interchange
 contract.
 
+Scenario evaluation is outside the language core. A frozen
+`cave.scenario/inputs@1` record feeds either a solver or an ordinary versioned
+deterministic evaluator after every hypothetical overlay has rolled back.
+Durable evaluation, recommendation, human decision, action audit, and external
+effect audit are separate append-only artifacts with checked predecessors.
+
 ## Architectural invariants
 
 Changes should preserve these properties:
