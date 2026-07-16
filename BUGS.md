@@ -15,7 +15,6 @@ review comments are consolidated into one bug file.
 
 ## Known bugs
 
-- [Eval inline comments](bugs/eval-inline-comments.md) — Accept documented inline comments on expectation lines.
 - [Alias typo blocking](bugs/alias-typo-blocking.md) — Let leading-character typos reach alias scoring.
 - [Windows portability](bugs/windows-portability.md) — Make test and demo commands portable to Windows.
 - [Dry-run UUID clock](bugs/dry-run-uuid-clock.md) — Keep text-sync dry-runs from changing later transaction ordering.

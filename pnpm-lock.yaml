@@ -194,6 +194,9 @@ importers:
       '@cavelang/loop':
         specifier: workspace:*
         version: link:../loop
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
       '@cavelang/query':
         specifier: workspace:*
         version: link:../query

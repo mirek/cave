@@ -45,6 +45,7 @@
     "@cavelang/core": "workspace:*",
     "@cavelang/ingest": "workspace:*",
     "@cavelang/loop": "workspace:*",
+    "@cavelang/parser": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*"
   }
