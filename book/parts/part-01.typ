@@ -145,3 +145,19 @@ alice WORKS-AT team/acme      ; canonical stored form
 ```
 
 #note([Why inverses are views], [Materializing both directions would double rows, split belief histories, and duplicate contradiction work. Query-time inverse views preserve one fact with two human-readable directions.])
+
+Verb names can evolve without rewriting those rows. A directional lifecycle
+declaration deprecates the old authoring name while keeping it as the stable
+storage identity:
+
+```cave
+WORKS-AT RENAMED-TO EMPLOYED-BY
+alice EMPLOYED-BY team/acme
+```
+
+Both spellings write and query the stored verb WORKS-AT, so claims before and
+after the rename share one claim key and history. The replacement must be
+declared before first use. Linear rename chains are allowed; branches, joins,
+cycles, and collisions with an existing verb identity are rejected. As-of
+queries reconstruct lifecycle declarations at the same transaction boundary,
+and renaming either side of a REVERSE pair preserves its direction.

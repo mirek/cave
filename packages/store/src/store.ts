@@ -6,7 +6,7 @@
  *   over existing indexes, never materialized rows (spec §13.3);
  * - current belief = latest tx per claim key (spec §9.1, §13.5);
  * - the verb registry is rebuilt from stored in-band declaration claims on
- *   open, so a reopened database keeps its inverse vocabulary;
+ *   open, so a reopened database keeps its inverse and lifecycle vocabulary;
  * - full-text search over subjects, objects, values, comments and raw
  *   lines via FTS5;
  * - appends can stamp actor provenance (spec §9.5): pass `source` and every
@@ -237,7 +237,7 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   const rebuildRegistry = (): void => {
     const declarations = db.prepare(`
       SELECT subject, verb, object FROM cave_claim
-      WHERE negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'IS')
+      WHERE negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'RENAMED-TO', 'IS')
         AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
       ORDER BY tx
     `).all() as { subject: string, verb: string, object: string }[]
@@ -247,6 +247,8 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
       }
       if (declaration.verb === 'REVERSE' && Verb.isVerbToken(declaration.object)) {
         registry = Canonical.Registry.declareReverse(registry, declaration.subject, declaration.object).registry
+      } else if (declaration.verb === 'RENAMED-TO' && Verb.isVerbToken(declaration.object)) {
+        registry = Canonical.Registry.declareRename(registry, declaration.subject, declaration.object).registry
       } else if (declaration.verb === 'IS' && declaration.object === 'verb') {
         registry = Canonical.Registry.declareVerb(registry, declaration.subject)
       }

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { open } from '@cavelang/store'
 import { query } from '@cavelang/query'
+import { Registry } from '@cavelang/canonical'
 import { declareRules, derive, listRules, retractRule, ruleSubject } from '@cavelang/rules'
 
 const claimCount = (store: ReturnType<typeof open>): number =>
@@ -59,6 +60,18 @@ test('re-runs are idempotent and watermark-incremental (spec §24.4)', () => {
   assert.equal(refired.rules[0]!.fired, true)
   assert.ok(refired.appended >= 1)
   assert.equal(query(store, 'a NEEDS e').length, 1)
+  store.close()
+})
+
+test('retracting a rule preserves RENAMED-TO vocabulary it derived (spec §5.8, §24.5)', () => {
+  const store = open()
+  store.ingest('schema HAS replacement: EMPLOYED-BY')
+  const declaration = declareRules(store, 'schema HAS replacement: ?new => WORKS-AT RENAMED-TO ?new')
+  derive(store)
+  assert.equal(Registry.preferredOf(store.registry(), 'WORKS-AT'), 'EMPLOYED-BY')
+  assert.ok(retractRule(store, declaration.rules[0]!.digest).ok)
+  const lifecycle = store.currentBeliefs().find(row => row.verb === 'RENAMED-TO')
+  assert.equal(lifecycle?.conf, 1)
   store.close()
 })
 

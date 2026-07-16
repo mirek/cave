@@ -34,7 +34,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 | `Tag` | §6.2 | Flat `#tag` and scoped `#key:value`; flat ≡ value `undefined`. |
 | `Context` | §6.1 | `@ctx` contexts and the recommended `src:`/`time:`/`loc:`/`scope:` prefixes. |
 | `Entity` | §4.1 | Name normalization (whitespace → `-`, casing preserved) and advisory checks. |
-| `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, lexical shape of verbs. |
+| `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, `RENAMED-TO`, lexical shape of verbs. |
 | `Multiplier` | §7.1 | `T`/`B`/`M`/`K` scale factors. |
 | `Uuidv7` | §9.1 | Monotonic UUIDv7 transaction ids — lexicographic order ⇒ transaction order, so `MAX(tx)` resolves current belief; `withStatePreserved` isolates synchronous speculative work. |
 | `Time` | §32 | Date-like instant/range parsing, valid-time coverage, and exact trajectory interpolation helpers. |

@@ -29,6 +29,8 @@ Open decision 1 (sync transaction semantics) was decided in 0.19.0 as spec
 §28: keep origin transaction order, use row id as global identity, and apply
 the Lamport receive rule. Open decision 2 (alias closure versus claim-key
 identity) was decided in 0.6.0 as spec §13.6: use the union of rows and surface
-disagreement. Open decisions 3 and 4 remain active as
-[redaction and forgetting](todo/redaction-forgetting.md) and
-[verb lifecycle](todo/verb-lifecycle.md).
+disagreement. Open decision 3 remains active as
+[redaction and forgetting](todo/redaction-forgetting.md). Open decision 4 is
+resolved by the directional `OLD RENAMED-TO NEW` convention (spec §5.8): the
+old spelling remains stable storage identity while the replacement becomes
+preferred, preserving append-only history and compatibility.

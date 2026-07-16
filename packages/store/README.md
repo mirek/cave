@@ -30,12 +30,17 @@ store.exportText({ current: true })          // canonical CAVE text back out
   keying (`@cavelang/canonical`), inverse *reads* are query-time views —
   `forward()` uses the subject index, `reverse()` the object index with the
   relation named via the registry's `inverseOf`. Nothing is materialized.
-- **Registry persistence is in-band**: `REVERSE` and `X IS verb` claims are
+- **Registry persistence is in-band**: `REVERSE`, `RENAMED-TO`, and `X IS verb` claims are
   ordinary rows; on open the store replays them (in tx order) on top of the
   initial registry, which defaults to the standard §5.5 prelude pairs. The
   replay predicate mirrors the canonicalizer exactly — qualifier-condition
   rows never declare, and `X IS verb` needs a verb-shaped subject — so the
   registry after reopen equals the registry at close.
+- **Verb renames preserve history** (§5.8): after `OLD RENAMED-TO NEW`,
+  either spelling writes the stable `OLD` storage verb and therefore the same
+  claim key. `NEW` is preferred for authors while `OLD` remains compatible;
+  declaration replay on reopen and `registryAsOf` preserve the same
+  transaction-time boundary semantics as inverse declarations.
 - **Traversal defaults**: `forward`/`reverse`/`topicMembers`/`topicsOf`
   read *current beliefs* and skip negated (`VERB NOT`) and retracted
   (`@ 0%`) rows; opt back in with `{ negated: true, retracted: true }`.
@@ -128,5 +133,5 @@ cross-actor retraction, stamped round-trips), the §26 resolution policy
 (human-over-ingest precedence, reliability weighting, longest-prefix
 specificity, polarity contests, no self-elevation, alias-widened
 groups, contested ranking), the §11.2 topic reads, edge persistence,
-registry rebuild across reopen, transactional strict ingest and export
+registry and lifecycle rebuild across reopen, transactional strict ingest and export
 round-trips.

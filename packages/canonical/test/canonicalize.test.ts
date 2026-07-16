@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { Key } from '@cavelang/core'
-import { canonicalizeText, standardRegistry, standardPrelude } from '@cavelang/canonical'
+import { Registry, canonicalizeText, standardRegistry, standardPrelude } from '@cavelang/canonical'
 
 test('inverse write normalizes to primary before keying (spec §5.5)', () => {
   const result = canonicalizeText('packages/api PART-OF monorepo', standardRegistry)
@@ -155,6 +155,35 @@ test('extension verb declaration is tracked (spec §5.4)', () => {
   assert.ok(result.registry.declared.has('MIGRATES'))
 })
 
+test('old and new verb spellings canonicalize to one stable history (spec §5.8)', () => {
+  const result = canonicalizeText([
+    'WORKS-AT IS verb',
+    'alice WORKS-AT acme @ 60%',
+    'WORKS-AT RENAMED-TO EMPLOYED-BY',
+    'alice EMPLOYED-BY acme @ 90%'
+  ].join('\n'), standardRegistry)
+  assert.deepEqual(result.problems, [])
+  const oldClaim = result.claims[1]!.claim
+  const newClaim = result.claims[3]!.claim
+  assert.equal(newClaim.verb, 'WORKS-AT', 'oldest spelling remains the storage identity')
+  assert.equal(Key.of(newClaim), Key.of(oldClaim))
+  assert.equal(Registry.preferredOf(result.registry, 'WORKS-AT'), 'EMPLOYED-BY')
+  assert.ok(Registry.isDeprecated(result.registry, 'WORKS-AT'))
+})
+
+test('renamed inverse spellings still normalize direction (spec §5.5, §5.8)', () => {
+  const result = canonicalizeText([
+    'WORKS-AT REVERSE EMPLOYS',
+    'EMPLOYS RENAMED-TO EMPLOYER-OF',
+    'acme EMPLOYER-OF alice'
+  ].join('\n'), standardRegistry)
+  assert.deepEqual(result.problems, [])
+  const claim = result.claims[2]!.claim
+  assert.equal(claim.verb, 'WORKS-AT')
+  assert.deepEqual(claim.subject, { kind: 'entity', text: 'alice' })
+  assert.deepEqual(claim.payload, { kind: 'relation', object: { kind: 'entity', text: 'acme' } })
+})
+
 test('worked example (spec §21) canonicalizes cleanly', () => {
   const result = canonicalizeText([
     'auth/middleware HAS bug: token-expiry #security #topic:auth-hardening',
@@ -209,10 +238,11 @@ test('declarations written as continuations update the registry (spec §5.4, §8
   assert.ok(result.registry.declared.has('MIGRATES'))
 })
 
-test('the standard prelude declares EXPECTS (spec §20.1)', () => {
+test('the standard prelude declares lifecycle and EXPECTS meta-verbs (spec §5.8, §20.1)', () => {
   const result = canonicalizeText(standardPrelude)
   assert.equal(result.problems.length, 0)
   const declared = canonicalizeText('service EXPECTS owner', result.registry).claims[0]!.claim
   assert.equal(declared.verb, 'EXPECTS')
   assert.deepEqual(declared.payload, { kind: 'relation', object: { kind: 'entity', text: 'owner' } })
+  assert.ok(result.registry.declared.has('RENAMED-TO'))
 })

@@ -33,7 +33,7 @@ terrier EXTENDS+ animal
 _ USES jwt
 ```
 
-Filters restrict matched rows by confidence, tag, context, value, unit, transaction, or other stored fields. Inverse verbs compile to the same canonical rows as their primary direction.
+Filters restrict matched rows by confidence, tag, context, value, unit, transaction, or other stored fields. Inverse verbs compile to the same canonical rows as their primary direction. Deprecated and preferred verb spellings declared with RENAMED-TO compile to one stable storage verb and belief history.
 
 ```cave
 WHERE conf >= 0.8

@@ -110,6 +110,20 @@ test('inverse verbs compile to the same physical query (spec §12.1)', () => {
   store.close()
 })
 
+test('deprecated and preferred verb spellings query one history (spec §5.8)', () => {
+  const store = open()
+  const old = store.ingest('alice WORKS-AT acme @ 60%')
+  const renamed = store.ingest('WORKS-AT RENAMED-TO EMPLOYED-BY')
+  store.ingest('alice EMPLOYED-BY acme @ 90%')
+  assert.equal(query(store, 'alice WORKS-AT acme').length, 1)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme').length, 1)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme')[0]!.row?.conf, 0.9)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme', { all: true }).length, 2)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme', { asOf: old.ids[0]! }).length, 0)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme', { asOf: renamed.ids[0]! }).length, 1)
+  store.close()
+})
+
 test('transitive inverse: ?x PART-OF+ walks CONTAINS downward', () => {
   const store = open()
   store.ingest('org CONTAINS monorepo\nmonorepo CONTAINS packages/api')

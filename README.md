@@ -472,7 +472,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 
 | Skill | Sections | Covers |
 |---|---|---|
-| [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs & `REVERSE`, metadata, values/units/uncertainty, trajectories & time contexts, indentation & continuation, tags & topics, grammar, spec card |
+| [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs, `REVERSE` & `RENAMED-TO`, metadata, values/units/uncertainty, trajectories & time contexts, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
 | [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§32 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports, temporal values & valid time |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
@@ -486,6 +486,7 @@ subject VERB [NOT] object                [@context...] [#tag[:value]...] [@ N%] 
 subject HAS attribute: value [+/- delta [(Nσ)]] [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
 
 VERB REVERSE INVERSE-VERB                ; declare inverse; left side is primary
+OLD-VERB RENAMED-TO NEW-VERB             ; prefer NEW; both keep OLD's storage history
   parent VERB object
     VERB object2                         ; continuation: inherits parent subject
     INVERSE-VERB other                   ; continuation: parent lands in object position

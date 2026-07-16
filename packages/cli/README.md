@@ -70,8 +70,8 @@ The text round trip preserves every claim with its metadata, the **full
 belief-series order** (rows export in tx order and re-ingest with fresh
 monotonic tx ids, so latest-tx-wins resolution is unchanged),
 qualifier/grouping edges, and in-band registry declarations (`REVERSE`,
-`X IS verb`) — a restored database answers queries identically, inverse
-reads included. Original transaction timestamps are re-minted: canonical
+`RENAMED-TO`, `X IS verb`) — a restored database answers queries identically,
+including inverse and lifecycle spellings. Original transaction timestamps are re-minted: canonical
 CAVE text carries no transaction identity. Use `--current` for a compact
 backup of current beliefs only (history intentionally dropped).
 

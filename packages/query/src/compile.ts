@@ -217,6 +217,10 @@ const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, pol
       objectSlot = subjectSlot
       subjectSlot = swapped
       verb = { kind: 'verb', name: primary, transitive: verb.transitive }
+    } else {
+      // A lifecycle alias keeps direction but resolves to the stable
+      // storage spelling before SQL is compiled (spec §5.8).
+      verb = { kind: 'verb', name: primary, transitive: verb.transitive }
     }
   }
 

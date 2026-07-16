@@ -16,8 +16,8 @@
  * Qualifier lines become claim nodes joined to their parent by edges
  * (§8.1); `UNLESS x` normalizes to `WHEN` + negated condition (§8.2);
  * grouped full claims link to their parent with the `QUALIFIES` role
- * (§13.2). `REVERSE` and extension-verb declarations update the registry
- * in-band, affecting subsequent lines (§5.4, §5.5).
+ * (§13.2). `REVERSE`, `RENAMED-TO`, and extension-verb declarations update
+ * the registry in-band, affecting subsequent lines (§5.4, §5.5, §5.8).
  */
 
 import { Claim, Entity, Value, Verb } from '@cavelang/core'
@@ -123,7 +123,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
   const buildClaim = (full: Ast.Full, raw: string, line: number): { claim: Claim.t, writtenSubject: Claim.Term } => {
     const writtenSubject = normalizeTerm(full.subject)
     let subject = writtenSubject
-    let verb = full.verb
+    let verb = Registry.storageOf(registry, full.verb)
     let payload: Claim.Payload = full.payload
     if (payload.kind === 'relation') {
       payload = Claim.relation(normalizeTerm(payload.object))
@@ -165,6 +165,14 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
     const object = claim.payload.object
     if (claim.verb === Verb.REVERSE && claim.subject.kind === 'entity' && object.kind === 'entity') {
       const declared = Registry.declareReverse(registry, claim.subject.text, object.text)
+      registry = declared.registry
+      if (!declared.ok) {
+        problem(line, declared.problem)
+      }
+      return
+    }
+    if (claim.verb === Verb.RENAMED_TO && claim.subject.kind === 'entity' && object.kind === 'entity') {
+      const declared = Registry.declareRename(registry, claim.subject.text, object.text)
       registry = declared.registry
       if (!declared.ok) {
         problem(line, declared.problem)

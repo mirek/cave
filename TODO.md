@@ -4,7 +4,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Product and architecture
 
-- [Verb lifecycle](todo/verb-lifecycle.md) — Define in-band aliasing and deprecation for verbs.
 - [Redaction and forgetting](todo/redaction-forgetting.md) — Decide and document how exceptional history rewriting works.
 - [Sensitivity-aware export](todo/sensitivity-aware-export.md) — Filter exports and serving by an in-band sensitivity convention.
 - [Source-span provenance](todo/source-span-provenance.md) — Point source provenance at the sentence or line range that produced a claim.

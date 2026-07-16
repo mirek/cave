@@ -39,7 +39,7 @@ const declarationsAsOf = (store: BaseStore, asOf: string): Declaration[] => {
   return store.db.prepare(`
     SELECT subject, verb, object FROM cave_claim
     WHERE ${condition}
-      AND negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'IS')
+      AND negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'RENAMED-TO', 'IS')
       AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
     ORDER BY tx
   `).all(boundary) as Declaration[]
@@ -56,6 +56,12 @@ const applyDeclarations = (
     }
     if (declaration.verb === 'REVERSE' && Verb.isVerbToken(declaration.object)) {
       registry = Canonical.Registry.declareReverse(
+        registry,
+        declaration.subject,
+        declaration.object
+      ).registry
+    } else if (declaration.verb === 'RENAMED-TO' && Verb.isVerbToken(declaration.object)) {
+      registry = Canonical.Registry.declareRename(
         registry,
         declaration.subject,
         declaration.object

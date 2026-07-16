@@ -231,8 +231,9 @@ Two conventions make re-runs incremental and attributable, both reusing
 
 Records that fail to format (rule 4 above, or a missing `--key` field)
 are reported and skipped; they never poison the rest of the run.
-Retraction never touches declaration claims — verb lifecycle is an open
-design decision (`TODO.md`), and the prelude is additive.
+Retraction never touches vocabulary declaration claims (`X IS verb`,
+`REVERSE`, or `RENAMED-TO`): registry history is additive (§5.4, §5.5,
+§5.8), even when a connector record that introduced a declaration changes.
 
 ### 23.3 Continuous and query-time reads
 

@@ -354,6 +354,50 @@ service EXPECTS USES         ; instances appear as subject of a USES claim
 
 Targets bind through the `EXTENDS` taxonomy: everything with a current `IS` claim into the type or its `EXTENDS+` descendants. Checking semantics, knowledge health reporting and write gating are §20.
 
+### 5.8 Verb lifecycle — `RENAMED-TO`
+
+Verb renames are directional in-band declarations:
+
+```cave
+WORKS-AT IS verb
+WORKS-AT RENAMED-TO EMPLOYED-BY
+```
+
+`OLD RENAMED-TO NEW` says that `NEW` is the preferred same-direction spelling
+and `OLD` is deprecated but remains accepted. The oldest spelling is the
+stable storage identity: writes and CAVE-Q patterns using either name
+canonicalize to `OLD` before claim-key computation. Claims written before the
+rename therefore share one append-only belief history with later claims using
+`NEW`; no stored row is rewritten.
+
+Renames take effect after their declaration, like `REVERSE`. The declaration
+MUST precede first use of the replacement spelling. It is transaction-time
+knowledge: an as-of read before the declaration does not know the replacement;
+one at or after it does. Raw authored lines retain whichever spelling was used.
+
+Chains are linear and explicit:
+
+```cave
+WORKS-AT RENAMED-TO EMPLOYED-BY
+EMPLOYED-BY RENAMED-TO MEMBER-OF
+```
+
+All three spellings resolve to storage verb `WORKS-AT`; `MEMBER-OF` is
+preferred and the first two are deprecated. An exact declaration replay is a
+no-op. Branches (`WORKS-AT` renamed a second way), joins, cycles, self-renames,
+and replacement names that already have an independent verb identity are
+invalid; the first valid lifecycle wins.
+
+Lifecycle aliases preserve direction and compose with inverse declarations.
+Renaming either side of a `REVERSE` pair does not change its primary storage
+direction; reverse reads expose the preferred spelling of the opposite side.
+`RENAMED-TO` itself is declared in the standard prelude:
+
+```cave
+RENAMED-TO IS verb ; deprecates a verb spelling in favor of a compatible replacement
+RENAMED-TO HAS arity: 2
+```
+
 ---
 
 ## 6. Metadata Qualifiers
@@ -668,7 +712,7 @@ The reconstruction *loop* — select, route, stop — is a **policy over the gra
 
 ## 16. Grammar (Normative Core)
 
-Consolidated EBNF for the committed language. `REVERSE` declarations need **no grammar change** — they are ordinary claim lines whose subject and object happen to be verbs; their meaning is a semantic pass.
+Consolidated EBNF for the committed language. `REVERSE` and `RENAMED-TO` declarations need **no grammar change** — they are ordinary claim lines whose subject and object happen to be verbs; their meaning is a semantic pass.
 
 ```ebnf
 file          = { line } ;
@@ -737,6 +781,7 @@ subject VERB [NOT] object                [@context...] [#tag[:value]...] [@ N%] 
 subject HAS attribute: value [+/- delta [(Nσ)]] [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
 
 VERB REVERSE INVERSE-VERB                ; declare inverse; left side is primary
+OLD-VERB RENAMED-TO NEW-VERB             ; deprecate OLD; stable storage remains OLD
   parent VERB object
     VERB object2                         ; continuation: inherits parent subject
     INVERSE-VERB other                   ; continuation: parent lands in object position

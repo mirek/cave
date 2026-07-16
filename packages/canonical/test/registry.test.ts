@@ -51,6 +51,41 @@ test('extension verb declarations (spec §5.4)', () => {
   assert.ok(!Registry.isDeclared(Registry.empty, 'MIGRATES'))
 })
 
+test('verb renames keep stable storage and advance a preferred spelling (spec §5.8)', () => {
+  const first = Registry.declareRename(Registry.declareVerb(Registry.empty, 'WORKS-AT'), 'WORKS-AT', 'EMPLOYED-BY')
+  assert.ok(first.ok)
+  assert.equal(Registry.storageOf(first.registry, 'EMPLOYED-BY'), 'WORKS-AT')
+  assert.equal(Registry.preferredOf(first.registry, 'WORKS-AT'), 'EMPLOYED-BY')
+  assert.ok(Registry.isDeprecated(first.registry, 'WORKS-AT'))
+  assert.ok(!Registry.isDeprecated(first.registry, 'EMPLOYED-BY'))
+  assert.ok(Registry.isDeclared(first.registry, 'EMPLOYED-BY'))
+
+  const second = Registry.declareRename(first.registry, 'EMPLOYED-BY', 'MEMBER-OF')
+  assert.ok(second.ok)
+  assert.deepEqual(Registry.spellingsOf(second.registry, 'MEMBER-OF'), ['WORKS-AT', 'EMPLOYED-BY', 'MEMBER-OF'])
+  assert.equal(Registry.preferredOf(second.registry, 'WORKS-AT'), 'MEMBER-OF')
+})
+
+test('verb rename chains reject branches, joins, and cycles (spec §5.8)', () => {
+  const first = Registry.declareRename(Registry.empty, 'A', 'B')
+  assert.ok(first.ok)
+  assert.ok(!Registry.declareRename(first.registry, 'A', 'C').ok)
+  assert.ok(!Registry.declareRename(first.registry, 'B', 'A').ok)
+  assert.ok(Registry.declareRename(first.registry, 'A', 'B').ok, 'exact replay is idempotent')
+  assert.ok(!Registry.declareRename(first.registry, 'B', 'USES').ok, 'an existing verb identity cannot be merged')
+})
+
+test('verb lifecycle composes with inverse declarations (spec §5.5, §5.8)', () => {
+  const pair = Registry.declareReverse(Registry.empty, 'WORKS-AT', 'EMPLOYS')
+  assert.ok(pair.ok)
+  const primary = Registry.declareRename(pair.registry, 'WORKS-AT', 'EMPLOYED-BY')
+  assert.ok(primary.ok)
+  const inverse = Registry.declareRename(primary.registry, 'EMPLOYS', 'EMPLOYER-OF')
+  assert.ok(inverse.ok)
+  assert.deepEqual(Registry.primaryOf(inverse.registry, 'EMPLOYER-OF'), { primary: 'WORKS-AT', isInverse: true })
+  assert.equal(Registry.inverseOf(inverse.registry, 'EMPLOYED-BY'), 'EMPLOYER-OF')
+})
+
 test('standard registry carries the §5.5 pairs', () => {
   for (const [primary, inverse] of [
     ['CONTAINS', 'PART-OF'],
@@ -66,4 +101,5 @@ test('standard registry carries the §5.5 pairs', () => {
     assert.equal(Registry.primaryOf(standardRegistry, inverse).primary, primary)
   }
   assert.equal(Registry.allPairs(standardRegistry).length, 8)
+  assert.ok(Registry.isDeclared(standardRegistry, 'RENAMED-TO'))
 })
