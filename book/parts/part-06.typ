@@ -82,6 +82,8 @@ Open design items and suspected bugs are tracked in TODO.md and BUGS.md. The pro
   [Run CAVE-Q with filters, aliases, resolve, as-of, and valid time.],
   [cave check],
   [Knowledge health and shape coverage.],
+  [cave generate],
+  [Versioned TypeScript readers from current EXPECTS claims.],
   [cave ingest],
   [LLM extraction from prose and web pages.],
   [cave connect],

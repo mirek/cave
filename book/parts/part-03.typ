@@ -104,6 +104,13 @@ cave check is a read-only health report. It lists unsatisfied expectations with 
 
 Write gating reuses the same checks transactionally. cave add --check and actions can append, evaluate newly introduced violations, and roll back only if the operation makes health worse. Existing violations do not prevent unrelated progress.
 
+= Versioned Typed Clients
+`cave generate` derives TypeScript interfaces and store-backed reader functions from current EXPECTS claims while keeping CAVE text and CAVE-Q primary. Attribute readers retain authored text, normalized numbers, and units. Relation readers honor inverse verbs. Compatible one-or-more fields are arrays; `#cardinality:one` fields are scalars that fail clearly unless runtime data has exactly one value.
+
+The generated module embeds format version 1, its normalized schema, and a SHA-256 digest. Code-point sorting makes output independent of declaration order and locale. Invalid or repeated cardinality/unit tags, relation units, conflicting declarations, generated type-name collisions, and unsupported versions fail before writing an artifact.
+
+#note([Derived artifact], [Regenerate and review the client when schema claims change. Generated TypeScript is never the schema source of truth and generation never mutates the store.])
+
 
 = Ingestion from Prose
 cave ingest turns files or web pages into claims using any headless agent that can either call CAVE MCP tools or return CAVE text on stdout. Domain instructions steer modeling choices while the engine owns persistence and provenance.

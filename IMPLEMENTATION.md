@@ -20,7 +20,7 @@ Dependency order, bottom to top:
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, `RENAMED-TO`, extensions), inverse and lifecycle resolution, continuation expansion, qualifier edges, canonical emitter |
 | [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
 | [`@cavelang/query`](packages/query) | §12, §26, §32 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse and lifecycle verb resolution, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching, `at` valid-time filtering + trajectory interpolation |
-| [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy, optional exact-one cardinality and exact-unit tags), knowledge-health report (actionable violations, staleness, review candidates, alias disagreements, coverage), write gating; alias discovery (`suggestAliases` — string/graph similarity signals, suggested `ALIAS` claims in the review band, optional judge contract) |
+| [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` through `EXTENDS`, exact-one and exact-unit tags), health report, write gating, deterministic versioned TypeScript client generation with strict ambiguity checks; alias discovery (`suggestAliases`, optional judge contract) |
 | [`@cavelang/connect`](packages/connect) | §9.8, §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; physical source identity, CSV/TSV/JSONL record spans, per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/solver`](packages/solver) | — | Dependency-free formal-reasoning boundary: immutable Boolean/integer/exact-real/finite-enum models, hard and weighted-soft constraints, lexicographic objectives, validation and resource limits, capability negotiation, canonical digests, result unions, bounded feasibility/optimization/counterexample/sensitivity workflows, deterministic tie-breaking, linear-subset recognition, and versioned JSON/human explanations mapped to model declarations, evidence rows, and scenario inputs; concrete solver adapters remain optional |
@@ -37,7 +37,7 @@ Dependency order, bottom to top:
 | [`@cavelang/eval`](packages/eval) | — | Extraction and reconstruction eval harness: golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
 | [`@cavelang/tree-sitter-cave`](packages/tree-sitter-cave) | §16 | Tree-sitter grammar (line-oriented, no external scanner) + `queries/highlights.scm` — the single grammar source behind terminal and editor highlighting; parser and WASM are generated on demand, never committed |
 | [`@cavelang/highlight`](packages/highlight) | — | web-tree-sitter over the grammar WASM, rendering `highlights.scm` captures as ANSI for terminals |
-| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / suggest-alias / sync / export / report / serve / mcp / ingest / eval / connect / reconstruct / demo` |
+| [`@cavelang/cli`](packages/cli) | — | `cave parse / highlight / add / import / query / resolve / derive / act / automate / check / generate / suggest-alias / sync / export / report / serve / mcp / ingest / eval / connect / reconstruct / demo` |
 
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
@@ -122,6 +122,12 @@ Package READMEs document local decisions; these are the global ones:
   survives interchange while §26 source policy ignores the line fragment.
   Ingest prompts line-number embedded text, connect carries CSV/TSV/JSONL
   record ranges, and view/report outputs share the parsed location/link shape.
+- **Typed clients are versioned schema projections** (§20.4): current
+  expectations normalize in code-point order, hash with SHA-256, and emit
+  interfaces plus store-backed readers. Exact-one fields check runtime shape;
+  inverse relations reuse registry traversal. Invalid tags, conflicting
+  declarations, name collisions, and unsupported format versions fail before
+  output; generation never writes the store.
 - **Checking is a read; gating is a transaction** (§20):
   `@cavelang/shape` evaluates in-band `EXPECTS` declarations with SQL
   over current beliefs and never writes; `cave add --check` wraps

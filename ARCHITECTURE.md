@@ -93,6 +93,12 @@ underlying source identity. Ingestion numbers embedded text, structured
 connectors attach physical record ranges where the format provides them, and
 view/report surfaces expose one shared reference shape.
 
+Typed clients are derived, not authoritative (§20.4). Current `EXPECTS`
+claims normalize to a versioned, SHA-256-stamped TypeScript module whose
+readers reuse store traversal and current-belief SQL. Generation is strict on
+ambiguous static semantics and deterministic across declaration order and
+locale; CAVE text and CAVE-Q remain the source interfaces.
+
 ### Canonical direction and the verb registry
 
 Relations have one physical direction. In-band declarations such as
@@ -352,14 +358,17 @@ Changes should preserve these properties:
 5. **Format source spans once.** Percent-escape source locators and parse line
    fragments through `SourceSpan`; connectors, APIs, and reports must not grow
    competing source-link conventions.
-6. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+6. **Keep generated clients derived and reproducible.** Version the normalized
+   schema, sort by code point, fail ambiguous mappings, and never make generated
+   TypeScript the schema source of truth.
+7. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-7. **Use the store transaction boundary for compound writes.** Validation and
+8. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-8. **Keep external effects after commit and out of the store.** Persist names,
+9. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-9. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+10. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 

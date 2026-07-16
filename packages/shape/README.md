@@ -67,6 +67,30 @@ violations never block: the gate compares, it does not demand a clean
 store. `cave add --check` is the first enforcement point; action
 preconditions reuse the same mechanism.
 
+## Typed client generation (§20.4)
+
+`generateClient(store)` deterministically turns current expectations into a
+versioned TypeScript module; `cave generate --db k.db --out cave-client.ts`
+writes the same bytes. Generated interfaces preserve exact field names,
+attribute text/number/unit values, inverse-aware relations, arrays for the
+compatible `some` cardinality, and runtime-checked scalars for
+`#cardinality:one`.
+
+```ts
+const generated = generateClient(store)
+if (!generated.ok) throw new Error(generated.problems.join('\n'))
+// generated.version === 1
+// generated.digest === SHA-256 of the normalized versioned schema
+// generated.code is the complete TypeScript module
+```
+
+The file embeds its normalized schema, format version and digest. Sorting uses
+code-point order, so append order and locale do not alter output. Conflicting
+declarations, invalid/repeated cardinality or unit tags, relation units,
+unsupported versions, and type-name collisions are reported together before
+any CLI output file is written. Text and CAVE-Q stay primary; this module is a
+reviewable derived artifact, regenerated when `EXPECTS` claims evolve.
+
 ## Alias discovery (§27)
 
 Under LLM extraction the same entity drifts across names; discovery

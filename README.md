@@ -403,6 +403,13 @@ serving family.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only,
 
 The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search, counts, aliases, history and lineage all obey the same sensitivity ceiling; raise it explicitly with `--max-sensitivity`. Every request reads the live store, so a running `cave automate` loop's visible appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §9.7, §30.
 
+Applications can derive a typed boundary without replacing CAVE text or CAVE-Q:
+`cave generate --db family.db --out cave-client.ts` turns current `EXPECTS`
+claims into deterministic TypeScript interfaces and inverse-aware store
+readers. The generated module embeds format version 1, its normalized schema,
+and a SHA-256; ambiguous expectations fail rather than weakening types (spec
+§20.4).
+
 ### Ship a document that cites its claims — `cave report`
 
 Query output is for you; a *deliverable* is for someone else — and it should say where every fact came from. `cave report` renders a markdown template against the store (spec §31): fenced `cave-q` blocks repeat a fragment per solution, inline `` `cave-q: …` `` splices drop a single value into prose, and every rendered fact carries a footnote citing the claim behind it — canonical line, date, claim key:

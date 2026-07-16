@@ -4,7 +4,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Product and architecture
 
-- [Typed client generation](todo/typed-client-generation.md) — Generate typed query helpers from in-band schema claims.
 - [Push/listener ingestion](todo/push-listener-ingestion.md) — Add demand-driven continuous ingestion for push sources.
 - [Core grammar variables](todo/core-grammar-variables.md) — Decide whether query variables belong in the core grammar.
 - [Claim reification](todo/claim-reification.md) — Add nested claims only when a concrete use case justifies the syntax.
