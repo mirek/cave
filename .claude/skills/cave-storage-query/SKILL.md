@@ -714,6 +714,47 @@ demand a clean store. `cave add --check` is the first enforcement point;
 action preconditions (§25) reuse the identical mechanism — one
 mechanism, two enforcement points.
 
+### 20.4 Versioned typed-client generation
+
+`EXPECTS` remains in-band knowledge and CAVE text/CAVE-Q remain the primary
+interfaces. For applications that want compile-time ergonomics, CAVE can emit a
+derived TypeScript module from the current positive expectations:
+
+```sh
+cave generate --db knowledge.db --out src/generated/cave-client.ts
+```
+
+Format version 1 maps each declared type to a deterministic PascalCase
+interface and `read<Type>(store, entity)` function. Exact authored field names
+are quoted properties. Attribute values retain `{ text, number, unit }`;
+`#unit:<unit>` narrows the generated unit to that string literal. Relation
+readers use store traversal and the effective inverse registry. The compatible
+`some` cardinality emits a readonly array; `#cardinality:one` emits a scalar
+and throws clearly at runtime unless exactly one current positive row exists.
+
+The module embeds `caveClientFormatVersion`, a normalized `caveSchema` value,
+and a SHA-256 digest over `{ version, fields }`. Expectations and types are
+sorted by code-point order, so declaration transaction order, process locale,
+and reopen do not affect bytes. A schema change changes the digest and output;
+retracting it restores the earlier artifact when the normalized schema is the
+same.
+
+Generation is strict where static output would otherwise lie. It fails before
+writing when:
+
+- a type cannot map to an ASCII TypeScript identifier, or two type names map
+  to the same identifier;
+- duplicate current declarations for one field disagree on cardinality, unit,
+  direction, or other generated semantics;
+- `#cardinality` is repeated or is not `one`/`some`;
+- `#unit` is repeated, empty, or attached to a relation; or
+- the requested output format version is unsupported.
+
+Surfaces: `generateClient(store, { version? })` and
+`cave generate [--db] [--out] [--version] [--no-prelude]`. Generation reads
+but never mutates the store. Generated files are build artifacts: regenerate
+and review them when schema claims change; never hand-edit them.
+
 ---
 
 ## 24. Rules and Derivation

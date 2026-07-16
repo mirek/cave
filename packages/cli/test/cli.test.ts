@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -575,6 +575,46 @@ test('export uses the shared sensitivity ceiling and validates labels (spec §9.
     const invalid = exportCommand(['--db', db, '--max-sensitivity', 'secret'])
     assert.equal(invalid.code, 1)
     assert.match(invalid.err, /public, internal, confidential, restricted/)
+  })
+})
+
+test('generate emits and writes a versioned typed client from EXPECTS (spec §20.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const shapes = join(dir, 'shapes.cave')
+    const output = join(dir, 'cave-client.ts')
+    writeFileSync(shapes, [
+      'service EXPECTS owner #cardinality:one',
+      'service EXPECTS USES'
+    ].join('\n'))
+    assert.equal(addCommand([shapes, '--db', db]).code, 0)
+    const stdout = generateCommand(['--db', db])
+    assert.equal(stdout.code, 0, stdout.err)
+    assert.match(stdout.out, /typed-client\/v1/)
+    assert.match(stdout.out, /export interface Service/)
+    assert.match(stdout.out, /readService/)
+
+    const written = generateCommand(['--db', db, '--out', output])
+    assert.equal(written.code, 0, written.err)
+    assert.match(written.out, /generated typed client v1 \(2 field\(s\), sha256:/)
+    assert.equal(readFileSync(output, 'utf8'), stdout.out)
+    assert.equal(generateCommand(['--db', db, '--version', '2']).code, 1)
+    assert.match(generateCommand(['--db', db, '--version', 'wat']).err, /positive integer/)
+    assert.equal(generateCommand(['--db', db, '--out', db]).code, 1)
+  })
+})
+
+test('generate reports ambiguous schema without writing output (spec §20.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const shapes = join(dir, 'shapes.cave')
+    const output = join(dir, 'client.ts')
+    writeFileSync(shapes, 'service EXPECTS USES #unit:ms\n')
+    addCommand([shapes, '--db', db])
+    const generated = generateCommand(['--db', db, '--out', output])
+    assert.equal(generated.code, 1)
+    assert.match(generated.err, /relation expectations cannot declare #unit/)
+    assert.equal(existsSync(output), false)
   })
 })
 

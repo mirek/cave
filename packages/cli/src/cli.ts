@@ -14,6 +14,7 @@
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async, routed in `main.ts`)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
+ * - `cave generate [--db <path>]` — versioned TypeScript client from EXPECTS declarations
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async, routed in `main.ts`)
  * - `cave sync [--db <path>] <source>` — merge another store by row identity (spec §28; `--dry-run`, `--as`, `--into`)
  * - `cave export [--db <path>]` — canonical text out (`--current`, `--tx`)
@@ -40,7 +41,7 @@ import { Sensitivity, defaultDbPath, open } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
-  suggestAliases, writeSuggestions
+  generateClient, suggestAliases, writeSuggestions
 } from '@cavelang/shape'
 import type { Report, Violation } from '@cavelang/shape'
 import { declareRules, defaultMaxPasses, defaultMinConf, derive, listRules, retractRule } from '@cavelang/rules'
@@ -81,6 +82,7 @@ Usage:
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave automate [--db <path>]              event-driven loop (spec §29): new claims fire rules/actions/hooks/agent prompts [--once]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
+  cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
   cave sync [--db <path>] <source>         merge another store by row identity (spec §28) [--dry-run] [--as] [--into]
   cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]
@@ -364,6 +366,29 @@ Examples:
   cave check --db k.db
   cave check --db k.db --stale 30
   cave check --db k.db --json | jq '.violations'`,
+
+  generate: `cave generate — deterministic TypeScript client from EXPECTS declarations (spec §20.4)
+
+Usage:
+  cave generate [--db <path>] [--out <file>] [--version <n>] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --out <file>   write the generated module instead of stdout
+  --version <n>  generated-client format version (default and currently
+                 supported: 1)
+  --no-prelude   open the store without the standard verb registry
+
+Current positive EXPECTS claims become TypeScript interfaces plus store-backed
+reader functions. #cardinality:one emits a scalar checked at runtime;
+attributes preserve text, number and unit; relation readers honor declared
+inverse verbs. The file embeds its format version and deterministic schema
+SHA-256. Conflicting declarations, invalid cardinality/unit tags, unsupported
+versions and generated type-name collisions fail without writing output.
+
+Examples:
+  cave generate --db k.db > cave-client.ts
+  cave generate --db k.db --out src/generated/cave-client.ts`,
 
   'suggest-alias': `cave suggest-alias — propose same-entity ALIAS candidates for review (spec §27)
 
@@ -1379,6 +1404,45 @@ export const exportCommand = (argv: readonly string[]): Output => {
   }
 }
 
+/** `cave generate` — spec §20.4's versioned TypeScript client artifact. */
+export const generateCommand = (argv: readonly string[]): Output => {
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      out: { type: 'string' },
+      version: { type: 'string' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: false
+  })
+  const version = values.version === undefined ? undefined : Number(values.version)
+  if (version !== undefined && (!Number.isInteger(version) || version < 1)) {
+    return fail(`cave generate: --version expects a positive integer, got ${JSON.stringify(values.version)}\n`)
+  }
+  const db = values.db ?? defaultDbPath()
+  if (values.out !== undefined && sameFile(db, values.out)) {
+    return fail(`cave generate: --out '${values.out}' is the source database — refusing to overwrite it\n`)
+  }
+  const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    const generated = generateClient(store, version === undefined ? {} : { version })
+    if (!generated.ok) {
+      return fail(`cave generate: schema cannot be generated:\n${generated.problems.map(problem => `  ${problem}`).join('\n')}\n`)
+    }
+    if (values.out === undefined) {
+      return ok(generated.code)
+    }
+    writeFileSync(values.out, generated.code)
+    return ok(`generated typed client v${generated.version} (${generated.fields.length} field(s), ` +
+      `sha256:${generated.digest}) to ${values.out}\n`)
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
 /**
  * `cave reconstruct` — the §18 loop over the store: heuristic policy by
  * default (the eval baseline), the LLM policy over a shell-agent template
@@ -1500,6 +1564,8 @@ export const cave = (argv: readonly string[]): Output => {
         return actCommand(rest)
       case 'check':
         return checkCommand(rest)
+      case 'generate':
+        return generateCommand(rest)
       case 'sync':
         return syncCommand(rest)
       case 'export':

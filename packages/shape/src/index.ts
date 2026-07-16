@@ -21,6 +21,8 @@ export { check, defaultStaleDays, evaluate, expectations } from './check.ts'
 export type { Coverage, Disagreement, Evaluation, Expectation, Options, Report, Stale, Violation } from './check.ts'
 export { gatedIngest, violationKey } from './gate.ts'
 export type { GateResult } from './gate.ts'
+export { clientFormatVersion, generateClient } from './client.ts'
+export type { ClientField, ClientGeneration, ClientGenerationFailure, GeneratedClient } from './client.ts'
 export {
   defaultMinScore, judgePrompt, parseJudgeReply, suggestAliases, suggestSource, suggestTag, writeSuggestions
 } from './suggest.ts'
