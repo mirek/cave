@@ -37,10 +37,12 @@ Every command answers `--help` with its options and examples (also
 | `act [--db p] <name> [p=v…]` | `--declare`, `--list`, `--retract <n>`, `--dry-run`, `--no-check`, `--aliases`, `--hooks <file>`, `--json`, `--no-prelude` | Execute an action template (spec §25, see [`@cavelang/act`](../act)): validate parameters, check CAVE-Q preconditions against current belief, append effects atomically with lineage inside the §20.3 shape gate; out-of-band hooks fire after commit. |
 | `automate [--db p]` | see `cave automate --help` | The event-driven loop (spec §29, see [`@cavelang/automate`](../automate)): in-band `automation/<name>` trigger patterns over new claims fire rules, actions, out-of-band hooks and agent prompts; `--once` for cron, `--declare`/`--list`/`--retract` for the lifecycle; the daemon polls `MAX(tx)` and settles on change. |
 | `check [--db p]` | `--stale <days>`, `--json`, `--no-prelude` | Knowledge health report (spec §20, see [`@cavelang/shape`](../shape)): shape violations against in-band `EXPECTS` declarations, stale current beliefs (default horizon 90 days), review candidates (conf 0.3–0.7), alias disagreements, coverage stats. Exit 1 on violations; everything else is advisory. |
+| `backup [--db p] --out <file>` | `--force`; `--verify <file>`, `--sha256 <hex>` | Create an online, exact SQLite snapshot with `VACUUM INTO`, verify it, and publish atomically; or verify a prior snapshot (spec §13.2.2). |
+| `restore <snapshot> --db <path>` | `--force`, `--sha256 <hex>` | Verify and atomically restore exact snapshot bytes; refuses active/stale WAL, SHM, and rollback-journal sidecars (spec §13.2.2). |
 | `generate [--db p]` | `--out <file>`, `--version <n>`, `--no-prelude` | Deterministic versioned TypeScript interfaces and store-backed readers from current `EXPECTS` claims (spec §20.4, see [`@cavelang/shape`](../shape)); embeds normalized schema and SHA-256, fails on ambiguous/unsupported expectations before writing. |
 | `suggest-alias [--db p]` | `--min <s>`, `--limit <n>`, `--agent <template>`, `--timeout <s>`, `--write`, `--json`, `--no-prelude` | Alias discovery (spec §27, see [`@cavelang/shape`](../shape)): same-entity candidates from string/graph similarity as suggested `ALIAS` claims at review-band confidence (0.3–0.5). Prints pipeable CAVE text; `--write` appends stamped `@src:suggest/alias`; `--agent` runs an LLM judge over the candidates (the ingest/eval shell contract). Pairs with any recorded `ALIAS` history are never re-suggested. |
 | `sync [--db p] <source>` | `--as <label>`, `--into <label>`, `--dry-run`, `--no-record`, `--json`, `--no-prelude` | Store merge (spec §28, see [`@cavelang/sync`](../sync)): another CAVE store file — or `;@`-annotated canonical text, `-` for stdin — merges by row identity; present rows skip, re-runs merge nothing, effective merges append a `SYNCED-INTO` record (`--no-record` for checkouts, spec §28.6). |
-| `export [--db p]` | `--out <file>`, `--current`, `--tx`, `--max-sensitivity <level>`, `--no-prelude` | Sensitivity-scoped canonical CAVE text (spec §9.7) — default maximum `internal`; select `restricted` for an exact backup or replica. `--current` compacts but never sanitizes permanent history (§9.6). `--tx` precedes every claim line with its `;@` transaction annotation (spec §28.4). Stdout by default; `--out` writes a file and reports the claim count. |
+| `export [--db p]` | `--out <file>`, `--current`, `--tx`, `--max-sensitivity <level>`, `--no-prelude` | Sensitivity-scoped canonical CAVE text (spec §9.7) — default maximum `internal`; select `restricted` for complete portable history or a replica. `--current` compacts but never sanitizes permanent history (§9.6). `--tx` precedes every claim line with its `;@` transaction annotation (spec §28.4). Stdout by default; `--out` writes a file and reports the claim count. |
 | `report [--db p] [template…]` | `--out <file>`, `--aliases`, `--resolve`, `--as-of <t>`, `--at <t>`, `--max-sensitivity <level>`, `--no-prelude` | Render sensitivity-scoped cited Markdown from fenced and inline CAVE-Q templates (spec §9.7, §31, see [`@cavelang/view`](../view)). Every query uses the same audience, alias, resolution, transaction-time, and valid-time snapshot options. |
 | `serve [--db p]` | `--port <n>`, `--host <a>`, `--max-sensitivity <level>`, `--no-prelude` | The sensitivity-scoped human read surface (spec §9.7, §30, see [`@cavelang/view`](../view)): one static page whose counts, aliases, history, lineage, and search are computed only from visible rows. Strictly read-only (GET only), localhost by default. |
 | `mcp [--db p]` | `--read-only`, `--permissions <list>`, `--tools <list>`, `--hooks <file>`, `--no-prelude`, `--src <ctx>`, `--no-src` | Serve the engine as an MCP server on stdio (see [`@cavelang/mcp`](../mcp)) — static tools for add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint plus one generated `act_<name>` tool per current action. Permission classes separate `read`, ephemeral `evaluate`, durable `record`, and effect-capable `action`; `--read-only` keeps only read/evaluate. Permission, tool, and read-only scopes intersect. `--hooks` supplies reviewed out-of-band commands for action tools. Appends are stamped `@src:agent/<client-name>` (spec §9.5); `--src` replaces the stamp, `--no-src` disables it. |
@@ -57,7 +59,22 @@ Shape declarations may add `#cardinality:one` or an attribute
 units when those constraints fail; declarations without either tag keep the
 compatible one-or-more presence check.
 
-## Text backup / interchange
+## Exact backup and portable interchange
+
+For row identity, transaction time, provenance, lineage, and full history:
+
+```sh
+cave backup --db knowledge.db --out knowledge.snapshot.db
+cave backup --verify knowledge.snapshot.db --sha256 <recorded-hex>
+cave restore knowledge.snapshot.db --db restored.db --sha256 <recorded-hex>
+```
+
+Backup is an online, consistent SQLite snapshot safe with WAL and concurrent
+readers/writers. CAVE verifies and atomically publishes it. Stop all users of
+the destination before restore; a WAL/SHM/journal sidecar makes restore refuse rather
+than guess. Failed creation or restore leaves the previous destination intact.
+
+For portable, reviewable CAVE text:
 
 ```
 $ cave export --db knowledge.db --max-sensitivity restricted --out backup.cave
@@ -68,14 +85,16 @@ added 812 claim(s), 37 edge(s)
 ```
 
 With the explicit `restricted` ceiling, the text round trip preserves every
-claim with its metadata, the **full
-belief-series order** (rows export in tx order and re-ingest with fresh
-monotonic tx ids, so latest-tx-wins resolution is unchanged),
+claim with its metadata and the **belief-series order** (rows export in tx
+order and re-ingest with fresh monotonic tx ids, so latest-tx-wins resolution
+is unchanged),
 qualifier/grouping edges, and in-band registry declarations (`REVERSE`,
-`RENAMED-TO`, `X IS verb`) — a restored database answers queries identically,
-including inverse and lifecycle spellings. Original transaction timestamps are re-minted: canonical
-CAVE text carries no transaction identity. Use `--current` for a compact
-backup of current beliefs only (history intentionally omitted from that
+`RENAMED-TO`, `X IS verb`) — a restored database answers current-belief and
+graph queries equivalently, including inverse and lifecycle spellings. Original
+transaction timestamps are re-minted: canonical CAVE text carries no transaction
+identity, so original as-of boundaries and staleness are not preserved. Use
+`--current` for a compact
+view of current beliefs only (history intentionally omitted from that
 view). Lower ceilings use the order `public < internal < confidential <
 restricted`; unlabeled rows are `internal`, while malformed or unknown labels
 fail closed as `restricted`. Filtering is not a sanitization tool: current

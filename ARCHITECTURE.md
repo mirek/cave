@@ -200,6 +200,14 @@ silently replaying DDL, and interrupted migrations resume from the last
 committed version. Operational rollback restores a closed-file pre-upgrade
 backup; there are no down migrations.
 
+Exact backup is a separate SQLite snapshot path (§13.2.2), not canonical text
+replay. `VACUUM INTO` writes a consistent live-store snapshot to a temporary
+sibling; integrity, foreign keys, schema structure, fsync, and SHA-256 all pass
+before atomic publication. Restore verifies both input and temporary copy,
+refuses WAL/SHM sidecars, and then atomically publishes the same bytes. This
+preserves row and transaction identity, provenance, lineage, and history while
+allowing WAL readers and writers to remain online during backup.
+
 ## Read path
 
 `@cavelang/query` parses a CAVE-Q pattern and compiles it to parameterized SQL.
@@ -371,8 +379,9 @@ Changes should preserve these properties:
    order, side tables, raw text, keys, and lineage edges.
 4. **Filter publication structurally.** Resolve current belief before applying
    the sensitivity ceiling, and derive all published summaries and graph walks
-   only from visible rows. Exact backup and tx-annotated replica export must
-   explicitly select `restricted`; sync itself remains exact.
+   only from visible rows. Complete text history and tx-annotated replica
+   export must explicitly select `restricted`; exact snapshots are unfiltered
+   and sync itself remains exact.
 5. **Format source spans once.** Percent-escape source locators and parse line
    fragments through `SourceSpan`; connectors, APIs, and reports must not grow
    competing source-link conventions.
@@ -385,14 +394,17 @@ Changes should preserve these properties:
 8. **Version every physical schema change.** Add one ordered transactional
    migration, advance `user_version` in that transaction, and reject unknown
    future versions.
-9. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+9. **Publish snapshots only after verification.** Build beside the target,
+   fsync and validate it, record SHA-256, and never restore over active SQLite
+   sidecars.
+10. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-10. **Use the store transaction boundary for compound writes.** Validation and
+11. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-11. **Keep external effects after commit and out of the store.** Persist names,
+12. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-12. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+13. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 

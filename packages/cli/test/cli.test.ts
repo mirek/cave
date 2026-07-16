@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -503,6 +503,46 @@ test('export --out writes a file; import restores the full belief history', () =
       '?x = gift\n'
     )
   })
+})
+
+test('backup verifies and restore preserves exact row identity and transaction order', () => {
+  withDir(dir => {
+    const db = join(dir, 'source.db')
+    const input = join(dir, 'input.cave')
+    const snapshot = join(dir, 'snapshot.db')
+    const restored = join(dir, 'restored.db')
+    writeFileSync(input, 'api HAS owner: platform @src:inventory\napi HAS owner: security @src:inventory\n')
+    assert.equal(addCommand([input, '--db', db]).code, 0)
+    const created = backupCommand(['--db', db, '--out', snapshot])
+    assert.equal(created.code, 0, created.err)
+    const digest = /sha256:([0-9a-f]{64})/.exec(created.out)?.[1]
+    assert.ok(digest)
+    const verified = backupCommand(['--verify', snapshot, '--sha256', digest!])
+    assert.equal(verified.code, 0, verified.err)
+
+    const result = restoreCommand([snapshot, '--db', restored, '--sha256', digest!])
+    assert.equal(result.code, 0, result.err)
+    const rows = (path: string): unknown[] => {
+      const store = open(path)
+      try {
+        return store.db.prepare('SELECT id, tx, claim_key, raw_line FROM cave_claim ORDER BY tx').all()
+      } finally {
+        store.close()
+      }
+    }
+    assert.deepEqual(rows(restored), rows(db))
+    assert.equal(backupCommand(['--db', db, '--out', snapshot]).code, 1)
+    assert.equal(backupCommand(['--db', db, '--out', snapshot, '--force']).code, 0)
+  })
+})
+
+test('backup and restore validate required arguments and digests', () => {
+  assert.equal(backupCommand([]).code, 1)
+  assert.equal(backupCommand(['--verify', 'missing.db', '--db', 'x.db']).code, 1)
+  assert.match(backupCommand(['--verify', 'missing.db', '--sha256', 'bad']).err, /64 hexadecimal/)
+  assert.equal(restoreCommand(['snapshot.db']).code, 1)
+  assert.equal(restoreCommand(['a.db', 'b.db', '--db', 'out.db']).code, 1)
+  assert.match(restoreCommand(['snapshot.db', '--db', 'out.db', '--sha256', 'bad']).err, /64 hexadecimal/)
 })
 
 test('add stamps @src:cli; --no-src opts out; import replays without stamping (spec §9.5)', () => {

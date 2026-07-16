@@ -176,8 +176,9 @@ Consequences:
   row as permanently retainable before ingest. Do not put credentials,
   private keys, access tokens, or data whose retention policy requires
   selective erasure into a CAVE store.
-- A full export or exact text backup made with §9.7's `restricted` ceiling,
-  import, and sync preserve the retained history. Encryption and access control
+- A complete text export made with §9.7's `restricted` ceiling, an exact
+  SQLite snapshot (§13.2.2), import, and sync preserve retained history.
+  Encryption and access control
   protect copies; they do not change retention semantics.
 - CAVE exposes no destructive claim command and therefore no misleading
   confirmation prompt or in-band tombstone. Normal operation never updates or
@@ -234,7 +235,7 @@ history first and the selected row is then filtered. Therefore a hidden latest
 row never revives an older, less-sensitive belief. Full-history export evaluates
 each immutable row's own label.
 
-An exact canonical backup or `;@` identity replica requires
+Complete canonical history or a `;@` identity replica requires
 `--max-sensitivity restricted`; sync itself remains an exact operator-to-operator
 merge and copies all rows and labels verbatim. `--current` and a lower
 sensitivity ceiling are useful views, not sanitizers or deletion (§9.6).
@@ -478,6 +479,42 @@ Version 1 establishes the §13 tables and indexes and backfills the explicit
 §9.5.1 provenance projection. Canonical text interchange remains independent
 of SQLite schema versions; exact database sync accepts supported old versions
 and preserves their rows while rejecting newer sources.
+
+#### 13.2.2 Exact snapshot backup and restore
+
+Canonical text is portable interchange, not an exact temporal backup: import
+re-mints transaction ids. The exact path copies SQLite's complete logical
+state, without a sensitivity ceiling or current-belief compaction:
+
+```sh
+cave backup --db knowledge.db --out backups/knowledge.db
+cave backup --verify backups/knowledge.db --sha256 <recorded-hex>
+cave restore backups/knowledge.db --db restored.db --sha256 <recorded-hex>
+```
+
+Backup uses `VACUUM INTO` on the open source connection, targeting a unique
+temporary file in the destination directory. SQLite defines the completed
+output as one consistent committed snapshot of the live source; WAL-contained
+commits are included according to that read snapshot, and concurrent readers
+and writers may remain active. CAVE then fsyncs the temporary file, requires
+`integrity_check = ok`, an empty `foreign_key_check`, the current supported
+schema and required structure, computes SHA-256, and atomically publishes the
+verified file. An interruption can leave only an unadvertised temporary file;
+an earlier destination is untouched.
+
+The snapshot preserves every immutable claim row and its `id`, `tx`,
+`claim_key`, raw line, contexts, explicit provenance, tags, edges, FTS state,
+and belief history. It may be physically compacted, so "exact" means complete
+logical and temporal identity rather than byte equality with the live source.
+
+Restore first verifies the snapshot and optional recorded SHA-256, copies it
+to a temporary file, fsyncs and verifies that copy again, then publishes the
+same snapshot bytes atomically. The destination is required explicitly and is
+never overwritten without `--force`. Restore refuses a destination with WAL,
+SHM, or rollback-journal sidecars: stop every process using that path and resolve/remove stale
+sidecars before retrying. On any failure, keep the last verified backup and
+the prior destination; never merge a partial temporary file or copy only a
+live `.db` file while ignoring its WAL.
 
 ### 13.3 Inverses are views, never rows
 

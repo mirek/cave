@@ -48,7 +48,7 @@ As circumstances change, new input claims append. Derivation recalculates recomm
 - Use --resolve only where a single winner is required; keep default reads plural.
 - Use --as-of and --at explicitly in reports that depend on time.
 - Keep hooks and agent commands out of the store; claims may name them but never contain executable configuration.
-- Back up with canonical export using --max-sensitivity restricted and periodically test restore or sync into a fresh database.
+- Create exact snapshots with cave backup, record their SHA-256, verify them independently, and periodically test cave restore into a fresh path. Use restricted canonical export separately when portable text interchange is required.
 
 Security boundaries are intentionally visible. MCP tool scoping separates reads, ephemeral evaluation, durable recording, and effect-capable actions; exact tool allowlists can narrow further. Actions validate parameters and preconditions. Hook substitution is shell-quoted, but hook configuration remains executable operator-controlled code and should be reviewed accordingly. The read-only server should remain bound to localhost unless placed behind an appropriate access layer; its sensitivity ceiling limits publication but is not authentication or encryption.
 
@@ -78,6 +78,8 @@ Open design items and suspected bugs are tracked in TODO.md and BUGS.md. The pro
   [Append authored or replayed claims.],
   [cave export],
   [Emit canonical text, current view, or tx-annotated replica.],
+  [cave backup / restore],
+  [Verify exact SQLite snapshots and recover row and transaction identity.],
   [cave query],
   [Run CAVE-Q with filters, aliases, resolve, as-of, and valid time.],
   [cave check],
