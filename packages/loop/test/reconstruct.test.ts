@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cavelang/loop'
-import { knowledge, run } from '../src/demo.ts'
+import { isDirectInvocation, knowledge, run } from '../src/demo.ts'
 
 test('multi-hop recovery: symptom → cause → topic → fix (spec §11.3, §18)', () => {
   const store = memoryStoreOfText(knowledge)
@@ -67,6 +67,14 @@ test('demo runs and narrates the recovery', () => {
   assert.match(text, /trace:/)
   assert.match(text, /PART-OF/)
   assert.match(text, /`<=` FIX token-expiry @auth\.ts:42/)
+})
+
+test('demo direct invocation recognizes Windows entry paths', () => {
+  assert.equal(isDirectInvocation(
+    'file:///C:/work/cave/packages/loop/src/demo.ts',
+    String.raw`C:\work\cave\packages\loop\src\demo.ts`,
+    'win32'
+  ), true)
 })
 
 test('a weaker path discovered later never downgrades a pending cue', () => {

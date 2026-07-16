@@ -45,7 +45,7 @@
   "scripts": {
     "benchmark": "node --disable-warning=ExperimentalWarning scripts/benchmark.ts",
     "build": "tsc -b",
-    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },

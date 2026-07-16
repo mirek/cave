@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.ts'",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   }

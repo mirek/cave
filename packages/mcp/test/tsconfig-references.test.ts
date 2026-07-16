@@ -12,7 +12,11 @@ import { fileURLToPath } from 'node:url'
 
 const packagesDir = fileURLToPath(new URL('../..', import.meta.url))
 
-type Manifest = { dependencies?: Record<string, string>, devDependencies?: Record<string, string> }
+type Manifest = {
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  scripts?: Record<string, string>
+}
 type Tsconfig = { references?: { path: string }[] }
 
 const parse = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
@@ -55,4 +59,18 @@ test('the root solution references every composite package', () => {
   const referenced = (root.references ?? []).map(reference => reference.path.replace(/^packages\//, ''))
   const missing = composite.filter(name => !referenced.includes(name))
   assert.deepEqual(missing, [], `root tsconfig.json is missing references: ${missing.join(', ')}`)
+})
+
+test('package test globs use shell-portable quoting', () => {
+  for (const name of readdirSync(packagesDir).sort()) {
+    const path = join(packagesDir, name, 'package.json')
+    if (!existsSync(path)) continue
+    const script = parse<Manifest>(path).scripts?.test
+    if (script === undefined) continue
+    assert.doesNotMatch(
+      script,
+      /'[^']*[*?][^']*'/,
+      `packages/${name}/package.json passes POSIX single quotes literally on Windows: ${script}`
+    )
+  }
 })

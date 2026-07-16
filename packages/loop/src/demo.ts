@@ -16,6 +16,8 @@
  */
 
 import { emitClaim } from '@cavelang/canonical'
+import { posix, win32 } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { memoryStoreOfText } from './store.ts'
 import { heuristicPolicy, reconstruct } from './reconstruct.ts'
 
@@ -55,7 +57,18 @@ export const run = (): { lines: string[] } => {
   return { lines }
 }
 
-const invokedDirectly = process.argv[1] !== undefined && import.meta.url.endsWith(process.argv[1].split('/').pop()!)
+export const isDirectInvocation = (
+  moduleUrl: string,
+  entryPath: string | undefined,
+  platform: NodeJS.Platform = process.platform
+): boolean => {
+  if (entryPath === undefined) return false
+  const path = platform === 'win32' ? win32 : posix
+  const modulePath = fileURLToPath(moduleUrl, { windows: platform === 'win32' })
+  return path.resolve(modulePath) === path.resolve(entryPath)
+}
+
+const invokedDirectly = isDirectInvocation(import.meta.url, process.argv[1])
 if (invokedDirectly) {
   console.log(run().lines.join('\n'))
 }
