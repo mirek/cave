@@ -24,6 +24,7 @@ import * as Canonical from '@cavelang/canonical'
 import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
+import * as Sensitivity from './sensitivity.ts'
 
 const currentSql = `
 SELECT c.* FROM cave_claim c
@@ -411,6 +412,9 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
     /** Current verb registry (input registry + stored + ingested declarations). */
     registry: (): Canonical.Registry.t => registry,
 
+    /** Configured registry before any in-band declarations are applied. */
+    baseRegistry: (): Canonical.Registry.t => baseRegistry,
+
     /**
      * Rebuilds the registry from the base plus stored declarations — after
      * rows arrive outside `ingest`/`insertResult` (a §28 merge writes
@@ -603,11 +607,12 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      * FTS5 MATCH syntax. `limit` caps the rows inside the query itself,
      * so a broad search never materializes more than the caller reads.
      */
-    search(query: string, options_: { raw?: boolean, limit?: number } = {}): Row.t[] {
+    search(query: string, options_: { raw?: boolean, limit?: number, maxSensitivity?: Sensitivity.Level } = {}): Row.t[] {
       const match = options_.raw === true ? query : `"${query.replaceAll('"', '""')}"`
       const sql = `
         SELECT c.* FROM cave_claim c JOIN cave_fts f ON c.id = f.claim_id
-        WHERE cave_fts MATCH ? ORDER BY c.tx DESC`
+        WHERE cave_fts MATCH ?${options_.maxSensitivity === undefined ? '' : ` AND ${Sensitivity.sql('c', options_.maxSensitivity)}`}
+        ORDER BY c.tx DESC`
       return options_.limit === undefined ?
         rows(sql, match) :
         rows(`${sql} LIMIT ?`, match, options_.limit)
@@ -653,11 +658,12 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
      * endpoint resolves to the *current row of its claim key*, and the
      * resulting edges are deduplicated.
      */
-    exportText(options_: { current?: boolean, tx?: boolean } = {}): string {
+    exportText(options_: { current?: boolean, tx?: boolean, maxSensitivity?: Sensitivity.Level } = {}): string {
       const current = options_.current === true
+      const maximum = options_.maxSensitivity ?? Sensitivity.defaultMaximum
       const claimRows = current ?
-        rows(`${currentSql} ORDER BY c.tx`) :
-        rows('SELECT * FROM cave_claim ORDER BY tx')
+        rows(`${currentSql} WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`) :
+        rows(`SELECT c.* FROM cave_claim c WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`)
       const indexById = new Map(claimRows.map((row, index) => [row.id, index]))
       let resolve = (id: string): undefined | number => indexById.get(id)
       if (current) {

@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
 import { entity, history, lineage, overview, search, topic, topics } from '@cavelang/view'
 
@@ -251,7 +252,7 @@ test('search threads its limit into the store query, never slicing materialized 
   const limits: (undefined | number)[] = []
   const spy = {
     ...store,
-    search: (text: string, options?: { raw?: boolean, limit?: number }) => {
+    search: (text: string, options?: { raw?: boolean, limit?: number, maxSensitivity?: 'public' | 'internal' | 'confidential' | 'restricted' }) => {
       limits.push(options?.limit)
       return store.search(text, options)
     }
@@ -261,5 +262,45 @@ test('search threads its limit into the store query, never slicing materialized 
   assert.deepEqual(capped.map(match => match.subject), ['dep-5', 'dep-4'], 'newest first survives the cap')
   assert.equal(search(spy, 'sharedterm').length, 5, 'the default cap outsizes this store')
   assert.deepEqual(limits, [2, 100], 'each store query carried the view limit')
+  store.close()
+})
+
+test('all view models share one sensitivity ceiling without indirect leaks (spec §9.7, §30)', () => {
+  const store = open()
+  const rows = store.ingest([
+    'public-topic CONTAINS public-item #sensitivity:public',
+    'public-item IS visible #sensitivity:public',
+    'internal-item IS visible',
+    'confidential-item IS visible #sensitivity:confidential',
+    'restricted-item IS visible #sensitivity:restricted',
+    'public-item ALIAS confidential-item #sensitivity:confidential'
+  ].join('\n'))
+  store.appendEdges([{ parentId: rows.ids[1]!, role: 'BECAUSE', childId: rows.ids[3]! }])
+
+  const publicOverview = overview(store, { maxSensitivity: 'public' })
+  assert.equal(publicOverview.coverage.rows, 2)
+  assert.deepEqual(publicOverview.topics, [{ name: 'public-topic', members: 1 }])
+  assert.deepEqual(search(store, 'confidential-item', { maxSensitivity: 'public' }), [])
+  assert.deepEqual(entity(store, 'public-item', { aliases: true, maxSensitivity: 'public' }).aliases, ['public-item'])
+  assert.deepEqual(topic(store, 'public-topic', { maxSensitivity: 'public' }).members, ['public-item'])
+  assert.deepEqual(history(store, entity(store, 'confidential-item', { maxSensitivity: 'restricted' }).activity[0]!.key,
+    { maxSensitivity: 'public' }).rows, [])
+  assert.equal(lineage(store, rows.ids[3]!, { maxSensitivity: 'public' }), undefined)
+  assert.equal(lineage(store, rows.ids[1]!, { maxSensitivity: 'public' })!.row.cites, 0,
+    'an allowed root does not reveal its hidden child through lineage counts')
+
+  assert.equal(overview(store).coverage.rows, 3, 'default internal includes public and unlabeled rows')
+  assert.equal(overview(store, { maxSensitivity: 'confidential' }).coverage.rows, 5)
+  assert.equal(overview(store, { maxSensitivity: 'restricted' }).coverage.rows, 6)
+  store.close()
+})
+
+test('a scoped view preserves the source store base registry', () => {
+  const store = open(':memory:', { registry: Registry.empty })
+  store.ingest('packages/api PART-OF monorepo #sensitivity:public')
+  const reverse = entity(store, 'monorepo', { maxSensitivity: 'public' }).in
+  assert.equal(reverse.length, 1)
+  assert.equal(reverse[0]!.verb, 'PART-OF')
+  assert.equal(reverse[0]!.rel, undefined, 'the standard CONTAINS inverse must not appear in a --no-prelude view')
   store.close()
 })

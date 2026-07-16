@@ -31,7 +31,7 @@ Dependency order, bottom to top:
 | [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule, re-statement replay and the §28.6 branching convention (text under git, checkout/land by sync, union merge driver) |
 | [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
 | [`@cavelang/automate`](packages/automate) | §29 | Automations — the event-driven loop: in-band `automation/<name>` declarations pair §24.1 trigger premises with steps (§25 actions, §25.4 hooks, agent prompts); solutions fire on rows newer than the automation's watermark, armed at declaration, deaf to their own echo; settle cycles interleave incremental derivation with trigger evaluation until quiescent |
-| [`@cavelang/view`](packages/view) | §30, §31 | The human read surface — `cave serve`: one static, self-contained HTML page over the store (entity 360, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees, §20.2 coverage/frontier dashboard, FTS search) behind read-only GET endpoints; `cave report`: markdown templates rendered from CAVE-Q results with claim keys as footnote citations; view models and the report renderer are plain functions over a store |
+| [`@cavelang/view`](packages/view) | §9.7, §30, §31 | Sensitivity-scoped human publication — `cave serve`: one static HTML page over an audience-filtered store (entity 360, history, lineage, health, search) behind read-only GET endpoints; `cave report`: audience-filtered markdown templates with claim-key citations; all counts and graph walks derive from the visible snapshot |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` expose named §10.1 fusion and §24 derivation; serving scopes distinguish read, ephemeral evaluation, durable recording, and effect-capable action permissions, with `--read-only` and exact tool allowlists as further intersections |
 | [`@cavelang/ingest`](packages/ingest) | — | LLM-driven ingestion: batch files and web pages (fetch + Readability) through any headless agent (Claude Code, Copilot CLI, SDK scripts) with hybrid knowledge context |
 | [`@cavelang/eval`](packages/eval) | — | Extraction and reconstruction eval harness: golden-fixture suites as plain files, N fresh-store runs against any agent via `ingest`, claim-key scoring with §9.5 actor-stamp normalization and value tolerance, CAVE-Q expectations, optional LLM judge, `--min` CI gate; reconstruction cases (`<stem>.loop.cave`) score §18 loop policies against the heuristic baseline |
@@ -109,6 +109,14 @@ Package READMEs document local decisions; these are the global ones:
   update, not erasure; store, export/import, and sync expose no selective
   redact path. Accidental sensitive-data recovery is whole-copy quarantine
   and reviewed rebuild, outside the claim model.
+- **Publication is sensitivity-scoped** (§9.7): rows are ordered by
+  `#sensitivity:public|internal|confidential|restricted`; unlabeled is
+  `internal`, malformed/unknown fails closed to `restricted`, and export,
+  report, and serve default to an `internal` ceiling. Current belief resolves
+  before filtering, hidden edge endpoints are pruned, and view summaries run
+  over a scoped snapshot so counts, aliases, history, search, and lineage do
+  not leak excluded rows. Exact backup requires an explicit `restricted`
+  ceiling; sync remains exact and preserves labels.
 - **Checking is a read; gating is a transaction** (§20):
   `@cavelang/shape` evaluates in-band `EXPECTS` declarations with SQL
   over current beliefs and never writes; `cave add --check` wraps
@@ -255,7 +263,9 @@ Package READMEs document local decisions; these are the global ones:
   tables, never by re-parsing text — the tree-sitter grammar stays the
   single grammar source, and no client-side parser exists to drift —
   while `raw_line` is shown where the authored text is the point.
-  Binding is `127.0.0.1` unless `--host` widens it deliberately.
+  Binding is `127.0.0.1` unless `--host` widens it deliberately. Every model
+  runs against the §9.7 sensitivity-scoped snapshot, not against full-store
+  results scrubbed afterward.
 - **Reports render deterministically or mark the hole** (§31):
   `cave report` (also `@cavelang/view`) walks the template line by
   line — fenced `cave-q` blocks render a fragment per CAVE-Q solution
@@ -267,8 +277,8 @@ Package READMEs document local decisions; these are the global ones:
   into `[^cN]` footnotes built from the *canonical* line (`emitClaim`
   over the stored row and side tables — §9.5 stamps live in the
   context table, and provenance must not hide), the tx date and the
-  claim key; the §12.3/§13.6/§26.4 read opt-ins forward to every query
-  in the template unchanged.
+  claim key; the §9.7 audience ceiling and §12.3/§13.6/§26.4 read opt-ins
+  forward to every query in the template unchanged.
 - **The standard prelude is opt-out, not baked in**: no verb is born with
   an inverse (§5.5), but `@cavelang/store` and the CLI default to the shared
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).

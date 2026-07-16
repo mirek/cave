@@ -4,7 +4,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Product and architecture
 
-- [Sensitivity-aware export](todo/sensitivity-aware-export.md) — Filter exports and serving by an in-band sensitivity convention.
 - [Source-span provenance](todo/source-span-provenance.md) — Point source provenance at the sentence or line range that produced a claim.
 - [Typed client generation](todo/typed-client-generation.md) — Generate typed query helpers from in-band schema claims.
 - [Push/listener ingestion](todo/push-listener-ingestion.md) — Add demand-driven continuous ingestion for push sources.

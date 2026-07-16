@@ -28,6 +28,11 @@ When converting text into CAVE:
 9. **Prefer standard verbs; keep comments sparse.** Comments carry rationale, source hints, or nuance that does not fit the triple.
 10. **Make claims actionable.** A reader should be able to act on the claim without rereading the source.
 11. **Never extract secrets or selectively erasable data.** Claim history is permanent (§9.6). Omit credentials, private keys, access tokens, and personal data whose retention policy requires later deletion; do not copy them into comments, contexts, tags, or source annotations either.
+12. **Preserve audience classification.** When retained source material has an
+    explicit audience, add the matching §9.7 tag to every extracted claim:
+    `#sensitivity:public`, `internal`, `confidential`, or `restricted`.
+    Unlabeled means `internal`; never lower an authored classification, and do
+    not mistake a label for permission to ingest data prohibited by rule 11.
 
 ### 14.1 Granularity guide
 

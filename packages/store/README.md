@@ -15,7 +15,8 @@ monorepo CONTAINS packages/api @ 90%
 `)
 store.currentBeliefs()                       // one row — one fact, one key, conf 0.9
 store.reverse('packages/api')                // [{ verb: 'CONTAINS', rel: 'PART-OF', source: 'monorepo' }]
-store.exportText({ current: true })          // canonical CAVE text back out
+store.exportText({ current: true })          // canonical text through internal
+store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
 ```
 
 ## Semantics
@@ -33,6 +34,12 @@ store.exportText({ current: true })          // canonical CAVE text back out
   copies. Keep secrets and selectively erasable data out of CAVE; recover
   from accidental ingestion by quarantining every copy and rebuilding from
   reviewed safe input.
+- **Publication is sensitivity-scoped** (§9.7):
+  `#sensitivity:public|internal|confidential|restricted` labels each immutable
+  row; unlabeled means `internal`, while flat, malformed and unknown labels
+  fail closed as `restricted`. Export defaults to a maximum of `internal`.
+  Select `restricted` explicitly for an exact backup. This is routing metadata,
+  not encryption, access control, erasure or a retention boundary.
 - **One row per fact** (§13.3): inverse writes are canonicalized before
   keying (`@cavelang/canonical`), inverse *reads* are query-time views —
   `forward()` uses the subject index, `reverse()` the object index with the
@@ -98,10 +105,11 @@ store.exportText({ current: true })          // canonical CAVE text back out
 | `byTag(key, value?)` | §13.5 | flat (`value` omitted → `IS NULL`) or scoped |
 | `byContext(ctx)` | §13.5 | context filter |
 | `topicMembers(t)` / `topicsOf(e)` | §11.2 | topic layer over `CONTAINS` |
-| `search(q, {raw, limit})` | §13.2 | FTS5; literal phrase by default, `limit` caps in the query |
+| `search(q, {raw, limit, maxSensitivity})` | §13.2 | FTS5; literal phrase by default, `limit` caps in the query; sensitivity is opt-in for enclosing publication surfaces |
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
-| `exportText({current, tx})` | | emit canonical CAVE text; `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes |
+| `registry()` / `baseRegistry()` | §5.5 | current registry and its configured pre-declaration base |
+| `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; exact backup requires `restricted` |
 | `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
 
 ## Storage decisions
@@ -124,6 +132,10 @@ store.exportText({ current: true })          // canonical CAVE text back out
   endpoint's claim key: a superseded qualified parent keeps its `WHEN`
   attached to the surviving belief, and orphaned condition claims are never
   promoted to top-level facts.
+- **Sensitivity filtering follows current resolution**: the latest row is
+  selected before its audience is checked, so a hidden current belief never
+  revives an older visible row. Full-history export checks each row. Edges with
+  either endpoint hidden are omitted.
 
 ## Tests
 

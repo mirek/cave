@@ -78,6 +78,14 @@ personal data must stay outside the store; accidental ingestion is handled by
 quarantining all copies and rebuilding a replacement store from reviewed safe
 input.
 
+Publication is sensitivity-scoped (§9.7). An ordinary
+`#sensitivity:public|internal|confidential|restricted` tag labels each row;
+unlabeled means `internal`, malformed labels fail closed as `restricted`, and
+publication defaults to an `internal` ceiling. Export, reports, and the human
+HTTP view share this policy, including indirect outputs such as counts,
+aliases, history, search, lineage, and edge traversal. The label is routing
+metadata—not encryption, authorization, erasure, or a retention boundary.
+
 ### Canonical direction and the verb registry
 
 Relations have one physical direction. In-band declarations such as
@@ -330,14 +338,18 @@ Changes should preserve these properties:
    (§9.6).
 3. **Treat row IDs as global identities.** Sync must preserve IDs, transaction
    order, side tables, raw text, keys, and lineage edges.
-4. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+4. **Filter publication structurally.** Resolve current belief before applying
+   the sensitivity ceiling, and derive all published summaries and graph walks
+   only from visible rows. Exact backup and tx-annotated replica export must
+   explicitly select `restricted`; sync itself remains exact.
+5. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-5. **Use the store transaction boundary for compound writes.** Validation and
+6. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-6. **Keep external effects after commit and out of the store.** Persist names,
+7. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-7. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+8. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 

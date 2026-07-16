@@ -48,9 +48,9 @@ As circumstances change, new input claims append. Derivation recalculates recomm
 - Use --resolve only where a single winner is required; keep default reads plural.
 - Use --as-of and --at explicitly in reports that depend on time.
 - Keep hooks and agent commands out of the store; claims may name them but never contain executable configuration.
-- Back up with canonical export and periodically test restore or sync into a fresh database.
+- Back up with canonical export using --max-sensitivity restricted and periodically test restore or sync into a fresh database.
 
-Security boundaries are intentionally visible. MCP tool scoping separates reads, ephemeral evaluation, durable recording, and effect-capable actions; exact tool allowlists can narrow further. Actions validate parameters and preconditions. Hook substitution is shell-quoted, but hook configuration remains executable operator-controlled code and should be reviewed accordingly. The read-only server should remain bound to localhost unless placed behind an appropriate access layer.
+Security boundaries are intentionally visible. MCP tool scoping separates reads, ephemeral evaluation, durable recording, and effect-capable actions; exact tool allowlists can narrow further. Actions validate parameters and preconditions. Hook substitution is shell-quoted, but hook configuration remains executable operator-controlled code and should be reviewed accordingly. The read-only server should remain bound to localhost unless placed behind an appropriate access layer; its sensitivity ceiling limits publication but is not authentication or encryption.
 
 Performance is designed for local SQLite scale. Indexes support direct entity, verb, object, attribute, confidence, context, tag, and full-text access. Transitive graph queries and large alias closures can become the limiting factor before ordinary claim reads. Measure on representative stores before adding distributed infrastructure.
 

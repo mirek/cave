@@ -10,6 +10,8 @@ const fixture = () => {
 api-gateway IS service
 api-gateway USES redis-cache @ 90%
 platform CONTAINS api-gateway
+public-status IS green #sensitivity:public
+secret-system USES private-db #sensitivity:confidential
 `, { source: 'test' })
   return store
 }
@@ -44,8 +46,9 @@ test('serves the page at / — self-contained, stamped, CSP-locked (spec §30.1)
 
 test('api endpoints answer JSON over the live store (spec §30.2)', () =>
   withServer(async ({ url }) => {
-    const data = await (await fetch(`${url}api/overview`)).json() as { db: string, coverage: { rows: number } }
+    const data = await (await fetch(`${url}api/overview`)).json() as { db: string, maxSensitivity: string, coverage: { rows: number } }
     assert.equal(data.db, 'test.db')
+    assert.equal(data.maxSensitivity, 'internal')
     assert.ok(data.coverage.rows > 0)
     const gateway = await (await fetch(`${url}api/entity?name=api-gateway`)).json() as { out: { verb: string }[], topics: string[] }
     assert.deepEqual(gateway.out.map(fact => fact.verb).sort(), ['IS', 'USES'])
@@ -57,6 +60,27 @@ test('api endpoints answer JSON over the live store (spec §30.2)', () =>
     const series = await (await fetch(`${url}api/history?key=${encodeURIComponent(found[0]!.key)}`)).json() as { rows: unknown[] }
     assert.equal(series.rows.length, 1)
   }))
+
+test('the server applies its sensitivity ceiling to every endpoint (spec §9.7, §30.3)', async () => {
+  const store = fixture()
+  const hidden = store.currentBeliefs().find(row => row.subject === 'secret-system')!
+  const ordinary = await serve(store, { port: 0, label: 'test.db' })
+  try {
+    assert.deepEqual(await (await fetch(`${ordinary.url}api/search?q=private-db`)).json(), [])
+    assert.equal((await fetch(`${ordinary.url}api/history?key=${encodeURIComponent(hidden.claim_key)}`)).status, 404)
+    assert.equal((await fetch(`${ordinary.url}api/lineage?id=${hidden.id}`)).status, 404)
+  } finally {
+    await ordinary.close()
+  }
+  const wider = await serve(store, { port: 0, maxSensitivity: 'confidential' })
+  try {
+    const found = await (await fetch(`${wider.url}api/search?q=private-db`)).json() as unknown[]
+    assert.equal(found.length, 1)
+  } finally {
+    await wider.close()
+    store.close()
+  }
+})
 
 test('missing and unknown things answer 400/404, never crash', () =>
   withServer(async ({ url }) => {

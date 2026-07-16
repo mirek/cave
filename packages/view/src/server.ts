@@ -12,6 +12,7 @@
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { Version } from '@cavelang/core'
+import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { entity, history, lineage, overview, search, topic } from './api.ts'
 import { page } from './page.ts'
@@ -27,6 +28,8 @@ export type ServeOptions = {
   readonly port?: number
   /** Store label shown on the page — typically the `--db` path. */
   readonly label?: string
+  /** Highest sensitivity level served (default `internal`, spec §9.7). */
+  readonly maxSensitivity?: Sensitivity.Level
 }
 
 export type Handle = {
@@ -55,10 +58,11 @@ const param = (url: URL, name: string): undefined | string => {
   return value === null || value === '' ? undefined : value
 }
 
-const handler = (store: Store, label: string) => {
+const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
   const html = page
     .replaceAll('__CAVE_DB__', escapeHtml(label))
     .replaceAll('__CAVE_VERSION__', escapeHtml(Version.current()))
+    .replaceAll('__CAVE_SENSITIVITY__', escapeHtml(maximum))
   return (req: IncomingMessage, res: ServerResponse): void => {
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -89,25 +93,25 @@ const handler = (store: Store, label: string) => {
       const body = ((): { status: number, body: unknown } => {
         switch (url.pathname) {
           case '/api/overview':
-            return { status: 200, body: { db: label, ...overview(store) } }
+            return { status: 200, body: { db: label, maxSensitivity: maximum, ...overview(store, { maxSensitivity: maximum }) } }
           case '/api/entity': {
             const name = param(url, 'name')
             return name === undefined ?
               { status: 400, body: { error: 'entity requires ?name=' } } :
-              { status: 200, body: entity(store, name, { aliases }) }
+              { status: 200, body: entity(store, name, { aliases, maxSensitivity: maximum }) }
           }
           case '/api/topic': {
             const name = param(url, 'name')
             return name === undefined ?
               { status: 400, body: { error: 'topic requires ?name=' } } :
-              { status: 200, body: topic(store, name, { aliases }) }
+              { status: 200, body: topic(store, name, { aliases, maxSensitivity: maximum }) }
           }
           case '/api/history': {
             const key = param(url, 'key')
             if (key === undefined) {
               return { status: 400, body: { error: 'history requires ?key=' } }
             }
-            const series = history(store, key)
+            const series = history(store, key, { maxSensitivity: maximum })
             return series.rows.length === 0 ?
               { status: 404, body: { error: `unknown claim key: ${key}` } } :
               { status: 200, body: series }
@@ -117,7 +121,7 @@ const handler = (store: Store, label: string) => {
             if (id === undefined) {
               return { status: 400, body: { error: 'lineage requires ?id=' } }
             }
-            const tree = lineage(store, id)
+            const tree = lineage(store, id, { maxSensitivity: maximum })
             return tree === undefined ?
               { status: 404, body: { error: `unknown row id: ${id}` } } :
               { status: 200, body: tree }
@@ -126,7 +130,7 @@ const handler = (store: Store, label: string) => {
             const text = param(url, 'q')
             return text === undefined ?
               { status: 400, body: { error: 'search requires ?q=' } } :
-              { status: 200, body: search(store, text) }
+              { status: 200, body: search(store, text, { maxSensitivity: maximum }) }
           }
           default:
             return { status: 404, body: { error: `no such endpoint: ${url.pathname}` } }
@@ -147,7 +151,11 @@ const handler = (store: Store, label: string) => {
 /** Starts the read surface; resolves once the port is bound. */
 export const serve = (store: Store, options: ServeOptions = {}): Promise<Handle> => {
   const host = options.host ?? defaultHost
-  const server = createServer(handler(store, options.label ?? 'cave.db'))
+  const server = createServer(handler(
+    store,
+    options.label ?? 'cave.db',
+    options.maxSensitivity ?? Sensitivity.defaultMaximum
+  ))
   return new Promise((resolve, reject) => {
     server.once('error', reject)
     server.listen(options.port ?? defaultPort, host, () => {

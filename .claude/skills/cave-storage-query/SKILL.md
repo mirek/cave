@@ -145,9 +145,9 @@ Consequences:
   row as permanently retainable before ingest. Do not put credentials,
   private keys, access tokens, or data whose retention policy requires
   selective erasure into a CAVE store.
-- Full export, text backup, exact `--tx` export, import, and sync preserve the
-  retained history. Encryption and access control protect copies; they do not
-  change retention semantics.
+- A full export or exact text backup made with §9.7's `restricted` ceiling,
+  import, and sync preserve the retained history. Encryption and access control
+  protect copies; they do not change retention semantics.
 - CAVE exposes no destructive claim command and therefore no misleading
   confirmation prompt or in-band tombstone. Normal operation never updates or
   deletes a belief row.
@@ -163,6 +163,56 @@ CAVE cannot attest to it. Keep an affected copy only when incident-response or
 legal requirements demand it, encrypted and access-restricted. Recovery of
 non-sensitive knowledge means restoring the verified replacement or a
 pre-incident safe backup — never merging an affected store back into it.
+
+### 9.7 Sensitivity-scoped publication
+
+A claim MAY carry an audience label as an ordinary valued tag:
+
+```cave
+release/status IS green #sensitivity:public
+customer/renewal HAS risk: high #sensitivity:confidential
+incident/root-cause IS credential-leak #sensitivity:restricted
+```
+
+The ordered levels are `public < internal < confidential < restricted`.
+An unlabeled claim is `internal`. A flat `#sensitivity` tag, an unknown value,
+or any malformed sensitivity tag is `restricted` (fail closed). If a row has
+several sensitivity tags, its effective level is the most restrictive one.
+The tag is metadata on each immutable row, not part of the claim key: a later
+belief row may deliberately change the audience of the current belief without
+forking its series.
+
+Publication surfaces accept a maximum level and MUST omit every row above it.
+Their default maximum is `internal`; the operator must explicitly select
+`confidential` or `restricted`. The shared policy applies to canonical export,
+the human HTTP view, and cited reports:
+
+| Surface | Selector | Default |
+|---|---|---|
+| `Store.exportText` | `maxSensitivity` | `internal` |
+| `cave export` | `--max-sensitivity <level>` | `internal` |
+| MCP `cave_export` | `maxSensitivity` | `internal` |
+| `cave serve` / `serve` and view models | `--max-sensitivity` / `maxSensitivity` | `internal` |
+| `cave report` / `report` | `--max-sensitivity` / `maxSensitivity` | `internal` |
+
+Filtering is structural, not a final text scrub. Counts, health summaries,
+aliases, history, full-text search, and lineage MUST be computed only from the
+visible rows; an edge is emitted or served only when both endpoints are
+visible. For current-only export, current belief is resolved over the complete
+history first and the selected row is then filtered. Therefore a hidden latest
+row never revives an older, less-sensitive belief. Full-history export evaluates
+each immutable row's own label.
+
+An exact canonical backup or `;@` identity replica requires
+`--max-sensitivity restricted`; sync itself remains an exact operator-to-operator
+merge and copies all rows and labels verbatim. `--current` and a lower
+sensitivity ceiling are useful views, not sanitizers or deletion (§9.6).
+Sensitivity labels are routing metadata, not encryption, authentication,
+authorization, or a retention boundary. Local SQL, CAVE-Q, general MCP reads,
+and operator workflows are not silently narrowed (`cave_export` is the scoped
+MCP exception); when their output will be published, use one of the scoped
+publication surfaces or apply an equivalent explicit policy at the enclosing
+boundary.
 
 ---
 
@@ -1343,7 +1393,9 @@ auth USES jwt @ 90% @src:cli
   BECAUSE security-review
 ```
 
-`cave export --tx` emits it; `cave sync` consumes it, replaying each
+`cave export --tx` emits annotations for its §9.7-selected rows;
+`--max-sensitivity restricted` makes that selection complete. `cave sync`
+consumes the text, replaying each
 annotated claim under its recorded id — present ids skip, absent ids
 insert, exactly §28.1 over text. Because comment lines are transparent
 to the grammar (§8), every existing consumer reads an annotated file
@@ -1382,7 +1434,8 @@ opening move for a working copy that doesn't need the past.
   and target labels in the §28.3 record; `--no-record` suppresses it;
   `--dry-run` computes the full report inside a rolled-back
   transaction.
-- `cave export --tx [--current]` — §28.4 annotated canonical text.
+- `cave export --tx [--current] [--max-sensitivity <level>]` — §28.4
+  annotated canonical text. Exact replicas require `restricted`.
 - Programmatic: `@cavelang/sync` — `syncDb(store, path, options)`,
   `syncText(store, text, options)`, both returning
   `{ merged, skipped, edges, record }`.
@@ -1404,7 +1457,7 @@ what git already does. Nothing here adds semantics or surface; it
 fixes the moves so tooling and habits agree.
 
 **The text is the store.** What enters version control is the full
-annotated export — `cave export --tx > knowledge.cave` — never the
+annotated export — `cave export --tx --max-sensitivity restricted > knowledge.cave` — never the
 SQLite file. The §28.4 round trip is complete (rows, contexts, tags,
 edges, in-band declarations, transaction identity), so the committed
 text *is* a replica: anyone rebuilds a working store from it with one
@@ -1420,7 +1473,7 @@ git switch -c reorg-auth
 cave sync --db work.db knowledge.cave --no-record
 ```
 
-(`cave export --tx --current` seeds a *lighter* working copy —
+(`cave export --tx --current --max-sensitivity restricted` seeds a *lighter* working copy —
 current beliefs only, history left behind — when the branch doesn't
 need the past; it merges back identically.) Work is then ordinary
 appends — `cave add`, `cave derive`, `cave act` — and the §28.2
@@ -1428,7 +1481,7 @@ receive rule guarantees everything appended on the branch outsorts
 everything seeded, whatever machine the seed came from.
 
 **Review is the diff of the export.** Re-export before committing —
-`cave export --db work.db --tx > knowledge.cave` — and the PR diff is
+`cave export --db work.db --tx --max-sensitivity restricted > knowledge.cave` — and the PR diff is
 the appended claims, annotations included: claim rows are immutable
 and export order is transaction order, so a later export never
 rewrites or reorders the lines an earlier one contained. One
@@ -1449,7 +1502,7 @@ are:
 t=$(mktemp -d)
 cave sync --db $t/m.db ours.cave --no-record
 cave sync --db $t/m.db theirs.cave --no-record
-cave export --db $t/m.db --tx --out knowledge.cave
+cave export --db $t/m.db --tx --max-sensitivity restricted --out knowledge.cave
 ```
 
 Git can run that as a merge driver (`.gitattributes`:
@@ -1458,7 +1511,7 @@ Git can run that as a merge driver (`.gitattributes`:
 ```ini
 [merge "cave"]
 	name = CAVE store union
-	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --out $1 && rm -rf $t' - %A %B
+	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --max-sensitivity restricted --out $1 && rm -rf $t' - %A %B
 ```
 
 The ancestor (`%O`) is deliberately unused: union by identity needs
@@ -1726,8 +1779,9 @@ reachable by clicking.
 
 ### 30.3 Surfaces and the read-only promise
 
-- `cave serve [--db <path>] [--port <n>] [--host <a>]` — serves until
-  interrupted; the default port is 2283 ("cave" on a phone keypad).
+- `cave serve [--db <path>] [--port <n>] [--host <a>]
+  [--max-sensitivity <level>]` — serves until interrupted; the default port is
+  2283 ("cave" on a phone keypad) and the §9.7 ceiling defaults to `internal`.
 - The JSON the page reads is plain GET endpoints (`/api/overview`,
   `/api/entity?name=`, `/api/topic?name=`, `/api/history?key=`,
   `/api/lineage?id=`, `/api/search?q=`, with `&aliases=1` where the
@@ -1740,11 +1794,11 @@ reachable by clicking.
   loop's appends show on the next refresh.
 - **Local by default**: binds `127.0.0.1` — the store is one person's
   knowledge on one machine; `--host` widens deliberately, and what it
-  shares is the whole store, read-only. There is no authentication
+  shares is the selected §9.7 view, read-only. There is no authentication
   layer and none is planned (multi-tenant access control is a
   permanent non-goal) — wider serving belongs behind the operator's
   own transport.
-- Programmatic: `@cavelang/view` — `serve(store, options)` plus the
+- Programmatic: `@cavelang/view` — `serve(store, { maxSensitivity, ... })` plus the
   view models (`overview`, `entity`, `topic`, `history`, `lineage`,
   `search`) as plain functions over a store, no server needed.
 - Deliberately **not** an MCP tool (§28.5's reasoning): agents read
@@ -1849,9 +1903,10 @@ their `[^?]` placeholders are dropped.
 ### 31.3 Surfaces
 
 - `cave report [--db <path>] [template.md …] [--out <file>]
-  [--aliases] [--resolve] [--as-of <t>] [--at <t>] [--no-prelude]` —
+  [--aliases] [--resolve] [--as-of <t>] [--at <t>]
+  [--max-sensitivity <level>] [--no-prelude]` —
   stdin when no file; rendered markdown to stdout or `--out`. The query
-  options are the §12.3/§13.6/§26.4/§32.4 opt-ins, applied to every
+  options are the §9.7/§12.3/§13.6/§26.4/§32.4 opt-ins, applied to every
   query in the template — resolution stays opt-in here exactly because
   it is opt-in everywhere (§26). Problems (unparseable queries, empty or ambiguous
   splices) are reported to stderr with template line numbers and exit 1;
