@@ -4,6 +4,8 @@ A small, line-oriented language for persisting knowledge as composable, atomic c
 
 For the package boundaries, runtime flows, storage model, and architectural
 invariants, see [ARCHITECTURE.md](ARCHITECTURE.md).
+The supported npm artifacts and migration from former implementation-package
+names are listed in [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md).
 
 The core idea:
 
@@ -29,6 +31,10 @@ Properties: **atomic** (one claim per line), **append-only** (belief evolves by 
 ```sh
 pnpm install       # puts the `cave` CLI on the workspace path
 ```
+
+Outside the workspace, install `@cavelang/cli`. Its documented feature
+subpaths (for example `@cavelang/cli/rules`) expose programmatic workflow APIs
+without requiring each internal module to publish independently.
 
 Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
 

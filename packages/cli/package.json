@@ -18,7 +18,18 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./main": "./src/main.ts"
+    "./main": "./src/main.ts",
+    "./act": "./src/act.ts",
+    "./automate": "./src/automate.ts",
+    "./connect": "./src/connect.ts",
+    "./eval": "./src/eval.ts",
+    "./ingest": "./src/ingest.ts",
+    "./loop": "./src/loop.ts",
+    "./mcp": "./src/mcp.ts",
+    "./rules": "./src/rules.ts",
+    "./shape": "./src/shape.ts",
+    "./sync": "./src/sync.ts",
+    "./view": "./src/view.ts"
   },
   "files": [
     "dist",
@@ -39,6 +50,50 @@
       "./main": {
         "types": "./dist/src/main.d.ts",
         "default": "./dist/src/main.js"
+      },
+      "./act": {
+        "types": "./dist/internal/act/index.d.ts",
+        "default": "./dist/internal/act/index.js"
+      },
+      "./automate": {
+        "types": "./dist/internal/automate/index.d.ts",
+        "default": "./dist/internal/automate/index.js"
+      },
+      "./connect": {
+        "types": "./dist/internal/connect/index.d.ts",
+        "default": "./dist/internal/connect/index.js"
+      },
+      "./eval": {
+        "types": "./dist/internal/eval/index.d.ts",
+        "default": "./dist/internal/eval/index.js"
+      },
+      "./ingest": {
+        "types": "./dist/internal/ingest/index.d.ts",
+        "default": "./dist/internal/ingest/index.js"
+      },
+      "./loop": {
+        "types": "./dist/internal/loop/index.d.ts",
+        "default": "./dist/internal/loop/index.js"
+      },
+      "./mcp": {
+        "types": "./dist/internal/mcp/index.d.ts",
+        "default": "./dist/internal/mcp/index.js"
+      },
+      "./rules": {
+        "types": "./dist/internal/rules/index.d.ts",
+        "default": "./dist/internal/rules/index.js"
+      },
+      "./shape": {
+        "types": "./dist/internal/shape/index.d.ts",
+        "default": "./dist/internal/shape/index.js"
+      },
+      "./sync": {
+        "types": "./dist/internal/sync/index.d.ts",
+        "default": "./dist/internal/sync/index.js"
+      },
+      "./view": {
+        "types": "./dist/internal/view/index.d.ts",
+        "default": "./dist/internal/view/index.js"
       }
     },
     "bin": {
@@ -46,27 +101,32 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/consolidate.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",
     "prepack": "pnpm run build"
   },
   "dependencies": {
+    "@cavelang/canonical": "workspace:*",
+    "@cavelang/core": "workspace:*",
+    "@cavelang/fusion": "workspace:*",
+    "@cavelang/highlight": "workspace:*",
+    "@cavelang/parser": "workspace:*",
+    "@cavelang/query": "workspace:*",
+    "@cavelang/store": "workspace:*",
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.12"
+  },
+  "devDependencies": {
     "@cavelang/act": "workspace:*",
     "@cavelang/automate": "workspace:*",
-    "@cavelang/canonical": "workspace:*",
     "@cavelang/connect": "workspace:*",
-    "@cavelang/core": "workspace:*",
     "@cavelang/eval": "workspace:*",
-    "@cavelang/highlight": "workspace:*",
     "@cavelang/ingest": "workspace:*",
     "@cavelang/loop": "workspace:*",
     "@cavelang/mcp": "workspace:*",
-    "@cavelang/parser": "workspace:*",
-    "@cavelang/query": "workspace:*",
     "@cavelang/rules": "workspace:*",
     "@cavelang/shape": "workspace:*",
-    "@cavelang/store": "workspace:*",
     "@cavelang/sync": "workspace:*",
     "@cavelang/view": "workspace:*"
   }

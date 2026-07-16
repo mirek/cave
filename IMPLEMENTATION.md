@@ -11,6 +11,13 @@ behavior.
 
 ## Packages
 
+These are source and test boundaries, not a one-to-one list of npm artifacts.
+Kernel libraries and independently consumed tooling publish directly;
+implementation-only workflow packages are private and ship through stable
+`@cavelang/cli/<feature>` subpaths. See
+[PACKAGE_SURFACES.md](PACKAGE_SURFACES.md) for the enforced classification,
+stability promises, and 0.28 import migration.
+
 Dependency order, bottom to top:
 
 | Package | Spec | Purpose |

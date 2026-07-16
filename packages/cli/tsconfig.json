@@ -28,6 +28,9 @@
       "path": "../eval"
     },
     {
+      "path": "../fusion"
+    },
+    {
       "path": "../highlight"
     },
     {

@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
 
   packages/act:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -71,7 +71,7 @@ importers:
         version: link:../store
 
   packages/automate:
-    dependencies:
+    devDependencies:
       '@cavelang/act':
         specifier: workspace:*
         version: link:../act
@@ -108,27 +108,46 @@ importers:
 
   packages/cli:
     dependencies:
+      '@cavelang/canonical':
+        specifier: workspace:*
+        version: link:../canonical
+      '@cavelang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cavelang/fusion':
+        specifier: workspace:*
+        version: link:../fusion
+      '@cavelang/highlight':
+        specifier: workspace:*
+        version: link:../highlight
+      '@cavelang/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@cavelang/query':
+        specifier: workspace:*
+        version: link:../query
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
+      '@mozilla/readability':
+        specifier: ^0.6.0
+        version: 0.6.0
+      linkedom:
+        specifier: ^0.18.12
+        version: 0.18.12
+    devDependencies:
       '@cavelang/act':
         specifier: workspace:*
         version: link:../act
       '@cavelang/automate':
         specifier: workspace:*
         version: link:../automate
-      '@cavelang/canonical':
-        specifier: workspace:*
-        version: link:../canonical
       '@cavelang/connect':
         specifier: workspace:*
         version: link:../connect
-      '@cavelang/core':
-        specifier: workspace:*
-        version: link:../core
       '@cavelang/eval':
         specifier: workspace:*
         version: link:../eval
-      '@cavelang/highlight':
-        specifier: workspace:*
-        version: link:../highlight
       '@cavelang/ingest':
         specifier: workspace:*
         version: link:../ingest
@@ -138,21 +157,12 @@ importers:
       '@cavelang/mcp':
         specifier: workspace:*
         version: link:../mcp
-      '@cavelang/parser':
-        specifier: workspace:*
-        version: link:../parser
-      '@cavelang/query':
-        specifier: workspace:*
-        version: link:../query
       '@cavelang/rules':
         specifier: workspace:*
         version: link:../rules
       '@cavelang/shape':
         specifier: workspace:*
         version: link:../shape
-      '@cavelang/store':
-        specifier: workspace:*
-        version: link:../store
       '@cavelang/sync':
         specifier: workspace:*
         version: link:../sync
@@ -161,7 +171,7 @@ importers:
         version: link:../view
 
   packages/connect:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -181,7 +191,7 @@ importers:
   packages/core: {}
 
   packages/eval:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -220,7 +230,7 @@ importers:
         version: 0.26.10
 
   packages/ingest:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -244,7 +254,7 @@ importers:
         version: 0.18.12
 
   packages/loop:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -256,7 +266,7 @@ importers:
         version: link:../store
 
   packages/mcp:
-    dependencies:
+    devDependencies:
       '@cavelang/act':
         specifier: workspace:*
         version: link:../act
@@ -310,7 +320,7 @@ importers:
         version: link:../store
 
   packages/rules:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -349,7 +359,7 @@ importers:
         version: link:../store
 
   packages/shape:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -381,7 +391,7 @@ importers:
         version: link:../core
 
   packages/sync:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
@@ -399,7 +409,7 @@ importers:
         version: 0.26.10
 
   packages/view:
-    dependencies:
+    devDependencies:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical

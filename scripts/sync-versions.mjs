@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Propagates the lockstep version to version sources that `changeset
-// version` does not manage: the private root package.json (not a
-// workspace member, so invisible to changesets tooling) and the
+// version` does not manage: the private root package.json and the
 // tree-sitter grammar metadata. Runs as part of `pnpm run
 // version-packages` so the version packages PR carries every version
 // source in one commit.

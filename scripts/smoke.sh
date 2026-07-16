@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke-tests the publishable artifacts. Packs every workspace package and
+# Smoke-tests the publishable artifacts. Packs every public workspace package and
 # installs the tarballs into a scratch project — the same physical layout
 # (real files under node_modules, no workspace symlinks, so no Node type
 # stripping) as a global `npm install -g @cavelang/cli` — then exercises the
@@ -12,15 +12,41 @@ trap 'rm -rf "$tmp"' EXIT
 
 echo "==> packing workspace packages"
 mkdir "$tmp/tarballs"
-# Only the npm-published packages — the VSCode extension (editors/*) is
-# private and ships as a .vsix, not a tarball.
-(cd "$root" && pnpm -r --filter '@cavelang/*' exec pnpm pack --pack-destination "$tmp/tarballs" >/dev/null)
+# Internal packages stay as workspace boundaries but are built into the CLI
+# tarball; packing them separately would hide a broken bundle in this test.
+for manifest in "$root"/packages/*/package.json; do
+  [ "$(node -p "require('$manifest').private === true")" = "true" ] && continue
+  (cd "$(dirname "$manifest")" && pnpm pack --pack-destination "$tmp/tarballs" >/dev/null)
+done
+tarball_count="$(find "$tmp/tarballs" -maxdepth 1 -name '*.tgz' | wc -l | tr -d ' ')"
+[ "$tarball_count" = 12 ] || { echo "error: expected 12 public tarballs, got $tarball_count" >&2; exit 1; }
+cli_tarball="$(find "$tmp/tarballs" -maxdepth 1 -name 'cavelang-cli-*.tgz')"
+tar -xOf "$cli_tarball" package/package.json | node -e "
+let input = ''
+process.stdin.setEncoding('utf8').on('data', chunk => { input += chunk }).on('end', () => {
+  const manifest = JSON.parse(input)
+  const retired = new Set(['act', 'automate', 'connect', 'eval', 'ingest', 'loop', 'mcp', 'rules', 'shape', 'sync', 'view'].map(name => '@cavelang/' + name))
+  const leaked = Object.keys(manifest.dependencies ?? {}).filter(name => retired.has(name))
+  if (leaked.length) throw new Error('CLI has retired runtime dependencies: ' + leaked.join(', '))
+})"
 
 echo "==> installing tarballs into a scratch project"
 mkdir "$tmp/app"
 cd "$tmp/app"
 npm init -y >/dev/null
 npm install --no-audit --no-fund --loglevel=error "$tmp/tarballs"/*.tgz >/dev/null
+
+echo "==> consolidated feature subpaths"
+node --input-type=module -e "
+const expected = {
+  act: 'act', automate: 'settle', connect: 'connect', eval: 'run', ingest: 'run',
+  loop: 'reconstruct', mcp: 'createServer', rules: 'derive', shape: 'check',
+  sync: 'syncDb', view: 'serve'
+}
+for (const [name, entry] of Object.entries(expected)) {
+  const api = await import('@cavelang/cli/' + name)
+  if (!(entry in api)) throw new Error('@cavelang/cli/' + name + ' does not export ' + entry)
+}"
 
 cave=./node_modules/.bin/cave
 echo "==> cave --help"

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "public": {
+    "@cavelang/core": {
+      "consumer": "Domain-model and value-semantics consumers that do not need parsing or storage.",
+      "stability": "All root exports follow semantic versioning."
+    },
+    "@cavelang/parser": {
+      "consumer": "Editors, validators, and importers that parse CAVE text without a database.",
+      "stability": "The document AST, diagnostics, and parsing entry points follow semantic versioning."
+    },
+    "@cavelang/canonical": {
+      "consumer": "Emitters and normalizers that need canonical claims and verb registries.",
+      "stability": "Canonicalization and registry root exports follow semantic versioning."
+    },
+    "@cavelang/store": {
+      "consumer": "Applications embedding the append-only SQLite knowledge store.",
+      "stability": "The Store API, schema compatibility rules, and backup API follow semantic versioning."
+    },
+    "@cavelang/query": {
+      "consumer": "Applications compiling and evaluating CAVE-Q independently of the CLI.",
+      "stability": "Query parsing, compilation, and result contracts follow semantic versioning."
+    },
+    "@cavelang/fusion": {
+      "consumer": "Pure-math consumers of CAVE confidence and estimate fusion.",
+      "stability": "Root mathematical functions and result types follow semantic versioning."
+    },
+    "@cavelang/solver": {
+      "consumer": "Solver-neutral model producers and adapter authors.",
+      "stability": "Portable model, capability, result, and explanation contracts follow semantic versioning."
+    },
+    "@cavelang/solver-z3": {
+      "consumer": "Node applications opting into the Z3 implementation of the solver contract.",
+      "stability": "The adapter and workflow entry points follow semantic versioning; Z3 remains optional."
+    },
+    "@cavelang/scenario": {
+      "consumer": "Applications evaluating replayable scenarios against typed external evaluators.",
+      "stability": "Scenario input, evidence, replay, and result-recording contracts follow semantic versioning."
+    }
+  },
+  "internal": {
+    "@cavelang/act": { "replacement": "@cavelang/cli/act" },
+    "@cavelang/automate": { "replacement": "@cavelang/cli/automate" },
+    "@cavelang/connect": { "replacement": "@cavelang/cli/connect" },
+    "@cavelang/loop": { "replacement": "@cavelang/cli/loop" },
+    "@cavelang/mcp": { "replacement": "@cavelang/cli/mcp" },
+    "@cavelang/rules": { "replacement": "@cavelang/cli/rules" },
+    "@cavelang/shape": { "replacement": "@cavelang/cli/shape" },
+    "@cavelang/sync": { "replacement": "@cavelang/cli/sync" },
+    "@cavelang/view": { "replacement": "@cavelang/cli/view" }
+  },
+  "tooling": {
+    "@cavelang/cli": {
+      "published": true,
+      "consumer": "Operators installing the cave executable and programmatic command surface.",
+      "stability": "The cave command contract, root API, and documented feature subpaths follow semantic versioning."
+    },
+    "@cavelang/tree-sitter-cave": {
+      "published": true,
+      "consumer": "Editors and highlighters loading the CAVE grammar WASM and highlight query.",
+      "stability": "The documented wasm, highlights, and package metadata subpaths follow semantic versioning."
+    },
+    "@cavelang/highlight": {
+      "published": true,
+      "consumer": "Terminal and browser integrations rendering syntax highlighting.",
+      "stability": "The root and browser highlighting entry points follow semantic versioning."
+    },
+    "@cavelang/ingest": {
+      "published": false,
+      "replacement": "@cavelang/cli/ingest"
+    },
+    "@cavelang/eval": {
+      "published": false,
+      "replacement": "@cavelang/cli/eval"
+    }
+  }
+}

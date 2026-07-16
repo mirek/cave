@@ -54,6 +54,8 @@ Security boundaries are intentionally visible. MCP tool scoping separates reads,
 
 Performance is designed for local SQLite scale. Indexes support direct entity, verb, object, attribute, confidence, context, tag, and full-text access. Transitive graph queries and large alias closures can become the limiting factor before ordinary claim reads. Measure on representative stores before adding distributed infrastructure.
 
+Package boundaries stay fine-grained inside the source workspace, but only independently consumed kernel libraries and tooling publish separately. Command implementation modules such as rules, actions, automation, ingestion, MCP, and views ship as documented `@cavelang/cli/<feature>` subpaths. This keeps focused tests and ownership without multiplying npm version and compatibility surfaces; consumers of the former package names migrate by changing the import specifier only.
+
 
 = Draft and Deliberately Unfinished Areas
 The specification marks sections as normative, legacy, draft, or non-normative. Implemented rule syntax and temporal trajectories have graduated from the draft unified grammar. General reification, variables in ordinary stored claim lines, and arbitrary temporal functions remain draft.

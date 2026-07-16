@@ -1,7 +1,7 @@
 # @cavelang/cli
 
 The `cave` command — the whole stack behind one binary. Runs directly from
-TypeScript sources via Node's type stripping; no build step.
+TypeScript sources in the workspace; npm releases contain emitted JavaScript.
 
 ```
 $ echo 'auth USES jwt @ 90%' | pnpm exec cave parse
@@ -18,6 +18,23 @@ $ pnpm exec cave query --db knowledge.db '?cause CAUSE app/crash' 'WHERE conf >=
 $ pnpm exec cave export --db knowledge.db --current --max-sensitivity internal
 $ pnpm exec cave demo
 ```
+
+## Programmatic feature subpaths
+
+The root export provides command functions. Workflow implementation APIs ship
+in the same npm artifact through `@cavelang/cli/act`, `/automate`, `/connect`,
+`/eval`, `/ingest`, `/loop`, `/mcp`, `/rules`, `/shape`, `/sync`, and `/view`.
+For example:
+
+```ts
+import { declareRules, derive } from '@cavelang/cli/rules'
+import { createServer } from '@cavelang/cli/mcp'
+```
+
+These subpaths have the CLI package's semantic-versioning promise. The source
+modules remain separate private workspace packages for focused ownership and
+tests. See [the package migration table](../../PACKAGE_SURFACES.md) when
+updating an import from a former standalone package name.
 
 ## Commands
 
