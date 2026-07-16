@@ -416,6 +416,16 @@ CREATE TABLE cave_context (
 );
 CREATE INDEX idx_cave_context ON cave_context (context);
 
+CREATE TABLE cave_provenance (
+  claim_id  TEXT NOT NULL,
+  dimension TEXT NOT NULL,             -- actor, source, run, domain
+  value     TEXT NOT NULL,
+  PRIMARY KEY (claim_id, dimension, value),
+  FOREIGN KEY (claim_id) REFERENCES cave_claim(id)
+);
+CREATE INDEX idx_cave_provenance_lookup
+  ON cave_provenance (dimension, value, claim_id);
+
 -- single nullable value column; flat tag == value IS NULL
 CREATE TABLE cave_tag (
   claim_id TEXT NOT NULL,
@@ -440,6 +450,34 @@ CREATE VIRTUAL TABLE cave_fts USING fts5(
   claim_id, subject, verb, object, attribute, value_text, comment, raw_line
 );
 ```
+
+#### 13.2.1 Schema versions and forward migrations
+
+Every store records an integer schema version in `PRAGMA user_version`.
+Version `0` means an unversioned store written before this rule; the current
+schema is version `1`. Opening a store MUST read the version before preparing
+claim queries or performing any schema write.
+
+- A version newer than the runtime supports fails immediately and names both
+  versions. It is never opened by guessing at compatibility; database sync
+  rejects such a source for the same reason.
+- Older supported versions apply every migration in ascending order. Each
+  migration, its data backfill, structural validation, and the corresponding
+  `user_version` update share one `BEGIN IMMEDIATE` transaction. An
+  interruption therefore leaves either the old version or the complete next
+  version; reopening resumes from the committed version.
+- A current-version store is validated for required tables, indexes, and
+  columns. It is not silently repaired by re-running idempotent DDL.
+- Migrations are forward-only. Never decrement `user_version`. Before an
+  upgrade that needs an operator rollback point, stop every process using the
+  store, close it, and copy the closed SQLite file. Rollback means replacing
+  the upgraded store with that untouched backup under the same stopped-writer
+  discipline, then using a compatible CAVE runtime.
+
+Version 1 establishes the §13 tables and indexes and backfills the explicit
+§9.5.1 provenance projection. Canonical text interchange remains independent
+of SQLite schema versions; exact database sync accepts supported old versions
+and preserves their rows while rejecting newer sources.
 
 ### 13.3 Inverses are views, never rows
 

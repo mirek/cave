@@ -54,6 +54,12 @@ packages the same grammar WASM and highlight query as a VSCode extension
 - **SQLite is `node:sqlite`** — no native modules. (The original request
   said "builtin mssql"; Node has no builtin MSSQL driver and the spec's
   storage model is SQLite/FTS5, so `node:sqlite` is the interpretation.)
+- **SQLite schema changes are ordered migrations** (§13.2.1): version 0 is
+  the legacy unversioned baseline and version 1 is current. Each forward step
+  performs DDL, data backfill, structural validation, and `user_version`
+  advancement in one immediate transaction. Open and database sync reject
+  newer formats; rollback is restoration of a closed pre-upgrade copy, never
+  a down migration.
 - **Runtime dependencies stay at feature boundaries.** The parser uses
   `@prelude/parser`; highlighting uses `web-tree-sitter`; web ingestion uses
   `@mozilla/readability` and `linkedom`; and the opt-in `solver-z3` adapter

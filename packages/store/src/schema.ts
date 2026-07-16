@@ -1,9 +1,9 @@
-/**
- * Storage schema (spec §13.1, §13.2) — verbatim from the specification,
- * with `IF NOT EXISTS` added so opening an existing database is idempotent.
- */
+/** Ordered, transactional storage schema migrations (spec §13). */
 
 import type { DatabaseSync } from 'node:sqlite'
+import * as Provenance from './provenance.ts'
+
+export const currentVersion = 1
 
 export const ddl = `
 CREATE TABLE IF NOT EXISTS cave_claim (
@@ -84,7 +84,108 @@ CREATE VIRTUAL TABLE IF NOT EXISTS cave_fts USING fts5(
 );
 `
 
-/** Creates all tables and indexes. */
+type Migration = {
+  readonly version: number
+  readonly up: (db: DatabaseSync) => void
+}
+
+const migrations: readonly Migration[] = [
+  {
+    version: 1,
+    up: db => {
+      db.exec(ddl)
+      Provenance.backfill(db)
+    }
+  }
+]
+
+const versionOf = (db: DatabaseSync): number =>
+  (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
+
+const requiredTables = [
+  'cave_claim', 'cave_context', 'cave_provenance', 'cave_tag', 'cave_edge', 'cave_fts'
+] as const
+
+const requiredIndexes = [
+  'idx_cave_claim_key_tx', 'idx_cave_subject', 'idx_cave_verb', 'idx_cave_object',
+  'idx_cave_attribute', 'idx_cave_conf', 'idx_cave_context', 'idx_cave_context_claim',
+  'idx_cave_provenance_lookup', 'idx_cave_tag_key', 'idx_cave_tag_claim',
+  'idx_cave_edge_parent', 'idx_cave_edge_child', 'idx_cave_edge_role'
+] as const
+
+const requiredColumns: Readonly<Record<string, readonly string[]>> = {
+  cave_claim: [
+    'id', 'tx', 'subject', 'verb', 'negated', 'object', 'attribute', 'value_text',
+    'value_num', 'value_unit', 'value_approx', 'delta_text', 'delta_num', 'delta_unit',
+    'sigma_level', 'conf', 'importance', 'comment', 'raw_line', 'claim_key'
+  ],
+  cave_context: ['claim_id', 'context'],
+  cave_provenance: ['claim_id', 'dimension', 'value'],
+  cave_tag: ['claim_id', 'key', 'value'],
+  cave_edge: ['parent_id', 'role', 'child_id'],
+  cave_fts: ['claim_id', 'subject', 'verb', 'object', 'attribute', 'value_text', 'comment', 'raw_line']
+}
+
+export const validate = (db: DatabaseSync, version: number, schema = 'main'): void => {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)) {
+    throw new Error(`CAVE: invalid SQLite schema name ${JSON.stringify(schema)}`)
+  }
+  const objects = new Map(
+    (db.prepare(`SELECT name, type FROM ${schema}.sqlite_schema WHERE name LIKE 'cave_%' OR name LIKE 'idx_cave_%'`)
+      .all() as { name: string, type: string }[]).map(row => [row.name, row.type])
+  )
+  const problems = [
+    ...requiredTables.flatMap(name => objects.has(name) ? [] : [`missing table ${name}`]),
+    ...requiredIndexes.flatMap(name => objects.get(name) === 'index' ? [] : [`missing index ${name}`]),
+    ...Object.entries(requiredColumns).flatMap(([table, required]) => {
+      if (!objects.has(table)) {
+        return []
+      }
+      const columns = new Set(
+        (db.prepare(`PRAGMA ${schema}.table_info(${table})`).all() as { name: string }[]).map(row => row.name)
+      )
+      return required.flatMap(column => columns.has(column) ? [] : [`missing column ${table}.${column}`])
+    })
+  ]
+  if (problems.length > 0) {
+    throw new Error(`CAVE: schema version ${version} is incompatible: ${problems.join(', ')}`)
+  }
+}
+
+/**
+ * Upgrade every supported older version in order. Each step owns one SQLite
+ * transaction, including its `user_version` update, so interruption leaves
+ * either the old version or the complete next version and reopen can resume.
+ */
 export const init = (db: DatabaseSync): void => {
-  db.exec(ddl)
+  let version = versionOf(db)
+  if (version > currentVersion) {
+    throw new Error(
+      `CAVE: schema version ${version} is newer than this runtime supports (${currentVersion}); upgrade CAVE`)
+  }
+  for (const migration of migrations) {
+    if (migration.version <= version) {
+      continue
+    }
+    if (migration.version !== version + 1) {
+      throw new Error(`CAVE: no schema migration path from version ${version} to ${migration.version}`)
+    }
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      migration.up(db)
+      db.exec(`PRAGMA user_version = ${migration.version}`)
+      validate(db, migration.version)
+      db.exec('COMMIT')
+      version = migration.version
+    } catch (error) {
+      try {
+        db.exec('ROLLBACK')
+      } catch {
+        // SQLite may already have rolled back a failed statement.
+      }
+      const detail = error instanceof Error ? error.message : String(error)
+      throw new Error(`CAVE: schema migration ${version} -> ${migration.version} failed: ${detail}`)
+    }
+  }
+  validate(db, version)
 }

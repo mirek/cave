@@ -25,7 +25,7 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
 import { Uuidv7 } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
-import { Provenance, type Store } from '@cavelang/store'
+import { Provenance, Schema, type Store } from '@cavelang/store'
 
 export type SyncOptions = {
   /** Origin label of the §28.3 merge record (default `origin`; `syncFile` defaults to the source's basename stem). */
@@ -168,6 +168,18 @@ export const syncDb = (store: Store, sourcePath: string, options: SyncOptions = 
     }
     if (!isStore) {
       throw new Error(`${sourcePath}: not a CAVE store (no cave_claim table)`)
+    }
+    const sourceVersion = (db.prepare('PRAGMA cave_sync_src.user_version').get() as { user_version: number }).user_version
+    if (sourceVersion > Schema.currentVersion) {
+      throw new Error(`${sourcePath}: schema version ${sourceVersion} is newer than this runtime supports ` +
+        `(${Schema.currentVersion}); upgrade CAVE`)
+    }
+    if (sourceVersion === Schema.currentVersion) {
+      try {
+        Schema.validate(db, sourceVersion, 'cave_sync_src')
+      } catch (error) {
+        throw new Error(`${sourcePath}: ${error instanceof Error ? error.message : String(error)}`)
+      }
     }
     const body = (): SyncReport => {
       db.exec('DROP TABLE IF EXISTS temp.cave_sync_new')

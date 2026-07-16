@@ -10,6 +10,7 @@ cave_claim(id, tx, subject, verb, negated,
            sigma_level, conf, importance, comment, raw_line, claim_key)
 
 cave_context(claim_id, context)
+cave_provenance(claim_id, dimension, value)
 cave_tag(claim_id, key, value)
 cave_edge(parent_id, role, child_id)
 cave_fts(claim_id, subject, verb, object, attribute, value_text, comment, raw_line)
@@ -20,6 +21,13 @@ The canonicalization pipeline normalizes verb casing, resolves inverse verbs, ex
 The core current-belief query joins each claim key to its maximum transaction. As-of queries apply the same grouping after restricting rows to a transaction boundary. Inverse reads use subject and object indexes without adding rows.
 
 #note([Portability], [Canonical CAVE text is the backup and interchange form. SQLite is the efficient working representation, not a proprietary source of truth.])
+
+= Versioned Schema Migrations
+Every SQLite store records `PRAGMA user_version`. Version 0 identifies the legacy unversioned format; version 1 is the current baseline. Opening an older supported store applies each forward migration in order. DDL, provenance backfill, structural validation, and the version advance share one immediate transaction, so interruption leaves either the old version or the complete new one and a later open can resume.
+
+A newer store fails before any write and names the unsupported version; exact database sync applies the same compatibility gate. A current store validates its required tables, indexes, and columns instead of silently replaying creation statements.
+
+#note([Rollback point], [Migrations are forward-only. Before an upgrade that needs a rollback point, stop every user of the store, close it, and copy the SQLite file. Restore means replacing the upgraded file with that untouched backup while writers remain stopped, then using a compatible CAVE runtime.])
 
 = Permanent History and Sensitive Data
 Retraction changes current belief by appending a zero-confidence row. It does not erase the earlier row, authored text, metadata, search index, full export, sync peer, or backup. A current-only export is a compact view, not a sanitizer: the surviving rows may themselves carry sensitive subjects, values, contexts, or comments.

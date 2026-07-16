@@ -94,6 +94,7 @@ test('opening a legacy store backfills safely inferable provenance dimensions', 
     initial.close()
     const legacy = new DatabaseSync(path)
     legacy.exec('DROP TABLE cave_provenance')
+    legacy.exec('PRAGMA user_version = 0')
     legacy.close()
 
     const upgraded = open(path)

@@ -169,6 +169,7 @@ SQLite is normalized around `cave_claim`:
 ```mermaid
 erDiagram
     CAVE_CLAIM ||--o{ CAVE_CONTEXT : carries
+    CAVE_CLAIM ||--o{ CAVE_PROVENANCE : projects
     CAVE_CLAIM ||--o{ CAVE_TAG : carries
     CAVE_CLAIM ||--o{ CAVE_EDGE : parent
     CAVE_CLAIM ||--o{ CAVE_EDGE : child
@@ -190,6 +191,14 @@ Contexts and tags stay in side tables because each claim may carry several.
 Edges refer to immutable row IDs so derivation and qualifier lineage names the
 exact evidence, not merely its current replacement. FTS indexes the searchable
 claim text.
+
+`PRAGMA user_version` is the schema compatibility boundary (§13.2.1).
+Unversioned stores start at version 0; ordered forward migrations run one
+transaction per version, including backfills, validation, and the version
+advance. Newer stores fail before writes, current stores validate rather than
+silently replaying DDL, and interrupted migrations resume from the last
+committed version. Operational rollback restores a closed-file pre-upgrade
+backup; there are no down migrations.
 
 ## Read path
 
@@ -373,14 +382,17 @@ Changes should preserve these properties:
 7. **Keep provenance dimensions separate.** Preserve compact contexts for
    identity and interchange, but use explicit actor/source/run/domain rows for
    policy and lifecycle ownership.
-8. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+8. **Version every physical schema change.** Add one ordered transactional
+   migration, advance `user_version` in that transaction, and reject unknown
+   future versions.
+9. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-9. **Use the store transaction boundary for compound writes.** Validation and
+10. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-10. **Keep external effects after commit and out of the store.** Persist names,
+11. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-11. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+12. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 
