@@ -189,16 +189,23 @@ export const defaultDbPath = (): string =>
  */
 export const open = (path: string = ':memory:', options: { registry?: Canonical.Registry.t } = {}) => {
   const db = new DatabaseSync(path)
+  // Concurrent writers wait for the database allocation lock instead of
+  // failing immediately with SQLITE_BUSY.
+  db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
   Schema.init(db)
 
   // The receive rule (spec §28.2): the store, not the wall clock, is the
   // monotonic authority — every append outsorts every tx already stored,
   // merged history from fast-clocked origins included.
-  const maxTx = db.prepare('SELECT MAX(tx) AS tx FROM cave_claim').get() as undefined | { tx: null | string }
-  if (maxTx?.tx != null) {
-    Uuidv7.observe(maxTx.tx)
+  const selectMaxTx = db.prepare('SELECT MAX(tx) AS tx FROM cave_claim')
+  const observeMaxTx = (): void => {
+    const maxTx = selectMaxTx.get() as undefined | { tx: null | string }
+    if (maxTx?.tx != null) {
+      Uuidv7.observe(maxTx.tx)
+    }
   }
+  observeMaxTx()
 
   const baseRegistry = options.registry ?? Canonical.standardRegistry
   let registry = baseRegistry
@@ -248,25 +255,34 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
   rebuildRegistry()
 
   /**
-   * Savepoint-based, so transactions nest: a caller can wrap several
-   * appends — or an append plus checks against the appended state — and
-   * roll the whole group back by throwing (spec §20.3 write gating).
-   * Rollback also restores the in-memory verb registry, so declarations
-   * from rolled-back claims don't outlive their rows.
+   * The outer transaction takes SQLite's write-reservation lock before any
+   * transaction id is allocated, serializing concurrent processes. Nested
+   * transactions use savepoints, so a caller can still wrap several appends
+   * and checks and roll the group back by throwing (spec §20.3 write gating).
+   * Rollback also restores the in-memory verb registry.
    */
   let transactionDepth = 0
   const transaction = <T>(body: () => T): T => {
+    const outer = transactionDepth === 0
     const savepoint = `cave_tx_${transactionDepth}`
     transactionDepth += 1
     const savedRegistry = registry
-    db.exec(`SAVEPOINT ${savepoint}`)
+    let started = false
     try {
+      db.exec(outer ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${savepoint}`)
+      started = true
       const result = body()
-      db.exec(`RELEASE ${savepoint}`)
+      db.exec(outer ? 'COMMIT' : `RELEASE ${savepoint}`)
       return result
     } catch (error) {
-      db.exec(`ROLLBACK TO ${savepoint}`)
-      db.exec(`RELEASE ${savepoint}`)
+      if (started) {
+        if (outer) {
+          db.exec('ROLLBACK')
+        } else {
+          db.exec(`ROLLBACK TO ${savepoint}`)
+          db.exec(`RELEASE ${savepoint}`)
+        }
+      }
       registry = savedRegistry
       throw error
     } finally {
@@ -283,6 +299,12 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
       const ids: string[] = []
       const replay = options_.ids !== undefined
       let skipped = 0
+      // BEGIN IMMEDIATE makes this read and all following inserts one
+      // database-serialized allocation step. A process that opened before a
+      // fast-clock peer wrote now observes that peer before minting (§28.2).
+      if (result.claims.some((_, index) => options_.ids?.[index] === undefined)) {
+        observeMaxTx()
+      }
       result.claims.forEach((entry, index) => {
         const explicit = options_.ids?.[index]
         if (explicit !== undefined) {

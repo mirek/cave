@@ -201,9 +201,11 @@ Package READMEs document local decisions; these are the global ones:
   idempotent, chains are transitive, and the same fact recorded on two
   machines lands as two rows in one belief series (asserted twice, §9.4).
   The generator applies the Lamport receive rule (`Uuidv7.observe`): a
-  store's `MAX(tx)` is observed at open and after merge, so every append
-  outsorts everything already stored — local knowledge always wins
-  locally, whatever the origin clocks read. Merge events append in-band
+  store's `MAX(tx)` is observed at open and after merge. Before minting,
+  each outer write reserves SQLite's write lock and observes `MAX(tx)`
+  again, so concurrent processes allocate in commit order despite clock
+  skew. Every append therefore outsorts everything already stored — local
+  knowledge always wins locally, whatever the origin clocks read. Merge events append in-band
   `store/<from> SYNCED-INTO store/<into> @src:sync` records (only when
   effective); text interchange carries identity through `;@ <tx>` comment
   lines (`cave export --tx`), transparent to the grammar, strict on
