@@ -55,6 +55,10 @@ query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only 
   over current, positive, non-retracted edges. Reachable endpoint pairs are
   deduplicated as the recursion runs, so cycles terminate at a finite fixed
   point and paths are not silently truncated at a hop limit.
+  A concrete subject seeds forward recursion; when only the object is
+  concrete, recursion runs backwards from it. Fully unbound patterns retain
+  the complete all-pairs closure. Supporting edge ids propagate through the
+  same seeded direction when `{ support: true }` is requested.
   Transitive works through inverses too (`packages/api PART-OF+ ?c` walks
   `CONTAINS` upward from the object side).
 
@@ -134,6 +138,7 @@ covers one second.
 
 ```
 pnpm --filter @cavelang/query test
+pnpm --filter @cavelang/query bench:transitive
 ```
 
 Every §12.1 example pattern and every §12.2 filter runs against a live
@@ -148,3 +153,8 @@ human corrections, polarity suppression, reliability steering,
 resolved transitive paths, composition with aliases and as-of).
 Valid-time coverage, bitemporal composition, and trajectory interpolation are
 covered by the temporal query tests.
+
+The deterministic transitive benchmark emits NDJSON timings and result counts
+for a chain, a branching tree, and a cycle, comparing a source-seeded query
+with the corresponding unbound all-pairs workload. Plan tests additionally
+assert forward/reverse seed shape and SQLite object-index use.
