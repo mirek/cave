@@ -86,7 +86,6 @@ Do not make solver-backed decisions authoritative until the storage and query
 snapshot is trustworthy. In particular, complete or explicitly account for:
 
 - [storage schema migrations](storage-schema-migrations.md);
-- [database-backed transaction ordering](database-backed-transaction-order.md);
 - [exact backup and restore](exact-backup-restore.md);
 - [transitive depth truncation](transitive-depth-truncation.md);
 - [shared query primitives](shared-query-primitives.md);

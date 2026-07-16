@@ -15,7 +15,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Temporal functions](todo/temporal-functions.md) — Design the gated temporal function layer.
 - [Separate provenance dimensions](todo/provenance-dimensions.md) — Stop overloading context with actor, source, run, and domain identity.
 - [Storage schema migrations](todo/storage-schema-migrations.md) — Version and migrate SQLite schemas explicitly.
-- [Database-backed transaction ordering](todo/database-backed-transaction-order.md) — Allocate transaction order safely across concurrent processes.
 - [Exact backup and restore](todo/exact-backup-restore.md) — Preserve transaction history and temporal semantics through backup and restore.
 - [Consolidate the package surface](todo/package-surface-consolidation.md) — Reduce the number of independently published public artifacts.
 - [Unify CLI dispatch](todo/unified-cli-dispatch.md) — Give synchronous and asynchronous commands one execution and error path.

@@ -22,7 +22,10 @@ store.exportText({ current: true })          // canonical CAVE text back out
 
 - **Append-only** (§9.1): `ingest` only inserts; every row carries a
   monotonic UUIDv7 in `id` and `tx`, so `MAX(tx)` per `claim_key` is the
-  current belief. Each ingest call is one SQLite transaction.
+  current belief. Each ingest call is one SQLite transaction. Outer writes
+  reserve SQLite's write lock and re-observe `MAX(tx)` before minting, so
+  concurrent processes allocate in commit order; lock contention waits for
+  up to five seconds before surfacing `SQLITE_BUSY`.
 - **One row per fact** (§13.3): inverse writes are canonicalized before
   keying (`@cavelang/canonical`), inverse *reads* are query-time views —
   `forward()` uses the subject index, `reverse()` the object index with the
@@ -100,7 +103,8 @@ store.exportText({ current: true })          // canonical CAVE text back out
   normalized §13.4 forms. Same for `delta_*`.
 - **`id` doubles as `tx`** by default: a UUIDv7 is both unique and
   time-ordered, and per-row tx ids keep same-document belief updates
-  ordered by line.
+  ordered by line. Allocation is database-serialized across processes;
+  nested store transactions remain savepoints.
 - **`search()` phrase-quotes by default** — FTS5 would parse
   `token-expiry` as a column filter; `{ raw: true }` opts into full MATCH
   syntax.

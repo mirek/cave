@@ -110,9 +110,12 @@ actor context such as `@src:cli`, `@src:agent/<client>`, or
 `@src:action/<name>` before keying. Replay paths deliberately avoid stamping
 so exported identities remain stable.
 
-Nested savepoints make compound writes atomic. Shape-gated ingest, action
-effects, connector record updates, sync, and dry runs all use the same
-transaction mechanism. Rolling back also restores the in-memory verb registry.
+An outer write takes SQLite's immediate reservation lock before allocating
+transaction IDs; concurrent processes wait, then observe the committed
+`MAX(tx)` before minting. Nested savepoints keep compound writes atomic.
+Shape-gated ingest, action effects, connector record updates, sync, and dry
+runs all use the same transaction mechanism. Rolling back also restores the
+in-memory verb registry.
 
 ### Physical schema
 
