@@ -4,7 +4,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Product and architecture
 
-- [Source-span provenance](todo/source-span-provenance.md) — Point source provenance at the sentence or line range that produced a claim.
 - [Typed client generation](todo/typed-client-generation.md) — Generate typed query helpers from in-band schema claims.
 - [Push/listener ingestion](todo/push-listener-ingestion.md) — Add demand-driven continuous ingestion for push sources.
 - [Core grammar variables](todo/core-grammar-variables.md) — Decide whether query variables belong in the core grammar.

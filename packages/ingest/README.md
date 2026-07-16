@@ -124,13 +124,16 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
 - **Provenance as claims** rather than a sidecar state file — the store
   remains the single source of truth, and digest history is queryable
   (`?f HAS ingest-digest: ?d`).
-- **Extraction output carries actor provenance** (spec §9.5). The
-  extraction rules ask the model for per-file `@src:path` anchors; claims
+- **Extraction output carries source spans** (spec §9.5, §9.8). Embedded
+  content is line-numbered in the prompt, and the extraction rules ask the
+  model for the smallest supporting `@src:path#Lx-Ly` anchor using a printed,
+  percent-escaped source identity. Claims
   arriving without one are stamped anyway — in MCP mode by the `cave mcp`
   server (`@src:agent/<client-name>`), in stdout mode by the orchestrator
   (`@src:ingest`, the stable ingestion-surface identity, so a fact
-  re-extracted after a source revision supersedes its previous belief
-  instead of forking a new claim key).
+  without authored provenance keep one stable ingestion series across source
+  revisions). A line span remains a pointer into the digested source version;
+  retain or version that source when immutable evidence is required.
 - **Failed batches record nothing**, so a re-run retries exactly the
   files that didn't make it. In `--stdout` mode the same holds for a
   batch whose output ingested with parse/canonicalization problems: its

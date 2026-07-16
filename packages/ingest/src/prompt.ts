@@ -13,6 +13,7 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { SourceSpan } from '@cavelang/core'
 import { specCard as caveCard } from '@cavelang/mcp'
 
 export type Mode = 'mcp' | 'stdout'
@@ -30,7 +31,10 @@ export const extractionRules = `Extraction rules (CAVE spec §14):
    rereading the source? "app HAS problems" is useless; "auth/middleware
    HAS bug: token-expiry #security" is right.
 9. Reuse established entity names exactly; same entity → same name everywhere.
-10. File paths make good context anchors: @src:path/to/file.`
+10. Cite the smallest supporting source line or inclusive range on every
+    extracted claim: @src:path/to/file#L10 or @src:path/to/file#L10-L20.
+    Use the source context printed above each file exactly; line numbers shown
+    before embedded content are provenance guides, not part of the content.`
 
 const protocolOf: Record<Mode, string> = {
   mcp: `Protocol: you have the cave_* tools connected to the target database.
@@ -54,11 +58,16 @@ export type PromptInput = {
 
 /** @returns the full prompt for one batch. */
 export const buildPrompt = (input: PromptInput): string => {
-  const files = input.files.map(file =>
-    file.content === undefined ?
-      `- ${file.path}` :
-      `### ${file.path}\n\`\`\`\n${file.content}\n\`\`\``
-  ).join('\n')
+  const files = input.files.map(file => {
+    const source = `@${SourceSpan.context(file.path)}`
+    if (file.content === undefined) {
+      return `- ${file.path} — source context ${source}; inspect the file and cite exact lines`
+    }
+    const lines = file.content.split(/\r?\n/)
+    const width = String(lines.length).length
+    const numbered = lines.map((line, at) => `${String(at + 1).padStart(width)} | ${line}`).join('\n')
+    return `### ${file.path}\nSource context: ${source}\n\`\`\`text\n${numbered}\n\`\`\``
+  }).join('\n')
   return [
     'You are ingesting source material into a CAVE knowledge database.',
     'Read the files below and record the important, durable knowledge they contain as CAVE claims.',

@@ -27,6 +27,17 @@ test('parseCsv: BOM stripped, missing cells default to empty, custom delimiter',
   assert.deepEqual(records, [{ a: '1', b: '2' }, { a: '3', b: '' }])
 })
 
+test('loaded CSV records retain inclusive physical line spans', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
+  const path = join(dir, 'people.csv')
+  writeFileSync(path, 'id,notes\n1,one\n2,"two\nlines"\n')
+  const loaded = await Source.load(path)
+  assert.deepEqual(loaded.spans, [
+    { startLine: 2, endLine: 2 },
+    { startLine: 3, endLine: 4 }
+  ])
+})
+
 test('json sources need an array of records; --records picks it by dot path', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
   const path = join(dir, 'data.json')
@@ -40,9 +51,10 @@ test('jsonl sources parse one object per non-blank line', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
   const path = join(dir, 'events.jsonl')
   writeFileSync(path, '{"id":1}\n\n{"id":2}\n')
-  const { records, format } = await Source.load(path)
+  const { records, format, spans } = await Source.load(path)
   assert.equal(format, 'jsonl')
   assert.deepEqual(records, [{ id: 1 }, { id: 2 }])
+  assert.deepEqual(spans, [{ startLine: 1, endLine: 1 }, { startLine: 3, endLine: 3 }])
 })
 
 test('sqlite sources read a table or a query, read-only (spec §23)', async () => {

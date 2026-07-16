@@ -24,7 +24,7 @@
  * blocks included.
  */
 
-import { Uuidv7 } from '@cavelang/core'
+import { SourceSpan, Uuidv7 } from '@cavelang/core'
 import { emitClaim } from '@cavelang/canonical'
 import { Pattern, query } from '@cavelang/query'
 import type { Match } from '@cavelang/query'
@@ -83,6 +83,11 @@ const toCodeSpan = (text: string): string => {
   const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : ''
   return `${delimiter}${pad}${text}${pad}${delimiter}`
 }
+
+const sourceLink = (reference: SourceSpan.Reference): string =>
+  reference.href === undefined ?
+    toCodeSpan(reference.location) :
+    `[${reference.location.replaceAll('[', '\\[').replaceAll(']', '\\]')}](<${reference.href.replaceAll('>', '%3E')}>)`
 
 /**
  * Substitutes `?var` occurrences with bindings, longest names first so
@@ -342,7 +347,9 @@ const renderReport = (store: Store, template: string, options: ReportOptions): R
     // must show provenance the authored abbreviation would hide.
     const canonical = emitClaim(Row.toClaim(row, contexts, tags))
     const date = new Date(Uuidv7.msOf(row.tx)).toISOString().slice(0, 10)
-    definitions.push(`[^c${number}]: ${toCodeSpan(canonical)} — ${date}, claim key ${toCodeSpan(row.claim_key)}`)
+    const spans = SourceSpan.ofContexts(contexts).filter(reference => reference.span !== undefined)
+    const provenance = spans.length === 0 ? '' : `, source ${spans.map(sourceLink).join(', ')}`
+    definitions.push(`[^c${number}]: ${toCodeSpan(canonical)} — ${date}, claim key ${toCodeSpan(row.claim_key)}${provenance}`)
     return `[^c${number}]`
   }
 

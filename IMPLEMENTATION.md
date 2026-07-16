@@ -15,13 +15,13 @@ Dependency order, bottom to top:
 
 | Package | Spec | Purpose |
 |---|---|---|
-| [`@cavelang/core`](packages/core) | §2, §6, §7, §9, §32 | Domain model: claims, values/units/multipliers (incl. `A -> B` trajectories), uncertainty, confidence, tags, contexts, valid-time periods/ranges (`Time`), claim keys, monotonic UUIDv7 |
+| [`@cavelang/core`](packages/core) | §2, §6, §7, §9, §32 | Domain model: claims, values/units/multipliers (incl. `A -> B` trajectories), uncertainty, confidence, tags, contexts, percent-escaped source spans (`SourceSpan`), valid-time periods/ranges (`Time`), claim keys, monotonic UUIDv7 |
 | [`@cavelang/parser`](packages/parser) | §3, §4, §8, §16 | CAVE text → AST on [`@prelude/parser`](https://www.npmjs.com/package/@prelude/parser) combinators; never throws, lints |
 | [`@cavelang/canonical`](packages/canonical) | §5, §8, §13.4 | Verb registry (`REVERSE`, `RENAMED-TO`, extensions), inverse and lifecycle resolution, continuation expansion, qualifier edges, canonical emitter |
 | [`@cavelang/store`](packages/store) | §13, §26 | Persistence on the **Node.js builtin `node:sqlite`** — exact spec schema, append-only belief series, inverse-aware reads, FTS5, contradiction resolution (precedence classes, source reliability, `resolvedBeliefs`/`contested`) |
 | [`@cavelang/query`](packages/query) | §12, §26, §32 | CAVE-Q patterns compiled to SQL: variables, wildcards, inverse and lifecycle verb resolution, `VERB+` transitive CTEs, `WHERE` filters, `resolve` winners-only matching, `at` valid-time filtering + trajectory interpolation |
 | [`@cavelang/shape`](packages/shape) | §20, §27 | Shape expectations (`EXPECTS` bound through the `EXTENDS` taxonomy, optional exact-one cardinality and exact-unit tags), knowledge-health report (actionable violations, staleness, review candidates, alias disagreements, coverage), write gating; alias discovery (`suggestAliases` — string/graph similarity signals, suggested `ALIAS` claims in the review band, optional judge contract) |
-| [`@cavelang/connect`](packages/connect) | §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; per-record digest incrementality, watch mode, query-time overlay |
+| [`@cavelang/connect`](packages/connect) | §9.8, §23 | Deterministic structured ingestion — CSV/TSV/JSON/JSONL/SQLite/URL records mapped through CAVE templates with `?field` variables; physical source identity, CSV/TSV/JSONL record spans, per-record digest incrementality, watch mode, query-time overlay |
 | [`@cavelang/fusion`](packages/fusion) | §10 | Bayesian fusion, noisy-AND, hypothesis helpers — pure math |
 | [`@cavelang/solver`](packages/solver) | — | Dependency-free formal-reasoning boundary: immutable Boolean/integer/exact-real/finite-enum models, hard and weighted-soft constraints, lexicographic objectives, validation and resource limits, capability negotiation, canonical digests, result unions, bounded feasibility/optimization/counterexample/sensitivity workflows, deterministic tie-breaking, linear-subset recognition, and versioned JSON/human explanations mapped to model declarations, evidence rows, and scenario inputs; concrete solver adapters remain optional |
 | [`@cavelang/solver-z3`](packages/solver-z3) | — | Optional Node.js adapter for official Z3 Wasm: lazy one-time initialization, exact portable-model compilation, tracked unsat cores, lexicographic and weighted-soft optimization, queued checks, bounded execution, explicit worker shutdown, and a separate allowlisted architecture-workflow CLI fixture |
@@ -117,6 +117,11 @@ Package READMEs document local decisions; these are the global ones:
   over a scoped snapshot so counts, aliases, history, search, and lineage do
   not leak excluded rows. Exact backup requires an explicit `restricted`
   ceiling; sync remains exact and preserves labels.
+- **Source spans retain both anchor and identity** (§9.8):
+  `SourceSpan` formats/parses `src:<escaped-source>#Lx-Ly`; the exact context
+  survives interchange while §26 source policy ignores the line fragment.
+  Ingest prompts line-number embedded text, connect carries CSV/TSV/JSONL
+  record ranges, and view/report outputs share the parsed location/link shape.
 - **Checking is a read; gating is a transaction** (§20):
   `@cavelang/shape` evaluates in-band `EXPECTS` declarations with SQL
   over current beliefs and never writes; `cave add --check` wraps

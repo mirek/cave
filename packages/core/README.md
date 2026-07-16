@@ -33,6 +33,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 | `Confidence` | §6.3 | Epistemic `@ N%` in [0, 1]; omitted means 1. |
 | `Tag` | §6.2 | Flat `#tag` and scoped `#key:value`; flat ≡ value `undefined`. |
 | `Context` | §6.1 | `@ctx` contexts and the recommended `src:`/`time:`/`loc:`/`scope:` prefixes. |
+| `SourceSpan` | §9.8 | Percent-escaped `@src:<source>#Lx-Ly` formatting/parsing, decoded source identity, inclusive line ranges, and HTTP(S) links. |
 | `Entity` | §4.1 | Name normalization (whitespace → `-`, casing preserved) and advisory checks. |
 | `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, `RENAMED-TO`, lexical shape of verbs. |
 | `Multiplier` | §7.1 | `T`/`B`/`M`/`K` scale factors. |

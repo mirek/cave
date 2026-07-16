@@ -12,7 +12,8 @@
  * `line` keeps the claim as authored for the places text is the point.
  */
 
-import { Uuidv7, Verb, Version } from '@cavelang/core'
+import { SourceSpan, Uuidv7, Verb, Version } from '@cavelang/core'
+import type { SourceReference } from '@cavelang/core'
 import { check, defaultStaleDays } from '@cavelang/shape'
 import { Sensitivity } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
@@ -45,6 +46,8 @@ export type ClaimView = {
   readonly comment?: string
   /** Context strings as stored (`src:cli`, `production`) — no `@` prefix. */
   readonly contexts: readonly string[]
+  /** Parsed source identities and line links (spec §9.8). */
+  readonly sources: readonly SourceReference[]
   readonly tags: readonly { readonly key: string, readonly value?: string }[]
   /** The claim key — the fact whose belief series this row belongs to (§9.2). */
   readonly key: string
@@ -96,6 +99,7 @@ const toView = (store: Store, row: Row.t, maximum?: Sensitivity.Level): ClaimVie
     importance: row.importance !== 0,
     ...row.comment === null ? {} : { comment: row.comment },
     contexts,
+    sources: SourceSpan.ofContexts(contexts),
     tags,
     key: row.claim_key,
     line: row.raw_line,

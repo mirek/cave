@@ -35,6 +35,13 @@ Export, reports, and the human HTTP view default to an internal ceiling and can 
 
 #note([Boundary], [Sensitivity is routing metadata, not encryption, authorization, deletion, or a retention policy. Use --max-sensitivity restricted for an exact canonical backup or transaction-annotated replica. Sync remains exact and preserves every row and label.])
 
+= Source-Span Provenance
+A source context can cite one exact one-based inclusive source line or range: `@src:docs/auth.md#L10` or `@src:docs/auth.md#L10-L20`. The source locator is percent-escaped; a literal hash is `%23`, a space is `%20`, and the unescaped hash is reserved for the line fragment.
+
+The full context remains claim-key metadata and survives export, import, and sync. The decoded locator without its line fragment remains the underlying source identity for resolution and reliability policy. Ingest numbers embedded text so extractors can cite the smallest supporting range. Connect attaches physical source identity to every mapped record and exact lines for CSV, TSV, and JSONL. Claim APIs and report footnotes expose the same parsed location, with links for HTTP sources.
+
+#note([Evidence lifetime], [A line span points into the cited source version; it is not a content hash or archive. Retain or version the source when evidence must remain immutable.])
+
 
 = CAVE-Q Query Language
 CAVE-Q reuses the claim shape as a graph pattern language. Slots beginning with ? are named variables. An underscore is an anonymous wildcard. A plus suffix requests one-or-more transitive hops.

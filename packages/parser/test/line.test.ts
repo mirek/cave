@@ -163,6 +163,12 @@ test('multiple contexts (spec §6.1)', () => {
   assert.deepEqual(value.meta.contexts, ['production', 'loc:eu-west-1'])
 })
 
+test('source line fragments stay inside one context token (spec §9.8)', () => {
+  const { value } = claim('memory-leak EXISTS @src:docs/design%20notes.md#L10-L20')
+  assert.deepEqual(value.meta.contexts, ['src:docs/design%20notes.md#L10-L20'])
+  assert.deepEqual(value.meta.tags, [])
+})
+
 test('@ with space is confidence, without is context (spec §6.3)', () => {
   const conf = claim('memory-leak CAUSE oom @ 70%').value
   assert.equal(conf.meta.conf, 0.7)

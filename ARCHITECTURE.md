@@ -86,6 +86,13 @@ HTTP view share this policy, including indirect outputs such as counts,
 aliases, history, search, lineage, and edge traversal. The label is routing
 metadata—not encryption, authorization, erasure, or a retention boundary.
 
+Source provenance can carry a stable line anchor (§9.8):
+`@src:<percent-escaped-locator>#Lx-Ly`. `@cavelang/core` owns the only
+formatter/parser, preserving both the exact stored context and the decoded
+underlying source identity. Ingestion numbers embedded text, structured
+connectors attach physical record ranges where the format provides them, and
+view/report surfaces expose one shared reference shape.
+
 ### Canonical direction and the verb registry
 
 Relations have one physical direction. In-band declarations such as
@@ -342,14 +349,17 @@ Changes should preserve these properties:
    the sensitivity ceiling, and derive all published summaries and graph walks
    only from visible rows. Exact backup and tx-annotated replica export must
    explicitly select `restricted`; sync itself remains exact.
-5. **Keep reads non-destructive.** Aliasing, contradiction resolution,
+5. **Format source spans once.** Percent-escape source locators and parse line
+   fragments through `SourceSpan`; connectors, APIs, and reports must not grow
+   competing source-link conventions.
+6. **Keep reads non-destructive.** Aliasing, contradiction resolution,
    valid-time evaluation, and reconstruction must not rewrite stored claims.
-6. **Use the store transaction boundary for compound writes.** Validation and
+7. **Use the store transaction boundary for compound writes.** Validation and
    its writes must commit or roll back together, including registry changes.
-7. **Keep external effects after commit and out of the store.** Persist names,
+8. **Keep external effects after commit and out of the store.** Persist names,
    prompts, provenance, and watermarks; configure executable commands outside
    the knowledge base.
-8. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
+9. **Reuse the kernel from every surface.** CLI, MCP, HTTP, connectors, and the
    browser should not grow competing parsers, key rules, query semantics, or
    persistence models.
 

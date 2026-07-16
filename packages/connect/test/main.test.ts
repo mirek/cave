@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runConnect } from '@cavelang/connect'
+import { open } from '@cavelang/store'
 
 type Captured = { code: number, out: string, err: string }
 
@@ -72,6 +73,25 @@ test('a clean federated query still exits zero (spec §23.3)', async () => {
 
     const unmatched = await captured([...argv, '--query', '?who WORKS-AT nowhere'])
     assert.equal(unmatched.code, 0)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the CLI attaches loaded record spans to persisted claims (spec §9.8)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
+  const source = join(dir, 'people list.csv')
+  const map = join(dir, 'people.map.cave')
+  const db = join(dir, 'k.db')
+  writeFileSync(source, 'id,company\nalice,acme\n')
+  writeFileSync(map, '?id WORKS-AT ?company\n')
+  try {
+    const result = await captured([source, '--map', map, '--key', 'id', '--db', db])
+    assert.equal(result.code, 0, result.err)
+    const store = open(db)
+    const row = store.byContext('src:connect/people-list/alice')[0]!
+    assert.ok(store.toClaim(row).contexts.includes(`src:${source.replaceAll(' ', '%20')}#L2`))
+    store.close()
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

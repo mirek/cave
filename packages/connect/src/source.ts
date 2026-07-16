@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import type { LineSpan } from '@cavelang/core'
 import { fieldOf } from './template.ts'
 
 export type Format = 'csv' | 'tsv' | 'json' | 'jsonl' | 'sqlite'
@@ -35,6 +36,8 @@ export type Options = {
 export type Loaded = {
   readonly records: readonly Record<string, unknown>[]
   readonly format: Format
+  /** Record-aligned source line spans when the format has stable lines. */
+  readonly spans?: readonly LineSpan[]
 }
 
 export const isUrl = (source: string): boolean =>
@@ -81,11 +84,13 @@ export const nameOf = (source: string): string => {
  * RFC 4180 CSV: quoted fields (with `""` escapes) may contain delimiters and
  * newlines; records split on LF or CRLF. The first row names the fields.
  */
-export const parseCsv = (text: string, delimiter = ','): Record<string, string>[] => {
-  const rows: string[][] = []
+const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[] } => {
+  const rows: { cells: string[], span: LineSpan }[] = []
   let row: string[] = []
   let field = ''
   let quoted = false
+  let line = 1
+  let rowStart = 1
   const body = text.startsWith('\uFEFF') ? text.slice(1) : text
   const endField = (): void => {
     row.push(field)
@@ -93,8 +98,9 @@ export const parseCsv = (text: string, delimiter = ','): Record<string, string>[
   }
   const endRow = (): void => {
     endField()
-    rows.push(row)
+    rows.push({ cells: row, span: { startLine: rowStart, endLine: line } })
     row = []
+    rowStart = line + 1
   }
   for (let i = 0; i < body.length; i++) {
     const char = body[i]!
@@ -120,18 +126,29 @@ export const parseCsv = (text: string, delimiter = ','): Record<string, string>[
     } else if (char !== '\r' || body[i + 1] !== '\n') {
       field += char
     }
+    if (char === '\n') {
+      line += 1
+    }
   }
   if (field !== '' || row.length > 0) {
     endRow()
   }
-  const [header, ...dataRows] = rows
+  const [headerRow, ...dataRows] = rows
+  const header = headerRow?.cells
   if (header === undefined) {
-    return []
+    return { records: [], spans: [] }
   }
-  return dataRows
-    .filter(cells => cells.length > 1 || cells[0] !== '')
-    .map(cells => Object.fromEntries(header.map((name, at) => [name.trim(), cells[at] ?? ''])))
+  const present = dataRows.filter(row_ => row_.cells.length > 1 || row_.cells[0] !== '')
+  return {
+    records: present.map(row_ => Object.fromEntries(
+      header.map((name, at) => [name.trim(), row_.cells[at] ?? ''])
+    )),
+    spans: present.map(row_ => row_.span)
+  }
 }
+
+export const parseCsv = (text: string, delimiter = ','): Record<string, string>[] =>
+  parseCsvLocated(text, delimiter).records
 
 const asRecords = (value: unknown, source: string): Record<string, unknown>[] => {
   if (!Array.isArray(value)) {
@@ -154,17 +171,21 @@ const parseJson = (text: string, source: string, options: Options): Record<strin
   return asRecords(picked, source)
 }
 
-const parseJsonl = (text: string, source: string): Record<string, unknown>[] =>
-  text
-    .split(/\r?\n/)
-    .filter(line => line.trim() !== '')
-    .map((line, at) => {
-      const parsed: unknown = JSON.parse(line)
+const parseJsonlLocated = (text: string, source: string): { records: Record<string, unknown>[], spans: LineSpan[] } => {
+  const located = text.split(/\r?\n/)
+    .map((line, at) => ({ line, lineNo: at + 1 }))
+    .filter(entry => entry.line.trim() !== '')
+  return {
+    records: located.map(entry => {
+      const parsed: unknown = JSON.parse(entry.line)
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error(`${source}: line ${at + 1} is not a JSON object`)
+        throw new Error(`${source}: line ${entry.lineNo} is not a JSON object`)
       }
       return parsed as Record<string, unknown>
-    })
+    }),
+    spans: located.map(entry => ({ startLine: entry.lineNo, endLine: entry.lineNo }))
+  }
+}
 
 /** node:sqlite values → template-substitutable values. */
 const sqliteValue = (value: unknown): unknown =>
@@ -212,29 +233,29 @@ export const load = async (source: string, options: Options = {}): Promise<Loade
     if (format === 'sqlite') {
       throw new Error(`${source}: SQLite sources must be local files`)
     }
-    return { records: parseByFormat(format, text, source, options), format }
+    return { ...parseLocated(format, text, source, options), format }
   }
   const format = formatOf(source, options)
   if (format === 'sqlite') {
     return { records: readSqlite(source, options), format }
   }
-  return { records: parseByFormat(format, readFileSync(source, 'utf8'), source, options), format }
+  return { ...parseLocated(format, readFileSync(source, 'utf8'), source, options), format }
 }
 
-const parseByFormat = (
+const parseLocated = (
   format: Exclude<Format, 'sqlite'>,
   text: string,
   source: string,
   options: Options
-): Record<string, unknown>[] => {
+): { records: Record<string, unknown>[], spans?: LineSpan[] } => {
   switch (format) {
     case 'csv':
-      return parseCsv(text, options.delimiter ?? ',')
+      return parseCsvLocated(text, options.delimiter ?? ',')
     case 'tsv':
-      return parseCsv(text, options.delimiter ?? '\t')
+      return parseCsvLocated(text, options.delimiter ?? '\t')
     case 'json':
-      return parseJson(text, source, options)
+      return { records: parseJson(text, source, options) }
     case 'jsonl':
-      return parseJsonl(text, source)
+      return parseJsonlLocated(text, source)
   }
 }
