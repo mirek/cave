@@ -6,7 +6,8 @@ name: Publish
 #     which bumps every version source in lockstep;
 #   - no pending changesets → runs scripts/release-publish.sh, which is a
 #     no-op when the current version is already on npm, and otherwise
-#     builds, tests, publishes all packages and tags v<version>.
+#     builds, tests, smoke-checks the packed artifacts, publishes all packages,
+#     and tags v<version>.
 #
 # npm auth is OIDC trusted publishing (id-token: write) — no npm token;
 # each @cavelang package has this repo + THIS WORKFLOW FILENAME

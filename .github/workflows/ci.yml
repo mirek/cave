@@ -44,7 +44,7 @@ jobs:
           echo "changesets added:"
           echo "$added"
 
-  test:
+  suite:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -67,3 +67,43 @@ jobs:
 
       - name: Build website
         run: pnpm site:build
+
+  # Pack every public package and install the tarballs into a clean npm
+  # project. This catches missing files, broken publishConfig exports, and
+  # bin paths that workspace symlinks cannot expose.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Test packed npm artifacts
+        run: bash scripts/smoke.sh
+
+  # Keep CI/test as the stable branch-protection check while running the
+  # full source suite and packed-artifact smoke test independently.
+  test:
+    if: always()
+    needs:
+      - suite
+      - smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require source and artifact checks
+        env:
+          SUITE_RESULT: ${{ needs.suite.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+        run: |
+          if [ "$SUITE_RESULT" != success ] || [ "$SMOKE_RESULT" != success ]; then
+            echo "source suite: $SUITE_RESULT" >&2
+            echo "artifact smoke: $SMOKE_RESULT" >&2
+            exit 1
+          fi
