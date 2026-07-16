@@ -21,64 +21,23 @@
 import { Claim, Context, Key, Uuidv7, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import type { Adapter } from './adapter.ts'
+import * as QuerySql from './query-sql.ts'
 import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
 import * as Sensitivity from './sensitivity.ts'
 import * as Provenance from './provenance.ts'
 
-const currentSql = `
-SELECT c.* FROM cave_claim c
-JOIN (
-  SELECT claim_key, MAX(tx) AS max_tx
-  FROM cave_claim GROUP BY claim_key
-) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
-`
-
-/**
- * Alias edges (spec §13.6): current positive `ALIAS` claims read as
- * undirected (`ALIAS` has no `REVERSE`, so each written direction is its
- * own claim key — both assert the same link). Retraction unmerges:
- * `a ALIAS b @ 0%` drops that direction's edge. Both endpoints must be
- * entity-form — the closure is defined for entity terms only, so a row
- * naming a `"…"`/`` `…` `` literal contributes no edge and two entities
- * aliasing one literal never link through it.
- */
-const aliasEdgeSql = `alias_edge(a, b) AS (
-  SELECT c.subject, c.object FROM (${currentSql}) c
-  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
-  UNION
-  SELECT c.object, c.subject FROM (${currentSql}) c
-  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
-)`
+const currentSql = QuerySql.current()
 
 /**
  * The closure walked from a seed entity — the seed is the query's first
  * positional parameter. Requires `alias_edge` in scope.
  */
-const aliasSeedSql = `alias_closure(name) AS (
-  SELECT ?
-  UNION
-  SELECT e.b FROM alias_closure s JOIN alias_edge e ON e.a = s.name
-)`
-
-/**
- * The full transitive closure as ordered pairs — every two names currently
- * believed to denote one entity. Resolution grouping widens through it
- * (spec §26.1). Requires `alias_edge` in scope.
- */
-const aliasPairSql = `alias_pair(a, b) AS (
-  SELECT a, b FROM alias_edge
-  UNION
-  SELECT p.a, e.b FROM alias_pair p JOIN alias_edge e ON e.a = p.b
-)`
+const aliasSeedSql = QuerySql.aliasSeed()
 
 /** Seeded alias closure (spec §13.6), ready to prefix a SELECT. */
-const aliasClosureSql = `
-WITH RECURSIVE ${aliasEdgeSql}, ${aliasSeedSql}
-`
+const aliasClosureSql = QuerySql.aliasClosure(currentSql)
 
 export type IngestResult = {
   /** ids of the batch's claim rows, in document order — for a row skipped as already present (`ids` replay, spec §28.1), the existing id. */
@@ -433,7 +392,7 @@ export const open = (
     options.aliases === true ?
       // Resolution grouping needs the pair closure too (spec §26.1).
       (options.resolve === true ?
-        `\nWITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}, ${aliasSeedSql}\n` :
+        `\nWITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}, ${aliasSeedSql}\n` :
         aliasClosureSql) :
       ''
 
@@ -537,7 +496,7 @@ export const open = (
      */
     resolvedBeliefs(options_: { aliases?: boolean } = {}): Row.t[] {
       const aliases = options_.aliases === true
-      const prefix = aliases ? `WITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}\n` : ''
+      const prefix = aliases ? `WITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}\n` : ''
       return rows(`${prefix}SELECT * FROM (${Resolve.resolvedSql(readPolicy(), currentSql, { aliases })}) ORDER BY tx`)
     },
 
@@ -550,7 +509,7 @@ export const open = (
      */
     contested(options_: { aliases?: boolean } = {}): Resolve.Contested[] {
       const aliases = options_.aliases === true
-      const prefix = aliases ? `WITH RECURSIVE ${aliasEdgeSql}, ${aliasPairSql}\n` : ''
+      const prefix = aliases ? `WITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}\n` : ''
       const ranked = rows(
         `${prefix}SELECT * FROM (${Resolve.rankedSql(readPolicy(), currentSql, { aliases })}) ORDER BY res_group, res_rank`
       ) as Resolve.Ranked[]

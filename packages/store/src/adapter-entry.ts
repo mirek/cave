@@ -4,6 +4,7 @@ export { openWith } from './runtime.ts'
 export type { Store } from './runtime.ts'
 export * as Resolve from './resolve.ts'
 export * as Row from './row.ts'
+export * as QuerySql from './query-sql.ts'
 export type {
   Adapter as SqliteAdapter,
   BackupCapability as SqliteBackupCapability,

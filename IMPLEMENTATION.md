@@ -70,6 +70,10 @@ packages the same grammar WASM and highlight query as a VSCode extension
   advancement in one immediate transaction. Open and database sync reject
   newer formats; rollback is restoration of a closed pre-upgrade copy, never
   a down migration.
+- **Query SQL semantics are shared.** `@cavelang/store` exports composable
+  `QuerySql` fragments for current belief, alias closure, and transaction-time
+  boundaries. Store, query, shape, generated clients, and view consume them;
+  cross-package conformance tests pin retraction, alias, and as-of results.
 - **Exact backup uses verified SQLite snapshots** (§13.2.2): `VACUUM INTO`
   captures a consistent online WAL-aware snapshot in a temporary sibling;
   integrity, foreign keys, current schema, fsync, and SHA-256 gate atomic

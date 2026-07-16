@@ -14,6 +14,7 @@
 
 export * as Resolve from './resolve.ts'
 export * as Row from './row.ts'
+export * as QuerySql from './query-sql.ts'
 export * as Provenance from './provenance.ts'
 export * as Schema from './schema.ts'
 export * as Sensitivity from './sensitivity.ts'

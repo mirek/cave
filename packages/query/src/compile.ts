@@ -17,9 +17,9 @@
  * CTE over current, positive, non-retracted edges (depth-capped at 32).
  */
 
-import { Time, Uuidv7, Value } from '@cavelang/core'
+import { Time, Value } from '@cavelang/core'
 import { Registry } from '@cavelang/canonical'
-import { Resolve, Row } from '@cavelang/store/adapter'
+import { QuerySql, Resolve, Row } from '@cavelang/store/adapter'
 import type { Store } from '@cavelang/store/adapter'
 import * as Pattern from './pattern.ts'
 
@@ -106,13 +106,11 @@ export type Options = {
  * `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
  */
 const txBounds = (text: string, label = 'tx date'): { lo: string, hi: string } => {
-  const hasTime = text.includes('T')
-  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(start)) {
+  const bounds = QuerySql.transactionBounds(text)
+  if (bounds === undefined) {
     throw new Error(`CAVE-Q: cannot parse ${label} ${JSON.stringify(text)}`)
   }
-  const end = start + (hasTime ? 1_000 : 86_400_000)
-  return { lo: Uuidv7.at(start, 0, new Uint8Array(8)), hi: Uuidv7.at(end, 0, new Uint8Array(8)) }
+  return bounds
 }
 
 /**
@@ -120,27 +118,26 @@ const txBounds = (text: string, label = 'tx date'): { lo: string, hi: string } =
  * exact transaction, included — belief as of that append; a date or
  * timestamp is inclusive of the whole named day/second, the same interval
  * semantics as `WHERE tx <=` (§12.2). Both forms inline as literals: the
- * id is shape-validated hex-and-dashes and the interval bound comes from
- * `Uuidv7.at` — no free-form text reaches the SQL, and a literal keeps
+ * id is shape-validated hex-and-dashes and the interval bound is a generated
+ * UUIDv7 — no free-form text reaches the SQL, and a literal keeps
  * the fragment embeddable in CTEs that positional parameters would
  * complicate.
  */
-const asOfCondition = (asOf: string): string => {
-  const id = asOf.toLowerCase()
-  return Uuidv7.is(id) ? `tx <= '${id}'` : `tx < '${txBounds(asOf, 'as-of boundary').hi}'`
+const asOfBoundary = (asOf: string): QuerySql.AsOfBoundary => {
+  const boundary = QuerySql.asOfBoundary(asOf)
+  if (boundary === undefined) {
+    throw new Error(`CAVE-Q: cannot parse as-of boundary ${JSON.stringify(asOf)}`)
+  }
+  return boundary
 }
 
 /** Row universe under resolution: every appended row, or only rows recorded up to the as-of boundary. */
 const claimsSql = (asOf: undefined | string): string =>
-  asOf === undefined ? 'cave_claim' : `(SELECT * FROM cave_claim WHERE ${asOfCondition(asOf)})`
+  asOf === undefined ? QuerySql.claims() :
+    QuerySql.claims(asOfBoundary(asOf))
 
-const currentSql = (asOf: undefined | string): string => `
-SELECT c.* FROM cave_claim c
-JOIN (
-  SELECT claim_key, MAX(tx) AS max_tx
-  FROM ${claimsSql(asOf)} GROUP BY claim_key
-) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
-`
+const currentSql = (asOf: undefined | string): string =>
+  QuerySql.current(claimsSql(asOf))
 
 /**
  * Row universe a pattern matches over: the full history under `all`,
@@ -173,23 +170,12 @@ const baseSql = (options: Options, policy: undefined | readonly Resolve.Entry[])
  * and the closure reconstructs entity resolution as believed then
  * (spec §12.3).
  */
-const aliasPairSql = (asOf: undefined | string): string => `alias_edge(a, b) AS (
-  SELECT c.subject, c.object FROM (${currentSql(asOf)}) c
-  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
-  UNION
-  SELECT c.object, c.subject FROM (${currentSql(asOf)}) c
-  WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-    AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
-), alias_pair(a, b) AS (
-  SELECT a, b FROM alias_edge
-  UNION
-  SELECT p.a, e.b FROM alias_pair p JOIN alias_edge e ON e.a = p.b
-)`
+const aliasPairSql = (asOf: undefined | string): string =>
+  QuerySql.aliasPairs(currentSql(asOf))
 
 /** SQL for "these two expressions name the same entity" under the closure. */
 const aliasSame = (left: string, right: string): string =>
-  `(${left} = ${right} OR EXISTS (SELECT 1 FROM alias_pair p WHERE p.a = ${left} AND p.b = ${right}))`
+  QuerySql.aliasSame(left, right)
 
 type Compiled = {
   readonly sql: string

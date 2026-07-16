@@ -35,6 +35,27 @@ snapshot support. The concrete Node adapter is also available from
 `@cavelang/store/adapter/node`. The shared adapter contract suite runs against
 both Node SQLite and the website's SQL.js/WASM adapter.
 
+## Composable query SQL
+
+`QuerySql` is the public source of truth for semantics shared by store,
+CAVE-Q, shapes, generated clients, and views:
+
+```ts
+import { QuerySql } from '@cavelang/store'
+
+const boundary = QuerySql.asOfBoundary('2026-07-16')!
+const currentThen = QuerySql.current(QuerySql.claims(boundary))
+const rows = store.db.prepare(`SELECT * FROM (${currentThen}) WHERE conf > 0`).all()
+```
+
+`current()` selects latest tx per claim key without filtering negation or
+retraction; consumers add those predicates for their read mode. `aliasEdges`,
+`aliasPairs`, `aliasClosure`, and `aliasSame` implement entity-only current
+positive ALIAS semantics. `transactionBounds` and `asOfBoundary` implement the
+shared whole-day/whole-second and exact-transaction rules. Fragments own no
+ordering or outer filtering, so consumers can extend them without copying
+semantic clauses.
+
 ## Semantics
 
 - **Schema upgrades are explicit** (§13.2.1): `PRAGMA user_version` records
