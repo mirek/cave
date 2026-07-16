@@ -85,6 +85,23 @@ type Values = {
   help?: boolean
 }
 
+export type RunContext = {
+  readonly stdin?: NodeJS.ReadableStream
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+type IO = {
+  readonly stdin: NodeJS.ReadableStream
+  readonly stdout: NodeJS.WritableStream
+  readonly stderr: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+const waitForAbort = (signal?: AbortSignal): Promise<void> =>
+  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+
 /** Loads a §25.4 hooks configuration file: name → shell command template. */
 const readHooks = (path: string): Record<string, string> => {
   const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
@@ -95,10 +112,16 @@ const readHooks = (path: string): Record<string, string> => {
   return parsed as Record<string, string>
 }
 
-const readInput = (files: readonly string[]): string =>
-  files.length === 0 || (files.length === 1 && files[0] === '-') ?
-    readFileSync(0, 'utf8') :
-    files.map(file => readFileSync(file, 'utf8')).join('\n')
+const readInput = async (files: readonly string[], input: NodeJS.ReadableStream): Promise<string> => {
+  if (files.length > 0 && !(files.length === 1 && files[0] === '-')) {
+    return files.map(file => readFileSync(file, 'utf8')).join('\n')
+  }
+  let text = ''
+  for await (const chunk of input as NodeJS.ReadableStream & AsyncIterable<string | Buffer>) {
+    text += String(chunk)
+  }
+  return text
+}
 
 /** Text rendering of one cycle — only what fired, plus problems and notes. */
 const renderReport = (report: SettleReport): string[] => {
@@ -174,13 +197,13 @@ export const watchCycle = async (
 }
 
 /** The daemon (spec §29.5): settle at startup, then settle when MAX(tx) moves. */
-const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: number): Promise<number> => {
+const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: number, io: IO): Promise<number> => {
   let seen: null | string = null
   let running = false
   const onReport = (report: SettleReport): void => {
     const fired = report.automations.some(automation => automation.fired > 0)
     if (fired || report.problems.length > 0 || report.notes.length > 0) {
-      process.stdout.write(`${renderReport(report).join('\n')}\n`)
+      io.stdout.write(`${renderReport(report).join('\n')}\n`)
     }
   }
   const cycle = async (): Promise<void> => {
@@ -188,24 +211,35 @@ const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: n
     try {
       seen = await watchCycle(store, options, onReport)
     } catch (error) {
-      process.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
+      io.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
       // `seen` stays put: the next tick retries the pending events —
       // settling is idempotent (§29.3) — instead of stalling them
       // behind an unrelated later append.
     }
     running = false
   }
-  await cycle()
-  process.stdout.write(`watching (poll every ${intervalSeconds}s, ctrl-c to stop)\n`)
-  setInterval(() => {
+  let active: undefined | Promise<void> = cycle()
+  await active
+  io.stdout.write(`watching (poll every ${intervalSeconds}s, ctrl-c to stop)\n`)
+  const timer = setInterval(() => {
     if (!running && maxTxOf(store) !== seen) {
-      void cycle()
+      active = cycle()
+      void active
     }
   }, intervalSeconds * 1000)
-  return new Promise<number>(() => {})
+  await waitForAbort(io.signal)
+  clearInterval(timer)
+  await active
+  return 0
 }
 
-export const runAutomate = async (argv: readonly string[]): Promise<number> => {
+export const runAutomate = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const io: IO = {
+    stdin: context.stdin ?? process.stdin,
+    stdout: context.stdout ?? process.stdout,
+    stderr: context.stderr ?? process.stderr,
+    ...context.signal === undefined ? {} : { signal: context.signal }
+  }
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -229,33 +263,32 @@ export const runAutomate = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: true
   }) as { values: Values, positionals: string[] }
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    io.stdout.write(`${usage}\n`)
     return 0
   }
   const intervalSeconds = values.interval === undefined ? 2 : Number(values.interval)
   if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
-    process.stderr.write(`cave automate: --interval must be a positive number of seconds, got '${values.interval}'\n`)
+    io.stderr.write(`cave automate: --interval must be a positive number of seconds, got '${values.interval}'\n`)
     return 1
   }
   const maxPasses = values['max-passes'] === undefined ? undefined : Number(values['max-passes'])
   if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
-    process.stderr.write(`cave automate: --max-passes expects a positive integer, got '${values['max-passes']}'\n`)
+    io.stderr.write(`cave automate: --max-passes expects a positive integer, got '${values['max-passes']}'\n`)
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
   if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    process.stderr.write(`cave automate: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+    io.stderr.write(`cave automate: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     return 1
   }
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
-  let watching = false
   try {
     if (values.declare === true) {
-      const declaration = declareAutomations(store, readInput(positionals))
+      const declaration = declareAutomations(store, await readInput(positionals, io.stdin))
       for (const problem of declaration.problems) {
-        process.stderr.write(`line ${problem.line}: ${problem.message}\n`)
+        io.stderr.write(`line ${problem.line}: ${problem.message}\n`)
       }
-      process.stdout.write(`declared ${declaration.declared} automation(s)` +
+      io.stdout.write(`declared ${declaration.declared} automation(s)` +
         (declaration.unchanged > 0 ? `, ${declaration.unchanged} unchanged` : '') +
         (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : '') + '\n')
       return declaration.problems.length > 0 ? 1 : 0
@@ -263,18 +296,18 @@ export const runAutomate = async (argv: readonly string[]): Promise<number> => {
     if (values.list === true) {
       const automations = listAutomations(store)
       if (values.json === true) {
-        process.stdout.write(`${JSON.stringify(automations, undefined, 2)}\n`)
+        io.stdout.write(`${JSON.stringify(automations, undefined, 2)}\n`)
         return 0
       }
       if (automations.length === 0) {
-        process.stdout.write('no automations\n')
+        io.stdout.write('no automations\n')
         return 0
       }
       for (const automation of automations) {
-        process.stdout.write(`${automation.subject} \`${automation.text}\`` +
+        io.stdout.write(`${automation.subject} \`${automation.text}\`` +
           `${automation.description === undefined ? '' : ` ; ${automation.description}`}\n`)
         if (!automation.ok) {
-          process.stdout.write(`  problems: ${automation.problems.join('; ')}\n`)
+          io.stdout.write(`  problems: ${automation.problems.join('; ')}\n`)
         }
       }
       return 0
@@ -282,14 +315,14 @@ export const runAutomate = async (argv: readonly string[]): Promise<number> => {
     if (values.retract !== undefined) {
       const outcome = retractAutomation(store, values.retract)
       if (!outcome.ok) {
-        process.stderr.write(`cave automate: ${outcome.error}\n`)
+        io.stderr.write(`cave automate: ${outcome.error}\n`)
         return 1
       }
-      process.stdout.write(`retracted ${outcome.subject} — what past firings recorded stays recorded (spec §29.1)\n`)
+      io.stdout.write(`retracted ${outcome.subject} — what past firings recorded stays recorded (spec §29.1)\n`)
       return 0
     }
     if (positionals.length > 0) {
-      process.stderr.write(`cave automate: unexpected argument ${JSON.stringify(positionals[0])} — files go with --declare\n`)
+      io.stderr.write(`cave automate: unexpected argument ${JSON.stringify(positionals[0])} — files go with --declare\n`)
       return 1
     }
 
@@ -297,20 +330,17 @@ export const runAutomate = async (argv: readonly string[]): Promise<number> => {
     if (values.once === true) {
       const report = await settle(store, options)
       if (values.json === true) {
-        process.stdout.write(`${JSON.stringify(report, undefined, 2)}\n`)
+        io.stdout.write(`${JSON.stringify(report, undefined, 2)}\n`)
       } else {
-        process.stdout.write(`${renderReport(report).join('\n')}\n`)
+        io.stdout.write(`${renderReport(report).join('\n')}\n`)
       }
       return settled(report) ? 0 : 1
     }
-    watching = true
-    return await runWatch(store, options, intervalSeconds)
+    return await runWatch(store, options, intervalSeconds, io)
   } catch (error) {
-    process.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
+    io.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
     return 1
   } finally {
-    if (!watching) {
-      store.close()
-    }
+    store.close()
   }
 }

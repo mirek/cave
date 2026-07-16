@@ -8,7 +8,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Core grammar variables](todo/core-grammar-variables.md) — Decide whether query variables belong in the core grammar.
 - [Claim reification](todo/claim-reification.md) — Add nested claims only when a concrete use case justifies the syntax.
 - [Temporal functions](todo/temporal-functions.md) — Design the gated temporal function layer.
-- [Unify CLI dispatch](todo/unified-cli-dispatch.md) — Give synchronous and asynchronous commands one execution and error path.
 - [Define a SQLite adapter](todo/sqlite-adapter-interface.md) — Replace build-time module aliasing with an explicit storage adapter boundary.
 - [Centralize query primitives](todo/shared-query-primitives.md) — Share current-belief, alias, and temporal SQL instead of copying it.
 - [Stabilize external records](todo/stable-external-records.md) — Define a versioned public JSON and record representation.
@@ -30,7 +29,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [MCP protocol compliance](todo/mcp-protocol-compliance.md) — Negotiate supported versions and respond correctly to JSON-RPC batches.
 - [MCP source-prefix normalization](todo/mcp-source-prefix-normalization.md) — Prevent `src:src:` provenance when users pass a prefixed source.
 - [Report backtick citations](todo/report-backtick-citations.md) — Render declarations containing backticks as valid Markdown.
-- [Async CLI error handling](todo/async-cli-error-handling.md) — Report async command failures with the same clean errors as sync commands.
 - [Zero-sigma validation](todo/zero-sigma-validation.md) — Reject zero uncertainty and use one validated sigma implementation.
 - [Calendar-date validation](todo/calendar-date-validation.md) — Make date classification and temporal parsing agree.
 - [Alias disagreement attribution](todo/alias-disagreement-attribution.md) — Require a genuinely cross-name disagreement before reporting one.

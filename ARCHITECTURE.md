@@ -43,6 +43,14 @@ machine-enforced classification and migration map live in
 [`package-surfaces.json`](package-surfaces.json); rationale and consumer
 guidance live in [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md).
 
+The executable has one lifecycle boundary. `dispatch()` normalizes delegated
+help, awaits every sync or async handler, routes output, and formats uncaught
+errors without stacks unless `CAVE_DEBUG=1`. `runCli()` adds SIGINT/SIGTERM as
+one abort signal and awaits command cleanup before returning the conventional
+signal exit code. MCP readline, HTTP servers, file watchers, polling timers,
+and their stores therefore close through the same path instead of relying on
+process termination.
+
 Three boundaries shape the design:
 
 1. **Text becomes data once.** CAVE text is parsed and canonicalized before it

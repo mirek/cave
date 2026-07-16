@@ -42,6 +42,13 @@ Every command answers `--help` with its options and examples (also
 `cave help <command>`). `--db` is optional everywhere: it defaults to
 `$CAVE_DB`, or `cave.db` in the current directory.
 
+All commands—synchronous, asynchronous, and long-running—enter through one
+promise-based dispatcher. It owns argument-exception formatting, stdout and
+stderr routing, exit codes, and SIGINT/SIGTERM propagation. Servers, watchers,
+timers, protocol readers, and stores finish their cleanup before a signal exit
+is reported. Unexpected errors are one-line and stack-free by default; set
+`CAVE_DEBUG=1` to include the diagnostic stack.
+
 | Command | Flags | Behavior |
 |---|---|---|
 | `parse [file…]` | `--json` | Lint (stdin by default). Exit 1 when diagnostics exist; `--json` dumps the AST document. |
@@ -122,6 +129,8 @@ accidental secret ingest, rotate it, stop sync, rebuild a reviewed safe store,
 then explicitly destroy or expire every affected copy with the relevant
 storage provider's confirmation.
 
-Everything is testable without spawning: each command is a pure function
-`(argv) → { code, out, err }` (`@cavelang/cli` exports them), and `main.ts` is
-a four-line dispatcher. Tests cover both layers.
+Everything is testable without spawning: individual buffered commands expose
+`(argv) → { code, out, err }`, while `dispatch(argv, runtime)` exercises the
+same awaited path as the binary with injectable streams and an abort signal.
+`main.ts` only hands process arguments to `runCli` and assigns its final exit
+code.

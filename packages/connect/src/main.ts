@@ -80,6 +80,21 @@ type Values = {
   help?: boolean
 }
 
+export type RunContext = {
+  readonly stdout?: NodeJS.WritableStream
+  readonly stderr?: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+type IO = {
+  readonly stdout: NodeJS.WritableStream
+  readonly stderr: NodeJS.WritableStream
+  readonly signal?: AbortSignal
+}
+
+const waitForAbort = (signal?: AbortSignal): Promise<void> =>
+  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+
 const renderReport = (report: Report): string => {
   const lines = [
     `connect: ${report.records} record(s): ${report.mapped} mapped, ${report.skipped} skipped (unchanged)` +
@@ -110,10 +125,10 @@ const sourceOptions = (values: Values): Source.Options => ({
   ...values.records === undefined ? {} : { records: values.records }
 })
 
-const runPass = async (store: Store, source: string, values: Values, name: string): Promise<number> => {
+const runPass = async (store: Store, source: string, values: Values, name: string, io: IO): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
-    process.stderr.write(`${problems.join('\n')}\n`)
+    io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
   const loaded = await Source.load(source, sourceOptions(values))
@@ -125,14 +140,14 @@ const runPass = async (store: Store, source: string, values: Values, name: strin
     force: values.force === true,
     prune: values.prune === true
   })
-  process.stdout.write(`${renderReport(report)}\n`)
+  io.stdout.write(`${renderReport(report)}\n`)
   return report.failures.length > 0 ? 1 : 0
 }
 
-const runDry = async (source: string, values: Values): Promise<number> => {
+const runDry = async (source: string, values: Values, io: IO): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
-    process.stderr.write(`${problems.join('\n')}\n`)
+    io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
   const loaded = await Source.load(source, sourceOptions(values))
@@ -151,14 +166,14 @@ const runDry = async (source: string, values: Values): Promise<number> => {
     }
     out.push(instantiation.text.trimEnd())
   })
-  process.stdout.write(`${out.join('\n')}\n`)
+  io.stdout.write(`${out.join('\n')}\n`)
   return failures > 0 ? 1 : 0
 }
 
-const runQuery = async (source: string, values: Values, name: string): Promise<number> => {
+const runQuery = async (source: string, values: Values, name: string, io: IO): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
-    process.stderr.write(`${problems.join('\n')}\n`)
+    io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
   const loaded = await Source.load(source, sourceOptions(values))
@@ -181,14 +196,14 @@ const runQuery = async (source: string, values: Values, name: string): Promise<n
     // as partial results, but the exit code must not read as success.
     const code = report.failures.length > 0 ? 1 : 0
     if (code !== 0) {
-      process.stderr.write(`${renderReport(report)}\n`)
+      io.stderr.write(`${renderReport(report)}\n`)
     }
     if (values.json === true) {
-      process.stdout.write(`${JSON.stringify(matches, undefined, 2)}\n`)
+      io.stdout.write(`${JSON.stringify(matches, undefined, 2)}\n`)
       return code
     }
     if (matches.length === 0) {
-      process.stdout.write('no matches\n')
+      io.stdout.write('no matches\n')
       return code
     }
     const lines = matches.map(match => {
@@ -197,25 +212,26 @@ const runQuery = async (source: string, values: Values, name: string): Promise<n
         .join('  ')
       return bindings !== '' ? bindings : match.row?.raw_line ?? values.query!
     })
-    process.stdout.write(`${lines.join('\n')}\n`)
+    io.stdout.write(`${lines.join('\n')}\n`)
     return code
   } finally {
     store.close()
   }
 }
 
-const runWatch = async (store: Store, source: string, values: Values, name: string): Promise<number> => {
+const runWatch = async (store: Store, source: string, values: Values, name: string, io: IO): Promise<number> => {
   const passOnce = async (): Promise<void> => {
     try {
-      await runPass(store, source, values, name)
+      await runPass(store, source, values, name, io)
     } catch (error) {
-      process.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+      io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
     }
   }
   await passOnce()
   let running = false
   let queued = false
   let timer: undefined | NodeJS.Timeout
+  let active: undefined | Promise<void>
   const fire = async (): Promise<void> => {
     if (running) {
       queued = true
@@ -230,23 +246,34 @@ const runWatch = async (store: Store, source: string, values: Values, name: stri
   }
   const trigger = (): void => {
     clearTimeout(timer)
-    timer = setTimeout(() => { void fire() }, 200)
+    timer = setTimeout(() => {
+      active = fire()
+      void active
+    }, 200)
   }
   // Watch the parent directories — editors replace files on save, and a
   // watcher on the file itself dies with the old inode.
   const targets = [...new Set([resolve(source), resolve(values.map!)])]
-  for (const target of targets) {
+  const watchers = targets.map(target =>
     watch(dirname(target), (_event, filename) => {
       if (filename === basename(target)) {
         trigger()
       }
-    })
-  }
-  process.stdout.write('watching (ctrl-c to stop)\n')
-  return new Promise<number>(() => {})
+    }))
+  io.stdout.write('watching (ctrl-c to stop)\n')
+  await waitForAbort(io.signal)
+  clearTimeout(timer)
+  watchers.forEach(watcher => watcher.close())
+  await active
+  return 0
 }
 
-export const runConnect = async (argv: readonly string[]): Promise<number> => {
+export const runConnect = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const io: IO = {
+    stdout: context.stdout ?? process.stdout,
+    stderr: context.stderr ?? process.stderr,
+    ...context.signal === undefined ? {} : { signal: context.signal }
+  }
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -273,51 +300,49 @@ export const runConnect = async (argv: readonly string[]): Promise<number> => {
     allowPositionals: true
   }) as { values: Values, positionals: string[] }
   if (values.help === true) {
-    process.stdout.write(`${usage}\n`)
+    io.stdout.write(`${usage}\n`)
     return 0
   }
   const [source] = positionals
   if (source === undefined || positionals.length !== 1) {
-    process.stderr.write(`cave connect: exactly one source is required\n\n${usage}\n`)
+    io.stderr.write(`cave connect: exactly one source is required\n\n${usage}\n`)
     return 1
   }
   if (values.map === undefined) {
-    process.stderr.write(`cave connect: --map <file> is required\n\n${usage}\n`)
+    io.stderr.write(`cave connect: --map <file> is required\n\n${usage}\n`)
     return 1
   }
   if (values.format !== undefined && !['csv', 'tsv', 'json', 'jsonl', 'sqlite'].includes(values.format)) {
-    process.stderr.write(`cave connect: unknown format ${JSON.stringify(values.format)}\n`)
+    io.stderr.write(`cave connect: unknown format ${JSON.stringify(values.format)}\n`)
     return 1
   }
   if (values.delimiter !== undefined && values.delimiter.length !== 1) {
-    process.stderr.write('cave connect: --delimiter must be a single character\n')
+    io.stderr.write('cave connect: --delimiter must be a single character\n')
     return 1
   }
   if (values.watch === true && (values.query !== undefined || values['dry-run'] === true || Source.isUrl(source))) {
-    process.stderr.write('cave connect: --watch takes a local file source and excludes --query/--dry-run\n')
+    io.stderr.write('cave connect: --watch takes a local file source and excludes --query/--dry-run\n')
     return 1
   }
   const name = values.name ?? Source.nameOf(source)
   try {
     if (values['dry-run'] === true) {
-      return await runDry(source, values)
+      return await runDry(source, values, io)
     }
     if (values.query !== undefined) {
-      return await runQuery(source, values, name)
+      return await runQuery(source, values, name, io)
     }
     const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
     try {
       if (values.watch === true) {
-        return await runWatch(store, source, values, name)
+        return await runWatch(store, source, values, name, io)
       }
-      return await runPass(store, source, values, name)
+      return await runPass(store, source, values, name, io)
     } finally {
-      if (values.watch !== true) {
-        store.close()
-      }
+      store.close()
     }
   } catch (error) {
-    process.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+    io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
     return 1
   }
 }
