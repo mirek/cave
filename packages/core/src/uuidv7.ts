@@ -104,3 +104,19 @@ export const observe = (id: string): void => {
     lastSeq = seq
   }
 }
+
+/**
+ * Runs synchronous speculative work without retaining UUID generator state.
+ * Database dry-runs use this alongside transaction rollback so explicit-id
+ * observations and locally minted rows are both absent after the preview.
+ */
+export const withStatePreserved = <T>(body: () => T): T => {
+  const savedMs = lastMs
+  const savedSeq = lastSeq
+  try {
+    return body()
+  } finally {
+    lastMs = savedMs
+    lastSeq = savedSeq
+  }
+}

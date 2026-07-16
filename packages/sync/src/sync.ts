@@ -229,7 +229,9 @@ export const syncDb = (store: Store, sourcePath: string, options: SyncOptions = 
         db.exec('DROP TABLE IF EXISTS temp.cave_sync_new')
       }
     }
-    return dryRun ? rolledBack(store, body) : store.transaction(body)
+    return dryRun ?
+      Uuidv7.withStatePreserved(() => rolledBack(store, body)) :
+      store.transaction(body)
   } finally {
     db.exec('DETACH DATABASE cave_sync_src')
   }
@@ -316,7 +318,9 @@ export const syncText = (store: Store, text: string, options: SyncOptions = {}):
       problems: []
     }
   }
-  return dryRun ? rolledBack(store, body) : store.transaction(body)
+  return dryRun ?
+    Uuidv7.withStatePreserved(() => rolledBack(store, body)) :
+    store.transaction(body)
 }
 
 /**

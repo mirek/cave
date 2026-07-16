@@ -77,3 +77,17 @@ test('observe() ignores ids that are not UUIDv7', () => {
   assert.ok(after > before)
   assert.ok(Uuidv7.msOf(after) < 3_100_000_000_000, 'the malformed maxima left no trace')
 })
+
+test('withStatePreserved rolls back observations and mints', () => {
+  const before = Uuidv7.next()
+  const future = Uuidv7.at(
+    Uuidv7.msOf(before) + 1000,
+    0x800,
+    new Uint8Array([9, 8, 7, 6, 5, 4, 3, 2])
+  )
+  Uuidv7.withStatePreserved(() => {
+    Uuidv7.observe(future)
+    assert.ok(Uuidv7.next() > future)
+  })
+  assert.ok(Uuidv7.next(() => 0) < future, 'speculative clock changes left no trace')
+})
