@@ -41,7 +41,7 @@ clean:
 	pnpm clean
 
 smoke:
-	./scripts/smoke.sh
+	bash scripts/smoke.sh
 
 publish: check smoke
 	pnpm -r publish --access public

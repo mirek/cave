@@ -91,6 +91,22 @@ test('package test globs use shell-portable quoting', () => {
   }
 })
 
+test('the stable CI check and release script both require packed-artifact smoke tests', () => {
+  const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
+  assert.match(ci, /\n  smoke:\n[\s\S]*?bash scripts\/smoke\.sh/)
+  assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - smoke/)
+
+  const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
+  const smoke = release.indexOf('bash scripts/smoke.sh')
+  const recoveryTag = release.indexOf('ensure_tag #', smoke)
+  const publish = release.indexOf('pnpm -r publish', smoke)
+  const finalTag = release.indexOf('\nensure_tag', publish)
+  assert.ok(smoke >= 0, 'release must run the shared packed-artifact smoke test')
+  assert.ok(recoveryTag > smoke, 'interrupted-release tagging must follow smoke validation')
+  assert.ok(publish > smoke, 'npm publishing must follow smoke validation')
+  assert.ok(finalTag > publish, 'normal release tagging must follow npm publishing')
+})
+
 test('every package has one enforced public, internal, or tooling classification', () => {
   const surfaces = parse<Surfaces>(fileURLToPath(new URL('../../../package-surfaces.json', import.meta.url)))
   const classified = [...Object.keys(surfaces.public), ...Object.keys(surfaces.internal), ...Object.keys(surfaces.tooling)]

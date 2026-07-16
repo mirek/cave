@@ -5,7 +5,8 @@
 # partial-failure-safe: packages already on npm are skipped (both by the
 # up-front check and by `pnpm -r publish` itself), a fully published
 # version is (re)tagged if a previous run died before tagging, and the
-# run only goes green once every public package is on the registry.
+# run only goes green once the packed artifacts pass their end-to-end smoke
+# test and every public package is on the registry.
 #
 # In CI, npm auth comes from OIDC trusted publishing (id-token: write);
 # locally it falls back to regular npm auth, making this a superset of
@@ -67,19 +68,13 @@ ensure_tag() {
   fi
 }
 
-if [ "${#unpublished[@]}" -eq 0 ]; then
-  echo "v${version} is fully published — nothing to publish"
-  ensure_tag # heals a prior run that published everything but died before tagging
-  exit 0
-fi
-
 echo "==> to publish at v${version}: ${unpublished[*]}"
 if [ "${#first_time[@]}" -gt 0 ]; then
   echo "warning: first-ever publish for: ${first_time[*]}" >&2
   echo "warning: trusted publishing cannot cover a package until it exists on npm — in CI expect these to fail; see the header of this script" >&2
 fi
 
-echo "==> building and testing v${version}"
+echo "==> building, testing, and smoke-checking v${version}"
 # Generated grammar artifacts (parser.c, WASM) are never committed —
 # tree-sitter-cli (a devDependency) regenerates them here; its
 # `build --wasm` downloads wasi-sdk into ~/.cache/tree-sitter on
@@ -87,6 +82,16 @@ echo "==> building and testing v${version}"
 pnpm --filter @cavelang/tree-sitter-cave build
 pnpm build
 pnpm test
+bash scripts/smoke.sh
+
+# Even the interrupted-release recovery path below must validate the current
+# checkout before creating its tag. This prevents a same-version checkout from
+# tagging code that was never built and smoke-tested.
+if [ "${#unpublished[@]}" -eq 0 ]; then
+  echo "v${version} is fully published — nothing to publish"
+  ensure_tag # heals a prior run that published everything but died before tagging
+  exit 0
+fi
 
 echo "==> publishing v${version} to npm"
 for manifest in packages/*/package.json; do
