@@ -15,4 +15,4 @@ review comments are consolidated into one bug file.
 
 ## Known bugs
 
-- [Example wording](bugs/example-wording.md) — Correct reviewed wording in incident examples.
+None.

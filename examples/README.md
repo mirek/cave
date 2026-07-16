@@ -1,7 +1,7 @@
 # Examples
 
 Each directory pairs a natural-language document with its hand extraction
-to CAVE, so every command below is copy-paste runnable from the repository
+into CAVE, so every command below is copy-paste runnable from the repository
 root (after `pnpm install`). All outputs shown here and in the main README
 walkthrough were captured from actual runs.
 
