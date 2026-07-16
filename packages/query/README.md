@@ -36,6 +36,10 @@ query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only 
 - **Inverse verbs** are valid: `?x PART-OF monorepo` compiles to
   `verb = 'CONTAINS' AND subject = 'monorepo'` with `?x` binding on the
   object side — the same physical query as the forward pattern.
+- **Lifecycle spellings** are interchangeable after their declaration:
+  with `WORKS-AT RENAMED-TO EMPLOYED-BY`, patterns using either name compile
+  to the stable `WORKS-AT` storage verb. `asOf` reconstructs the registry at
+  the same boundary, so the replacement is unknown before its declaration.
 - `VERB+` is transitive (one or more hops), compiled to a recursive CTE
   over current, positive, non-retracted edges, depth-capped at 32.
   Transitive works through inverses too (`packages/api PART-OF+ ?c` walks
@@ -83,7 +87,8 @@ covers one second.
   alias-equal, transitive hops cross alias links — while bindings and rows
   keep stored names untouched (union-of-rows, never silent merging). The
   closure always reads current beliefs, even under `{ all: true }`.
-  Values, attribute names and verbs are not entities and never resolve.
+  Values, attribute names and verbs are not entities. Verbs resolve through
+  their separate `RENAMED-TO` lifecycle registry (§5.8).
 - **`{ asOf }` resolves beliefs as of a past moment** (§12.3): only rows
   recorded up to the boundary participate, then resolution proceeds as
   usual — so a claim retracted later is still believed at the boundary,

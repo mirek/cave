@@ -112,9 +112,15 @@ export type DeriveReport = {
 
 const safeAtomRe = /^[A-Za-z0-9][A-Za-z0-9._/+-]*$/
 
-/** In-band declaration rows are never retracted — verb lifecycle is open. */
+/** In-band vocabulary declarations are append-only and never lifecycle-retracted. */
 const isDeclaration = (row: Row.t): boolean =>
-  row.verb === 'REVERSE' || (row.verb === 'IS' && row.object === 'verb')
+  row.verb === 'REVERSE' || row.verb === 'RENAMED-TO' ||
+  (row.verb === 'IS' && row.object === 'verb')
+
+const isDeclarationClaim = (claim: Claim.t): boolean =>
+  claim.verb === 'REVERSE' || claim.verb === 'RENAMED-TO' ||
+  (claim.verb === 'IS' && claim.payload.kind === 'relation' &&
+    claim.payload.object.kind === 'entity' && claim.payload.object.text === 'verb')
 
 /** Claim key of a `subject HAS <attribute>: … @src:cave-derive` bookkeeping claim. */
 const bookkeepingKey = (subject: string, attribute: string): string =>
@@ -230,6 +236,8 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
         const swapped = objectSlot ?? { kind: 'wildcard' as const }
         objectSlot = subjectSlot
         subjectSlot = swapped
+        verb = { kind: 'verb', name: primary, transitive: verb.transitive }
+      } else {
         verb = { kind: 'verb', name: primary, transitive: verb.transitive }
       }
     }
@@ -552,6 +560,12 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
         { claims: [{ claim: conclusion.claim, line: 0 }], edges: [], registry: store.registry(), problems: [] },
         { source: ruleSubject(rule.digest), lifecycle: true }
       )
+      // `conclude` returns the claim rather than its one-line registry
+      // result. Replay all stored declarations after a generated vocabulary
+      // claim so later rules and fixpoint passes see it immediately.
+      if (isDeclarationClaim(conclusion.claim)) {
+        store.reloadRegistry()
+      }
       const id = inserted.ids[0]!
       const premiseIds = [...new Set(conclusion.rows.map(premiseRow => premiseRow.id))]
       store.appendEdges([

@@ -123,6 +123,7 @@ subject VERB [NOT] object [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
 subject HAS attribute: value [+/- delta [(N sigma)]] [@context...] [#tag...] [@ N%]
 
 VERB REVERSE INVERSE-VERB
+OLD-VERB RENAMED-TO NEW-VERB
 
 parent VERB object
   WHEN condition

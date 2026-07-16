@@ -14,7 +14,7 @@ result.claims[0].claim.raw            // 'packages/api PART-OF monorepo' — as 
 emit(result)                          // 'monorepo CONTAINS packages/api\n'
 ```
 
-## Registry (spec §5.5)
+## Registry (spec §5.5, §5.8)
 
 Inverse pairs are declared in-band — `CONTAINS REVERSE PART-OF` is an
 ordinary claim whose subject and object happen to be verbs. The registry is
@@ -27,6 +27,14 @@ effect for *subsequent* lines only. Rules:
 - no verb is born with an inverse; `standardRegistry` (and the equivalent
   `standardPrelude` CAVE text) carries the eight §5.5 pairs as the "shared
   prelude" the spec allows.
+
+Lifecycle declarations use `OLD RENAMED-TO NEW`. Both same-direction
+spellings resolve to the oldest, stable storage verb, while `NEW` is exposed
+as preferred and `OLD` as deprecated. This lets later writes use the new name
+without rewriting rows or splitting the existing claim key and history.
+Linear chains are supported; branches, joins, cycles, and collisions with an
+existing verb identity are rejected. Renaming either side of a `REVERSE` pair
+preserves direction and makes reverse reads return the preferred opposite name.
 
 ## Pipeline (spec §13.4)
 
@@ -48,8 +56,8 @@ effect for *subsequent* lines only. Rules:
   - full claim → canonicalized as usual (inverse resolution applies).
 - **Grouped claims** (§8.4): indented full triples stay independent and
   link to their parent with the `QUALIFIES` edge role (§13.2's role list).
-- **Declarations**: `A REVERSE B` and `X IS verb` claims update the
-  registry after the line itself is canonicalized.
+- **Declarations**: `A REVERSE B`, `OLD RENAMED-TO NEW`, and `X IS verb`
+  claims update the registry after the line itself is canonicalized.
 
 ## Emitter
 
@@ -100,4 +108,5 @@ pnpm --filter @cavelang/canonical test
 Covers the §5.5 inverse semantics (shared keys, negation riding the row,
 belief series through either name), §8.3 continuation table, §8.2
 equivalent forms, the §21 worked example including its inverse reads, and
-emitter round-trip stability.
+emitter round-trip stability, plus §5.8 rename chains, deprecation,
+collision handling, stable history, and inverse composition.

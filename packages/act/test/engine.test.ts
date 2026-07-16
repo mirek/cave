@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { open } from '@cavelang/store'
 import { query } from '@cavelang/query'
+import { Registry } from '@cavelang/canonical'
 import { act, actProposal, declareActions, listActions, retractAction } from '@cavelang/act'
 
 const claimCount = (store: ReturnType<typeof open>): number =>
@@ -97,6 +98,18 @@ test('premise-bound variables flow into effects; ambiguity fails the action', ()
   const ambiguous = act(store, 'tag-dep', { service: 'api' })
   assert.equal(ambiguous.ok, false)
   assert.match((ambiguous as { error: string }).error, /ambiguous binding for \?dep/)
+  store.close()
+})
+
+test('ordered action effects apply RENAMED-TO before later writes (spec §5.8, §25.2)', () => {
+  const store = open()
+  declareActions(store,
+    'action/adopt-verb HAS action: `=> WORKS-AT RENAMED-TO EMPLOYED-BY, alice EMPLOYED-BY acme`')
+  const report = act(store, 'adopt-verb', {})
+  assert.ok(report.ok)
+  assert.equal(Registry.preferredOf(store.registry(), 'WORKS-AT'), 'EMPLOYED-BY')
+  assert.equal(query(store, 'alice WORKS-AT acme').length, 1)
+  assert.equal(query(store, 'alice EMPLOYED-BY acme').length, 1)
   store.close()
 })
 

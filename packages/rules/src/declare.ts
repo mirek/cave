@@ -171,7 +171,8 @@ export const retractRule = (store: Store, ref: string): Retraction => {
         }
       }
       for (const row of latest.values()) {
-        if (row.conf <= 0 || (row.verb === 'REVERSE' || (row.verb === 'IS' && row.object === 'verb'))) {
+        if (row.conf <= 0 || (row.verb === 'REVERSE' || row.verb === 'RENAMED-TO' ||
+            (row.verb === 'IS' && row.object === 'verb'))) {
           continue
         }
         store.insertResult({

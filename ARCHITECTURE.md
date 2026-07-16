@@ -77,6 +77,13 @@ Relations have one physical direction. In-band declarations such as
 written direction onto the primary direction before computing the claim key.
 Queries and traversals use the same registry to expose inverse readings.
 
+The same registry handles directional lifecycle declarations such as
+`WORKS-AT RENAMED-TO EMPLOYED-BY`. The oldest spelling remains the stable
+storage identity, while the replacement becomes the preferred authoring name
+and the old name remains compatible. New writes therefore continue the same
+claim-key history without mutating historical rows; lifecycle aliases and
+inverse direction compose before SQL matching.
+
 The registry starts from the standard prelude unless a caller opts out. It is
 then rebuilt from stored declarations on open, and can also be reconstructed at
 an `--as-of` boundary so vocabulary and data agree historically.
@@ -150,8 +157,8 @@ claim text.
 
 `@cavelang/query` parses a CAVE-Q pattern and compiles it to parameterized SQL.
 Normal patterns become filtered selects; transitive `VERB+` patterns become
-recursive CTEs with a depth cap. Inverse verbs swap query endpoints against the
-same canonical rows.
+recursive CTEs with a depth cap. Lifecycle spellings resolve to stable storage
+verbs, and inverse verbs swap query endpoints against the same canonical rows.
 
 The default row universe is current belief: latest row per `claim_key`, with
 positive queries excluding retracted rows. Callers can change that universe
@@ -268,7 +275,7 @@ shell template. Action hooks run only after the database transaction commits.
 | Layer | Packages | Responsibility |
 |---|---|---|
 | Domain | `core`, `fusion` | Immutable claim/value types, keys, time, UUIDv7, probabilistic math. |
-| Language | `parser`, `canonical` | CAVE text, diagnostics, inverse registry, canonical claims, emission. |
+| Language | `parser`, `canonical` | CAVE text, diagnostics, inverse/lifecycle registry, canonical claims, emission. |
 | Data | `store`, `query`, `shape` | SQLite persistence, CAVE-Q, resolution, expectations, health and write gates. |
 | Formal reasoning | `solver`, `scenario`, optional `solver-z3` | Portable exact models and backend-neutral results; typed snapshot bindings; explicit immutable result recording; opt-in Z3 search. |
 | Behavior | `rules`, `act`, `automate`, `loop` | Derivation, governed writes, event processing, active reconstruction policies. |

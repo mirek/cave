@@ -119,7 +119,7 @@ Rules:
   claim's source context* (e.g. `x IS y @src:agent/claude @ 0%`) — the
   explicit context suppresses the stamp and lands in the original series.
 - Stamps apply uniformly to every appended row, including qualifier
-  condition rows and in-band declarations (`REVERSE`, extension verbs) —
+  condition rows and in-band declarations (`REVERSE`, `RENAMED-TO`, extension verbs) —
   which is what makes schema changes attributable and reviewable.
 
 ---
@@ -291,7 +291,7 @@ FROM cave_claim WHERE object = ?;
 Before storage:
 
 1. Normalize verb to uppercase.
-2. **If verb is an inverse: swap subject/object and substitute the primary verb (§5.5).**
+2. **Resolve a lifecycle spelling to its stable storage verb (§5.8), then if it is an inverse swap subject/object and substitute the primary verb (§5.5).**
 3. **Resolve continuation lines: fill the inherited endpoint from the parent (§8.3).**
 4. Normalize entity whitespace to `-`; preserve proper-noun casing.
 5. Preserve `raw_line` exactly.
@@ -431,7 +431,8 @@ SELECT name FROM alias_closure;
 ```
 
 The closure applies to entity positions only — values, attribute names
-and verbs are not entities (verb lifecycle is a separate concern).
+and verbs are not entities. Verb spellings resolve separately through
+`RENAMED-TO` lifecycle declarations (§5.8).
 Finding the pairs worth linking is alias *discovery* (§27).
 
 ---

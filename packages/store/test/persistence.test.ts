@@ -11,14 +11,40 @@ test('registry rebuilds from stored declaration claims on reopen', () => {
   const path = join(dir, 'test.db')
   try {
     const first = open(path, { registry: Registry.empty })
-    first.ingest('WRAPS REVERSE WRAPPED-BY\nMIGRATES IS verb')
+    first.ingest('WRAPS REVERSE WRAPPED-BY\nMIGRATES IS verb\nMIGRATES RENAMED-TO MOVES-DATA')
     first.close()
     const second = open(path, { registry: Registry.empty })
     assert.equal(Registry.inverseOf(second.registry(), 'WRAPS'), 'WRAPPED-BY')
     assert.ok(Registry.isDeclared(second.registry(), 'MIGRATES'))
+    assert.equal(Registry.storageOf(second.registry(), 'MOVES-DATA'), 'MIGRATES')
     second.ingest('gift WRAPPED-BY paper')
     const [row] = second.currentBeliefs().filter(r => r.verb === 'WRAPS')
     assert.equal(row!.subject, 'paper')
+    second.close()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('verb rename preserves one append-only belief series across reopen (spec §5.8)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-'))
+  const path = join(dir, 'lifecycle.db')
+  try {
+    const first = open(path)
+    first.ingest('alice WORKS-AT acme @ 60%')
+    const declaration = first.ingest('WORKS-AT RENAMED-TO EMPLOYED-BY')
+    const update = first.ingest('alice EMPLOYED-BY acme @ 90%')
+    const current = first.currentBeliefs().find(row => row.subject === 'alice')!
+    assert.equal(current.verb, 'WORKS-AT')
+    assert.equal(first.history(current.claim_key).length, 2)
+    assert.equal(Registry.preferredOf(first.registry(), 'WORKS-AT'), 'EMPLOYED-BY')
+    assert.equal(Registry.storageOf(first.registryAsOf(declaration.ids[0]!), 'EMPLOYED-BY'), 'WORKS-AT')
+    assert.equal(Registry.storageOf(first.registryAsOf(update.ids[0]!), 'EMPLOYED-BY'), 'WORKS-AT')
+    first.close()
+
+    const second = open(path)
+    assert.equal(Registry.storageOf(second.registry(), 'EMPLOYED-BY'), 'WORKS-AT')
+    assert.equal(second.history(current.claim_key).length, 2)
     second.close()
   } finally {
     rmSync(dir, { recursive: true, force: true })

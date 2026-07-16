@@ -85,9 +85,9 @@ never poison the rest of the run — or the prune set.
 - **Exactness over prettiness.** Values insert verbatim or exactly
   quoted; a value that cannot be quoted (`"` and `` ` `` both present)
   fails that record loudly instead of being mangled silently.
-- **Retraction never touches declaration claims** (`X IS verb`,
-  `REVERSE`) — verb lifecycle is an open design decision (`TODO.md`), and
-  the prelude is additive.
+- **Retraction never touches vocabulary declarations** (`X IS verb`,
+  `REVERSE`, `RENAMED-TO`) — registry history is additive even when the
+  connector record that introduced a declaration changes.
 - **Keys are sanitized, claims are not.** The record key rides in an
   entity name and a `@src:` context, so reserved characters collapse to
   `-`; claim subjects/values keep the exact field value.

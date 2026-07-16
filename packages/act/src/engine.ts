@@ -134,6 +134,7 @@ type Instantiated = {
   readonly claim: Claim.t
   readonly key: string
   readonly line: string
+  readonly registry: Canonical.Registry.t
 }
 
 /**
@@ -184,7 +185,7 @@ const instantiate = (
   const stamped = claim.contexts.includes(stamp) ?
     claim :
     { ...claim, contexts: [...claim.contexts, stamp] }
-  return { instantiated: { claim, key: Key.of(stamped), line: Canonical.emitClaim(claim) } }
+  return { instantiated: { claim, key: Key.of(stamped), line: Canonical.emitClaim(claim), registry: result.registry } }
 }
 
 /** POSIX single-quoting — hook placeholders never splice raw (spec §25.4). */
@@ -325,12 +326,14 @@ export const act = (
 
   // Instantiation is a pure read — any problem fails before writing.
   const instantiated: Instantiated[] = []
+  let effectRegistry = store.registry()
   for (const effect of action.effects) {
-    const { instantiated: entry, problem } = instantiate(effect, chosen, store.registry(), action.subject)
+    const { instantiated: entry, problem } = instantiate(effect, chosen, effectRegistry, action.subject)
     if (problem !== undefined) {
       return fail(action.name, problem)
     }
     instantiated.push(entry!)
+    effectRegistry = entry!.registry
   }
 
   const check = options.check !== false
@@ -354,7 +357,7 @@ export const act = (
           continue
         }
         const inserted = store.insertResult(
-          { claims: [{ claim: entry.claim, line: 0 }], edges: [], registry: store.registry(), problems: [] },
+          { claims: [{ claim: entry.claim, line: 0 }], edges: [], registry: entry.registry, problems: [] },
           { source: action.subject, lifecycle: true }
         )
         const id = inserted.ids[0]!

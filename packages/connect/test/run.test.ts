@@ -93,6 +93,17 @@ test('the digest covers the mapping too — a mapping change re-fires records (s
   store.close()
 })
 
+test('record lifecycle never retracts RENAMED-TO vocabulary declarations (spec §5.8, §23.2)', () => {
+  const store = open()
+  const records = [{ old: 'WORKS-AT', replacement: 'EMPLOYED-BY', id: 'vocabulary' }]
+  connect(store, mappingOf('?old RENAMED-TO ?replacement'), records, { name: 'schema', key: 'id' })
+  const changed = connect(store, mappingOf('?old IS verb'), records, { name: 'schema', key: 'id' })
+  assert.equal(changed.retracted, 0)
+  const declaration = store.currentBeliefs().find(row => row.verb === 'RENAMED-TO')
+  assert.equal(declaration?.conf, 1)
+  store.close()
+})
+
 test('--prune retracts records that left the source; failures never prune (spec §23.2)', () => {
   const store = open()
   const mapping = mappingOf(mappingText)

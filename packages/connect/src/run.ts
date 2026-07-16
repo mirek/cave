@@ -116,9 +116,10 @@ const keyOf = (value: unknown): undefined | string => {
   return text === '' ? undefined : text
 }
 
-/** In-band declaration claims are never retracted — verb lifecycle is open. */
+/** In-band vocabulary declarations are append-only and never lifecycle-retracted. */
 const isDeclaration = (row: Row.t): boolean =>
-  row.verb === 'REVERSE' || (row.verb === 'IS' && row.object === 'verb')
+  row.verb === 'REVERSE' || row.verb === 'RENAMED-TO' ||
+  (row.verb === 'IS' && row.object === 'verb')
 
 /**
  * Retracts current claims carrying `context` that were not (re-)appended in
