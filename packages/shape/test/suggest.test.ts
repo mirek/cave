@@ -79,6 +79,19 @@ test('typos surface through edit similarity (spec §27.2)', () => {
   store.close()
 })
 
+test('leading-character typos reach edit scoring (spec §27.2)', () => {
+  const store = open()
+  store.ingest('billing USES postgres\nanalytics USES ostgres')
+  const suggestions = suggestAliases(store)
+  assert.equal(suggestions.length, 1)
+  assert.deepEqual(
+    [suggestions[0]!.entity, suggestions[0]!.canonical].sort(),
+    ['ostgres', 'postgres']
+  )
+  assert.ok(suggestions[0]!.signals.some(signal => signal.kind === 'edit'))
+  store.close()
+})
+
 test('a typo inside one segment is drift; a differing word is not (spec §27.2)', () => {
   const store = open()
   store.ingest('grandma-maria EXISTS\ngrandma-mria EXISTS')

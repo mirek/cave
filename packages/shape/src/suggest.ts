@@ -300,13 +300,19 @@ export const suggestAliases = (store: Store, options: Options = {}): Suggestion[
   const graph = readGraph(store)
   const names = [...graph.counts.keys()].sort()
   // Cheap blocking: a pair is worth scoring when the names share their
-  // first comparison character, share a segment, or share a rare value.
+  // first comparison character, a normalized suffix, a segment, or a rare
+  // value. The suffix block lets leading-character edits reach the existing
+  // edit-distance and differing-segment guards.
   const blocks = new Map<string, string[]>()
   const block = (key: string, name: string): void => {
     blocks.set(key, [...blocks.get(key) ?? [], name])
   }
   for (const name of names) {
-    block(`first ${norm(name)[0]!}`, name)
+    const normalized = norm(name)
+    block(`first ${normalized[0]!}`, name)
+    if (normalized.length >= 5) {
+      block(`suffix ${normalized.slice(-4)}`, name)
+    }
     for (const token of tokensOf(name)) {
       block(`token ${token}`, name)
     }
