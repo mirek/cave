@@ -68,6 +68,28 @@ test('transitive EXTENDS+ (spec §12.1)', () => {
   store.close()
 })
 
+test('transitive closure crosses the former 32-hop boundary without truncation', () => {
+  const store = open()
+  const hops = 80
+  const node = (index: number): string => `chain/${index.toString().padStart(3, '0')}`
+  store.ingest(Array.from({ length: hops }, (_, index) =>
+    `${node(index)} REACHES ${node(index + 1)}`).join('\n'))
+
+  assert.equal(query(store, `${node(0)} REACHES+ ${node(32)}`).length, 1, '32 hops')
+  assert.equal(query(store, `${node(0)} REACHES+ ${node(33)}`).length, 1, '33 hops')
+  assert.equal(query(store, `${node(0)} REACHES+ ${node(hops)}`).length, 1, 'long chain')
+  assert.deepEqual(
+    query(store, `${node(0)} REACHES+ ?destination`).map(match => match.bindings['destination']),
+    Array.from({ length: hops }, (_, index) => node(index + 1)),
+    'a partly bound traversal returns the complete ordered chain'
+  )
+
+  const supported = query(store, `${node(0)} REACHES+ ${node(hops)}`, { support: true })
+  assert.equal(supported.length, 1)
+  assert.equal(supported[0]!.rows?.length, hops, 'every edge on the long path remains visible as support')
+  store.close()
+})
+
 test('transitive matches carry their supporting edge rows under support (spec §12.1)', () => {
   const store = fixture()
   const matches = query(store, 'terrier EXTENDS+ animal', { support: true })
@@ -194,7 +216,7 @@ test('transitive patterns reject filters', () => {
   store.close()
 })
 
-test('?x EXTENDS+ ?x finds cycles only (repeated-var equality in transitive patterns)', () => {
+test('?x EXTENDS+ ?x finds cycles only and cycle-safe closure terminates', () => {
   const acyclic = open()
   acyclic.ingest('a EXTENDS b\nb EXTENDS c')
   assert.deepEqual(query(acyclic, '?x EXTENDS+ ?x'), [])

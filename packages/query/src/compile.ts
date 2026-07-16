@@ -14,7 +14,9 @@
  * on the object side.
  *
  * Transitive patterns (`terrier EXTENDS+ animal`) compile to a recursive
- * CTE over current, positive, non-retracted edges (depth-capped at 32).
+ * CTE over current, positive, non-retracted edges. Recursive state is the
+ * reachable endpoint pair itself, so SQL `UNION` deduplication terminates
+ * cycles without an arbitrary semantic depth cap.
  */
 
 import { Time, Value } from '@cavelang/core'
@@ -427,11 +429,13 @@ const compileTransitive = (
     conditions.push(same('h.src', 'h.dst'))
   }
   const withRecursive = `WITH RECURSIVE ${aliases ? `${aliasPairSql(options.asOf)}, ` : ''}`
-  const hopsSql = `hops(src, dst, depth) AS (
-  SELECT src, dst, 1 FROM cur
+  // Reachable pairs are the complete recursive state. UNION (not UNION ALL)
+  // deduplicates each pair before it can be expanded again, so a finite graph
+  // reaches a fixed point even with cycles and no hop-depth cutoff.
+  const hopsSql = `hops(src, dst) AS (
+  SELECT src, dst FROM cur
   UNION
-  SELECT h.src, cur.dst, h.depth + 1 FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}
-  WHERE h.depth < 32
+  SELECT h.src, cur.dst FROM hops h JOIN cur ON ${same('cur.src', 'h.dst')}
 )`
   // Support (an opt-in): an edge row backs a pair when its endpoints sit
   // on some path between them — reflexive or through the same hop

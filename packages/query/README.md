@@ -52,7 +52,9 @@ query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only 
   to the stable `WORKS-AT` storage verb. `asOf` reconstructs the registry at
   the same boundary, so the replacement is unknown before its declaration.
 - `VERB+` is transitive (one or more hops), compiled to a recursive CTE
-  over current, positive, non-retracted edges, depth-capped at 32.
+  over current, positive, non-retracted edges. Reachable endpoint pairs are
+  deduplicated as the recursion runs, so cycles terminate at a finite fixed
+  point and paths are not silently truncated at a hop limit.
   Transitive works through inverses too (`packages/api PART-OF+ ?c` walks
   `CONTAINS` upward from the object side).
 
@@ -83,6 +85,11 @@ covers one second.
   (`latency IS 30ms` the pattern finds `latency IS 30ms` the claim).
 - A repeated variable forces equality in transitive patterns too:
   `?x EXTENDS+ ?x` finds nodes on cycles, not every reachable pair.
+- Transitive recursion has no CAVE hop limit and never returns a silently
+  partial closure. It reaches a fixed point after at most the finite set of
+  endpoint pairs (quadratic in the number of participating entities); if the
+  SQLite runtime cannot complete that work, the query fails instead of
+  presenting a truncated result as complete.
 - Transitive patterns support endpoint slots only; tag/context/WHERE
   filters on them are rejected rather than silently ignored.
 - **`{ support: true }` attaches supporting edge rows to transitive
@@ -131,7 +138,8 @@ pnpm --filter @cavelang/query test
 
 Every §12.1 example pattern and every §12.2 filter runs against a live
 in-memory store, including inverse and transitive-inverse cases,
-current-vs-history semantics, negated patterns, the §13.6 alias
+current-vs-history semantics, negated patterns, long paths across the former
+32-hop boundary, cycle-safe closure, the §13.6 alias
 closure (term widening, transitive hops across aliases, unmerge by
 retraction, value/attribute exemption), §12.3 as-of resolution
 (tx/date/timestamp boundaries, later retraction, as-of alias closure
