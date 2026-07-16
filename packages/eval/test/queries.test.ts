@@ -38,6 +38,23 @@ test('parse: multi-variable solution lines split on ?var =', () => {
   })
 })
 
+test('parse: expectation lines accept inline comments', () => {
+  const { queries, problems } = Queries.parseQueries([
+    'a IS ?x',
+    '  ?x = b ; expected binding',
+    'c IS ?x',
+    '  none ; no matches expected',
+    'd HAS note: ?note',
+    '  ?note = `part;two` ; quoted semicolon belongs to the value'
+  ].join('\n'))
+  assert.deepEqual(problems, [])
+  assert.deepEqual(queries.map(query => query.expect), [
+    { kind: 'solutions', solutions: [{ x: 'b' }] },
+    { kind: 'none' },
+    { kind: 'solutions', solutions: [{ note: '`part;two`' }] }
+  ])
+})
+
 test('parse problems: orphan expectations, conflicting none, junk lines', () => {
   const { problems } = Queries.parseQueries([
     '  ?x = orphan',

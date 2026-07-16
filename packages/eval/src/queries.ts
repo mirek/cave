@@ -25,12 +25,14 @@
  *   wrong as a lost one).
  * - `none` expects zero matches; no expectation lines expect at least one.
  *
- * Blank lines and full-line `;` comments are skipped. Because claim-key
- * scoring is exact about naming, these checks are where an eval asserts
+ * Blank lines and full-line `;` comments are skipped; inline comments are
+ * accepted on patterns and expectations. Because claim-key scoring is exact
+ * about naming, these checks are where an eval asserts
  * *usefulness* — that multi-hop questions the source only implies come
  * back right — independent of how the golden spelled each claim.
  */
 
+import { Token } from '@cavelang/parser'
 import { query } from '@cavelang/query'
 import type { Store } from '@cavelang/store'
 
@@ -113,7 +115,8 @@ export const parseQueries = (text: string): Parsed => {
       problems.push(`queries line ${line}: expectation without a pattern`)
       return
     }
-    if (trimmed === 'none') {
+    const expectation = Token.splitComment(trimmed).head.trim()
+    if (expectation === 'none') {
       if (current.none || current.solutions.length > 0) {
         problems.push(`queries line ${line}: 'none' conflicts with other expectations`)
         return
@@ -121,7 +124,7 @@ export const parseQueries = (text: string): Parsed => {
       current.none = true
       return
     }
-    const solution = parseSolution(trimmed)
+    const solution = parseSolution(expectation)
     if (solution === undefined) {
       problems.push(`queries line ${line}: expected '?var = value' bindings or 'none', got ${JSON.stringify(trimmed)}`)
       return

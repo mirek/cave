@@ -22,6 +22,9 @@
       "path": "../loop"
     },
     {
+      "path": "../parser"
+    },
+    {
       "path": "../query"
     },
     {

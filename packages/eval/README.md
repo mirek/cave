@@ -46,7 +46,9 @@ me PARENT-OF ?child
 ```
 
 Listed solutions are an *exact* set — a missing binding fails, and so
-does an invented one. Queries are where a fixture asserts usefulness
+does an invented one. Patterns and expectation lines may end with `;`
+inline comments; semicolons inside quotes or backticks remain part of the
+value. Queries are where a fixture asserts usefulness
 (multi-hop questions the source only implies) independent of how the
 golden spelled each claim; `--aliases` lets agents that declared `ALIAS`
 links pass them despite naming drift.
