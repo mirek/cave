@@ -170,6 +170,25 @@ test('the same fact recorded on both machines: one series, two rows, latest wins
   }
 })
 
+test('sync preserves retracted history and sensitive raw text (spec §9.6, §28.1)', () => {
+  const { dir, done } = scratch()
+  try {
+    const source = open(join(dir, 'source.db'))
+    source.ingest('credential HAS token: "sk-live-secret" @src:ops')
+    source.ingest('credential HAS token: redacted @src:ops @ 0%')
+    source.close()
+
+    const target = open(join(dir, 'target.db'))
+    const report = syncDb(target, join(dir, 'source.db'), { record: false })
+    assert.equal(report.merged, 2)
+    assert.match(target.exportText(), /sk-live-secret/)
+    assert.equal(target.search('sk-live-secret').length, 1)
+    target.close()
+  } finally {
+    done()
+  }
+})
+
 test('merged in-band declarations take effect without reopening (spec §28.1)', () => {
   const { dir, done } = scratch()
   try {

@@ -97,6 +97,18 @@ test('append-only: ingest is transactional per call', () => {
   store.close()
 })
 
+test('retraction never forgets historical raw text or search content (spec §9.6)', () => {
+  const store = open()
+  store.ingest('credential HAS token: "sk-live-secret" @src:ops')
+  store.ingest('credential HAS token: redacted @src:ops @ 0% ; no longer believed')
+  assert.match(store.exportText(), /sk-live-secret/)
+  assert.equal(store.search('sk-live-secret').length, 1)
+  const current = store.currentBeliefs().find(row => row.attribute === 'token')!
+  assert.equal(current.conf, 0)
+  assert.equal(store.history(current.claim_key).length, 2)
+  store.close()
+})
+
 test('per-row tx ids are strictly increasing in document order', () => {
   const store = open()
   const { ids } = store.ingest('a USES b\nc USES d\ne USES f')
