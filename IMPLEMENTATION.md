@@ -58,9 +58,12 @@ packages the same grammar WASM and highlight query as a VSCode extension
   emit package `dist/` trees. CI builds before tests, and package `prepack`
   scripts emit the JavaScript and declarations published to npm.
 - **Builtin test runner** — `node --test`, zero test dependencies.
-- **SQLite is `node:sqlite`** — no native modules. (The original request
-  said "builtin mssql"; Node has no builtin MSSQL driver and the spec's
-  storage model is SQLite/FTS5, so `node:sqlite` is the interpretation.)
+- **SQLite has an explicit adapter boundary.** Node uses builtin
+  `node:sqlite` with no native modules; the browser playground injects SQL.js
+  WASM. Transactions, full-text mode, extension loading, and snapshot support
+  are declared capabilities instead of build-time module aliases. (The
+  original request said "builtin mssql"; Node has no builtin MSSQL driver and
+  the spec's storage model is SQLite/FTS5, so SQLite is the interpretation.)
 - **SQLite schema changes are ordered migrations** (§13.2.1): version 0 is
   the legacy unversioned baseline and version 1 is current. Each forward step
   performs DDL, data backfill, structural validation, and `user_version`

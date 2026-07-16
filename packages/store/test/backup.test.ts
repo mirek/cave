@@ -6,13 +6,14 @@ import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { DatabaseSync } from 'node:sqlite'
 import { backup, open, restoreBackup, verifyBackup } from '@cavelang/store'
+import type { SqliteDatabase } from '@cavelang/store/adapter'
 
 const scratch = (): { dir: string, done: () => void } => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-backup-'))
   return { dir, done: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
-const table = (db: DatabaseSync, name: string, order: string): unknown[] =>
+const table = (db: SqliteDatabase | DatabaseSync, name: string, order: string): unknown[] =>
   db.prepare(`SELECT * FROM ${name} ORDER BY ${order}`).all()
 
 test('exact backup and restore preserve rows, tx order, provenance, history, and lineage', () => {

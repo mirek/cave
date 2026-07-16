@@ -1,6 +1,6 @@
 /**
  * The CAVE store (spec §13) — append-only claim persistence on the Node.js
- * builtin `node:sqlite`.
+ * through an explicit synchronous SQLite adapter.
  *
  * - one row per fact, canonical direction; inverses are query-time views
  *   over existing indexes, never materialized rows (spec §13.3);
@@ -18,9 +18,9 @@
  *   traversal opt-in.
  */
 
-import { DatabaseSync } from 'node:sqlite'
 import { Claim, Context, Key, Uuidv7, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
+import type { Adapter } from './adapter.ts'
 import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
 import * as Schema from './schema.ts'
@@ -203,14 +203,18 @@ export const defaultDbPath = (): string =>
  * already stored; pass `Canonical.Registry.empty` for a declaration-free
  * start.
  */
-export const open = (path: string = ':memory:', options: { registry?: Canonical.Registry.t } = {}) => {
-  const db = new DatabaseSync(path)
+export const open = (
+  adapter: Adapter,
+  path: string = ':memory:',
+  options: { registry?: Canonical.Registry.t } = {}
+) => {
+  const db = adapter.open(path)
   // Concurrent writers wait for the database allocation lock instead of
   // failing immediately with SQLITE_BUSY.
   db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
   try {
-    Schema.init(db)
+    Schema.init(db, adapter.capabilities)
   } catch (error) {
     db.close()
     throw error
@@ -446,7 +450,10 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
       currentSql
 
   return {
-    /** Raw database handle — used by `@cavelang/query`; treat as read-only. */
+    /** Adapter that owns this database connection and its capabilities. */
+    adapter,
+
+    /** Raw adapter database handle — used by `@cavelang/query`; treat as read-only. */
     db,
 
     /** Current verb registry (input registry + stored + ingested declarations). */

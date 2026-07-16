@@ -375,8 +375,11 @@ builds run composite `tsc -b`, which both typechecks and emits package `dist/`
 trees consumed by packed npm artifacts.
 
 The website playground reuses `core`, `parser`, `canonical`, `store`, and
-`query`. Vite aliases `node:sqlite` to a small compatibility adapter backed by
-`sql.js`; the database is in memory and isolated to the browser tab. Node-only
+`query`. It passes a SQL.js/WASM implementation to the store's explicit SQLite
+adapter boundary; the database is in memory and isolated to the browser tab.
+The Node adapter declares FTS5, extension loading, and exact snapshot support;
+the browser adapter declares FTS4 and no file backup. Shared contract tests
+exercise SQL, transactions, and full-text behavior for both. Node-only
 capabilities such as filesystem ingestion, shell hooks, sync from files, and
 the local HTTP server remain outside the browser bundle.
 

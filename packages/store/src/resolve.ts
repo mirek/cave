@@ -26,7 +26,7 @@
  * row returned verbatim.
  */
 
-import type { DatabaseSync } from 'node:sqlite'
+import type { Database } from './adapter.ts'
 import type * as Row from './row.ts'
 
 /** One effective policy entry (spec §26.3). */
@@ -146,7 +146,7 @@ const declaredValue = (row: DeclarationRow): undefined | number => {
  * the caller's, so an as-of query reads the policy as of its boundary
  * (§12.3).
  */
-export const readPolicy = (db: DatabaseSync, currentSql: string): Entry[] => {
+export const readPolicy = (db: Database, currentSql: string): Entry[] => {
   const declarations = db.prepare(`
     SELECT c.id, c.tx, c.subject, c.attribute, c.value_num, c.value_unit, c.conf
     FROM (${currentSql}) c

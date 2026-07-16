@@ -1,9 +1,10 @@
 # @cavelang/store
 
-CAVE persistence on the **Node.js builtin `node:sqlite`** — no native
-dependencies. Implements the spec §13 storage model: the exact §13.1/§13.2
+CAVE persistence through an explicit synchronous SQLite adapter. The default
+Node entry uses the builtin `node:sqlite` with no native dependencies; browser
+runtimes can inject a WASM implementation. Implements the spec §13 storage model: the exact §13.1/§13.2
 schema (`cave_claim`, `cave_context`, `cave_provenance`, `cave_tag`, `cave_edge`, `cave_fts`
-FTS5), append-only belief series, and inverse-aware reads.
+full-text index), append-only belief series, and inverse-aware reads.
 
 ```ts
 import { open } from '@cavelang/store'
@@ -18,6 +19,21 @@ store.reverse('packages/api')                // [{ verb: 'CONTAINS', rel: 'PART-
 store.exportText({ current: true })          // canonical text through internal
 store.exportText({ maxSensitivity: 'restricted' }) // complete portable history
 ```
+
+Runtime selection is explicit at non-Node composition boundaries:
+
+```ts
+import { openWith, type SqliteAdapter } from '@cavelang/store/adapter'
+
+declare const adapter: SqliteAdapter
+const store = openWith(adapter, ':memory:')
+```
+
+`SqliteAdapter` declares the SQL statement surface plus immediate/savepoint
+transactions, FTS4 or FTS5, optional extension loading, and optional exact
+snapshot support. The concrete Node adapter is also available from
+`@cavelang/store/adapter/node`. The shared adapter contract suite runs against
+both Node SQLite and the website's SQL.js/WASM adapter.
 
 ## Semantics
 
@@ -132,13 +148,13 @@ store.exportText({ maxSensitivity: 'restricted' }) // complete portable history
 | `byTag(key, value?)` | §13.5 | flat (`value` omitted → `IS NULL`) or scoped |
 | `byContext(ctx)` | §13.5 | context filter |
 | `topicMembers(t)` / `topicsOf(e)` | §11.2 | topic layer over `CONTAINS` |
-| `search(q, {raw, limit, maxSensitivity})` | §13.2 | FTS5; literal phrase by default, `limit` caps in the query; sensitivity is opt-in for enclosing publication surfaces |
+| `search(q, {raw, limit, maxSensitivity})` | §13.2 | adapter full-text search; literal phrase by default, `limit` caps in the query; sensitivity is opt-in for enclosing publication surfaces |
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
 | `registry()` / `baseRegistry()` | §5.5 | current registry and its configured pre-declaration base |
 | `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
 | `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
-| `db` | | raw `DatabaseSync` — used by `@cavelang/query` |
+| `adapter` / `db` | | selected adapter capabilities and its raw structural database handle |
 
 ## Storage decisions
 
@@ -153,7 +169,7 @@ store.exportText({ maxSensitivity: 'restricted' }) // complete portable history
   time-ordered, and per-row tx ids keep same-document belief updates
   ordered by line. Allocation is database-serialized across processes;
   nested store transactions remain savepoints.
-- **`search()` phrase-quotes by default** — FTS5 would parse
+- **`search()` phrase-quotes by default** — SQLite full-text syntax would parse
   `token-expiry` as a column filter; `{ raw: true }` opts into full MATCH
   syntax.
 - **Current-only export remaps edge endpoints** to the current row of each
