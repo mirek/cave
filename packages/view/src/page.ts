@@ -175,7 +175,12 @@ function claimHtml (c, opts) {
   }
   if (c.delta !== undefined) { parts.push('<span class="val">+/- ' + esc(c.delta) + '</span>') }
   c.contexts.forEach(function (ctx) {
-    parts.push('<span class="ctx' + (ctx.indexOf('src:') === 0 ? ' src' : '') + '">@' + esc(ctx) + '</span>')
+    var source = (c.sources || []).filter(function (item) { return item.context === ctx })[0]
+    var label = '@' + esc(ctx)
+    if (source && source.href) {
+      label = '<a href="' + esc(source.href) + '" target="_blank" rel="noopener noreferrer" title="' + esc(source.location) + '">' + label + '</a>'
+    }
+    parts.push('<span class="ctx' + (ctx.indexOf('src:') === 0 ? ' src' : '') + '">' + label + '</span>')
   })
   c.tags.forEach(function (tag) {
     parts.push('<span class="tag">#' + esc(tag.key) + (tag.value !== undefined ? ':' + esc(tag.value) : '') + '</span>')

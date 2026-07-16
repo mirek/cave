@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { Registry } from '@cavelang/canonical'
+import { SourceSpan } from '@cavelang/core'
 import { open } from '@cavelang/store'
 import { entity, history, lineage, overview, search, topic, topics } from '@cavelang/view'
 
@@ -302,5 +303,19 @@ test('a scoped view preserves the source store base registry', () => {
   assert.equal(reverse.length, 1)
   assert.equal(reverse[0]!.verb, 'PART-OF')
   assert.equal(reverse[0]!.rel, undefined, 'the standard CONTAINS inverse must not appear in a --no-prelude view')
+  store.close()
+})
+
+test('claim APIs expose parsed source-span locations and URL links (spec §9.8)', () => {
+  const store = open()
+  const context = SourceSpan.context('https://example.com/design notes.md', { startLine: 10, endLine: 12 })
+  store.ingest(`api HAS owner: platform @${context}`)
+  assert.deepEqual(entity(store, 'api').facts[0]!.sources, [{
+    context,
+    source: 'https://example.com/design notes.md',
+    span: { startLine: 10, endLine: 12 },
+    location: 'https://example.com/design notes.md#L10-L12',
+    href: 'https://example.com/design%20notes.md#L10-L12'
+  }])
   store.close()
 })

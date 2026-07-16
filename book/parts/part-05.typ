@@ -69,7 +69,7 @@ The CLI is the broad operator surface. MCP exposes the store to agents. cave ser
 
 cave serve provides knowledge-health tiles, entity 360 pages, forward and inverse relations, topic browsing, alias closure, full-text search, belief-history timelines, and BECAUSE/VIA lineage trees. It serves localhost by default, permits GET only, and defaults to the internal sensitivity ceiling. Counts and graph walks derive from visible rows rather than being scrubbed after computation.
 
-cave report evaluates fenced cave-q blocks and inline query splices in a Markdown template under the same sensitivity ceiling. Rendered facts carry footnotes with canonical claim text, date, and claim key. Ambiguous inline values fail unless resolution is explicitly requested, preventing a report from silently selecting a contested fact.
+cave report evaluates fenced cave-q blocks and inline query splices in a Markdown template under the same sensitivity ceiling. Rendered facts carry footnotes with canonical claim text, date, claim key, and any source-line location. HTTP source spans become links, matching the structured references returned by the view API. Ambiguous inline values fail unless resolution is explicitly requested, preventing a report from silently selecting a contested fact.
 
 The MCP server can be read-only or tool-scoped. It dynamically generates `act_<name>` tools from current action declarations, giving an agent a governed, inspectable write vocabulary.
 

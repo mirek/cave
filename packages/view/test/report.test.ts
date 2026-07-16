@@ -187,6 +187,15 @@ test('repeated citations of one row share a footnote (spec §31.2)', () => {
   store.close()
 })
 
+test('report citations expose source-span links consistently (spec §9.8, §31.2)', () => {
+  const store = open()
+  store.ingest('api HAS owner: platform @src:https://example.com/design%20notes.md#L10-L12')
+  const rendered = report(store, 'Owner: `cave-q: api HAS owner: ?owner`')
+  assert.match(rendered.markdown,
+    /source \[https:\/\/example\.com\/design notes\.md#L10-L12\]\(<https:\/\/example\.com\/design%20notes\.md#L10-L12>\)/)
+  store.close()
+})
+
 test('inline splice: one variable, one solution, value plus citation (spec §31.1)', () => {
   const store = fixture()
   const rendered = report(store, 'Revenue reached `cave-q: acme HAS revenue: ?v` this year.\n')

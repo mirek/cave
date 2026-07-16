@@ -45,6 +45,24 @@ test('connect maps records to claims with record provenance (spec §23.2)', () =
   store.close()
 })
 
+test('connect attaches record spans alongside stable lifecycle identity (spec §9.8, §23.2)', () => {
+  const store = open()
+  connect(store, mappingOf('?id IS person'), people, {
+    name: 'people',
+    key: 'id',
+    source: 'imports/people list.csv',
+    spans: [{ startLine: 2, endLine: 2 }, { startLine: 3, endLine: 4 }]
+  })
+  const alice = store.toClaim(store.byContext('src:connect/people/alice')[0]!)
+  assert.deepEqual(alice.contexts, [
+    'src:connect/people/alice',
+    'src:imports/people%20list.csv#L2'
+  ])
+  const bob = store.toClaim(store.byContext('src:connect/people/bob')[0]!)
+  assert.ok(bob.contexts.includes('src:imports/people%20list.csv#L3-L4'))
+  store.close()
+})
+
 test('re-runs are row-level incremental via digest claims (spec §23.2)', () => {
   const store = open()
   const mapping = mappingOf(mappingText)

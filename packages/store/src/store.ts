@@ -110,6 +110,11 @@ export type AppendOptions = {
    */
   readonly lifecycle?: boolean
   /**
+   * Additional structured contexts applied to every row before keying. Used
+   * by connectors to attach source spans without rewriting generated text.
+   */
+  readonly contexts?: readonly Context.t[]
+  /**
    * Explicit row identity (spec §28.1), index-aligned with the result's
    * claims: a claim with an id here is replayed under it — inserted with
    * `id = tx = ids[i]` when absent, skipped when the store already has the
@@ -132,6 +137,11 @@ const stampSource = (claim: Claim.t, source: undefined | string, lifecycle: bool
   return claim.contexts.includes(context) || (!lifecycle && Context.hasSource(claim.contexts)) ?
     claim :
     { ...claim, contexts: [...claim.contexts, context] }
+}
+
+const addContexts = (claim: Claim.t, contexts: readonly Context.t[] = []): Claim.t => {
+  const combined = Context.dedupe([...claim.contexts, ...contexts])
+  return combined.length === claim.contexts.length ? claim : { ...claim, contexts: combined }
 }
 
 export type ForwardFact = {
@@ -320,7 +330,10 @@ export const open = (path: string = ':memory:', options: { registry?: Canonical.
             return
           }
         }
-        const claim = stampSource(entry.claim, options_.source, options_.lifecycle === true)
+        const claim = addContexts(
+          stampSource(entry.claim, options_.source, options_.lifecycle === true),
+          options_.contexts
+        )
         const id = explicit ?? Uuidv7.next()
         const columns = Row.toColumns(claim)
         const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine

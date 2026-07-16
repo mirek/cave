@@ -15,6 +15,11 @@ different audience. Filtering happens before view semantics: dashboard counts,
 aliases, history, search and lineage cannot disclose hidden rows indirectly,
 and lineage edges survive only when both endpoints are visible.
 
+Claim JSON also parses every §9.8 source context into `sources` entries with
+the decoded source, inclusive line range, display location, and an `href` for
+HTTP(S) sources. The page makes those references links; cited report footnotes
+append the same locations, so browser and document provenance agree.
+
 ```sh
 cave serve --db k.db
 # serving k.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)

@@ -53,8 +53,8 @@ content digest when unkeyed). Two conventions reuse §9.5 mechanics:
 
 - **Digest claims** — `connect/people/42 HAS connect-digest: 93a01c626b3f
   @src:cave-connect` makes re-runs row-level incremental (`--force`
-  overrides); the digest covers the *instantiated* text, so mapping
-  changes re-fire records too.
+  overrides); the digest covers the *instantiated* text and source anchor, so
+  mapping changes or a moved record re-fire it.
 - **Record stamps** — every produced claim is auto-stamped
   `@src:connect/<name>/<key>`, even when the template writes its own
   `@src:` (both are kept — the stamp is the record's lifecycle identity),
@@ -62,6 +62,11 @@ content digest when unkeyed). Two conventions reuse §9.5 mechanics:
   place (the value is outside the claim key, §9.2), vanished relation
   claims are retracted `@ 0%`. `--prune` extends the diff to records that
   left the source.
+- **Physical source spans** — CLI-connected records also carry the escaped
+  file/URL identity. CSV/TSV rows get exact inclusive ranges (including quoted
+  multiline records), JSONL rows get their physical line, and JSON/SQLite
+  records keep source identity without an invented line. The library accepts
+  `source` plus record-aligned `spans` in `ConnectOptions`.
 
 Records that fail to format are reported, rolled back atomically, and
 never poison the rest of the run — or the prune set.

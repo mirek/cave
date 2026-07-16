@@ -24,6 +24,8 @@ The source is a .csv/.tsv/.json/.jsonl/.ndjson file, a SQLite database
 mapping is an ordinary CAVE document whose ?field variables stand for
 record fields; variable-free blocks append once per run, variable blocks
 instantiate once per record — no LLM in the loop, same input, same claims.
+Mapped claims retain the physical source; CSV/TSV and JSONL records also carry
+their exact one-based inclusive line span (spec §9.8).
 
 Options:
   --db <path>          knowledge database (default: $CAVE_DB, or cave.db)
@@ -117,6 +119,8 @@ const runPass = async (store: Store, source: string, values: Values, name: strin
   const loaded = await Source.load(source, sourceOptions(values))
   const report = connect(store, mapping, loaded.records, {
     name,
+    source,
+    ...loaded.spans === undefined ? {} : { spans: loaded.spans },
     ...values.key === undefined ? {} : { key: values.key },
     force: values.force === true,
     prune: values.prune === true
@@ -164,7 +168,12 @@ const runQuery = async (source: string, values: Values, name: string): Promise<n
   try {
     const { matches, report } = federatedQuery(
       store, mapping, loaded.records,
-      { name, ...values.key === undefined ? {} : { key: values.key } },
+      {
+        name,
+        source,
+        ...loaded.spans === undefined ? {} : { spans: loaded.spans },
+        ...values.key === undefined ? {} : { key: values.key }
+      },
       values.query!,
       { all: values.all === true, aliases: values.aliases === true }
     )

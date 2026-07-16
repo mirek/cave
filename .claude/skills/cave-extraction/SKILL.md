@@ -33,6 +33,12 @@ When converting text into CAVE:
     `#sensitivity:public`, `internal`, `confidential`, or `restricted`.
     Unlabeled means `internal`; never lower an authored classification, and do
     not mistake a label for permission to ingest data prohibited by rule 11.
+13. **Cite the supporting span.** When numbered source text is available, add
+    the smallest one-based inclusive §9.8 anchor to every extracted claim:
+    `@src:docs/design.md#L10` or `@src:docs/design.md#L10-L20`. Copy the
+    provided escaped source identity exactly. Do not cite a whole document
+    when one sentence or short range is sufficient, and never invent a line
+    number when the source surface does not provide one.
 
 ### 14.1 Granularity guide
 

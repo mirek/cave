@@ -17,7 +17,8 @@
  */
 
 import { createHash } from 'node:crypto'
-import { Claim, Key, Value } from '@cavelang/core'
+import { Claim, Key, SourceSpan, Value } from '@cavelang/core'
+import type { LineSpan } from '@cavelang/core'
 import type { Row, Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import type { Match, Options as QueryOptions } from '@cavelang/query'
@@ -58,6 +59,10 @@ export type ConnectOptions = {
   readonly name: string
   /** Record key field; unkeyed records are content-addressed by digest. */
   readonly key?: string
+  /** Underlying file/URL identity attached to generated record claims. */
+  readonly source?: string
+  /** Record-aligned source line spans, when the source format provides them. */
+  readonly spans?: readonly LineSpan[]
   /** Re-map records whose digest is unchanged. */
   readonly force?: boolean
   /** Retract claims of records that disappeared from the source. */
@@ -181,9 +186,13 @@ export const connect = (
   let pruned = 0
   let dropped = 0
 
-  const ingestUnit = (subject: string, text: string, digest: string): void => {
+  const ingestUnit = (subject: string, text: string, digest: string, sourceContext?: string): void => {
     store.transaction(() => {
-      const result = store.ingest(text, { source: subject, lifecycle: true })
+      const result = store.ingest(text, {
+        source: subject,
+        lifecycle: true,
+        ...sourceContext === undefined ? {} : { contexts: [sourceContext] }
+      })
       if (result.problems.length > 0) {
         failRecord(result.problems.map(problem => `line ${problem.line}: ${problem.message}`))
       }
@@ -233,13 +242,15 @@ export const connect = (
       return
     }
     const subject = `connect/${name}/${key}`
-    const digest = digestOf(instantiation.text)
+    const sourceContext = options.source === undefined ? undefined :
+      SourceSpan.context(options.source, options.spans?.[at])
+    const digest = digestOf(`${instantiation.text}\0${sourceContext ?? ''}`)
     if (!force && isConnected(store, subject, digest)) {
       skipped += 1
       return
     }
     try {
-      ingestUnit(subject, instantiation.text, digest)
+      ingestUnit(subject, instantiation.text, digest, sourceContext)
       mapped += 1
     } catch (error) {
       if (!isRecordError(error)) {

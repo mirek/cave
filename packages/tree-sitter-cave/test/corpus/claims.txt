@@ -27,6 +27,18 @@ server IS NOT compromised @ 90%
     (confidence)))
 
 ==================
+source span context
+==================
+memory-leak EXISTS @src:docs/design%20notes.md#L10-L20
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (context)))
+
+==================
 attribute claim with tag
 ==================
 auth/middleware HAS bug: token-expiry #security

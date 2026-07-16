@@ -180,7 +180,7 @@ batch 1/1 (1 file(s)): +14 claim(s)
 done: +14 claim(s)
 ```
 
-The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. The machine-built database answers the same transitive query:
+The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
 
 ```
 $ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'
@@ -271,7 +271,7 @@ $ pnpm exec cave connect people.csv --map people.map.cave --db k.db --key id
 connect: 2 record(s): 2 mapped, 0 skipped (unchanged); +10 claim(s)
 ```
 
-Re-runs skip unchanged rows by per-record digest, changed rows retract the claims they no longer yield, `--watch` tails a file continuously, and `--query '?who WORKS-AT acme'` answers a CAVE-Q pattern over the union of store and source without persisting anything. See [`@cavelang/connect`](packages/connect) and spec §23.
+Re-runs skip unchanged rows by per-record digest, changed rows retract the claims they no longer yield, `--watch` tails a file continuously, and `--query '?who WORKS-AT acme'` answers a CAVE-Q pattern over the union of store and source without persisting anything. Every mapped row keeps its physical source identity; CSV/TSV and JSONL claims also carry exact source line ranges alongside the stable record lifecycle stamp. See [`@cavelang/connect`](packages/connect) and spec §9.8, §23.
 
 ### Extraction quality is a number — `cave eval`
 
@@ -434,7 +434,7 @@ Jan was born in 1931[^c1] in Kraków[^c2].
 [^c2]: `jan HAS birthplace: Kraków @src:maria` — 2026-07-10, claim key `["e:jan","HAS",0,"a:birthplace",["src:maria"]]`
 ```
 
-The birth year traces to the birth certificate, not to Grandma — three sources still coexist in the store, and the citation shows exactly which one the sentence stands on. An inline splice must be deterministic: when several sources contest a fact it reports *ambiguous* and exits nonzero, and `--resolve` (the spec §26 policy) is the fix. `--as-of` renders the report as belief stood at a past moment, and the template stays under version control while the store evolves. See [`@cavelang/view`](packages/view) and spec §31.
+The birth year traces to the birth certificate, not to Grandma — three sources still coexist in the store, and the citation shows exactly which one the sentence stands on. When a claim carries a §9.8 source span, the footnote appends the decoded `source#Lx-Ly` location (as a link for HTTP(S)); the JSON APIs expose the same structured reference. An inline splice must be deterministic: when several sources contest a fact it reports *ambiguous* and exits nonzero, and `--resolve` (the spec §26 policy) is the fix. `--as-of` renders the report as belief stood at a past moment, and the template stays under version control while the store evolves. See [`@cavelang/view`](packages/view) and spec §31.
 
 From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
@@ -492,7 +492,7 @@ The full spec is split across four Claude Code skills in [`.claude/skills/`](.cl
 |---|---|---|
 | [`cave-writing`](.claude/skills/cave-writing/SKILL.md) | §3–§8, §11, §16, §22 | Syntax, lexical rules, verbs, `REVERSE` & `RENAMED-TO`, metadata, values/units/uncertainty, trajectories & time contexts, indentation & continuation, tags & topics, grammar, spec card |
 | [`cave-extraction`](.claude/skills/cave-extraction/SKILL.md) | §14–§15, §21, §23 | Converting text to CAVE, granularity, operating modes, worked example, deterministic structured ingestion (`cave connect`) |
-| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§32 | Append-only belief evolution, claim keys, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports, temporal values & valid time |
+| [`cave-storage-query`](.claude/skills/cave-storage-query/SKILL.md) | §9, §12–§13, §20, §24–§32 | Append-only belief evolution, claim keys, sensitivity and source spans, CAVE-Q, SQLite schema, canonicalization, shape expectations & knowledge health, rules & derivation, actions & governed writes, contradiction resolution, alias discovery, store merge, automations, the human read surface, cited reports, temporal values & valid time |
 | [`cave-design`](.claude/skills/cave-design/SKILL.md) | §0–§2, §10, §17–§19 | Status conventions, design goals, claim model, probabilistic layer, Draft unified grammar, agent layer, rationale |
 
 Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). The status of the implementation against the spec is tracked in [IMPLEMENTATION.md](IMPLEMENTATION.md#status-vs-the-spec).

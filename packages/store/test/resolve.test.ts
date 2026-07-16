@@ -61,6 +61,19 @@ test('longest declared prefix wins — context specificity (spec §26.3)', () =>
   store.close()
 })
 
+test('source-span fragments keep the underlying source policy identity (spec §9.8, §26.3)', () => {
+  const store = open()
+  store.ingest([
+    'source/docs/design.md HAS reliability: 25%',
+    'choice HAS selected: alpha @src:docs/design.md#L10 @ 100%',
+    'choice HAS selected: beta @src:review @ 40%'
+  ].join('\n'))
+  const ranked = store.contested()[0]!.rows
+  const spanned = ranked.find(row => row.value_text === 'alpha')!
+  assert.equal(spanned.res_conf, 0.25)
+  store.close()
+})
+
 test('precedence declarations override the built-in ladder (spec §26.3)', () => {
   const store = open()
   // Demote agents below source material.

@@ -214,6 +214,54 @@ MCP exception); when their output will be published, use one of the scoped
 publication surfaces or apply an equivalent explicit policy at the enclosing
 boundary.
 
+### 9.8 Source-span provenance
+
+A source context MAY identify the exact one-based, inclusive source line or
+line range that supports a claim:
+
+```cave
+auth/middleware HAS bug: token-expiry @src:docs/auth.md#L10
+auth/middleware NEEDS test: boundary-cases @src:docs/auth.md#L10-L20
+```
+
+The grammar is `src:<escaped-source>[#L<start>[-L<end>]]`. `start` and `end`
+are positive decimal integers and `end >= start`. The fragment is omitted when
+only source identity is known. `#` is reserved for this fragment.
+
+`<escaped-source>` is the UTF-8 source locator percent-encoded like a URI
+component, while ASCII letters, digits, `.`, `_`, `~`, `-`, `/`, and `:` MAY
+remain readable. A literal percent, hash, whitespace, `@`, `;`, query marker,
+or other reserved character MUST be percent-encoded (`%25`, `%23`, `%20`,
+`%40`, `%3B`, `%3F`, and so on). Therefore
+`docs/design notes#1.md` becomes `docs/design%20notes%231.md`; parsers split a
+line fragment only at the unescaped `#`.
+
+The complete context remains ordinary claim-key metadata (§9.2), preserving
+the exact evidence anchor through export, import, and sync. The underlying
+source identity is the decoded locator without the line fragment. Resolution
+and source reliability (§26) ignore the line fragment, so two spans from one
+document retain one policy identity even though their exact claim series stay
+distinct.
+
+Surfaces:
+
+- `SourceSpan.context`, `parse`, and `ofContexts` in `@cavelang/core` are the
+  single formatter/parser. They expose `{ source, span, location, href? }`;
+  HTTP(S) sources get a navigable `href`.
+- `cave ingest` numbers embedded source lines and asks the extractor to cite
+  the smallest supporting range using the printed escaped source context.
+- `cave connect` attaches the physical source identity to mapped records and
+  exact ranges for CSV/TSV records (including multiline quoted records) and
+  JSONL records. JSON arrays and SQLite queries retain source identity without
+  inventing line positions. The library accepts record-aligned `spans`.
+- §30 claim JSON includes parsed `sources`; the page links HTTP(S) references.
+  §31 report footnotes append the same location/link for every cited span.
+
+A line span is a reproducible pointer into the cited source version, not a
+content hash or permanent web archive. Ingest/connect digests still track
+source revisions; operators that need immutable evidence must retain or
+version the source itself.
+
 ---
 
 ## 12. Query Model
@@ -1742,7 +1790,8 @@ tag side tables — never by re-parsing text, so no second grammar exists
 to drift out of sync (§16's single-source stance); the stored
 `raw_line` is shown where the authored text is itself the point. Every
 entity name, claim key and row id links onward: the whole store is
-reachable by clicking.
+reachable by clicking. Source contexts also expose §9.8's parsed source and
+line range; HTTP(S) locations link to the cited fragment.
 
 ### 30.2 The views
 
@@ -1895,7 +1944,8 @@ backtick run the line carries), the tx **date** (when), and the
 **claim key**
 (§9.2) — the identity of the belief series, so a reader can pull the
 full history behind any sentence (`cave query --all`, the §30
-timeline). Labels are `c1, c2, …` in order of first citation, a
+timeline) — followed by every §9.8 source-span location, linked for HTTP(S).
+Labels are `c1, c2, …` in order of first citation, a
 namespace hand-written footnotes won't collide with. Transitive
 (`VERB+`) solutions carry no row (§24.2's rule) and cite nothing —
 their `[^?]` placeholders are dropped.

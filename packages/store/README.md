@@ -74,6 +74,12 @@ store.exportText({ maxSensitivity: 'restricted' }) // exact retained history
   different actors keeps separate belief series (§9.4). A written `@src:`
   always wins; `raw_line` stays as authored. Interchange replay (`cave
   import`) passes no source, preserving exported keys.
+- **Source spans retain source identity** (§9.8):
+  `@src:docs/design%20notes.md#L10-L20` carries a one-based inclusive range;
+  `SourceSpan` owns escaping and parsing. The exact context remains in the
+  claim key, while resolution/reliability strip the line fragment before
+  policy matching. `AppendOptions.contexts` lets connectors attach structured
+  spans before keying without rewriting generated CAVE text.
 - **Contradiction resolution is opt-in** (§26): `{ resolve: true }` on
   traversal reads only the winners — coexisting series about one fact
   (claim key modulo `src:` contexts and polarity) collapse to the row the
