@@ -3,8 +3,10 @@ import type { Explain } from '@cavelang/solver'
 import { Key } from '@cavelang/core'
 import { canonicalizeText } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
+import type { InputRecord } from './model.ts'
 
 export const resultSchema = 'cave.scenario/result@1' as const
+export const evaluationSchema = 'cave.scenario/evaluation@1' as const
 export const recommendationSchema = 'cave.scenario/recommendation@1' as const
 export const decisionSchema = 'cave.scenario/decision@1' as const
 export const actionSchema = 'cave.scenario/action@1' as const
@@ -16,6 +18,20 @@ export type Result = {
   readonly id: string
   readonly report: Explain.Report
 }
+
+/** Ordinary external-evaluator result over one frozen scenario input record. */
+export type Evaluation = {
+  readonly schema: typeof evaluationSchema
+  readonly id: string
+  readonly inputs: InputRecord
+  readonly evaluator: {
+    readonly name: string
+    readonly version: string
+  }
+  readonly output: Explain.Json
+}
+
+export type ResultArtifact = Result | Evaluation
 
 export type Recommendation = {
   readonly schema: typeof recommendationSchema
@@ -57,7 +73,7 @@ export type ExternalEffect = {
   readonly details?: Explain.Json
 }
 
-export type Artifact = Result | Recommendation | Decision | Action | ExternalEffect
+export type Artifact = ResultArtifact | Recommendation | Decision | Action | ExternalEffect
 export type Kind = 'result' | 'recommendation' | 'decision' | 'action' | 'external-effect'
 
 export type RecordOutcome = {
@@ -97,6 +113,7 @@ export class MissingRecordError extends Error {
 const kindOf = (artifact: Artifact): Kind => {
   switch (artifact.schema) {
     case resultSchema: return 'result'
+    case evaluationSchema: return 'result'
     case recommendationSchema: return 'recommendation'
     case decisionSchema: return 'decision'
     case actionSchema: return 'action'
@@ -160,7 +177,7 @@ const decode = (payload: string): Artifact => {
     throw new TypeError('recorded scenario artifact has no schema')
   }
   const schema = (parsed as { schema: string }).schema
-  if (![resultSchema, recommendationSchema, decisionSchema, actionSchema, externalEffectSchema].includes(schema as never)) {
+  if (![resultSchema, evaluationSchema, recommendationSchema, decisionSchema, actionSchema, externalEffectSchema].includes(schema as never)) {
     throw new TypeError(`unsupported recorded scenario artifact schema ${JSON.stringify(schema)}`)
   }
   return parsed as Artifact
@@ -217,19 +234,27 @@ const append = (store: Store, artifact: Artifact, validate: () => void): RecordO
     return { status: 'recorded', rowId: inserted.ids[0]!, artifact }
   })
 
-export const result = (store: Store, artifact: Result): RecordOutcome =>
+export const result = (store: Store, artifact: ResultArtifact): RecordOutcome =>
   append(store, artifact, () => {
-    if (artifact.report.schema !== 'cave.solver/explanation@1') {
+    if (artifact.schema === resultSchema && artifact.report.schema !== 'cave.solver/explanation@1') {
       throw new TypeError(`unsupported solver explanation schema ${JSON.stringify(artifact.report.schema)}`)
+    }
+    if (artifact.schema === evaluationSchema) {
+      if (artifact.inputs.schema !== 'cave.scenario/inputs@1') {
+        throw new TypeError(`unsupported scenario input schema ${JSON.stringify(artifact.inputs.schema)}`)
+      }
+      if (artifact.evaluator.name === '' || artifact.evaluator.version === '') {
+        throw new TypeError('scenario evaluator name and version must not be empty')
+      }
     }
   })
 
 export const recommendation = (store: Store, artifact: Recommendation): RecordOutcome =>
-  append(store, artifact, () => { requireRecord<Result>(store, 'result', artifact.resultId) })
+  append(store, artifact, () => { requireRecord<ResultArtifact>(store, 'result', artifact.resultId) })
 
 export const decision = (store: Store, artifact: Decision): RecordOutcome =>
   append(store, artifact, () => {
-    requireRecord<Result>(store, 'result', artifact.resultId)
+    requireRecord<ResultArtifact>(store, 'result', artifact.resultId)
     if (artifact.recommendationId !== undefined) {
       const proposal = requireRecord<Recommendation>(store, 'recommendation', artifact.recommendationId)
       if (proposal.resultId !== artifact.resultId) {
@@ -252,7 +277,11 @@ export const read = <T extends Artifact>(store: Store, kind: Kind, id: string): 
  * a different model or backend version is reported, never silently upgraded.
  */
 export const replay = (store: Store, id: string, expected: ReplayExpectation): Replay => {
-  const artifact = requireRecord<Result>(store, 'result', id)
+  const found = requireRecord<ResultArtifact>(store, 'result', id)
+  if (found.schema !== resultSchema) {
+    throw new TypeError(`result ${JSON.stringify(id)} is an external evaluation, not a solver result`)
+  }
+  const artifact = found
   const reasons: string[] = []
   if (artifact.report.run.modelDigest !== expected.modelDigest) {
     reasons.push(`model digest ${artifact.report.run.modelDigest} does not match ${expected.modelDigest}`)
