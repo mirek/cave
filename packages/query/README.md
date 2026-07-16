@@ -8,6 +8,12 @@ the store's public `QuerySql` primitives; CAVE-Q adds pattern joins, filters,
 resolution, transitive traversal, and result binding without redefining those
 shared semantics.
 
+`query()`/`match()` expose storage rows for in-process reasoning engines. For
+public JSON and durable integrations, use `queryRecords()`: every result is a
+`cave.query-match/v1` carrying bindings plus optional `cave.claim/v1` claim or
+transitive support records. `Record.decode` verifies the version and all
+nested claim records.
+
 ```ts
 import { open } from '@cavelang/store'
 import { query } from '@cavelang/query'

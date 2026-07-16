@@ -393,6 +393,13 @@ compose its latest-per-key, alias-closure, and transaction-boundary fragments.
 Retraction and negation remain explicit consumer predicates: “current” means
 the latest row in every belief series, including a latest `@ 0%` or denial.
 
+Serialized claim boundaries use `cave.claim/v1`, never `cave_claim` rows.
+`cave.query-match/v1` composes those records for CLI and federated JSON;
+library decoders verify versions and semantic identity against checked-in
+fixtures. Raw rows remain available to in-process storage/reasoning code. MCP
+and text export use canonical CAVE lines as their explicit interchange
+contract.
+
 ## Architectural invariants
 
 Changes should preserve these properties:

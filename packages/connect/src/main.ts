@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { defaultDbPath, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
+import { Record as QueryRecord } from '@cavelang/query'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
 import { connect, federatedQuery } from './run.ts'
@@ -199,7 +200,7 @@ const runQuery = async (source: string, values: Values, name: string, io: IO): P
       io.stderr.write(`${renderReport(report)}\n`)
     }
     if (values.json === true) {
-      io.stdout.write(`${JSON.stringify(matches, undefined, 2)}\n`)
+      io.stdout.write(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
       return code
     }
     if (matches.length === 0) {

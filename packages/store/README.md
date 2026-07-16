@@ -56,6 +56,17 @@ shared whole-day/whole-second and exact-transaction rules. Fragments own no
 ordering or outer filtering, so consumers can extend them without copying
 semantic clauses.
 
+## External records
+
+Database rows (`Row.t`, snake_case columns) are the storage-oriented API and
+may evolve with the schema. Use `store.recordOf(row)` for serialized or
+cross-process data. It returns `cave.claim/v1`: transaction identity (`id`,
+`tx`, `key`), canonical CAVE text, the semantic `Claim.t`, and explicit
+provenance dimensions. `Record.encode`/`Record.decode` own the JSON contract;
+decoding rejects unknown versions and verifies transaction, key, and canonical
+text identity. The checked-in v1 fixture is the compatibility baseline for
+future decoders.
+
 ## Semantics
 
 - **Schema upgrades are explicit** (§13.2.1): `PRAGMA user_version` records
@@ -173,6 +184,7 @@ semantic clauses.
 | `edgesOf(id)` | §13.2 | qualifier/grouping edges with roles |
 | `toClaim(row)` | | reconstruct the canonical claim + side tables |
 | `registry()` / `baseRegistry()` | §5.5 | current registry and its configured pre-declaration base |
+| `recordOf(row)` | | map a storage row to the stable `cave.claim/v1` JSON contract |
 | `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
 | `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
 | `adapter` / `db` | | selected adapter capabilities and its raw structural database handle |

@@ -1,0 +1,7 @@
+{
+  "format": "cave.query-match",
+  "version": 1,
+  "bindings": {
+    "service": "api"
+  }
+}

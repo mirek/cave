@@ -78,6 +78,10 @@ test('add → query → export round trip', () => {
     const json = queryCommand(['?x HAS bug: ?bug #security', '--db', db, '--json'])
     const matches = JSON.parse(json.out)
     assert.deepEqual(matches[0].bindings, { x: 'auth/middleware', bug: 'token-expiry' })
+    assert.equal(matches[0].format, 'cave.query-match')
+    assert.equal(matches[0].version, 1)
+    assert.equal(matches[0].claim.format, 'cave.claim')
+    assert.doesNotMatch(json.out, /claim_key|raw_line|value_text/)
 
     const exported = exportCommand(['--db', db])
     assert.equal(exported.code, 0)
@@ -196,6 +200,11 @@ test('resolve lists contested facts winner-first, and the effective policy (spec
     const policy = resolveCommand(['--db', db, '--policy'])
     assert.match(policy.out, /source\/cli\s+precedence 4/)
     assert.match(policy.out, /^source\s+precedence 2/m)
+    const json = resolveCommand(['--db', db, '--json'])
+    assert.doesNotMatch(json.out, /claim_key|raw_line|value_text|res_rank/)
+    const ranked = JSON.parse(json.out)[0].rows[0]
+    assert.equal(ranked.format, 'cave.claim')
+    assert.equal(ranked.resolution.rank, 1)
     const empty = join(dir, 'empty.db')
     open(empty).close()
     assert.equal(resolveCommand(['--db', empty]).out, 'no contested facts\n')

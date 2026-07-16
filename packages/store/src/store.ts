@@ -27,6 +27,7 @@ import * as Row from './row.ts'
 import * as Schema from './schema.ts'
 import * as Sensitivity from './sensitivity.ts'
 import * as Provenance from './provenance.ts'
+import * as Record from './record.ts'
 
 const currentSql = QuerySql.current()
 
@@ -375,6 +376,10 @@ export const open = (
     return Provenance.fromEntries(entries)
   }
 
+  /** Stable, versioned public representation of one storage row. */
+  const recordOf = (row: Row.t): Record.t =>
+    Record.of(row, toClaim(row), provenanceOf(row))
+
   const traversalFilter = (options: TraverseOptions): string =>
     (options.negated === true ? '' : ' AND negated = 0') +
     (options.retracted === true ? '' : ' AND conf > 0')
@@ -599,6 +604,9 @@ export const open = (
 
     /** Explicit actor, physical source, lifecycle run, and domain metadata. */
     provenanceOf,
+
+    /** Map a database-shaped row to the stable `cave.claim/v1` contract. */
+    recordOf,
 
     /** Members of a topic — forward `CONTAINS` traversal (spec §11.2). */
     topicMembers(topic: string, options_: TraverseOptions = {}): string[] {

@@ -56,8 +56,14 @@ test('a federated query with mapping failures exits non-zero on every output pat
 
     const json = await captured([...argv, '--query', '?who WORKS-AT acme', '--json'])
     assert.equal(json.code, 1, 'json path reports the failed record')
-    const matches = JSON.parse(json.out) as { bindings: Record<string, string> }[]
+    const matches = JSON.parse(json.out) as {
+      format: string, version: number, bindings: Record<string, string>, claim: { format: string }
+    }[]
     assert.deepEqual(matches.map(match => match.bindings['who']), ['alice'])
+    assert.equal(matches[0]?.format, 'cave.query-match')
+    assert.equal(matches[0]?.version, 1)
+    assert.equal(matches[0]?.claim.format, 'cave.claim')
+    assert.doesNotMatch(json.out, /claim_key|raw_line|value_text/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

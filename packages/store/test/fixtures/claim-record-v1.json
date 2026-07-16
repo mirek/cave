@@ -1,0 +1,30 @@
+{
+  "format": "cave.claim",
+  "version": 1,
+  "id": "018f0000-0000-7000-8000-000000000001",
+  "tx": "018f0000-0000-7000-8000-000000000001",
+  "key": "[\"e:api\",\"HAS\",0,\"a:owner\",[\"src:cli\"]]",
+  "canonical": "api HAS owner: platform @src:cli #team:core @ 90% ; fixture",
+  "claim": {
+    "subject": { "kind": "entity", "text": "api" },
+    "verb": "HAS",
+    "negated": false,
+    "payload": {
+      "kind": "attribute",
+      "attribute": "owner",
+      "value": { "raw": "platform", "kind": "atom", "approx": false }
+    },
+    "contexts": ["src:cli"],
+    "tags": [{ "key": "team", "value": "core" }],
+    "conf": 0.9,
+    "importance": false,
+    "comment": "fixture",
+    "raw": "api HAS owner: platform @src:cli #team:core @ 90% ; fixture"
+  },
+  "provenance": {
+    "actors": ["cli"],
+    "sources": [],
+    "runs": [],
+    "domains": []
+  }
+}

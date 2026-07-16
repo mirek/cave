@@ -1,5 +1,9 @@
 # @cavelang/connect
 
+Federated `--query --json` uses the same `cave.query-match/v1` and nested
+`cave.claim/v1` representation as `cave query --json`; source database columns
+are never serialized.
+
 Deterministic structured ingestion (spec §23): CSV/TSV rows, JSON/JSONL
 objects, SQLite rows and JSON/CSV URLs mapped through a **mapping
 template** — an ordinary CAVE document whose `?field` variables stand for
