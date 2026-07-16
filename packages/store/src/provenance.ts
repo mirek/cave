@@ -1,6 +1,6 @@
 /** Explicit provenance dimensions derived alongside compact claim contexts. */
 
-import type { DatabaseSync } from 'node:sqlite'
+import type { Database } from './adapter.ts'
 import { SourceSpan } from '@cavelang/core'
 
 export type Dimension = 'actor' | 'source' | 'run' | 'domain'
@@ -87,7 +87,7 @@ export const fromEntries = (values: readonly Entry[]): t => ({
 })
 
 /** Idempotently derives dimensions for rows written by older CAVE versions. */
-export const backfill = (db: DatabaseSync): void => {
+export const backfill = (db: Database): void => {
   const missing = db.prepare(`
     SELECT c.id, ctx.context FROM cave_claim c
     LEFT JOIN cave_context ctx ON ctx.claim_id = c.id

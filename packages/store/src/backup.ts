@@ -6,8 +6,8 @@ import {
   realpathSync, renameSync, rmSync, statSync
 } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
 import type { Store } from './store.ts'
+import { nodeSqliteAdapter } from './node-adapter.ts'
 import * as Schema from './schema.ts'
 
 export type Snapshot = {
@@ -92,7 +92,7 @@ export const verifyBackup = (path: string, expectedSha256?: string): Snapshot =>
   if (!existsSync(target)) {
     throw new Error(`CAVE backup: ${target}: no such file`)
   }
-  const db = new DatabaseSync(target, { readOnly: true })
+  const db = nodeSqliteAdapter.open(target, { readOnly: true })
   let schemaVersion = 0
   let rows = 0
   let maxTx: null | string = null
@@ -127,19 +127,23 @@ export const verifyBackup = (path: string, expectedSha256?: string): Snapshot =>
 /** Create and atomically publish a verified, point-in-time SQLite snapshot. */
 export const backup = (store: Store, destination: string, options: WriteOptions = {}): Snapshot => {
   const target = resolve(destination)
-  const source = store.db.location()
+  const capability = store.adapter.capabilities.backup
+  if (capability === undefined) {
+    throw new Error(`CAVE backup: SQLite adapter ${JSON.stringify(store.adapter.name)} does not support exact snapshots`)
+  }
+  const source = capability.location(store.db)
   if (source !== null && samePath(source, target)) {
     throw new Error('CAVE backup: destination is the source database')
   }
   if (existsSync(target) && options.force !== true) {
     throw new Error(`CAVE backup: ${target} already exists; pass force to replace it`)
   }
-  if (store.db.isTransaction) {
+  if (capability.inTransaction(store.db)) {
     throw new Error('CAVE backup: cannot snapshot inside an open transaction')
   }
   const temporary = temporaryPath(target)
   try {
-    store.db.prepare('VACUUM INTO ?').run(temporary)
+    capability.write(store.db, temporary)
     syncFile(temporary)
     const checked = verifyBackup(temporary)
     publish(temporary, target, options.force === true)

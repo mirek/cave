@@ -1,7 +1,33 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import test from 'node:test'
+import initSqlJs from 'sql.js'
 import { query } from '@cavelang/query'
-import { open } from '@cavelang/store'
+import { openWith } from '@cavelang/store/adapter'
+import { createSqlJsAdapter } from '../src/playground/sqlite-adapter.ts'
+import { sqliteAdapterContract } from '../../packages/store/test/adapter-contract.ts'
+
+const require = createRequire(import.meta.url)
+const sqlite = await initSqlJs({
+  locateFile: () => require.resolve('sql.js/dist/sql-wasm.wasm'),
+})
+const adapter = createSqlJsAdapter(sqlite)
+
+sqliteAdapterContract(adapter, {
+  backup: false,
+  fullText: 'fts4',
+  loadExtension: false,
+})
+
+test('runtime selection uses adapter injection, not module replacement', () => {
+  const vite = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8')
+  const manifest = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+  ) as { scripts: { test: string } }
+  assert.doesNotMatch(vite, /node:sqlite/)
+  assert.equal(manifest.scripts.test, 'node --test test/runtime.test.ts')
+})
 
 const family = `
 PARENT-OF IS verb
@@ -13,7 +39,7 @@ anna PARENT-OF me
 `
 
 test('SQLite WASM runs the real CAVE ingest and query path', () => {
-  const store = open(':memory:')
+  const store = openWith(adapter, ':memory:')
   try {
     const ingested = store.ingest(family, { strict: true, source: 'playground/test' })
     assert.equal(ingested.ids.length, 6)

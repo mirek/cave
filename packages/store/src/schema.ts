@@ -1,11 +1,11 @@
 /** Ordered, transactional storage schema migrations (spec §13). */
 
-import type { DatabaseSync } from 'node:sqlite'
+import type { Capabilities, Database } from './adapter.ts'
 import * as Provenance from './provenance.ts'
 
 export const currentVersion = 1
 
-export const ddl = `
+const ddlBeforeFts = `
 CREATE TABLE IF NOT EXISTS cave_claim (
   id            TEXT PRIMARY KEY,      -- UUIDv7
   tx            TEXT NOT NULL,         -- UUIDv7, lexicographic = transaction order
@@ -79,27 +79,36 @@ CREATE INDEX IF NOT EXISTS idx_cave_edge_parent ON cave_edge (parent_id);
 CREATE INDEX IF NOT EXISTS idx_cave_edge_child  ON cave_edge (child_id);
 CREATE INDEX IF NOT EXISTS idx_cave_edge_role   ON cave_edge (role);
 
-CREATE VIRTUAL TABLE IF NOT EXISTS cave_fts USING fts5(
+`
+
+const ftsDdl = (fullText: Capabilities['fullText']): string => `
+CREATE VIRTUAL TABLE IF NOT EXISTS cave_fts USING ${fullText}(
   claim_id, subject, verb, object, attribute, value_text, comment, raw_line
 );
 `
 
+/** Default Node/FTS5 schema SQL retained for callers that inspect the DDL. */
+export const ddl = ddlBeforeFts + ftsDdl('fts5')
+
+const ddlFor = (capabilities: Capabilities): string =>
+  ddlBeforeFts + ftsDdl(capabilities.fullText)
+
 type Migration = {
   readonly version: number
-  readonly up: (db: DatabaseSync) => void
+  readonly up: (db: Database, capabilities: Capabilities) => void
 }
 
 const migrations: readonly Migration[] = [
   {
     version: 1,
-    up: db => {
-      db.exec(ddl)
+    up: (db, capabilities) => {
+      db.exec(ddlFor(capabilities))
       Provenance.backfill(db)
     }
   }
 ]
 
-const versionOf = (db: DatabaseSync): number =>
+const versionOf = (db: Database): number =>
   (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
 
 const requiredTables = [
@@ -126,7 +135,7 @@ const requiredColumns: Readonly<Record<string, readonly string[]>> = {
   cave_fts: ['claim_id', 'subject', 'verb', 'object', 'attribute', 'value_text', 'comment', 'raw_line']
 }
 
-export const validate = (db: DatabaseSync, version: number, schema = 'main'): void => {
+export const validate = (db: Database, version: number, schema = 'main'): void => {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)) {
     throw new Error(`CAVE: invalid SQLite schema name ${JSON.stringify(schema)}`)
   }
@@ -157,7 +166,13 @@ export const validate = (db: DatabaseSync, version: number, schema = 'main'): vo
  * transaction, including its `user_version` update, so interruption leaves
  * either the old version or the complete next version and reopen can resume.
  */
-export const init = (db: DatabaseSync): void => {
+export const init = (
+  db: Database,
+  capabilities: Capabilities = {
+    transactions: { immediate: true, savepoints: true },
+    fullText: 'fts5',
+  }
+): void => {
   let version = versionOf(db)
   if (version > currentVersion) {
     throw new Error(
@@ -172,7 +187,7 @@ export const init = (db: DatabaseSync): void => {
     }
     db.exec('BEGIN IMMEDIATE')
     try {
-      migration.up(db)
+      migration.up(db, capabilities)
       db.exec(`PRAGMA user_version = ${migration.version}`)
       validate(db, migration.version)
       db.exec('COMMIT')

@@ -1,5 +1,5 @@
 import { Value } from '@cavelang/core'
-import type { Store } from '@cavelang/store'
+import type { Store } from '@cavelang/store/adapter'
 import * as Compile from './compile.ts'
 import * as Pattern from './pattern.ts'
 

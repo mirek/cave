@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { query, type Match } from '@cavelang/query'
-import { open, type Store } from '@cavelang/store'
+import { openWith, type Store } from '@cavelang/store/adapter'
 import family from '../../../examples/family-history/notes.cave?raw'
 import incident from '../../../examples/incident/incident.cave?raw'
 import loop from '../../../examples/loop-eval/postmortem.cave?raw'
@@ -61,9 +61,9 @@ export const Playground = () => {
     setStatus('loading')
     setOutput('Loading SQLite WebAssembly…')
     try {
-      await initializeSqlite()
+      const adapter = await initializeSqlite()
       storeRef.current?.close()
-      const store = open(':memory:')
+      const store = openWith(adapter, ':memory:')
       storeRef.current = store
       const result = store.ingest(dataset.source, { strict: true, source: `playground/${dataset.id}` })
       const count = store.currentBeliefs().length

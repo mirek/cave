@@ -19,8 +19,8 @@
 
 import { Time, Uuidv7, Value } from '@cavelang/core'
 import { Registry } from '@cavelang/canonical'
-import { Resolve, Row } from '@cavelang/store'
-import type { Store } from '@cavelang/store'
+import { Resolve, Row } from '@cavelang/store/adapter'
+import type { Store } from '@cavelang/store/adapter'
 import * as Pattern from './pattern.ts'
 
 /** One query solution: variable bindings plus the matched row (absent for transitive hops). */

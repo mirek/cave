@@ -8,7 +8,6 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      'node:sqlite': fileURLToPath(new URL('./src/playground/sqlite-shim.ts', import.meta.url)),
       'util': fileURLToPath(new URL('./src/playground/util-shim.ts', import.meta.url)),
     },
   },
