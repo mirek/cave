@@ -56,6 +56,10 @@ cave derive --db k.db --retract 4a0bb974f43c
 - **Support is well-founded**: premises retracted → dependents retracted,
   cascading across rules within the run; mutually-supporting derivation
   cycles cannot keep each other alive.
+- **Pass exhaustion is non-destructive and resumable**: reports expose
+  `complete: false`, the CLI exits nonzero, suspended conclusions are not
+  reconciled, and watermarks do not advance until a later run reaches a
+  fixpoint.
 - `--dry-run` computes the full report inside a rolled-back transaction.
 
 Derived claims are stamped `@src:rule/<digest>` (§9.5), so a rule's

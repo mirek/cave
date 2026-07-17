@@ -467,7 +467,7 @@ export const tools: readonly Tool[] = [
           ...rule.problems.map(problem => `  ${problem}`)
         ]),
         ...report.notes.map(note => `note: ${note}`),
-        `derived${dryRun ? ' (dry run)' : ''}: +${report.appended} appended, ${report.updated} updated, ` +
+        `derived${dryRun ? ' (dry run)' : ''}${report.complete ? '' : ' (truncated)'}: +${report.appended} appended, ${report.updated} updated, ` +
         `${report.retracted} retracted, ${report.unchanged} unchanged (${report.passes} pass(es))`
       ].join('\n')
     }
