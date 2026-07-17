@@ -303,6 +303,35 @@ test('actor provenance stamps do not scope disagreements apart (spec §20.2, §9
   store.close()
 })
 
+test('an actor fork within one alias name is not a cross-name disagreement', () => {
+  const store = open()
+  store.ingest('postgres ALIAS postgresql')
+  store.ingest('postgres HAS version: 14', { source: 'agent/one' })
+  store.ingest('postgres HAS version: 15', { source: 'agent/two' })
+  assert.deepEqual(check(store).disagreements, [])
+  store.close()
+})
+
+test('multi-alias disagreements retain every actor-attributed row', () => {
+  const store = open()
+  store.ingest('postgres ALIAS postgresql\npostgresql ALIAS pg')
+  store.ingest('postgres HAS version: 14', { source: 'agent/one' })
+  store.ingest('postgres HAS version: 15', { source: 'agent/two' })
+  store.ingest('postgresql HAS version: 14', { source: 'import/catalog' })
+  store.ingest('pg HAS version: 16', { source: 'cli' })
+
+  const disagreements = check(store).disagreements
+  assert.equal(disagreements.length, 1)
+  assert.deepEqual(disagreements[0]!.entities, ['pg', 'postgres', 'postgresql'])
+  assert.equal(disagreements[0]!.rows.length, 4)
+  assert.deepEqual(
+    disagreements[0]!.rows.map(row =>
+      store.toClaim(row).contexts.find(context => context.startsWith('src:'))).sort(),
+    ['src:agent/one', 'src:agent/two', 'src:cli', 'src:import/catalog']
+  )
+  store.close()
+})
+
 test('coverage counts rows, facts, belief states and typed entities (spec §20.2)', () => {
   const store = open()
   store.ingest([
