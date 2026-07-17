@@ -14,10 +14,10 @@
  * - full triple → grouped claim
  *
  * One ambiguity needs a tiebreak: `API NEEDS auth` starts with a token that
- * is lexically verb-shaped. If the *second* token is also verb-shaped (and
- * not `NOT`), the line is a full triple with an uppercase subject —
- * `CONTAINS REVERSE PART-OF` and `API NEEDS auth` both land here; otherwise
- * it is a continuation.
+ * is lexically verb-shaped. A two-token `VERB VERB` line is a continuation:
+ * it has a verb and object but no third token for a full claim's payload.
+ * With a payload present, known vocabulary distinguishes grouped claims from
+ * continuations — `CONTAINS REVERSE PART-OF` and `API NEEDS auth` are claims.
  *
  * `parseDocument` never throws: broken lines become `invalid` entries and
  * every problem is a diagnostic. `parse` is the strict variant.
@@ -50,6 +50,8 @@ const classify = (tokens: readonly Token.t[], depth: number): Classified | { err
   if (head.kind === 'word' && Verb.isVerbToken(head.text)) {
     const second = tokens[1]
     const secondWord = second?.kind === 'word' ? second.text : undefined
+    const third = tokens[2]
+    const hasClaimPayload = third !== undefined && !Line.isMetaStart(third)
     // Tiebreak between "continuation" and "full triple with an uppercase
     // subject", using the known standard vocabulary (see the README):
     //   CONTAINS REVERSE PART-OF  → claim (declaration)
@@ -57,7 +59,7 @@ const classify = (tokens: readonly Token.t[], depth: number): Classified | { err
     //   API NEEDS auth            → claim (second token is a known verb)
     //   USES JWT / PART-OF ORG    → continuation (first known, second not)
     //   API MIGRATES postgres     → claim (neither known — subject wins)
-    const kind: Classified =
+    const kind: Classified = !hasClaimPayload ? 'continuation' :
       secondWord === Verb.REVERSE ? 'claim' :
       secondWord !== undefined && secondWord !== 'NOT' && Verb.isVerbToken(secondWord) ?
         (Verb.isKnown(secondWord) ? 'claim' : Verb.isKnown(head.text) ? 'continuation' : 'claim') :

@@ -72,7 +72,8 @@ examples and are tried in order:
   as a linter.
 - **Classification tiebreak.** A line starting with a verb-shaped token is
   classified using the known standard vocabulary (standard verbs, `HAS`,
-  `REVERSE`, the §5.5 inverse names): second token `REVERSE` → claim
+  `REVERSE`, the §5.5 inverse names). A two-token `VERB VERB` line is a
+  continuation because it has no full-claim payload. Otherwise, second token `REVERSE` → claim
   (declaration); second token a *known* verb → claim with an uppercase
   subject (`API NEEDS auth`); first token known → continuation, even when
   the object is ALL-CAPS (`USES JWT`, `PART-OF ORG`, `USES GPU cluster`);
@@ -80,6 +81,9 @@ examples and are tried in order:
   an *extension*-verb continuation with an ALL-CAPS object — is inherently
   registry-dependent and the parser stays registry-free; write the subject
   explicitly there.
+- **Verb boundary.** Following §16's `uppercase_atom`, verb tokens start with
+  an uppercase letter and may continue with uppercase letters or `-`, including
+  a trailing hyphen. Both parsers therefore classify `USES-` as a verb.
 - **`@` disambiguation is exactly one character of lookahead** (§6.3):
   the token `@` alone expects a following percentage (confidence);
   `@anything` is a context.

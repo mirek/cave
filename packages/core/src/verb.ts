@@ -67,10 +67,11 @@ const knownSet = new Set<string>([...standard, 'HAS', REVERSE, RENAMED_TO, EXPEC
 
 /**
  * @returns `true` if `s` has the lexical shape of a verb — an uppercase atom:
- * uppercase letters and internal `-` (spec §16 `uppercase_atom`).
+ * an uppercase letter followed by uppercase letters or `-` (spec §16
+ * `uppercase_atom`, which permits a trailing hyphen).
  */
 export const isVerbToken = (s: string): boolean =>
-  /^[A-Z](?:[A-Z-]*[A-Z])?$/.test(s)
+  /^[A-Z][A-Z-]*$/.test(s)
 
 /** @returns `true` if `v` is one of the standard relational verbs. */
 export const isStandard = (v: string): boolean =>
