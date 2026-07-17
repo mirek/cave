@@ -24,6 +24,10 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# This must remain ahead of every npm registry lookup and build. The workflow
+# also runs it in a separate preflight job before configuring npm OIDC.
+node scripts/release-validate.mjs
+
 version="$(node -p "require('./package.json').version")"
 
 # Every independently published lockstep package must agree before anything ships.
@@ -42,27 +46,103 @@ if [ "$grammar_version" != "$version" ]; then
   exit 1
 fi
 
-# Which public packages still need publishing? (`npm view` prints nothing /
-# errors for an unpublished version, depending on npm version.)
+# A missing package/version is a stable registry answer. Other npm failures are
+# retried and then fail closed instead of being mistaken for an unpublished
+# package and starting an unsafe publish.
+npm_view() {
+  local selector="$1"
+  local field="$2"
+  local retry_missing="${3:-false}"
+  local attempts="${CAVE_NPM_VIEW_ATTEMPTS:-4}"
+  local delay="${CAVE_NPM_VIEW_RETRY_DELAY_SECONDS:-2}"
+  local attempt output status error_file
+  error_file="$(mktemp)"
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if output="$(npm view "$selector" "$field" 2>"$error_file")"; then
+      rm -f "$error_file"
+      printf '%s' "$output"
+      return 0
+    else
+      status=$?
+    fi
+    if grep -Eqi 'E404|404 Not Found|is not in this registry' "$error_file"; then
+      if [ "$retry_missing" != "true" ] || [ "$attempt" -eq "$attempts" ]; then
+        rm -f "$error_file"
+        return 4
+      fi
+      echo "warning: ${selector} is not visible on npm yet (attempt ${attempt}/${attempts}); retrying in ${delay}s" >&2
+      sleep "$delay"
+      delay=$((delay * 2))
+      continue
+    fi
+    if [ "$attempt" -eq "$attempts" ]; then
+      echo "error: npm view ${selector} failed after ${attempts} attempts" >&2
+      cat "$error_file" >&2
+      rm -f "$error_file"
+      return "$status"
+    fi
+    echo "warning: npm view ${selector} failed (attempt ${attempt}/${attempts}); retrying in ${delay}s" >&2
+    sleep "$delay"
+    delay=$((delay * 2))
+  done
+}
+
+registry_has() {
+  local selector="$1"
+  local field="$2"
+  local expected="$3"
+  local retry_missing="${4:-false}"
+  local found status
+  if found="$(npm_view "$selector" "$field" "$retry_missing")"; then
+    [ "$found" = "$expected" ]
+    return
+  else
+    status=$?
+  fi
+  [ "$status" -eq 4 ] && return 1
+  return 2
+}
+
+# Which public packages still need publishing?
 unpublished=()
 first_time=()
 for manifest in packages/*/package.json; do
   name="$(node -p "require('./${manifest}').name")"
   is_private="$(node -p "require('./${manifest}').private === true")"
   [ "$is_private" = "true" ] && continue
-  if [ -z "$(npm view "${name}@${version}" version 2>/dev/null || true)" ]; then
+  if registry_has "${name}@${version}" version "$version"; then
+    continue
+  else
+    registry_status=$?
+  fi
+  if [ "$registry_status" -eq 1 ]; then
     unpublished+=("$name")
-    if [ -z "$(npm view "$name" name 2>/dev/null || true)" ]; then
-      first_time+=("$name")
+    if registry_has "$name" name "$name"; then
+      :
+    else
+      registry_status=$?
+      if [ "$registry_status" -eq 1 ]; then
+        first_time+=("$name")
+      else
+        exit "$registry_status"
+      fi
     fi
+  else
+    exit "$registry_status"
   fi
 done
 
 ensure_tag() {
+  # Recheck branch reachability and tag equality at the mutation boundary so a
+  # concurrent or manually-created tag cannot be accepted silently.
+  node scripts/release-validate.mjs
   if git ls-remote --exit-code origin "refs/tags/v${version}" >/dev/null 2>&1; then
     echo "tag v${version} already exists on origin"
   else
-    git tag "v${version}"
+    if ! git rev-parse --verify --quiet "refs/tags/v${version}^{commit}" >/dev/null; then
+      git tag "v${version}" HEAD
+    fi
     git push origin "v${version}"
     echo "pushed tag v${version}"
   fi
@@ -78,7 +158,7 @@ echo "==> building, testing, and smoke-checking v${version}"
 # Generated grammar artifacts (parser.c, WASM) are never committed —
 # tree-sitter-cli (a devDependency) regenerates them here; its
 # `build --wasm` downloads wasi-sdk into ~/.cache/tree-sitter on
-# first use, so no extra toolchain setup is needed.
+# first use. CI caches that external toolchain directory across jobs.
 pnpm --filter @cavelang/tree-sitter-cave build
 pnpm build
 pnpm test
@@ -106,8 +186,15 @@ pnpm -r publish --access public --no-git-checks
 # Only tag once every public package is actually on the registry.
 missing=()
 for name in "${unpublished[@]}"; do
-  if [ -z "$(npm view "${name}@${version}" version 2>/dev/null || true)" ]; then
-    missing+=("$name")
+  if registry_has "${name}@${version}" version "$version" true; then
+    :
+  else
+    registry_status=$?
+    if [ "$registry_status" -eq 1 ]; then
+      missing+=("$name")
+    else
+      exit "$registry_status"
+    fi
   fi
 done
 if [ "${#missing[@]}" -gt 0 ]; then

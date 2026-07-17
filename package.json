@@ -23,6 +23,7 @@
     "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "tsc -b",
     "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only --no-frozen-lockfile",
+    "release:validate": "node scripts/release-validate.mjs",
     "release:publish": "./scripts/release-publish.sh"
   },
   "devDependencies": {
