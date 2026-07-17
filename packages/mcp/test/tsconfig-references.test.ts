@@ -21,6 +21,7 @@ type Manifest = {
   exports?: Record<string, unknown>
   publishConfig?: { exports?: Record<string, unknown> }
   scripts?: Record<string, string>
+  files?: string[]
 }
 type Tsconfig = { references?: { path: string }[] }
 type Surface = {
@@ -95,6 +96,26 @@ test('package test globs use shell-portable quoting', () => {
       `packages/${name}/package.json passes POSIX single quotes literally on Windows: ${script}`
     )
   }
+})
+
+test('every public package packs the canonical license and author files', () => {
+  for (const name of readdirSync(packagesDir).sort()) {
+    const path = join(packagesDir, name, 'package.json')
+    if (!existsSync(path)) continue
+    const manifest = parse<Manifest>(path)
+    if (manifest.private === true) continue
+    assert.ok(manifest.files?.includes('License.md'), `${manifest.name} does not pack License.md`)
+    assert.ok(manifest.files?.includes('Authors.md'), `${manifest.name} does not pack Authors.md`)
+    assert.match(
+      manifest.scripts?.prepack ?? '',
+      /^node \.\.\/\.\.\/scripts\/prepare-package-legal\.mjs && /,
+      `${manifest.name} does not stage the canonical legal files before packing`
+    )
+  }
+
+  const smoke = readFileSync(fileURLToPath(new URL('../../../scripts/smoke.sh', import.meta.url)), 'utf8')
+  assert.match(smoke, /for legal_file in License\.md Authors\.md/)
+  assert.match(smoke, /tar -xOf "\$tarball" "package\/\$legal_file" \| cmp -s - "\$root\/\$legal_file"/)
 })
 
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {

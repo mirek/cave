@@ -20,6 +20,14 @@ for manifest in "$root"/packages/*/package.json; do
 done
 tarball_count="$(find "$tmp/tarballs" -maxdepth 1 -name '*.tgz' | wc -l | tr -d ' ')"
 [ "$tarball_count" = 12 ] || { echo "error: expected 12 public tarballs, got $tarball_count" >&2; exit 1; }
+for tarball in "$tmp"/tarballs/*.tgz; do
+  for legal_file in License.md Authors.md; do
+    if ! tar -xOf "$tarball" "package/$legal_file" | cmp -s - "$root/$legal_file"; then
+      echo "error: $(basename "$tarball") has missing or non-canonical $legal_file" >&2
+      exit 1
+    fi
+  done
+done
 cli_tarball="$(find "$tmp/tarballs" -maxdepth 1 -name 'cavelang-cli-*.tgz')"
 tar -xOf "$cli_tarball" package/package.json | node -e "
 let input = ''

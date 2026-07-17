@@ -38,7 +38,8 @@
     "src",
     "!src/**/*.test.ts",
     "README.md",
-    "License.md"
+    "License.md",
+    "Authors.md"
   ],
   "publishConfig": {
     "access": "public",
@@ -104,7 +105,7 @@
     "build": "tsc -b && node scripts/consolidate.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",
-    "prepack": "pnpm run build"
+    "prepack": "node ../../scripts/prepare-package-legal.mjs && pnpm run build"
   },
   "dependencies": {
     "@cavelang/canonical": "workspace:*",
