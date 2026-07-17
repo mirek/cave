@@ -204,6 +204,12 @@ done: +14 claim(s)
 
 The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Ingestion is atomic by default: all batches use an isolated stage and nothing reaches the requested database if a fetch, agent, or extraction fails. `--lenient` explicitly keeps valid partial progress, continues later paid-agent calls, exits 1 on any rejection, and reports every source (`--json` for the machine-readable manifest); rejected sources keep no digest and retry next time. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
 
+Agent and hook strings are intentional shell templates: CAVE uses `/bin/sh`
+on POSIX and Windows PowerShell on Windows, quotes placeholder values for that
+shell, bounds both output streams, and terminates the whole process tree on a
+timeout or cancellation. Programmatic direct commands use executable/argument
+arrays without shell interpolation.
+
 ```
 $ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'
 ?a = anna

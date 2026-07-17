@@ -1150,7 +1150,9 @@ updated at least one claim, a named-and-configured hook's template runs
 as a shell command: `{action}` and `{<param>}` placeholders substitute
 first — every value **shell-quoted**, never spliced raw — and the
 appended claims arrive as canonical CAVE text on stdin (the data
-channel; placeholders are for routing).
+channel; placeholders are for routing). The intentional shell is explicit:
+`/bin/sh` on POSIX and Windows PowerShell on Windows. Output is bounded, and
+timeout or limit failure terminates the complete process tree.
 
 Hook outcomes are honest and asymmetric by design:
 
@@ -1857,7 +1859,8 @@ or other steps.
   hook configuration: `{automation}` and `{<var>}` placeholders
   substitute shell-quoted (trigger bindings; unknown placeholders
   stay), and the solution's premise rows arrive as canonical CAVE text
-  on stdin. A hook that is named but not configured is reported as not
+  on stdin. It uses the same platform-explicit, output-bounded,
+  whole-process-tree lifecycle as action hooks. A hook that is named but not configured is reported as not
   fired — running without hook configuration is a legitimate,
   side-effect-free mode (§25.4).
 - **a prompt literal** goes to the agent: bound `?var`s substitute

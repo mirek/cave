@@ -381,7 +381,8 @@ Options:
                  rolled back
   --aliases      preconditions match through the alias closure (spec §13.6)
   --hooks <file> JSON file of out-of-band hook command templates,
-                 name → shell template (spec §25.4); default: $CAVE_HOOKS
+                 name → shell template (spec §25.4); /bin/sh on POSIX,
+                 Windows PowerShell on Windows; default: $CAVE_HOOKS
   --declare      declare the actions of CAVE documents (stdin when no
                  file); other lines are prelude, ingested first
   --list         print the store's current actions and exit
@@ -1373,7 +1374,10 @@ export const restoreCommand = (argv: readonly string[]): Output => {
  * candidates as suggested `ALIAS` claims for review. Async when the optional
  * judge runs a shell agent.
  */
-export const suggestAliasCommand = async (argv: readonly string[]): Promise<Output> => {
+export const suggestAliasCommand = async (
+  argv: readonly string[],
+  runtime: { readonly signal?: AbortSignal } = {}
+): Promise<Output> => {
   try {
     const { values } = parseArgs({
       args: [...argv],
@@ -1411,7 +1415,10 @@ export const suggestAliasCommand = async (argv: readonly string[]): Promise<Outp
     try {
       let suggestions = suggestAliases(store, { minScore, ...limit === undefined ? {} : { limit } })
       if (values.agent !== undefined && suggestions.length > 0) {
-        const reply = await shellComplete(values.agent, timeoutSeconds === undefined ? {} : { timeoutSeconds })(
+        const reply = await shellComplete(values.agent, {
+          ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
+          ...runtime.signal === undefined ? {} : { signal: runtime.signal }
+        })(
           judgePrompt(store, suggestions)
         )
         suggestions = parseJudgeReply(reply, suggestions.length).map(index => suggestions[index]!)
@@ -1653,7 +1660,10 @@ export const generateCommand = (argv: readonly string[]): Output => {
  * default (the eval baseline), the LLM policy over a shell-agent template
  * with `--agent`. Async because the agent runs once per step.
  */
-export const reconstructCommand = async (argv: readonly string[]): Promise<Output> => {
+export const reconstructCommand = async (
+  argv: readonly string[],
+  runtime: { readonly signal?: AbortSignal } = {}
+): Promise<Output> => {
   try {
     const { values, positionals } = parseArgs({
       args: [...argv],
@@ -1699,7 +1709,10 @@ export const reconstructCommand = async (argv: readonly string[]): Promise<Outpu
         await reconstructAsync(
           graph,
           llmPolicy(
-            shellComplete(values.agent, timeoutSeconds === undefined ? {} : { timeoutSeconds }),
+            shellComplete(values.agent, {
+              ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
+              ...runtime.signal === undefined ? {} : { signal: runtime.signal }
+            }),
             { ...values.query === undefined ? {} : { query: values.query }, ...budgets }
           ),
           positionals

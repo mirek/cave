@@ -44,6 +44,7 @@
   "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
     "@cavelang/mcp": "workspace:*",
     "@cavelang/parser": "workspace:*",
     "@cavelang/store": "workspace:*",

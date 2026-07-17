@@ -36,7 +36,7 @@ Dependency order, bottom to top:
 | [`@cavelang/rules`](packages/rules) | §24 | Rules engine — `premises => conclusion` forward chaining over current beliefs; in-band rule claims, `BECAUSE`/`VIA` derivation lineage, noisy-AND confidence, tx-watermark incrementality, well-founded support |
 | [`@cavelang/act`](packages/act) | §25 | Action templates — named, parameterized governed writes: in-band declarations, CAVE-Q preconditions validated against current belief, atomic effects with `BECAUSE`/`VIA` lineage, §20.3 gate by default, out-of-band side-effect hooks |
 | [`@cavelang/sync`](packages/sync) | §28 | Store merge — append-only stores union by row identity (idempotent, transitive, conflict-free under §9.4 coexistence): store files through SQL `ATTACH`, `;@` transaction-annotated canonical text through the ordinary pipeline; in-band `SYNCED-INTO` merge records, the §28.2 tx receive rule, re-statement replay and the §28.6 branching convention (text under git, checkout/land by sync, union merge driver) |
-| [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), multi-hop recovery demo |
+| [`@cavelang/loop`](packages/loop) | §18 | cave-loop: injectable store/policy (sync + async), in-memory store and SQLite adapter, heuristic policy (the eval baseline), LLM policy over shell-agent templates (one completion per step decides select/stop), shared bounded external-process lifecycle, multi-hop recovery demo |
 | [`@cavelang/automate`](packages/automate) | §29 | Automations — the event-driven loop: in-band `automation/<name>` declarations pair §24.1 trigger premises with steps (§25 actions, §25.4 hooks, agent prompts); solutions fire on rows newer than the automation's watermark, armed at declaration, deaf to their own echo; settle cycles interleave incremental derivation with trigger evaluation until quiescent |
 | [`@cavelang/view`](packages/view) | §9.7, §30, §31 | Sensitivity-scoped human publication — `cave serve`: one static HTML page over an audience-filtered store (entity 360, history, lineage, health, search) behind read-only GET endpoints; `cave report`: audience-filtered markdown templates with claim-key citations; all counts and graph walks derive from the visible snapshot |
 | [`@cavelang/mcp`](packages/mcp) | — | The engine as an MCP server (stdio JSON-RPC): add/query/fuse/search/about/neighbors/reconstruct/derive/export/lint tools plus one generated `act_<name>` tool per declared action (§25.5); `cave_fuse`/`cave_derive` expose named §10.1 fusion and §24 derivation; serving scopes distinguish read, ephemeral evaluation, durable recording, and effect-capable action permissions, with `--read-only` and exact tool allowlists as further intersections |
@@ -250,7 +250,12 @@ Package READMEs document local decisions; these are the global ones:
   policies; lenient reply parsing degrades to the strongest cue while
   agent *errors* propagate as failures. The model stays out-of-band
   (§19.5) behind `shellComplete` — the `cave ingest`/`cave eval`
-  `--agent` shell-template contract — and the heuristic baseline is
+  `--agent` shell-template contract. Every external-command integration uses
+  the same bounded runner: ordinary executable/argument arrays never enter a
+  shell; intentional templates select `/bin/sh` or Windows PowerShell and
+  quote placeholders for that platform; timeout, cancellation, and output
+  limits terminate the complete process tree with typed, command-redacted
+  diagnostics. The heuristic baseline is
   runnable machinery: eval reconstruction cases (`<stem>.loop.cave`,
   ordinary CAVE lines about the entity `loop`) score either policy's
   reconstruction by claim key, answering queries from the reconstruction

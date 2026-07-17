@@ -81,6 +81,8 @@ export type Options = {
   /** Resolve query expectations through the alias closure (spec §13.6). */
   readonly aliases?: boolean
   readonly timeoutSeconds?: number
+  /** Cancel active agent and judge process trees. */
+  readonly signal?: AbortSignal
   /** Open throwaway stores without the standard §5.5 registry. */
   readonly noPrelude?: boolean
   /** Keep the per-run databases (reported as `root`) instead of deleting them. */
@@ -273,7 +275,8 @@ const runJudge = async (
   judge: Judge,
   comparison: Score.Comparison,
   timeoutSeconds: number,
-  cwd: string
+  cwd: string,
+  signal?: AbortSignal
 ): Promise<{ pairs: [number, number][], error?: string }> => {
   if (comparison.misses.length === 0 || comparison.extras.length === 0) {
     return { pairs: [] }
@@ -291,7 +294,10 @@ const runJudge = async (
     try {
       const promptFile = join(promptDir, 'judge.md')
       writeFileSync(promptFile, prompt)
-      const result = await Ingest.runShellAgent(judge, prompt, { 'prompt-file': promptFile }, timeoutSeconds, cwd)
+      const result = await Ingest.runShellAgent(
+        judge, prompt, { 'prompt-file': promptFile }, timeoutSeconds, cwd,
+        { ...signal === undefined ? {} : { signal } }
+      )
       if (result.code !== 0) {
         return { pairs: [], error: result.error ?? `judge exited with ${result.code}` }
       }
@@ -413,7 +419,8 @@ const scoreRun = async (
   let misses = comparison.misses
   let extras = comparison.extras
   if (options.judge !== undefined) {
-    const outcome = await runJudge(options.judge, comparison, options.timeoutSeconds, dirname(kase.source))
+    const outcome = await runJudge(
+      options.judge, comparison, options.timeoutSeconds, dirname(kase.source), options.signal)
     judged = outcome.pairs.length
     judgeError = outcome.error
     const judgedMisses = new Set(outcome.pairs.map(([miss]) => miss))
@@ -483,6 +490,7 @@ const runOnce = async (
       embed: options.embed !== false,
       timeoutSeconds: options.timeoutSeconds,
       noPrelude: options.noPrelude === true,
+      ...options.signal === undefined ? {} : { signal: options.signal },
       ...kase.instructions === undefined ? {} : { instructions: kase.instructions }
     })
     const batch = report.batches[0]
@@ -528,7 +536,8 @@ const runLoopOnce = async (
     const reconstruction = await Loop.runSpec(loop.knowledge, loop.spec, registry, {
       ...agent === undefined ? {} : { agent },
       timeoutSeconds: options.timeoutSeconds,
-      cwd: dirname(kase.source)
+      cwd: dirname(kase.source),
+      ...options.signal === undefined ? {} : { signal: options.signal }
     })
     const ingested = store.ingest(reconstruction.claims.map(claim => emitClaim(claim)).join('\n'))
     return await scoreRun(store, db, kase, fixture, {

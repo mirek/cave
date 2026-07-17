@@ -45,6 +45,7 @@
     "@cavelang/canonical": "workspace:*",
     "@cavelang/connect": "workspace:*",
     "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
     "@cavelang/parser": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/rules": "workspace:*",

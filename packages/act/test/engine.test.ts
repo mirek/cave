@@ -207,6 +207,21 @@ test('hook failures are reported; committed claims stay (spec §25.4)', () => {
   store.close()
 })
 
+test('hook output limits fail safely after the governed write commits', () => {
+  const store = open()
+  store.ingest('api IS service')
+  declareActions(store, `${deployAction}\naction/mark-deployed HAS hook: notify`)
+  const report = act(store, 'mark-deployed', { service: 'api', version: '3' }, {
+    hooks: { notify: 'node -e "process.stdout.write(\'x\'.repeat(4096))"' },
+    hookMaxStdoutBytes: 64
+  })
+  assert.ok(report.ok)
+  assert.match(report.ok && report.hook?.error || '', /stdout exceeded 64 bytes/)
+  assert.equal(report.ok && report.hook?.output?.length, 64)
+  assert.equal(query(store, 'api HAS deployed-version: ?v')[0]!.bindings['v'], '3')
+  store.close()
+})
+
 test('declaration lifecycle — idempotent declare, list with docs, retract disables', () => {
   const store = open()
   const file = [

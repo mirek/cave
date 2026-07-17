@@ -30,12 +30,12 @@
  * ever becomes a dependency of this package.
  */
 
-import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { emitClaim } from '@cavelang/canonical'
 import type { AsyncPolicy, Cue, State } from './reconstruct.ts'
+import { runProcess, shellCommand } from './process.ts'
 
 /** Minimal completion function the policy needs: prompt in, reply out. */
 export type Complete = (prompt: string) => Promise<string>
@@ -195,6 +195,12 @@ export type ShellCompleteOptions = {
   readonly timeoutSeconds?: number
   /** Working directory the agent runs in (default: the process cwd). */
   readonly cwd?: string
+  /** Cancellation signal for the child process tree. */
+  readonly signal?: AbortSignal
+  /** Maximum captured reply bytes (default 8 MiB). */
+  readonly maxStdoutBytes?: number
+  /** Maximum captured diagnostic bytes (default 1 MiB). */
+  readonly maxStderrBytes?: number
 }
 
 /**
@@ -211,58 +217,30 @@ export type ShellCompleteOptions = {
  */
 export const shellComplete = (template: string, options: ShellCompleteOptions = {}): Complete => {
   const timeoutSeconds = options.timeoutSeconds ?? 120
-  return prompt => new Promise((resolvePromise, rejectPromise) => {
+  return async prompt => {
     let dir: undefined | string
-    let command = template
+    const substitutions: Record<string, string> = {}
     if (template.includes('{prompt-file}')) {
       dir = mkdtempSync(join(tmpdir(), 'cave-loop-'))
       const file = join(dir, 'prompt.md')
       writeFileSync(file, prompt)
-      // Quoted like ingest's substitutions — one argument, never re-parsed.
-      command = template.replaceAll('{prompt-file}', `'${file.replaceAll("'", `'\\''`)}'`)
+      substitutions['prompt-file'] = file
     }
-    let settled = false
-    const settle = (finish: () => void): void => {
-      if (!settled) {
-        settled = true
-        if (dir !== undefined) {
-          rmSync(dir, { recursive: true, force: true })
-        }
-        // Grandchildren of a killed shell can inherit the stdio pipes;
-        // dropping our end releases the event loop from waiting on them.
-        child.stdout.destroy()
-        child.stdin.destroy()
-        finish()
+    try {
+      const result = await runProcess(shellCommand(template, substitutions), {
+        input: prompt,
+        timeoutMs: timeoutSeconds * 1000,
+        ...options.cwd === undefined ? {} : { cwd: options.cwd },
+        ...options.signal === undefined ? {} : { signal: options.signal },
+        ...options.maxStdoutBytes === undefined ? {} : { maxStdoutBytes: options.maxStdoutBytes },
+        ...options.maxStderrBytes === undefined ? {} : { maxStderrBytes: options.maxStderrBytes }
+      })
+      if (result.code !== 0) {
+        throw new Error(`agent exited with ${result.code ?? `signal ${result.signal}`}`)
       }
+      return result.stdout
+    } finally {
+      if (dir !== undefined) rmSync(dir, { recursive: true, force: true })
     }
-    const child = spawn(command, {
-      shell: true,
-      timeout: timeoutSeconds * 1000,
-      stdio: ['pipe', 'pipe', 'inherit'],
-      ...options.cwd === undefined ? {} : { cwd: options.cwd }
-    })
-    let stdout = ''
-    child.stdout.on('data', chunk => {
-      stdout += String(chunk)
-    })
-    child.on('error', error => settle(() => rejectPromise(new Error(`agent failed: ${error.message}`))))
-    // A killed shell can leave grandchildren holding the stdio pipes open,
-    // so the signal path settles on `exit` — waiting for `close` would wait
-    // for processes the timeout was meant to cut loose.
-    child.on('exit', (_code, signal) => {
-      if (signal !== null) {
-        settle(() => rejectPromise(new Error(`agent killed by ${signal} after ${timeoutSeconds}s`)))
-      }
-    })
-    child.on('close', code => settle(() => {
-      if (code === 0) {
-        resolvePromise(stdout)
-      } else {
-        rejectPromise(new Error(`agent exited with ${code}`))
-      }
-    }))
-    child.stdin.on('error', () => {})
-    child.stdin.write(prompt)
-    child.stdin.end()
-  })
+  }
 }

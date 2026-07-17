@@ -17,4 +17,25 @@ export { sqliteStore } from './sqlite.ts'
 export { heuristicPolicy, reconstruct, reconstructAsync } from './reconstruct.ts'
 export type { AsyncPolicy, Cue, HeuristicOptions, Policy, Reconstruction, State, Step } from './reconstruct.ts'
 export { llmPolicy, parseSelection, selectPrompt, shellComplete, stopToken } from './llm.ts'
+export {
+  ProcessFailure,
+  defaultMaxStderrBytes,
+  defaultMaxStdoutBytes,
+  directCommand,
+  quoteShellArgument,
+  runProcess,
+  runProcessSync,
+  shellCommand,
+  shellSyntaxFor,
+  substituteShell
+} from './process.ts'
+export type {
+  ProcessCommand,
+  ProcessFailureKind,
+  ProcessFailureRecord,
+  ProcessOptions,
+  ProcessResult,
+  ShellSyntax,
+  SyncProcessOptions
+} from './process.ts'
 export type { Complete, LlmOptions, ShellCompleteOptions } from './llm.ts'

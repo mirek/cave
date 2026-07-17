@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { PassThrough, Readable } from 'node:stream'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 import { dispatch } from '@cavelang/cli'
@@ -181,6 +182,40 @@ test('binary: automate polls live writes once, then awaits timer and store clean
     const quiet = run(['automate', '--db', db, '--once'])
     assert.equal(quiet.status, 0, 'the cleaned store reopens immediately')
     assert.match(quiet.stdout, /settled: 0 firing\(s\)/, 'the processed event is neither retried nor echoed')
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill()
+    await exited
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('binary: cancellation kills an agent and its descendants before exiting', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-process-'))
+  const db = join(dir, 'k.db')
+  const marker = join(dir, 'descendant-survived')
+  const started = join(dir, 'agent-started')
+  const agent = join(dir, 'agent.mjs')
+  const grandchild = `setTimeout(() => require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'leak'), 700)`
+  writeFileSync(agent, [
+    `import { spawn } from 'node:child_process'`,
+    `import { writeFileSync } from 'node:fs'`,
+    `writeFileSync(${JSON.stringify(started)}, 'started')`,
+    `spawn(process.execPath, ['-e', ${JSON.stringify(grandchild)}], { stdio: 'ignore' })`,
+    `setInterval(() => {}, 1000)`
+  ].join('\n'))
+  assert.equal(run(['add', '--db', db], 'seed IS known\n').status, 0)
+  const child = spawn(process.execPath, [
+    '--disable-warning=ExperimentalWarning', main,
+    'reconstruct', '--db', db, 'seed', '--agent', `node '${agent}'`
+  ])
+  const exited = exitOf(child)
+  try {
+    for (let attempt = 0; attempt < 250 && !existsSync(started); attempt += 1) await delay(20)
+    assert.equal(existsSync(started), true, 'the agent entered its process boundary')
+    child.kill('SIGTERM')
+    assert.deepEqual(await exited, { code: 143, signal: null })
+    await delay(900)
+    assert.equal(existsSync(marker), false)
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill()
     await exited

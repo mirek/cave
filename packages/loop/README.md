@@ -64,6 +64,25 @@ const { claims } = await reconstructAsync(store, policy, ['reject-valid-tokens']
   non-zero exit or timeout rejects. The model stays out-of-band (§19.5); no LLM SDK is a
   dependency of this package.
 
+## External process boundary
+
+The same module owns every CAVE integration that starts a local process.
+`directCommand(executable, args)` plus `runProcess` passes ordinary arguments
+without shell parsing. A string agent or hook template is deliberately shell
+syntax: `shellCommand` selects `/bin/sh` on POSIX and Windows PowerShell on
+Windows, quotes each substituted placeholder for that shell, and still starts
+the shell executable with Node's `shell: false`. Templates therefore use the
+syntax of their target platform; placeholder values are data, not syntax.
+
+Execution captures stdout and stderr separately (defaults: 8 MiB and 1 MiB),
+returns normalized exit code/signal data, and raises a typed `ProcessFailure`
+for spawn, timeout, cancellation, or output-limit failures. Those diagnostics
+never include the command, arguments, input, or environment. Timeout,
+cancellation, and limit failures terminate the complete process tree (a POSIX
+process group or Windows `taskkill /T`), not only the immediate shell. The
+`runProcessSync` bridge gives compatibility-sensitive synchronous APIs the same
+behavior through a short-lived worker.
+
 ## Evaluating a policy
 
 `cave eval` reconstruction fixtures (a `<stem>.loop.cave` sibling

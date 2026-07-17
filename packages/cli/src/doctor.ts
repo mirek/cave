@@ -3,9 +3,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, parse } from 'node:path'
-import { spawnSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
+import { directCommand, runProcessSync } from '@cavelang/loop'
 import { Schema, defaultDbPath } from '@cavelang/store'
 import { nodeSqliteAdapter } from '@cavelang/store/adapter/node'
 import type { SqliteDatabase } from '@cavelang/store/adapter'
@@ -157,12 +157,17 @@ const pnpmCheck = (): DoctorCheck => {
   if (workspace === undefined) {
     return check('workspace.pnpm', 'pass', 'pnpm is not required for this installed CLI')
   }
-  const result = spawnSync('pnpm', ['--version'], {
-    encoding: 'utf8',
-    timeout: 3_000,
-    stdio: ['ignore', 'pipe', 'ignore']
-  })
-  const actual = result.status === 0 ? numericVersion(result.stdout.trim()) : undefined
+  let actual: string | undefined
+  try {
+    const result = runProcessSync(directCommand('pnpm', ['--version']), {
+      timeoutMs: 3_000,
+      maxStdoutBytes: 1024,
+      maxStderrBytes: 1024
+    })
+    actual = result.code === 0 ? numericVersion(result.stdout.trim()) : undefined
+  } catch {
+    actual = undefined
+  }
   const pinned = workspace.packageManager.startsWith('pnpm@')
   const required = pinned ? numericVersion(workspace.packageManager.slice('pnpm@'.length)) : undefined
   if (actual === undefined) {
