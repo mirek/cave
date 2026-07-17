@@ -71,7 +71,9 @@ The same module owns every CAVE integration that starts a local process.
 without shell parsing. A string agent or hook template is deliberately shell
 syntax: `shellCommand` selects `/bin/sh` on POSIX and Windows PowerShell on
 Windows, quotes each substituted placeholder for that shell, and still starts
-the shell executable with Node's `shell: false`. Templates therefore use the
+the shell executable with Node's `shell: false`. PowerShell scripts cross the
+native Windows argv boundary through `-EncodedCommand`, so embedded quotes are
+preserved before PowerShell parses them. Templates therefore use the
 syntax of their target platform; placeholder values are data, not syntax.
 
 Execution captures stdout and stderr separately (defaults: 8 MiB and 1 MiB),

@@ -54,8 +54,9 @@ process termination.
 Local command integrations cross one process boundary in `@cavelang/loop`.
 Direct commands are executable/argument arrays with no shell interpolation;
 agent and hook strings are explicitly platform-shell templates (`/bin/sh` on
-POSIX, Windows PowerShell on Windows). The boundary separately bounds stdout
-and stderr, normalizes exits, redacts command material from failures, and owns
+POSIX, Windows PowerShell via encoded command transport on Windows). The
+boundary separately bounds stdout and stderr, normalizes exits, redacts command
+material from failures, and owns
 whole-tree termination for timeouts, cancellation, and output overflow. A
 worker-backed synchronous facade preserves action and doctor APIs without
 weakening those lifecycle guarantees.

@@ -98,9 +98,13 @@ export const shellCommand = (
 ): ProcessCommand => {
   const syntax = shellSyntaxFor(platform)
   const command = substituteShell(template, substitutions, syntax)
+  // powershell.exe reparses native argv before interpreting -Command, which
+  // can discard embedded double quotes even when Node passed one argument.
+  // EncodedCommand transports the exact UTF-16LE script through that layer.
   return platform === 'win32' ?
     directCommand('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')
     ]) :
     directCommand('/bin/sh', ['-c', command])
 }
