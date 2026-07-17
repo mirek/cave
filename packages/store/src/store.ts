@@ -183,9 +183,8 @@ export const open = (
   // The receive rule (spec §28.2): the store, not the wall clock, is the
   // monotonic authority — every append outsorts every tx already stored,
   // merged history from fast-clocked origins included.
-  const selectMaxTx = db.prepare('SELECT MAX(tx) AS tx FROM cave_claim')
   const observeMaxTx = (): void => {
-    const maxTx = selectMaxTx.get() as undefined | { tx: null | string }
+    const maxTx = db.prepare('SELECT MAX(tx) AS tx FROM cave_claim').get() as undefined | { tx: null | string }
     if (maxTx?.tx != null) {
       Uuidv7.observe(maxTx.tx)
     }
@@ -195,23 +194,23 @@ export const open = (
   const baseRegistry = options.registry ?? Canonical.standardRegistry
   let registry = baseRegistry
 
-  const insertClaim = db.prepare(`
+  const insertClaimSql = `
     INSERT INTO cave_claim (
       id, tx, subject, verb, negated, object, attribute,
       value_text, value_num, value_unit, value_approx,
       delta_text, delta_num, delta_unit, sigma_level,
       conf, importance, comment, raw_line, claim_key
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-  const insertContext = db.prepare('INSERT INTO cave_context (claim_id, context) VALUES (?, ?)')
-  const insertProvenance = db.prepare(
-    'INSERT OR IGNORE INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)')
-  const insertTag = db.prepare('INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)')
-  const insertEdge = db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
-  const insertFts = db.prepare(`
+  `
+  const insertContextSql = 'INSERT INTO cave_context (claim_id, context) VALUES (?, ?)'
+  const insertProvenanceSql =
+    'INSERT OR IGNORE INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)'
+  const insertTagSql = 'INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)'
+  const insertEdgeSql = 'INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)'
+  const insertFtsSql = `
     INSERT INTO cave_fts (claim_id, subject, verb, object, attribute, value_text, comment, raw_line)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `)
+  `
 
   /**
    * Rebuilds in-band declarations from stored claims (ordered by tx),
@@ -279,12 +278,21 @@ export const open = (
     }
   }
 
-  const claimExists = db.prepare('SELECT 1 FROM cave_claim WHERE id = ?')
-  const edgeExists = db.prepare('SELECT 1 FROM cave_edge WHERE parent_id = ? AND role = ? AND child_id = ?')
-
   /** Appends a canonicalization result — one row per claim, per-row tx. */
   const insertResult = (result: Canonical.Result, options_: AppendOptions = {}): IngestResult =>
     transaction(() => {
+      // Keep native statement wrappers scoped to this operation. Node's
+      // sqlite3_close_v2-backed close cannot release a Windows file while a
+      // long-lived StatementSync wrapper remains reachable.
+      const insertClaim = db.prepare(insertClaimSql)
+      const insertContext = db.prepare(insertContextSql)
+      const insertProvenance = db.prepare(insertProvenanceSql)
+      const insertTag = db.prepare(insertTagSql)
+      const insertEdge = db.prepare(insertEdgeSql)
+      const insertFts = db.prepare(insertFtsSql)
+      const claimExists = db.prepare('SELECT 1 FROM cave_claim WHERE id = ?')
+      const edgeExists = db.prepare(
+        'SELECT 1 FROM cave_edge WHERE parent_id = ? AND role = ? AND child_id = ?')
       const ids: string[] = []
       const replay = options_.ids !== undefined
       let skipped = 0
@@ -652,6 +660,7 @@ export const open = (
      */
     appendEdges(edges: readonly { parentId: string, role: Canonical.EdgeRole, childId: string }[]): void {
       transaction(() => {
+        const insertEdge = db.prepare(insertEdgeSql)
         for (const edge of edges) {
           insertEdge.run(edge.parentId, edge.role, edge.childId)
         }

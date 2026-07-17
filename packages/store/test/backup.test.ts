@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
@@ -10,19 +10,7 @@ import type { SqliteDatabase } from '@cavelang/store/adapter'
 
 const scratch = (): { dir: string, done: () => void } => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-backup-'))
-  return {
-    dir,
-    done: () => {
-      for (const name of readdirSync(dir)) {
-        try {
-          rmSync(join(dir, name), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
-        } catch (error) {
-          throw new Error(`backup scratch cleanup failed for ${name}`, { cause: error })
-        }
-      }
-      rmSync(dir, { recursive: true, force: true })
-    }
-  }
+  return { dir, done: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
 const table = (db: SqliteDatabase | DatabaseSync, name: string, order: string): unknown[] =>
