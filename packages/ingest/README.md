@@ -43,8 +43,11 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    the prompt is piped to stdin and `{prompt-file}`, `{mcp-config}`,
    `{db}` are substituted. Each value is shell-quoted — paths with spaces
    or metacharacters stay single arguments — so write placeholders bare,
-   without wrapping quotes. Failed batches keep their files eligible for
-   the next run; the report shows per-batch claim deltas.
+   without wrapping quotes. Strict mode is the default: every generated MCP
+   config and `{db}` substitution points at an isolated staging store, and
+   the complete run merges into the requested database only after every batch
+   succeeds. Failed batches keep their files eligible for the next run; the
+   report shows per-batch deltas and one status for every source.
 
 ## API access: context slice + full tools
 
@@ -93,6 +96,17 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
   --agent 'llm -m your-model'
 ```
 
+**Explicit partial progress** — `--lenient` commits valid output batch by
+batch and continues after agent or parse failures. It still exits 1 when any
+source is rejected, and rejected sources receive no digest so the next run
+retries them. `--json` emits the complete manifest (`accepted`, `rejected`,
+`skipped`, or `not-run` for every matched source):
+
+```sh
+cave ingest 'notes/*.md' --db k.db --stdout --lenient --json \
+  --agent 'llm -m your-model'
+```
+
 **Claude/Copilot SDK scripts** — two options:
 
 - `--plan` emits the batches as NDJSON (`{ files, prompt, mcpConfig, db }`
@@ -106,7 +120,7 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
   const store = open('k.db')
   await run({
     db: 'k.db', store, patterns: ['docs/**/*.md'],
-    mode: 'stdout', embed: true,
+    mode: 'stdout', embed: true, // policy defaults to strict
     agent: async prompt => (await anthropic.messages.create({
       model: 'claude-sonnet-5', max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }]
@@ -134,11 +148,29 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
   without authored provenance keep one stable ingestion series across source
   revisions). A line span remains a pointer into the digested source version;
   retain or version that source when immutable evidence is required.
-- **Failed batches record nothing**, so a re-run retries exactly the
-  files that didn't make it. In `--stdout` mode the same holds for a
-  batch whose output ingested with parse/canonicalization problems: its
-  valid lines land (spec §1.6), but the extraction may be incomplete, so
-  its digests are withheld and the sources stay eligible.
+- **Strict unless lenient is named.** Strict mode snapshots current knowledge
+  into an isolated store, lets earlier successful batches inform later
+  prompts there, and performs one identity-preserving merge only if the whole
+  run succeeds. A fatal fetch/input error, agent exception/non-zero exit, or
+  stdout parse problem commits no claims or digests. Strict stops at the first
+  failed batch, avoiding later paid-agent calls; its manifest marks untouched
+  sources `not-run`. `--lenient` is the deliberate partial-progress mode: it
+  attempts every batch, commits valid lines even from a rejected stdout batch
+  (spec §1.6), and records digests only for accepted sources.
+
+## Exit codes, retries, and agent calls
+
+- Exit 0 means every attempted source was accepted or skipped unchanged.
+- Exit 1 means at least one source was rejected or left `not-run`. In strict
+  mode `applied: false` and `added: 0` guarantee the requested store did not
+  receive the staged run. In lenient mode accepted claims may have committed;
+  inspect the source manifest rather than treating exit 1 as “nothing wrote.”
+- Accepted sources get digest claims and skip on an unchanged rerun. Rejected
+  and strict `not-run` sources get no new digest and remain eligible. `--force`
+  also retries accepted unchanged sources explicitly.
+- Strict mode stops invoking the agent after the first fatal batch. Lenient
+  mode invokes it for every selected batch, which can incur paid calls even
+  after an earlier rejection. Selection/fetch failures happen before calls.
 
 ## Tests
 
@@ -149,5 +181,6 @@ pnpm --filter @cavelang/ingest test
 Glob/batch/digest units, context slices, prompt assembly for both modes,
 readability extraction and URL selection (fake fetch plus a real local
 http server), and end-to-end runs with fake shell and function agents:
-incremental skips, growing context between batches, failure and
-problem-batch retry, MCP-mode delta reporting, fence extraction.
+incremental skips, growing staged context between batches, strict rollback,
+lenient source manifests and retry behavior, paid-call stopping, MCP-mode
+delta reporting, CLI exit codes, and fence extraction.

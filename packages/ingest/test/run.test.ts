@@ -221,8 +221,8 @@ test('mcp mode reports the database delta made by an external agent', () =>
       db, store, patterns: ['doc.md'], cwd: dir,
       mode: 'mcp',
       // Simulates an MCP-connected agent: writes through its own connection.
-      agent: async () => {
-        const external = open(db)
+      agent: async (_prompt, _files, context) => {
+        const external = open(context.db)
         external.ingest('doc/topic CONTAINS important-fact')
         external.close()
         return 'done: 1'
@@ -247,7 +247,7 @@ test('writeMcpConfig points a client at cave mcp for the database', () =>
     assert.ok(bareConfig.mcpServers.cave.args.includes('--no-prelude'))
   }))
 
-test('problems in agent output are reported, valid lines still land', () =>
+test('strict stdout problems reject the whole run and leave claims and digests untouched', () =>
   withDir(async dir => {
     writeFileSync(join(dir, 'm.md'), 'm')
     const store = open()
@@ -256,18 +256,21 @@ test('problems in agent output are reported, valid lines still land', () =>
       mode: 'stdout',
       agent: async () => 'good USES claim\nthis is not cave\n'
     })
-    assert.equal(report.added, 1)
+    assert.equal(report.added, 0)
+    assert.equal(report.applied, false)
     assert.equal(report.batches[0]!.problems.length, 1)
+    assert.equal(report.sources[0]!.status, 'rejected')
+    assert.equal(store.currentBeliefs().length, 0)
     store.close()
   }))
 
-test('a batch with parse problems does not record digests — sources are retried (BUGS.md partial-ingest-digests)', () =>
+test('lenient parse problems keep valid lines but withhold digests for retry (BUGS.md partial-ingest-digests)', () =>
   withDir(async dir => {
     writeFileSync(join(dir, 'p.md'), 'p')
     const store = open()
     const options = {
       db: ':memory:', store, patterns: ['*.md'], cwd: dir,
-      mode: 'stdout' as const
+      mode: 'stdout' as const, policy: 'lenient' as const
     }
     const partial = await run({ ...options, agent: async () => 'good USES claim\nthis is not cave\n' })
     assert.equal(partial.added, 1, 'valid lines still land (spec §1.6)')
@@ -284,5 +287,100 @@ test('a batch with parse problems does not record digests — sources are retrie
     })
     assert.equal(third.batches.length, 0)
     assert.deepEqual(third.skipped, ['p.md'])
+    store.close()
+  }))
+
+test('strict mode stops paid calls at the first fatal batch and discards the complete stage', () =>
+  withDir(async dir => {
+    for (const path of ['a.md', 'b.md', 'c.md']) writeFileSync(join(dir, path), path)
+    const store = open()
+    let calls = 0
+    const report = await run({
+      db: ':memory:', store, patterns: ['*.md'], cwd: dir,
+      mode: 'stdout', batchSize: 1,
+      agent: async () => {
+        calls += 1
+        return calls === 1 ? 'first IS staged' : 'this is not cave'
+      }
+    })
+    assert.equal(calls, 2, 'strict mode makes no paid call after the first fatal batch')
+    assert.equal(report.applied, false)
+    assert.equal(report.added, 0)
+    assert.deepEqual(report.sources.map(source => source.status), ['accepted', 'rejected', 'not-run'])
+    assert.equal(store.currentBeliefs().length, 0, 'earlier staged claims and every digest roll back together')
+    store.close()
+  }))
+
+test('strict source-selection failures happen before paid calls and preserve the target', () =>
+  withDir(async dir => {
+    const store = open()
+    store.ingest('existing IS retained')
+    let calls = 0
+    await assert.rejects(run({
+      db: ':memory:', store, patterns: [], files: ['missing.md'], cwd: dir,
+      mode: 'stdout',
+      agent: async () => {
+        calls += 1
+        return 'unexpected IS call'
+      }
+    }), /missing\.md/)
+    assert.equal(calls, 0)
+    assert.deepEqual(store.currentBeliefs().map(row => row.subject), ['existing'])
+    store.close()
+  }))
+
+test('strict MCP mode discards writes made before an agent failure', () =>
+  withDir(async dir => {
+    writeFileSync(join(dir, 'doc.md'), 'doc')
+    const db = join(dir, 'knowledge.db')
+    const store = open(db)
+    const report = await run({
+      db, store, patterns: ['doc.md'], cwd: dir, mode: 'mcp',
+      agent: async (_prompt, _files, context) => {
+        const staged = open(context.db)
+        staged.ingest('partial IS staged')
+        staged.close()
+        throw new Error('agent failed after writing')
+      }
+    })
+    assert.equal(report.applied, false)
+    assert.equal(report.added, 0)
+    assert.equal(report.batches[0]!.added, 1, 'the manifest exposes discarded staged work')
+    assert.equal(store.currentBeliefs().length, 0)
+    store.close()
+  }))
+
+test('lenient mode continues every batch and manifests accepted, rejected, and retryable sources', () =>
+  withDir(async dir => {
+    for (const path of ['a.md', 'b.md', 'c.md']) writeFileSync(join(dir, path), path)
+    const store = open()
+    let calls = 0
+    const options = {
+      db: ':memory:', store, patterns: ['*.md'], cwd: dir,
+      mode: 'stdout' as const, policy: 'lenient' as const, batchSize: 1
+    }
+    const report = await run({
+      ...options,
+      agent: async () => {
+        calls += 1
+        if (calls === 2) return 'second IS partial\nthis is not cave'
+        return `source/${calls} IS accepted`
+      }
+    })
+    assert.equal(calls, 3, 'lenient mode attempts every paid batch')
+    assert.equal(report.applied, true)
+    assert.equal(report.added, 3, 'valid lines from accepted and rejected batches are committed')
+    assert.equal(report.failed, 1)
+    assert.deepEqual(report.sources.map(source => source.status), ['accepted', 'rejected', 'accepted'])
+
+    const retried: string[][] = []
+    await run({
+      ...options,
+      agent: async (_prompt, files) => {
+        retried.push([...files])
+        return 'second IS complete'
+      }
+    })
+    assert.deepEqual(retried, [['b.md']], 'only the rejected source lacks a digest and retries')
     store.close()
   }))

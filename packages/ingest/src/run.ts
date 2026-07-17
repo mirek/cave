@@ -26,7 +26,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Store } from '@cavelang/store'
+import * as Canonical from '@cavelang/canonical'
+import { Registry } from '@cavelang/canonical'
+import { open, type Store } from '@cavelang/store'
+import { syncDb, syncText } from '@cavelang/sync'
 import * as Files from './files.ts'
 import * as Web from './web.ts'
 import * as Context from './context.ts'
@@ -35,7 +38,16 @@ import * as Prompt from './prompt.ts'
 /** Shell command template or an in-process SDK adapter. */
 export type Agent =
   | string
-  | ((prompt: string, files: readonly string[]) => Promise<string>)
+  | ((prompt: string, files: readonly string[], context: AgentContext) => Promise<string>)
+
+export type AgentContext = {
+  /** Database selected for this run; strict mode points at an isolated stage. */
+  readonly db: string
+  /** Generated MCP client configuration when the run requested one. */
+  readonly mcpConfig?: string
+}
+
+export type Policy = 'strict' | 'lenient'
 
 export type Options = {
   readonly db: string
@@ -62,22 +74,40 @@ export type Options = {
   /** Injection point for URL fetching in tests. */
   readonly fetchImpl?: Web.FetchLike
   readonly store: Store
+  /** Strict stages the whole run and commits once; lenient commits accepted work batch by batch. */
+  readonly policy?: Policy
 }
 
 export type BatchReport = {
   readonly files: readonly string[]
   readonly ok: boolean
-  /** Claims added during this batch (db delta in mcp mode, ingest count in stdout mode). */
+  /** Claims produced by this batch; strict failures may discard this staged delta. */
   readonly added: number
   readonly problems: readonly string[]
   /** Agent's final output line (mcp mode) or a failure note. */
   readonly note?: string
 }
 
+export type SourceStatus = 'accepted' | 'rejected' | 'skipped' | 'not-run'
+
+export type SourceReport = {
+  readonly path: string
+  readonly status: SourceStatus
+  readonly batch?: number
+  readonly problems: readonly string[]
+  readonly note?: string
+}
+
 export type Report = {
+  readonly policy: Policy
+  /** Whether this run's accepted changes were applied to the requested store. */
+  readonly applied: boolean
   readonly matched: number
   readonly skipped: readonly string[]
   readonly batches: readonly BatchReport[]
+  /** Complete manifest: one entry for every matched source. */
+  readonly sources: readonly SourceReport[]
+  /** Claims committed to the requested store (digest bookkeeping excluded). */
   readonly added: number
   readonly failed: number
 }
@@ -210,16 +240,12 @@ export const caveTextOf = (output: string): string => {
   return fences.length > 0 ? fences.join('\n') : output
 }
 
-/**
- * Runs the full ingestion. The store stays open across batches; digests
- * are recorded only for batches whose agent run succeeded — and, in
- * stdout mode, whose output ingested without problems — so failed or
- * partially invalid batches are retried by the next invocation.
- */
-export const run = async (options: Options): Promise<Report> => {
+/** Runs batches against one mutable store. Strict callers provide a stage. */
+const runMutable = async (options: Options & { policy: Policy }): Promise<Report> => {
   const store = options.store
   const cwd = options.cwd ?? process.cwd()
   const mode = options.mode ?? 'mcp'
+  const policy = options.policy
   const timeoutSeconds = options.timeoutSeconds ?? 600
   const { selection, batches } = await selectBatches(store, options)
   const reports: BatchReport[] = []
@@ -233,6 +259,7 @@ export const run = async (options: Options): Promise<Report> => {
       const paths = files.map(file => file.path)
       if (options.agent === undefined) {
         reports.push({ files: paths, ok: false, added: 0, problems: [], note: 'no agent configured' })
+        if (policy === 'strict') break
         continue
       }
       const before = claimCount(store)
@@ -240,15 +267,19 @@ export const run = async (options: Options): Promise<Report> => {
       let output: string
       if (typeof options.agent === 'function') {
         try {
-          output = await options.agent(prompt, paths)
+          output = await options.agent(prompt, paths, {
+            db: options.db,
+            ...mcpConfig === undefined ? {} : { mcpConfig }
+          })
           ok = true
         } catch (error) {
           output = ''
           ok = false
           reports.push({
-            files: paths, ok, added: 0, problems: [],
+            files: paths, ok, added: claimCount(store) - before, problems: [],
             note: error instanceof Error ? error.message : String(error)
           })
+          if (policy === 'strict') break
           continue
         }
       } else {
@@ -263,9 +294,10 @@ export const run = async (options: Options): Promise<Report> => {
         output = result.stdout
         if (!ok) {
           reports.push({
-            files: paths, ok, added: 0, problems: [],
+            files: paths, ok, added: claimCount(store) - before, problems: [],
             note: result.error ?? `agent exited with ${result.code}`
           })
+          if (policy === 'strict') break
           continue
         }
       }
@@ -276,14 +308,20 @@ export const run = async (options: Options): Promise<Report> => {
         // `src:agent/<client>`. A content- or batch-derived identity would
         // fork the claim key (§9.2) on every source revision, leaving the
         // old and the re-extracted belief both current.
-        const ingested = store.ingest(caveTextOf(output), { source: 'ingest' })
+        const canonical = Canonical.canonicalizeText(caveTextOf(output), store.registry())
+        const problems = canonical.problems.map(problem => `line ${problem.line}: ${problem.message}`)
+        if (policy === 'strict' && problems.length > 0) {
+          reports.push({ files: paths, ok: false, added: 0, problems })
+          break
+        }
+        const ingested = store.insertResult(canonical, { source: 'ingest' })
         reports.push({
           files: paths,
-          ok: true,
+          ok: problems.length === 0,
           added: ingested.ids.length,
-          problems: ingested.problems.map(problem => `line ${problem.line}: ${problem.message}`)
+          problems
         })
-        if (ingested.problems.length > 0) {
+        if (problems.length > 0) {
           // A partially invalid extraction may be incomplete — withhold the
           // digests so these sources stay eligible for the next run.
           continue
@@ -306,12 +344,72 @@ export const run = async (options: Options): Promise<Report> => {
       rmSync(dirname(mcpConfig), { recursive: true, force: true })
     }
   }
-  const succeeded = reports.filter(report => report.ok)
+  const sources: SourceReport[] = [
+    ...selection.skipped.map(path => ({ path, status: 'skipped' as const, problems: [] })),
+    ...selection.files.map(file => {
+      const batch = reports.findIndex(report => report.files.includes(file.path))
+      if (batch < 0) return { path: file.path, status: 'not-run' as const, problems: [] }
+      const report = reports[batch]!
+      return {
+        path: file.path,
+        status: report.ok ? 'accepted' as const : 'rejected' as const,
+        batch: batch + 1,
+        problems: report.problems,
+        ...report.note === undefined ? {} : { note: report.note }
+      }
+    })
+  ]
   return {
+    policy,
+    applied: true,
     matched: selection.files.length + selection.skipped.length,
     skipped: selection.skipped,
     batches: reports,
-    added: succeeded.reduce((sum, report) => sum + report.added, 0),
-    failed: reports.length - succeeded.length
+    sources,
+    added: reports.reduce((sum, report) => sum + report.added, 0),
+    failed: reports.filter(report => !report.ok).length
+  }
+}
+
+/**
+ * Runs the full ingestion. Strict is the default: the target is copied into
+ * an isolated staging store, every generated MCP configuration and `{db}`
+ * substitution points there, and one identity-preserving merge applies the
+ * complete run only after every batch succeeds. A fatal batch stops further
+ * agent calls and discards all staged claims and digests.
+ *
+ * Lenient mode writes accepted work batch by batch, continues after failures,
+ * and withholds digests for rejected sources so the next invocation retries
+ * them. The returned source manifest accounts for every matched input.
+ */
+export const run = async (options: Options): Promise<Report> => {
+  const policy = options.policy ?? 'strict'
+  if (policy === 'lenient') return runMutable({ ...options, policy })
+
+  const stageDir = mkdtempSync(join(tmpdir(), 'cave-ingest-stage-'))
+  const stageDb = join(stageDir, 'stage.db')
+  let staged: Report | undefined
+  try {
+    const stage = open(stageDb, options.noPrelude === true ? { registry: Registry.empty } : {})
+    try {
+      const seeded = syncText(stage, options.store.exportText({ tx: true, maxSensitivity: 'restricted' }), {
+        record: false
+      })
+      if (seeded.problems.length > 0) {
+        throw new Error(`could not stage the current store: ${seeded.problems.map(problem =>
+          `line ${problem.line}: ${problem.message}`).join('; ')}`)
+      }
+      staged = await runMutable({ ...options, db: stageDb, store: stage, policy })
+    } finally {
+      stage.close()
+    }
+
+    if (staged.failed > 0 || staged.sources.some(source => source.status === 'not-run')) {
+      return { ...staged, applied: false, added: 0 }
+    }
+    syncDb(options.store, stageDb, { record: false })
+    return staged
+  } finally {
+    rmSync(stageDir, { recursive: true, force: true })
   }
 }

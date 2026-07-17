@@ -29,6 +29,9 @@ Options:
   --embed                inline file contents into prompts (agents without
                          file access, e.g. bare SDK loops)
   --force                re-ingest files whose content digest is unchanged
+  --lenient              commit accepted batches and continue after failures;
+                         default strict mode stages and commits the whole run
+  --json                 print the complete machine-readable result manifest
   --timeout <seconds>    per-batch agent timeout (default 600)
   --plan                 print batches as NDJSON and exit (drive with an SDK)
   --dry-run              print the plan and the first prompt, run nothing
@@ -62,6 +65,8 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       batch: { type: 'string' },
       embed: { type: 'boolean' },
       force: { type: 'boolean' },
+      lenient: { type: 'boolean' },
+      json: { type: 'boolean' },
       timeout: { type: 'string' },
       plan: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
@@ -108,6 +113,7 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
       embed: values.embed === true,
       force: values.force === true,
+      policy: values.lenient === true ? 'lenient' as const : 'strict' as const,
       noPrelude
     }
     if (planning) {
@@ -130,8 +136,14 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
     }
     const report = await run(options)
     context.signal?.throwIfAborted()
+    const failed = report.failed > 0 || report.sources.some(source => source.status === 'not-run')
+    if (values.json === true) {
+      stdout.write(`${JSON.stringify(report, undefined, 2)}\n`)
+      return failed ? 1 : 0
+    }
     const lines = [
-      `ingest: ${report.matched} file(s) matched, ${report.skipped.length} skipped (unchanged), ${report.batches.length} batch(es)`
+      `ingest (${report.policy}): ${report.matched} source(s) matched, ${report.skipped.length} skipped (unchanged), ` +
+        `${report.batches.length} batch(es), ${report.applied ? 'applied' : 'not applied'}`
     ]
     report.batches.forEach((batch, index) => {
       const status = batch.ok ? `+${batch.added} claim(s)` : `FAILED${batch.note === undefined ? '' : ` — ${batch.note}`}`
@@ -143,9 +155,17 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
         lines.push(`  agent: ${batch.note}`)
       }
     })
+    for (const source of report.sources) {
+      const detail = [
+        source.batch === undefined ? undefined : `batch ${source.batch}`,
+        source.note,
+        ...source.problems
+      ].filter((value): value is string => value !== undefined).join('; ')
+      lines.push(`source ${source.status}: ${source.path}${detail === '' ? '' : ` — ${detail}`}`)
+    }
     lines.push(`done: +${report.added} claim(s)${report.failed > 0 ? `, ${report.failed} failed batch(es)` : ''}`)
     stdout.write(`${lines.join('\n')}\n`)
-    return report.failed > 0 ? 1 : 0
+    return failed ? 1 : 0
   } finally {
     store.close()
   }
