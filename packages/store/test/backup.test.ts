@@ -10,7 +10,12 @@ import type { SqliteDatabase } from '@cavelang/store/adapter'
 
 const scratch = (): { dir: string, done: () => void } => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-backup-'))
-  return { dir, done: () => rmSync(dir, { recursive: true, force: true }) }
+  return {
+    dir,
+    // Windows can briefly retain SQLite/file-system handles after close and
+    // atomic publication. Node's recursive retry handles EPERM/EBUSY cleanup.
+    done: () => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+  }
 }
 
 const table = (db: SqliteDatabase | DatabaseSync, name: string, order: string): unknown[] =>
