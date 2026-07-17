@@ -6,8 +6,19 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline'
+import { sourceFromOption, usage } from '../src/main.ts'
 
 const cliMain = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cli', 'src', 'main.ts')
+
+test('--src accepts exactly one unprefixed context form', () => {
+  assert.match(usage, /--src <context>  provenance stamp.*without the src: prefix/)
+  assert.equal(sourceFromOption(undefined), undefined)
+  assert.equal(sourceFromOption('pipeline/nightly'), 'pipeline/nightly')
+  assert.throws(() => sourceFromOption('src:pipeline/nightly'), /must not include the src: prefix/)
+  assert.throws(() => sourceFromOption(''), /must be a context token/)
+  assert.throws(() => sourceFromOption('pipeline nightly'), /must be a context token/)
+  assert.throws(() => sourceFromOption('@src:pipeline'), /must be a context token/)
+})
 
 test('cave mcp speaks MCP over stdio end to end', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-mcp-'))
