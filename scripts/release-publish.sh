@@ -18,7 +18,8 @@
 # `make publish` once from a machine with npm auth, configure the
 # trusted publisher for the new package on npmjs.com, then re-run this
 # (or just push to main) — the retry publishes whatever is missing and
-# tags.
+# tags. Do not replace that command with `npm publish`: pnpm applies the
+# production export/bin overrides stored in publishConfig.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
