@@ -868,8 +868,10 @@ and review them when schema claims change; never hand-edit them.
 Everything before this section stores, checks, or asks; nothing
 *concludes*. This section commits the rules subset of the Draft unified
 grammar (§17.4) — the parser implementation proved it out, which is the
-gate §17 set for itself. Reification, temporal values and variables in
-ordinary claim lines remain Draft.
+gate §17 set for itself. Temporal trajectories later graduated as §32;
+ordinary-claim variables, reification, and executable temporal functions are
+historical draft sketches rather than planned core features (§17 and
+`PROJECT-BOUNDARIES.md`).
 
 ### 24.1 The rule line
 
@@ -2129,8 +2131,10 @@ claim applies *in the world*. It commits the §17.5 **layer-2** subset of
 the Draft temporal design (the layer-1 point observation `revenue IS
 20B USD/yr @2025` was always ordinary CAVE): trajectory values with
 linear interpolation, time-range contexts, and the `at` query anchor.
-Layer 3 — `(t -> expr)` function values — stays Draft, gated as §17.5
-demands.
+Layer 3 — `(t -> expr)` function values — remains historical draft notation,
+not planned executable data syntax. Nonlinear models run through bounded,
+versioned external evaluators or solver inputs and can record their evidence
+and results explicitly.
 
 No new context grammar: a time range is an ordinary context atom
 (§6.1 already admits `.` in contexts), *interpreted* by the engine —

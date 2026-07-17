@@ -15,7 +15,7 @@ Every section carries one of four statuses:
 |---|---|
 | **Normative** | The committed language. Parsers MUST accept it; emitters MUST produce it. |
 | **Legacy** | Superseded early forms. Parsers SHOULD accept them; emitters MUST NOT produce them. |
-| **Draft** | The unified-grammar layer (variables, reification, rules, temporal values). Fully designed, not yet committed to the spec. Implementation-gated. |
+| **Draft** | Exploratory unified-grammar history. Rules and temporal trajectories graduated; ordinary-claim variables, reification, and temporal functions are not planned core features. |
 | **Non-normative** | System context, rationale, rejected alternatives. Informs but does not constrain implementations. |
 
 Unless marked otherwise, a section is **Normative**.
@@ -134,7 +134,7 @@ app CAUSE crash @hyp:deadlock @ 30%
 
 ## 17. Draft Layer — Unified Grammar (Variables, Reification, Rules, Temporal)
 
-**Status: Draft, except §17.4 and the §17.5 layer-2 subset.** Fully designed; a PEG specification, `peggy` grammar file, and TypeScript AST/evaluator skeleton exist. Commitment is gated on the parser implementation proving the pieces out — the **rules subset (§17.4) passed that gate in 0.12.0**: `@cavelang/rules` parses and fires `premises => conclusion` lines, with the committed semantics (in-band storage, `BECAUSE`/`VIA` lineage, noisy-AND confidence, watermark incrementality, well-founded support) normative as spec §24 (`cave-storage-query` skill) — and **temporal layer 2 (§17.5) passed it in 0.24.0**: trajectory values and time-range contexts with interpolation in query, normative as spec §32. Reification (§17.3), temporal layer 3 (`(t -> expr)` functions) and variables in ordinary claim lines remain Draft. Nothing here invalidates any normative line above.
+**Status: historical Draft, except §17.4 and the §17.5 layer-2 subset.** The **rules subset (§17.4) graduated in 0.12.0**: `@cavelang/rules` parses and fires `premises => conclusion` lines, with the committed semantics (in-band storage, `BECAUSE`/`VIA` lineage, noisy-AND confidence, watermark incrementality, well-founded support) normative as spec §24 (`cave-storage-query` skill). **Temporal layer 2 (§17.5) graduated in 0.24.0**: trajectory values and time-range contexts with interpolation in query, normative as spec §32. The remaining notation is retained to explain the design exploration, not as planned syntax: ordinary stored claims stay fully bound, qualifier and provenance structures replace reified claim values, and executable temporal functions stay in bounded external evaluators. `PROJECT-BOUNDARIES.md` records the alternatives and evidence required for any new proposal. Nothing here invalidates a normative line above.
 
 ### 17.1 The binding-state insight
 
@@ -157,9 +157,15 @@ One grammar covers storage, querying, and inference. (Same shape as Gherkin's gi
 ? CAUSE performance-regression @production      ; open query
 ```
 
+This notation is committed only inside contexts that own a binding scope:
+CAVE-Q patterns (§12), rule premises/conclusions (§24), and connector mapping
+templates (§23). The ordinary claim grammar does not store a partially bound
+claim; keeping rows fully bound avoids inventing persistence, equality, and
+compatibility semantics for unresolved slots.
+
 ### 17.3 Reification — `[S V O]`
 
-A triple becomes a term you can make claims about:
+The draft explored making a triple into a term:
 
 ```cave
 [server CAUSE crash] WHEN load EXCEEDS 1000 req/s
@@ -175,6 +181,13 @@ server CAUSE crash                 ; ≡  [server CAUSE crash] WHEN load > 1000 
 ```
 
 — which keeps the grammar context-free while preserving readable nesting, and gives the normative `cave_edge` qualifier semantics (§8.2) a precise algebraic reading. Reconciliation note: continuation lines (§8.3) are **not** reification — they desugar to sibling claims with inherited endpoints. The three-kind indentation taxonomy of §8 carries over unchanged.
+
+This algebraic reading does not define executable core syntax. Implemented
+indentation persists explicit `cave_edge` rows; row IDs, claim keys, source
+provenance, and typed scenario artifacts provide non-recursive ways to address
+records and their relationships. General `[S V O]` terms would require a second
+identity/equality system without a demonstrated workflow that those structures
+cannot express.
 
 ### 17.4 Rules — `=>`
 
@@ -195,7 +208,7 @@ Left side: comma-separated conjunction of patterns. Right side: the asserted tri
 
 ### 17.5 Temporal values — three layers
 
-**Layers 1–2 committed as spec §32** (the `cave-storage-query` skill) and implemented by `@cavelang/core`/`query` / `cave query --at` in 0.24.0; layer 3 remains Draft. The text below is the original design sketch.
+**Layers 1–2 committed as spec §32** (the `cave-storage-query` skill) and implemented by `@cavelang/core`/`query` / `cave query --at` in 0.24.0. Layer 3 remains a design sketch, not planned executable data syntax.
 
 Progressive complexity; most claims never leave Layer 1.
 
@@ -203,7 +216,7 @@ Progressive complexity; most claims never leave Layer 1.
 |---|---|---|
 | 1 | `revenue IS 20B USD/yr @2025` | point observation (existing CAVE, no change) |
 | 2 | `revenue IS 20B -> 40B USD/yr @2025..2028` | trajectory; linear interpolation between endpoints |
-| 3 | `revenue IS (t -> 20B * 1.25^(t - 2025)) USD/yr` | function; full generality |
+| 3 | `revenue IS (t -> 20B * 1.25^(t - 2025)) USD/yr` | historical function sketch; not core syntax |
 
 Layer 3 examples:
 
@@ -212,7 +225,12 @@ users IS (t -> Logistic(900M, 1.2B, 0.3, 2026)) users/wk
 cost IS (t -> Step(10B @..2025, 14B @2025..2026, 18B @2026..))
 ```
 
-Layer 2 covers ~90% of cases ("it was X, it'll be Y"). Layer 3 is the escape hatch for real models — `(t -> expr)` is a lambda: familiar, parseable, composable. Time ranges use `..`: `@2025..2028`, open-ended `@..2025`, `@2026..`.
+Layer 2 covers the ordinary "it was X, it'll be Y" case. Step behavior is
+expressible as tiled scalar ranges. Nonlinear or domain-specific models belong
+in a bounded external evaluator or solver input with explicit versions,
+resource limits, evidence, and recorded outputs; CAVE does not execute a lambda
+stored as knowledge. Time ranges use `..`: `@2025..2028`, open-ended
+`@..2025`, `@2026..`.
 
 ### 17.6 Iterative coverage
 

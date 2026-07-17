@@ -602,7 +602,7 @@ parent_claim --VIA-->     mechanism_claim
 parent_claim --BECAUSE--> evidence_claim
 ```
 
-This makes CAVE composable without complicated syntax. (In the Draft unified grammar, these edges desugar to reified subjects — `[parent] WHEN condition` — see §17 in the `cave-design` skill.)
+This makes CAVE composable without complicated syntax. (The historical §17 unified-grammar draft used `[parent] WHEN condition` as an algebraic explanation; core syntax deliberately persists explicit edges instead of reified claim values.)
 
 ### 8.2 Qualifiers
 

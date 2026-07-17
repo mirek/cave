@@ -166,3 +166,16 @@ test('specification and version projections keep their authoritative sources', (
   const book = read(new URL('book/cave.typ', root))
   assert.match(book, /json\("\.\.\/package\.json"\)\.at\("version"\)/)
 })
+
+test('the TODO index names every active backlog file and no retired one', () => {
+  const index = read(new URL('TODO.md', root))
+  const indexed = [...index.matchAll(/\]\(todo\/([^/)]+\.md)\)/g)]
+    .map(match => match[1]!)
+    .sort()
+  const todo = new URL('todo/', root)
+  const files = (existsSync(todo) ? readdirSync(todo, { withFileTypes: true }) : [])
+    .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
+    .map(entry => entry.name)
+    .sort()
+  assert.deepEqual(indexed, files)
+})
