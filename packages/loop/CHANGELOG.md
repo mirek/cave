@@ -1,5 +1,11 @@
 # @cavelang/loop
 
+## 0.28.2
+
+### Patch Changes
+
+- e9140bc: Recognize direct loop demo invocation on Windows paths.
+
 ## 0.28.1
 
 ### Patch Changes

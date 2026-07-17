@@ -1,5 +1,32 @@
 # @cavelang/parser
 
+## 0.29.0
+
+### Patch Changes
+
+- 364dce7: Pin compact confidence, quoted full-text search, and hostile HTML rendering boundaries with regressions.
+- 2f31c8f: Align two-token continuation classification and trailing-hyphen verb tokens across both parsers.
+- 0ac44fd: Reject zero, negative, non-finite, and malformed uncertainty values consistently across parsing, claim construction, interpretation, and fusion.
+- Updated dependencies [9022a00]
+- Updated dependencies [75ed4cf]
+- Updated dependencies [8003648]
+- Updated dependencies [a606db4]
+- Updated dependencies [03373de]
+- Updated dependencies [662e6aa]
+- Updated dependencies [1f5ae77]
+- Updated dependencies [3feae4f]
+- Updated dependencies [5cd786d]
+- Updated dependencies [27b1dc7]
+- Updated dependencies [2f31c8f]
+- Updated dependencies [f13c698]
+- Updated dependencies [a4b41b9]
+- Updated dependencies [5a96c95]
+- Updated dependencies [01ca7dc]
+- Updated dependencies [0ac44fd]
+- Updated dependencies [0021db8]
+- Updated dependencies [3526b49]
+  - @cavelang/core@0.29.0
+
 ## 0.28.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @cavelang/view
 
+## 0.29.0
+
+### Minor Changes
+
+- e5ea4df: Add in-band exact-one cardinality and exact-unit constraints to `EXPECTS`,
+  with actionable health reports and transactional gate enforcement.
+
 ## 0.28.1
 
 ### Patch Changes

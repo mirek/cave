@@ -1,5 +1,13 @@
 # @cavelang/rules
 
+## 0.28.2
+
+### Patch Changes
+
+- 387edea: Separate actor, physical source, lifecycle run, and domain provenance while
+  preserving compact contexts, claim identity, export, and legacy stores.
+- d3978d0: Expose incomplete derivation status and preserve suspended conclusions and watermarks when the fixpoint pass limit is exhausted.
+
 ## 0.28.1
 
 ### Patch Changes

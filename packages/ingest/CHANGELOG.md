@@ -1,5 +1,11 @@
 # @cavelang/ingest
 
+## 0.28.2
+
+### Patch Changes
+
+- f137fe8: Preserve digest provenance for file paths that are not valid CAVE entity atoms, so unchanged files with spaces or metadata-like prefixes are skipped on later ingestion runs.
+
 ## 0.28.1
 
 ### Patch Changes

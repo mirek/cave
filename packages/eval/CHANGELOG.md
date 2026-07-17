@@ -1,5 +1,11 @@
 # @cavelang/eval
 
+## 0.28.2
+
+### Patch Changes
+
+- ea4eb19: Accept inline comments on eval query expectation lines.
+
 ## 0.28.1
 
 ### Patch Changes

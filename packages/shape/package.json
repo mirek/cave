@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/shape",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "private": true,
   "type": "module",
   "description": "CAVE shape expectations, knowledge health and alias discovery (spec §20, §27) — EXPECTS presence, exact-one cardinality and unit constraints checked against the EXTENDS taxonomy, actionable violations, write gating, and suggested ALIAS claims.",

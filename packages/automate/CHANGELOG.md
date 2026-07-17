@@ -1,5 +1,12 @@
 # @cavelang/automate
 
+## 0.28.2
+
+### Patch Changes
+
+- 387edea: Separate actor, physical source, lifecycle run, and domain provenance while
+  preserving compact contexts, claim identity, export, and legacy stores.
+
 ## 0.28.1
 
 ### Patch Changes
