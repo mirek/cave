@@ -81,6 +81,83 @@ test('fetchDocument extracts HTML, passes markdown through, digests the content'
   await assert.rejects(Web.fetchDocument('https://k.test/gone', fetchImpl), /404 Not Found/)
 })
 
+test('URL selection isolates failures and classifies retryable network/HTTP outcomes', async () => {
+  const store = open()
+  const fetchImpl: Web.FetchLike = async url => {
+    if (url.endsWith('/network')) throw new TypeError('socket reset')
+    if (url.endsWith('/busy')) return new Response('busy', { status: 503, statusText: 'Unavailable' })
+    if (url.endsWith('/gone')) return new Response('gone', { status: 404, statusText: 'Not Found' })
+    return new Response('healthy', { headers: { 'content-type': 'text/plain' } })
+  }
+  const selected = await Web.select(store, [
+    'https://k.test/ok', 'https://k.test/network', 'https://k.test/busy', 'https://k.test/gone'
+  ], { fetchImpl })
+  assert.deepEqual(selected.files.map(file => file.path), ['https://k.test/ok'])
+  assert.deepEqual(selected.failures.map(failure => ({
+    path: failure.path.split('/').at(-1),
+    kind: failure.kind,
+    retryable: failure.retryable,
+    status: failure.status
+  })), [
+    { path: 'network', kind: 'network', retryable: true, status: undefined },
+    { path: 'busy', kind: 'http', retryable: true, status: 503 },
+    { path: 'gone', kind: 'http', retryable: false, status: 404 }
+  ])
+  store.close()
+})
+
+test('mixed URL failures roll strict runs back while lenient runs preserve healthy sources', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-web-failure-'))
+  try {
+    writeFileSync(join(dir, 'local.md'), 'healthy local source')
+    const ok = 'https://k.test/ok'
+    const gone = 'https://k.test/gone'
+    const fetchImpl = fetchFrom({
+      [ok]: { body: 'healthy remote source', type: 'text/plain' },
+      [gone]: { body: 'gone', status: 404 }
+    })
+
+    const strictStore = open()
+    let strictCalls = 0
+    const strict = await run({
+      db: ':memory:', store: strictStore, patterns: ['local.md', ok, gone], cwd: dir,
+      mode: 'stdout', embed: true, fetchImpl,
+      agent: async () => {
+        strictCalls += 1
+        return 'unexpected IS call'
+      }
+    })
+    assert.equal(strictCalls, 0)
+    assert.equal(strict.applied, false)
+    assert.equal(strict.added, 0)
+    assert.deepEqual(strict.sources.map(source => source.status), ['not-run', 'not-run', 'rejected'])
+    assert.equal(strict.sources[2]!.failure, 'http')
+    assert.equal(strict.sources[2]!.retryable, false)
+    assert.equal(strict.sources[2]!.httpStatus, 404)
+    assert.equal(strictStore.currentBeliefs().length, 0)
+    strictStore.close()
+
+    const lenientStore = open()
+    let lenientCalls = 0
+    const lenient = await run({
+      db: ':memory:', store: lenientStore, patterns: ['local.md', ok, gone], cwd: dir,
+      mode: 'stdout', embed: true, fetchImpl, policy: 'lenient',
+      agent: async () => {
+        lenientCalls += 1
+        return 'local IS accepted\nremote IS accepted'
+      }
+    })
+    assert.equal(lenientCalls, 1)
+    assert.equal(lenient.applied, true)
+    assert.equal(lenient.failed, 1)
+    assert.deepEqual(lenient.sources.map(source => source.status), ['accepted', 'accepted', 'rejected'])
+    assert.equal(lenientStore.currentBeliefs().filter(row => row.attribute === 'ingest-digest').length, 2)
+    lenientStore.close()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('run over a URL: readable text embedded in the prompt, digest recorded, rerun skips', async () => {
   const url = 'https://k.test/blog/design'
   const routes = { [url]: { body: page('Design', paragraph('The parser is hand-written.')) } }

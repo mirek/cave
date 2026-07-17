@@ -120,6 +120,16 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       const { selection, batches } = await selectBatches(store, options)
       if (values.plan === true) {
         const mcpConfig = writeMcpConfig(db, { noPrelude })
+        for (const failure of selection.failures) {
+          stdout.write(`${JSON.stringify({
+            source: failure.path,
+            status: 'rejected',
+            failure: failure.kind,
+            retryable: failure.retryable,
+            ...failure.status === undefined ? {} : { httpStatus: failure.status },
+            message: failure.message
+          })}\n`)
+        }
         for (const files of batches) {
           const prompt = promptFor(store, files, options)
           stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db })}\n`)
@@ -127,8 +137,11 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
         return 0
       }
       stdout.write([
-        `ingest plan: ${selection.files.length} file(s) in ${batches.length} batch(es), ${selection.skipped.length} skipped (unchanged)`,
+        `ingest plan: ${selection.files.length} source(s) in ${batches.length} batch(es), ` +
+          `${selection.skipped.length} skipped (unchanged), ${selection.failures.length} rejected`,
         ...selection.skipped.map(path => `  skip ${path}`),
+        ...selection.failures.map(failure =>
+          `  reject ${failure.path}: ${failure.kind}, ${failure.retryable ? 'retryable' : 'permanent'} — ${failure.message}`),
         ...batches.map((files, index) => `  batch ${index + 1}: ${files.map(file => file.path).join(', ')}`),
         ...batches.length > 0 ? ['', '--- prompt for batch 1 ---', promptFor(store, batches[0]!, options)] : []
       ].join('\n') + '\n')
@@ -159,11 +172,14 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       const detail = [
         source.batch === undefined ? undefined : `batch ${source.batch}`,
         source.note,
+        source.failure === undefined ? undefined :
+          `${source.failure}, ${source.retryable === true ? 'retryable' : 'permanent'}` +
+            (source.httpStatus === undefined ? '' : ` HTTP ${source.httpStatus}`),
         ...source.problems
       ].filter((value): value is string => value !== undefined).join('; ')
       lines.push(`source ${source.status}: ${source.path}${detail === '' ? '' : ` — ${detail}`}`)
     }
-    lines.push(`done: +${report.added} claim(s)${report.failed > 0 ? `, ${report.failed} failed batch(es)` : ''}`)
+    lines.push(`done: +${report.added} claim(s)${report.failed > 0 ? `, ${report.failed} failed outcome(s)` : ''}`)
     stdout.write(`${lines.join('\n')}\n`)
     return failed ? 1 : 0
   } finally {

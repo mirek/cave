@@ -96,6 +96,10 @@ export type SourceReport = {
   readonly batch?: number
   readonly problems: readonly string[]
   readonly note?: string
+  /** Fetch classification for rejected URL sources. */
+  readonly failure?: Web.FailureKind
+  readonly retryable?: boolean
+  readonly httpStatus?: number
 }
 
 export type Report = {
@@ -162,7 +166,10 @@ export const promptFor = (
 }
 
 /** Selects and batches the sources to process — file globs, literal paths and URLs. */
-export const selectBatches = async (store: Store, options: Options): Promise<{ selection: Files.Selection, batches: Files.Selected[][] }> => {
+export const selectBatches = async (
+  store: Store,
+  options: Options
+): Promise<{ selection: Files.Selection & { failures: readonly Web.Failure[] }, batches: Files.Selected[][] }> => {
   const urls = options.patterns.filter(Web.isUrl)
   const expanded = Files.expand(options.patterns.filter(pattern => !Web.isUrl(pattern)), options.cwd)
   const paths = [...new Set([...expanded, ...options.files ?? []])].sort()
@@ -176,7 +183,8 @@ export const selectBatches = async (store: Store, options: Options): Promise<{ s
   })
   const selection = {
     files: [...local.files, ...remote.files],
-    skipped: [...local.skipped, ...remote.skipped]
+    skipped: [...local.skipped, ...remote.skipped],
+    failures: remote.failures
   }
   return { selection, batches: Files.batch(selection.files, options.batchSize ?? 8) }
 }
@@ -254,6 +262,32 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
     undefined
   const promptDir = mkdtempSync(join(tmpdir(), 'cave-prompt-'))
   try {
+    // Strict input validation is fail-fast before the first paid call. The
+    // complete source manifest below still marks healthy selected inputs as
+    // not-run and each failed URL as rejected.
+    if (policy === 'strict' && selection.failures.length > 0) {
+      return {
+        policy,
+        applied: false,
+        matched: selection.files.length + selection.skipped.length + selection.failures.length,
+        skipped: selection.skipped,
+        batches: [],
+        sources: [
+          ...selection.skipped.map(path => ({ path, status: 'skipped' as const, problems: [] })),
+          ...selection.files.map(file => ({ path: file.path, status: 'not-run' as const, problems: [] })),
+          ...selection.failures.map(failure => ({
+            path: failure.path,
+            status: 'rejected' as const,
+            problems: [failure.message],
+            failure: failure.kind,
+            retryable: failure.retryable,
+            ...failure.status === undefined ? {} : { httpStatus: failure.status }
+          }))
+        ],
+        added: 0,
+        failed: selection.failures.length
+      }
+    }
     for (const [index, files] of batches.entries()) {
       const prompt = promptFor(store, files, { ...options, mode })
       const paths = files.map(file => file.path)
@@ -357,17 +391,25 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
         problems: report.problems,
         ...report.note === undefined ? {} : { note: report.note }
       }
-    })
+    }),
+    ...selection.failures.map(failure => ({
+      path: failure.path,
+      status: 'rejected' as const,
+      problems: [failure.message],
+      failure: failure.kind,
+      retryable: failure.retryable,
+      ...failure.status === undefined ? {} : { httpStatus: failure.status }
+    }))
   ]
   return {
     policy,
     applied: true,
-    matched: selection.files.length + selection.skipped.length,
+    matched: selection.files.length + selection.skipped.length + selection.failures.length,
     skipped: selection.skipped,
     batches: reports,
     sources,
     added: reports.reduce((sum, report) => sum + report.added, 0),
-    failed: reports.filter(report => !report.ok).length
+    failed: reports.filter(report => !report.ok).length + selection.failures.length
   }
 }
 
