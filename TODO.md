@@ -26,7 +26,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Digest path encoding](todo/ingest-digest-path-encoding.md) — Record digests safely for paths and URLs containing syntax characters.
 - [Rules pass-limit retraction](todo/rules-max-passes-retraction.md) — Avoid false retractions when derivation stops at its pass limit.
 - [MCP protocol compliance](todo/mcp-protocol-compliance.md) — Negotiate supported versions and respond correctly to JSON-RPC batches.
-- [MCP source-prefix normalization](todo/mcp-source-prefix-normalization.md) — Prevent `src:src:` provenance when users pass a prefixed source.
 - [Report backtick citations](todo/report-backtick-citations.md) — Render declarations containing backticks as valid Markdown.
 - [Zero-sigma validation](todo/zero-sigma-validation.md) — Reject zero uncertainty and use one validated sigma implementation.
 - [Mixed-unit fusion](todo/mixed-unit-fusion.md) — Reject incompatible units at the library boundary.

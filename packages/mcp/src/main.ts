@@ -76,6 +76,18 @@ export type RunContext = {
   readonly signal?: AbortSignal
 }
 
+/** Validates the single accepted `--src` spelling: a non-empty context token without `src:`. */
+export const sourceFromOption = (value: undefined | string): undefined | string => {
+  if (value === undefined) return undefined
+  if (!/^[A-Za-z0-9._/:-]+$/.test(value)) {
+    throw new Error('--src must be a context token (letters, digits, . _ / : -)')
+  }
+  if (value.startsWith('src:')) {
+    throw new Error('--src must not include the src: prefix')
+  }
+  return value
+}
+
 /** Runs the server; resolves with the process exit code. */
 export const runMcp = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
   const stdin = context.stdin ?? process.stdin
@@ -100,12 +112,11 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
     stdout.write(`${usage}\n`)
     return 0
   }
-  if (values.src !== undefined && !/^[A-Za-z0-9._/:-]+$/.test(values.src)) {
-    stderr.write('cave mcp: --src must be a context token (letters, digits, . _ / : -)\n')
-    return 2
-  }
-  if (values.src?.startsWith('src:') === true) {
-    stderr.write('cave mcp: --src must not include the src: prefix\n')
+  let sourceOverride: undefined | string
+  try {
+    sourceOverride = sourceFromOption(values.src)
+  } catch (error) {
+    stderr.write(`cave mcp: ${error instanceof Error ? error.message : String(error)}\n`)
     return 2
   }
   const scope: Scope = {
@@ -141,7 +152,7 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
   try {
     await serve(store, stdin, stdout, {
       ...scope,
-      ...values['no-src'] === true ? { source: false } : values.src === undefined ? {} : { source: values.src },
+      ...values['no-src'] === true ? { source: false } : sourceOverride === undefined ? {} : { source: sourceOverride },
       ...hooks === undefined ? {} : { hooks },
       ...context.signal === undefined ? {} : { signal: context.signal }
     })
