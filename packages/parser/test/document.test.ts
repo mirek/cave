@@ -190,6 +190,29 @@ test('continuation with ALL-CAPS object stays a continuation (tiebreak via known
   assert.equal(inverse.lines[1]!.kind, 'continuation')
 })
 
+test('two-token all-verb lines are continuations, not incomplete grouped claims', () => {
+  const doc = parseDocument([
+    'service USES auth',
+    '  USES NEEDS',
+    '  MIGRATES PRECEDES @ 80%'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  assert.deepEqual(doc.lines.map(line => line.kind), ['claim', 'continuation', 'continuation'])
+
+  const topLevel = parseDocument('USES NEEDS')
+  assert.equal(topLevel.lines[0]!.kind, 'invalid')
+  assert.match(topLevel.diagnostics[0]!.message, /continuation line at top level/)
+})
+
+test('a trailing hyphen remains part of a verb token', () => {
+  const doc = parseDocument('subject USES- object')
+  assert.deepEqual(doc.diagnostics, [])
+  assert.equal(doc.lines[0]!.kind, 'claim')
+  if (doc.lines[0]!.kind === 'claim') {
+    assert.equal(doc.lines[0]!.claim.verb, 'USES-')
+  }
+})
+
 test('unknown-verb triples with uppercase subjects stay claims (tiebreak)', () => {
   const doc = parseDocument('MIGRATES IS verb\nparent CONTAINS x\n  API MIGRATES postgres')
   const grouped = doc.lines[2]!

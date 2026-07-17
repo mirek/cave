@@ -88,6 +88,43 @@ deploy VIA github-actions
       (entity))))
 
 ==================
+two-token all-verb lines are continuations
+==================
+service USES auth
+  USES NEEDS
+  MIGRATES PRECEDES @ 80%
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (continuation_line
+    (verb)
+    (object
+      (entity)))
+  (continuation_line
+    (verb)
+    (object
+      (entity))
+    (confidence)))
+
+==================
+trailing hyphen remains part of a verb
+==================
+subject USES- object
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))
+
+==================
 comment line, blank line, claim
 ==================
 ; a whole-line comment

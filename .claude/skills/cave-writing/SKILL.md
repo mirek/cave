@@ -587,6 +587,11 @@ There are exactly **three kinds** of indented line, distinguished by what the li
 | Bare relational verb (primary or inverse) | **Continuation** | New sibling claim inheriting an endpoint from the parent (§8.3) |
 | Full triple (`subject VERB object …`) | **Grouped claim** | Independent claim, contextually grouped with the parent (§8.4) |
 
+An indented two-token `VERB VERB` line is a continuation: the first token is
+its verb and the second is its object. A grouped full claim requires a third
+token for its payload. At top level, the same two-token shape is invalid
+because there is no parent from which to inherit a subject.
+
 ### 8.1 Claim-as-node semantics
 
 Internally, every line becomes a claim node. Indented qualifiers create edges between claim nodes:
@@ -771,6 +776,10 @@ code_literal    = "`" text "`" ;
 ```
 
 Disambiguation summary: `@` + space = confidence, `@` + no space = context; `#` always begins a tag, first `:` inside it splits key/value; `:` in payload binds attribute to value; `/` after a number is "per", elsewhere it is entity scope.
+
+The repetition in `uppercase_atom` permits a trailing `-`; both `USES` and
+`USES-` have verb-token shape. Prefer names without a trailing hyphen, but
+parsers accept the normative lexical form consistently.
 
 ---
 
