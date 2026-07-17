@@ -2,7 +2,6 @@
 
 ## Active backlog
 
-- [Define and test runtime/platform support](todo/runtime-platform-contract.md) — Align Node and OS compatibility promises with CI coverage and explicit job limits.
 - [Validate packed type and API contracts](todo/packed-type-api-contracts.md) — Test tarball declarations, resolution metadata, and public API changes as an external consumer.
 - [Exercise the production browser bundle](todo/browser-production-smoke.md) — Run critical website and playground flows through the built GitHub Pages asset graph.
 - [Make grammar builds reproducible](todo/grammar-build-reproducibility.md) — Remove unverified network downloads from ordinary installs and verify generated grammar artifacts.

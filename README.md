@@ -36,6 +36,14 @@ Outside the workspace, install `@cavelang/cli`. Its documented feature
 subpaths (for example `@cavelang/cli/rules`) expose programmatic workflow APIs
 without requiring each internal module to publish independently.
 
+The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
+24.18.0 Active LTS is the recommended production runtime. CAVE supports Linux,
+macOS, and Windows. CI
+proves the platform-specific process, filesystem, SQLite, grammar, and package
+paths on Ubuntu 24.04, macOS 15, and Windows Server 2022 respectively. Browser
+support is a separate WASM-backed runtime described in
+[ARCHITECTURE.md](ARCHITECTURE.md#runtime-variants).
+
 Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
 
 > Talked family history with Grandma Maria today. Her father Jan was born in Kraków — she says 1932, but her cousin has always insisted it was 1931. Jan's mother Helena ran a bakery on Long Street until the war. Family lore says Helena's father — my great-great-grandfather — fought in the 1920 war; Maria is only fairly sure it's true (60%, say), nobody has papers.
