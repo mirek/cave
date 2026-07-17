@@ -56,8 +56,12 @@ incomplete change.
 Releases are automated (.github/workflows/publish.yml): merged changesets
 accumulate in a `chore(release): version packages` PR; merging it bumps
 every version source, publishes to npm and tags `v<version>`. The publish
-preflight requires a committed version-introducing commit reachable from
-`main`, rejects a conflicting `v<version>` tag before npm authentication or
-builds, and retries transient registry reads. Rerun an interrupted release at
-that exact version commit; already-published packages are skipped and a missing
-tag is repaired only after the build, tests, and packed-artifact smoke test.
+workflow runs `release-validate.mjs --mode=version-pr` while changesets are
+pending: this validates Changesets configuration, fixed-group membership,
+changeset structure, and workspace dependency ranges while allowing the
+version PR to repair manifest drift. Once the version PR consumes the pending
+changesets, `--mode=publish` requires exact package, derived-manifest,
+changelog, version-commit, and tag coherence before npm authentication or
+builds. Rerun an interrupted release at that exact version commit;
+already-published packages are skipped and a missing tag is repaired only
+after the build, tests, and packed-artifact smoke test.

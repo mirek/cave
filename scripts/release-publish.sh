@@ -26,7 +26,7 @@ cd "$root"
 
 # This must remain ahead of every npm registry lookup and build. The workflow
 # also runs it in a separate preflight job before configuring npm OIDC.
-node scripts/release-validate.mjs
+node scripts/release-validate.mjs --mode=publish
 
 version="$(node -p "require('./package.json').version")"
 
@@ -136,7 +136,7 @@ done
 ensure_tag() {
   # Recheck branch reachability and tag equality at the mutation boundary so a
   # concurrent or manually-created tag cannot be accepted silently.
-  node scripts/release-validate.mjs
+  node scripts/release-validate.mjs --mode=publish
   if git ls-remote --exit-code origin "refs/tags/v${version}" >/dev/null 2>&1; then
     echo "tag v${version} already exists on origin"
   else

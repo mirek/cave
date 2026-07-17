@@ -32,9 +32,8 @@ concurrency:
   cancel-in-progress: false # never cancel a run that may be mid-publish
 
 jobs:
-  # Validate the committed release identity before npm registry setup grants
-  # the publish process an authentication path. Ordinary changeset-bearing
-  # commits are skipped until their version PR lands.
+  # Validate the route to a version PR, or the exact publish identity, before
+  # npm registry setup grants the publish process an authentication path.
   preflight:
     permissions:
       contents: read
@@ -48,8 +47,13 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate release branch, commit, versions, and tag
-        run: node scripts/release-validate.mjs --if-release-ready
+      - name: Validate version-PR or publish readiness
+        run: |
+          if git ls-files '.changeset/*.md' | grep -v '^\.changeset/README\.md$' | grep -q .; then
+            node scripts/release-validate.mjs --mode=version-pr
+          else
+            node scripts/release-validate.mjs --mode=publish
+          fi
 
   release:
     needs: preflight
