@@ -231,6 +231,9 @@ importers:
       '@cavelang/tree-sitter-cave':
         specifier: workspace:*
         version: link:../tree-sitter-cave
+      '@types/emscripten':
+        specifier: ^1.41.5
+        version: 1.41.5
       web-tree-sitter:
         specifier: ^0.26.10
         version: 0.26.10

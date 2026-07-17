@@ -61,30 +61,13 @@ cd "$tmp/app"
 npm init -y >/dev/null
 npm install --no-audit --no-fund --loglevel=error "$tmp/tarballs"/*.tgz >/dev/null
 
-echo "==> public library entry points"
+contract_args=("$tmp/app" "$root/api/packed-api.md")
+[ "${UPDATE_PACKED_API:-0}" = 1 ] && contract_args+=(--write)
+node "$root/scripts/packed-contract.mjs" "${contract_args[@]}"
+
+echo "==> packed executable and asset entry points"
 node --input-type=module -e "
 import { readFileSync } from 'node:fs'
-const roots = [
-  'canonical', 'cli', 'core', 'fusion', 'highlight', 'parser', 'query',
-  'scenario', 'solver-z3', 'solver', 'store'
-]
-for (const name of roots) {
-  const api = await import('@cavelang/' + name)
-  if (Object.keys(api).length === 0) throw new Error('@cavelang/' + name + ' exports nothing')
-}
-const consolidated = {
-  act: 'act', automate: 'settle', connect: 'connect', eval: 'run', ingest: 'run',
-  loop: 'reconstruct', mcp: 'createServer', rules: 'derive', shape: 'check',
-  sync: 'syncDb', view: 'serve'
-}
-for (const [name, entry] of Object.entries(consolidated)) {
-  const api = await import('@cavelang/cli/' + name)
-  if (!(entry in api)) throw new Error('@cavelang/cli/' + name + ' does not export ' + entry)
-}
-for (const specifier of ['@cavelang/highlight/browser', '@cavelang/store/adapter', '@cavelang/store/adapter/node']) {
-  const api = await import(specifier)
-  if (Object.keys(api).length === 0) throw new Error(specifier + ' exports nothing')
-}
 readFileSync(new URL(import.meta.resolve('@cavelang/cli/main')))
 const grammar = JSON.parse(readFileSync(new URL(import.meta.resolve('@cavelang/tree-sitter-cave/package.json')), 'utf8'))
 if (grammar.name !== '@cavelang/tree-sitter-cave') throw new Error('tree-sitter package metadata is unavailable')
