@@ -114,6 +114,13 @@ All query-time arguments share one UTC parser. For example,
 instant on every host; explicit numeric offsets such as `+02:00` are honored.
 The same rule applies to `--as-of` and CAVE-Q `WHERE tx` timestamps.
 
+Every local command uses one bounded process boundary. The pnpm diagnostic
+probe is an executable plus argument array with no shell interpolation. Agent
+and hook strings are intentionally platform-shell templates: `/bin/sh` on
+POSIX, Windows PowerShell on Windows, with placeholder values quoted for that
+shell. stdout/stderr limits, timeouts, and CLI cancellation terminate the
+complete child tree, and failure messages omit command and environment data.
+
 Shape declarations may add `#cardinality:one` or an attribute
 `#unit:<unit>` tag. `cave check` reports the observed count and normalized
 units when those constraints fail; declarations without either tag keep the

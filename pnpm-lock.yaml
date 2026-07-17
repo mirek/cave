@@ -57,6 +57,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/loop':
+        specifier: workspace:*
+        version: link:../loop
       '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser
@@ -240,6 +243,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/loop':
+        specifier: workspace:*
+        version: link:../loop
       '@cavelang/mcp':
         specifier: workspace:*
         version: link:../mcp

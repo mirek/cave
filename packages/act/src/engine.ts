@@ -22,7 +22,6 @@
  *   (§25.4).
  */
 
-import { spawnSync } from 'node:child_process'
 import { Claim, Context, Key } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import { Template } from '@cavelang/connect'
@@ -31,6 +30,13 @@ import { boundTerm, satisfies, specialize } from '@cavelang/rules'
 import { evaluate, violationKey, type Violation } from '@cavelang/shape'
 import { Row, type Store } from '@cavelang/store'
 import type { Ast } from '@cavelang/parser'
+import {
+  ProcessFailure,
+  quoteShellArgument,
+  runProcessSync,
+  shellCommand,
+  substituteShell
+} from '@cavelang/loop'
 import * as Action from './action.ts'
 import { currentHook, loadAction, type Loaded } from './declare.ts'
 
@@ -47,6 +53,10 @@ export type ActOptions = {
   readonly cwd?: string
   /** Hook wall-clock budget (default 600 s). */
   readonly hookTimeoutSeconds?: number
+  /** Maximum captured hook stdout bytes (default 8 MiB). */
+  readonly hookMaxStdoutBytes?: number
+  /** Maximum captured hook stderr bytes (default 1 MiB). */
+  readonly hookMaxStderrBytes?: number
 }
 
 export const defaultHookTimeoutSeconds = 600
@@ -188,9 +198,9 @@ const instantiate = (
   return { instantiated: { claim, key: Key.of(stamped), line: Canonical.emitClaim(claim), registry: result.registry } }
 }
 
-/** POSIX single-quoting — hook placeholders never splice raw (spec §25.4). */
+/** Platform shell quoting — hook placeholders never splice raw (spec §25.4). */
 export const shellQuote = (value: string): string =>
-  `'${value.replaceAll("'", `'\\''`)}'`
+  quoteShellArgument(value)
 
 /**
  * Substitutes `{action}` and `{<param>}` placeholders in one pass —
@@ -201,10 +211,10 @@ export const substitute = (
   action: string,
   args: Readonly<Record<string, unknown>>
 ): string =>
-  template.replace(/\{([A-Za-z][A-Za-z0-9_-]*)\}/g, (whole, name: string) =>
-    name === 'action' ? shellQuote(action) :
-    name in args ? shellQuote(String(args[name])) :
-    whole)
+  substituteShell(template, {
+    action,
+    ...Object.fromEntries(Object.entries(args).map(([name, value]) => [name, String(value)]))
+  })
 
 const runHook = (
   name: string,
@@ -214,33 +224,36 @@ const runHook = (
   claims: readonly string[],
   options: ActOptions
 ): HookOutcome => {
-  const command = substitute(template, action.name, args)
-  const result = spawnSync(command, {
-    shell: true,
-    encoding: 'utf8',
-    input: `${claims.join('\n')}\n`,
-    timeout: (options.hookTimeoutSeconds ?? defaultHookTimeoutSeconds) * 1000,
-    ...options.cwd === undefined ? {} : { cwd: options.cwd }
-  })
-  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim()
-  // A hook may exit without reading its stdin (e.g. `true`): the input
-  // pipe then reports EPIPE even though the hook ran and exited cleanly,
-  // so only non-EPIPE spawn errors fail the hook — the exit status still
-  // arrives and is judged as usual.
-  const spawnFailure =
-    result.error !== undefined && (result.error as NodeJS.ErrnoException).code !== 'EPIPE' ?
-      result.error.message :
-      undefined
-  const error =
-    spawnFailure !== undefined ? spawnFailure :
-    result.status !== 0 ? `hook exited with ${result.status ?? `signal ${result.signal}`}` :
-    undefined
-  return {
-    name,
-    fired: true,
-    code: result.status,
-    ...output === '' ? {} : { output },
-    ...error === undefined ? {} : { error }
+  try {
+    const result = runProcessSync(shellCommand(template, {
+      action: action.name,
+      ...Object.fromEntries(Object.entries(args).map(([key, value]) => [key, String(value)]))
+    }), {
+      input: `${claims.join('\n')}\n`,
+      timeoutMs: (options.hookTimeoutSeconds ?? defaultHookTimeoutSeconds) * 1000,
+      ...options.cwd === undefined ? {} : { cwd: options.cwd },
+      ...options.hookMaxStdoutBytes === undefined ? {} : { maxStdoutBytes: options.hookMaxStdoutBytes },
+      ...options.hookMaxStderrBytes === undefined ? {} : { maxStderrBytes: options.hookMaxStderrBytes }
+    })
+    const output = `${result.stdout}${result.stderr}`.trim()
+    const error = result.code !== 0 ? `hook exited with ${result.code ?? `signal ${result.signal}`}` : undefined
+    return {
+      name,
+      fired: true,
+      code: result.code,
+      ...output === '' ? {} : { output },
+      ...error === undefined ? {} : { error }
+    }
+  } catch (error) {
+    const failure = error instanceof ProcessFailure ? error : undefined
+    const output = failure === undefined ? '' : `${failure.result.stdout}${failure.result.stderr}`.trim()
+    return {
+      name,
+      fired: true,
+      code: failure?.result.code ?? null,
+      ...output === '' ? {} : { output },
+      error: failure?.message ?? 'process failed to start'
+    }
   }
 }
 

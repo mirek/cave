@@ -50,7 +50,9 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    the prompt is piped to stdin and `{prompt-file}`, `{mcp-config}`,
    `{db}` are substituted. Each value is shell-quoted — paths with spaces
    or metacharacters stay single arguments — so write placeholders bare,
-   without wrapping quotes. Strict mode is the default: every generated MCP
+   without wrapping quotes. Templates run explicitly through `/bin/sh` on
+   POSIX and Windows PowerShell on Windows; the shared process boundary bounds
+   stdout/stderr and kills the whole child tree on timeout. Strict mode is the default: every generated MCP
    config and `{db}` substitution points at an isolated staging store, and
    the complete run merges into the requested database only after every batch
    succeeds. Failed batches keep their files eligible for the next run; the

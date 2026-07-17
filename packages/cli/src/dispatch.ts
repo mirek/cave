@@ -77,9 +77,11 @@ const execute = async (raw: readonly string[], runtime: CommandRuntime): Promise
       return await runServe(rest, context)
     }
     case 'reconstruct':
-      return await runOutput(runtime, argv, reconstructCommand)
+      return await runOutput(runtime, argv,
+        args => reconstructCommand(args, { ...runtime.signal === undefined ? {} : { signal: runtime.signal } }))
     case 'suggest-alias':
-      return await runOutput(runtime, argv, suggestAliasCommand)
+      return await runOutput(runtime, argv,
+        args => suggestAliasCommand(args, { ...runtime.signal === undefined ? {} : { signal: runtime.signal } }))
     case 'highlight':
       if (!rest.includes('--help') && !rest.includes('-h')) {
         return await runOutput(runtime, argv, highlightCommand)

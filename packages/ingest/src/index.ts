@@ -28,6 +28,7 @@ export { buildPrompt, extractionRules, readInstructions } from './prompt.ts'
 export type { Mode, PromptInput } from './prompt.ts'
 export { caveTextOf, promptFor, run, runShellAgent, selectBatches, writeMcpConfig } from './run.ts'
 export type {
-  Agent, AgentContext, Batch, BatchReport, Options, Policy, Report, SourceReport, SourceStatus
+  Agent, AgentContext, Batch, BatchReport, Options, Policy, Report, ShellAgentProcessOptions,
+  SourceReport, SourceStatus
 } from './run.ts'
 export { runIngest } from './main.ts'

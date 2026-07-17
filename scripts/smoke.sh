@@ -133,11 +133,16 @@ echo "==> cave import restores exported canonical text"
   exit 1
 }
 echo "==> cave act declares and executes a packed action"
-printf 'action/mark-smoke HAS action: `?service => ?service HAS smoke-status: passed`\n' \
+printf 'action/mark-smoke HAS action: `?service => ?service HAS smoke-status: passed`\naction/mark-smoke HAS hook: packed-smoke\n' \
   | "$cave" act --db "$tmp/smoke.db" --declare >/dev/null
-"$cave" act --db "$tmp/smoke.db" mark-smoke service=checkout >/dev/null
+printf '{"packed-smoke":"printf packed-hook > %s"}\n' "$tmp/packed-hook.txt" > "$tmp/hooks.json"
+"$cave" act --db "$tmp/smoke.db" mark-smoke service=checkout --hooks "$tmp/hooks.json" >/dev/null
 "$cave" query 'checkout HAS smoke-status: ?status' --db "$tmp/smoke.db" | grep -q '?status = passed' || {
   echo "error: cave act did not append its effect" >&2
+  exit 1
+}
+grep -q '^packed-hook$' "$tmp/packed-hook.txt" || {
+  echo "error: cave act did not execute its hook from the packed CLI" >&2
   exit 1
 }
 echo "==> cave report renders a cited packed query"

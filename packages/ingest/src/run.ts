@@ -21,7 +21,6 @@
  * reflects what earlier batches recorded.
  */
 
-import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -30,6 +29,7 @@ import * as Canonical from '@cavelang/canonical'
 import { Registry } from '@cavelang/canonical'
 import { open, type Store } from '@cavelang/store'
 import { syncDb, syncText } from '@cavelang/sync'
+import { ProcessFailure, runProcess, shellCommand } from '@cavelang/loop'
 import * as Files from './files.ts'
 import * as Web from './web.ts'
 import * as Context from './context.ts'
@@ -70,6 +70,8 @@ export type Options = {
   /** Open generated MCP servers without the standard prelude registry. */
   readonly noPrelude?: boolean
   readonly timeoutSeconds?: number
+  /** Cancel an active shell-agent process tree. */
+  readonly signal?: AbortSignal
   readonly cwd?: string
   /** Injection point for URL fetching in tests. */
   readonly fetchImpl?: Web.FetchLike
@@ -192,13 +194,11 @@ export const selectBatches = async (
 const claimCount = (store: Store): number =>
   (store.db.prepare('SELECT COUNT(*) AS n FROM cave_claim').get() as { n: number }).n
 
-/**
- * POSIX single-quoting for substituted template values — the act/automate
- * hook convention (spec §25.4): a value always lands as one argument and
- * is never shell-evaluated, so placeholders are written bare.
- */
-const shellQuote = (value: string): string =>
-  `'${value.replaceAll("'", `'\\''`)}'`
+export type ShellAgentProcessOptions = {
+  readonly signal?: AbortSignal
+  readonly maxStdoutBytes?: number
+  readonly maxStderrBytes?: number
+}
 
 /**
  * Runs one shell agent invocation: `{name}` placeholders substituted into
@@ -212,33 +212,21 @@ export const runShellAgent = (
   prompt: string,
   substitutions: Readonly<Record<string, string>>,
   timeoutSeconds: number,
-  cwd: string
+  cwd: string,
+  processOptions: ShellAgentProcessOptions = {}
 ): Promise<{ code: number | null, stdout: string, error?: string }> => {
-  const command = Object.entries(substitutions)
-    .reduce((acc, [name, value]) => acc.replaceAll(`{${name}}`, shellQuote(value)), template)
-  return new Promise(resolvePromise => {
-    let settled = false
-    const settle = (result: { code: number | null, stdout: string, error?: string }): void => {
-      if (!settled) {
-        settled = true
-        resolvePromise(result)
-      }
+  return runProcess(shellCommand(template, substitutions), {
+    cwd,
+    input: prompt,
+    timeoutMs: timeoutSeconds * 1000,
+    ...processOptions.signal === undefined ? {} : { signal: processOptions.signal },
+    ...processOptions.maxStdoutBytes === undefined ? {} : { maxStdoutBytes: processOptions.maxStdoutBytes },
+    ...processOptions.maxStderrBytes === undefined ? {} : { maxStderrBytes: processOptions.maxStderrBytes }
+  }).then(result => ({ code: result.code, stdout: result.stdout })).catch((error: unknown) => {
+    if (error instanceof ProcessFailure) {
+      return { code: null, stdout: error.result.stdout, error: error.message }
     }
-    const child = spawn(command, {
-      shell: true,
-      cwd,
-      timeout: timeoutSeconds * 1000,
-      stdio: ['pipe', 'pipe', 'inherit']
-    })
-    let stdout = ''
-    child.stdout.on('data', chunk => {
-      stdout += String(chunk)
-    })
-    child.on('error', error => settle({ code: null, stdout, error: error.message }))
-    child.on('close', code => settle({ code, stdout }))
-    child.stdin.on('error', () => {})
-    child.stdin.write(prompt)
-    child.stdin.end()
+    return { code: null, stdout: '', error: 'process failed to start' }
   })
 }
 
@@ -323,7 +311,9 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
           'prompt-file': promptFile,
           ...mcpConfig === undefined ? {} : { 'mcp-config': mcpConfig },
           db: resolve(options.db)
-        }, timeoutSeconds, cwd)
+        }, timeoutSeconds, cwd, {
+          ...options.signal === undefined ? {} : { signal: options.signal }
+        })
         ok = result.code === 0
         output = result.stdout
         if (!ok) {

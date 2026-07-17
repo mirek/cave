@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  heuristicPolicy, llmPolicy, memoryStoreOfText, parseSelection, reconstruct, reconstructAsync,
+  ProcessFailure, heuristicPolicy, llmPolicy, memoryStoreOfText, parseSelection, reconstruct, reconstructAsync,
   selectPrompt, shellComplete
 } from '@cavelang/loop'
 import type { AsyncPolicy, Cue, Policy, State } from '@cavelang/loop'
@@ -188,7 +188,7 @@ test('shellComplete rejects on non-zero exit and on timeout', async () => {
   await assert.rejects(shellComplete('node -e "process.exit(3)"')('x'), /exited with 3/)
   await assert.rejects(
     shellComplete('node -e "setTimeout(()=>{},60000)"', { timeoutSeconds: 0.5 })('x'),
-    /killed by SIG/
+    (error: unknown) => error instanceof ProcessFailure && error.kind === 'timeout'
   )
 })
 

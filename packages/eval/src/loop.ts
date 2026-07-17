@@ -120,6 +120,7 @@ export type RunOptions = {
   readonly agent?: string | Complete
   readonly timeoutSeconds?: number
   readonly cwd?: string
+  readonly signal?: AbortSignal
 }
 
 /**
@@ -145,7 +146,8 @@ export const runSpec = (
     options.agent :
     shellComplete(options.agent, {
       ...options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds },
-      ...options.cwd === undefined ? {} : { cwd: options.cwd }
+      ...options.cwd === undefined ? {} : { cwd: options.cwd },
+      ...options.signal === undefined ? {} : { signal: options.signal }
     })
   const policy = llmPolicy(complete, {
     ...spec.query === undefined ? {} : { query: spec.query },

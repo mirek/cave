@@ -28,10 +28,10 @@
  *   converge (§29.4).
  */
 
-import { spawnSync } from 'node:child_process'
 import { Context, Key } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
-import { act, loadAction, shellQuote } from '@cavelang/act'
+import { act, loadAction } from '@cavelang/act'
+import { ProcessFailure, runProcessSync, shellCommand, substituteShell } from '@cavelang/loop'
 import { match } from '@cavelang/query'
 import { derive, satisfies, specialize } from '@cavelang/rules'
 import { Row, type Store } from '@cavelang/store'
@@ -65,6 +65,10 @@ export type SettleOptions = {
   readonly cwd?: string
   /** Hook wall-clock budget in seconds (default 600, like §25.4). */
   readonly hookTimeoutSeconds?: number
+  /** Maximum captured hook stdout bytes (default 8 MiB). */
+  readonly hookMaxStdoutBytes?: number
+  /** Maximum captured hook stderr bytes (default 1 MiB). */
+  readonly hookMaxStderrBytes?: number
 }
 
 export type StepOutcome = {
@@ -194,10 +198,10 @@ export const substituteHook = (
   automation: string,
   bindings: Readonly<Record<string, string>>
 ): string =>
-  template.replace(/\{([A-Za-z][A-Za-z0-9_-]*)\}/g, (whole, name: string) =>
-    name === 'automation' ? shellQuote(automation) :
-    bindings[name] !== undefined ? shellQuote(rawBinding(bindings[name]!)) :
-    whole)
+  substituteShell(template, {
+    automation,
+    ...Object.fromEntries(Object.entries(bindings).map(([name, value]) => [name, rawBinding(value)]))
+  })
 
 /** Canonical lines of a solution's premise rows, deduplicated, join order. */
 const solutionLines = (store: Store, solution: Solution): string[] => {
@@ -253,7 +257,9 @@ const runAction = (store: Store, step: Automation.Step & { kind: 'action' }, sol
     aliases: options.aliases === true,
     ...options.hooks === undefined ? {} : { hooks: options.hooks },
     ...options.cwd === undefined ? {} : { cwd: options.cwd },
-    ...options.hookTimeoutSeconds === undefined ? {} : { hookTimeoutSeconds: options.hookTimeoutSeconds }
+    ...options.hookTimeoutSeconds === undefined ? {} : { hookTimeoutSeconds: options.hookTimeoutSeconds },
+    ...options.hookMaxStdoutBytes === undefined ? {} : { hookMaxStdoutBytes: options.hookMaxStdoutBytes },
+    ...options.hookMaxStderrBytes === undefined ? {} : { hookMaxStderrBytes: options.hookMaxStderrBytes }
   })
   if (!report.ok) {
     return { step: step.text, kind: 'action', outcome: 'failed', detail: report.error }
@@ -274,27 +280,27 @@ const runHook = (name: string, automation: Automation.t, solution: Solution, lin
   if (template === undefined) {
     return { step, kind: 'hook', outcome: 'not-configured', detail: 'hook not configured (spec §25.4)' }
   }
-  const command = substituteHook(template, automation.name, solution.bindings)
-  const result = spawnSync(command, {
-    shell: true,
-    encoding: 'utf8',
-    input: `${lines.join('\n')}\n`,
-    timeout: (options.hookTimeoutSeconds ?? 600) * 1000,
-    ...options.cwd === undefined ? {} : { cwd: options.cwd }
-  })
-  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim()
-  // A hook may exit without reading its stdin (e.g. `true`): the input
-  // pipe then reports EPIPE even though the hook ran and exited cleanly,
-  // so only non-EPIPE spawn errors fail the step — the exit status still
-  // arrives and is judged as usual.
-  const spawnFailure =
-    result.error !== undefined && (result.error as NodeJS.ErrnoException).code !== 'EPIPE' ?
-      result.error.message :
-      undefined
-  const error =
-    spawnFailure !== undefined ? spawnFailure :
-    result.status !== 0 ? `hook exited with ${result.status ?? `signal ${result.signal}`}` :
-    undefined
+  let output = ''
+  let error: string | undefined
+  try {
+    const result = runProcessSync(shellCommand(template, {
+      automation: automation.name,
+      ...Object.fromEntries(Object.entries(solution.bindings)
+        .map(([key, value]) => [key, rawBinding(value)]))
+    }), {
+      input: `${lines.join('\n')}\n`,
+      timeoutMs: (options.hookTimeoutSeconds ?? 600) * 1000,
+      ...options.cwd === undefined ? {} : { cwd: options.cwd },
+      ...options.hookMaxStdoutBytes === undefined ? {} : { maxStdoutBytes: options.hookMaxStdoutBytes },
+      ...options.hookMaxStderrBytes === undefined ? {} : { maxStderrBytes: options.hookMaxStderrBytes }
+    })
+    output = `${result.stdout}${result.stderr}`.trim()
+    error = result.code !== 0 ? `hook exited with ${result.code ?? `signal ${result.signal}`}` : undefined
+  } catch (cause) {
+    const failure = cause instanceof ProcessFailure ? cause : undefined
+    output = failure === undefined ? '' : `${failure.result.stdout}${failure.result.stderr}`.trim()
+    error = failure?.message ?? 'process failed to start'
+  }
   const detail =
     error !== undefined ? `${error}${output === '' ? '' : ` — ${output}`}` :
     output === '' ? undefined : output

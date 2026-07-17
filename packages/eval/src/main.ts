@@ -241,7 +241,8 @@ export const runEval = async (argv: readonly string[], context: RunContext = {})
     ...runs === undefined ? {} : { runs },
     ...values.instructions === undefined ? {} : { instructions: values.instructions },
     ...tolerance === undefined ? {} : { tolerance },
-    ...timeoutSeconds === undefined ? {} : { timeoutSeconds }
+    ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
+    ...context.signal === undefined ? {} : { signal: context.signal }
   })
   context.signal?.throwIfAborted()
   stdout.write(values.json === true ? `${JSON.stringify(report, undefined, 2)}\n` : render(report))

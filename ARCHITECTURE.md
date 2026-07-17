@@ -51,6 +51,15 @@ signal exit code. MCP readline, HTTP servers, file watchers, polling timers,
 and their stores therefore close through the same path instead of relying on
 process termination.
 
+Local command integrations cross one process boundary in `@cavelang/loop`.
+Direct commands are executable/argument arrays with no shell interpolation;
+agent and hook strings are explicitly platform-shell templates (`/bin/sh` on
+POSIX, Windows PowerShell on Windows). The boundary separately bounds stdout
+and stderr, normalizes exits, redacts command material from failures, and owns
+whole-tree termination for timeouts, cancellation, and output overflow. A
+worker-backed synchronous facade preserves action and doctor APIs without
+weakening those lifecycle guarantees.
+
 Three boundaries shape the design:
 
 1. **Text becomes data once.** CAVE text is parsed and canonicalized before it

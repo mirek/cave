@@ -38,7 +38,8 @@ Options:
   --agent <template>   shell agent for prompt steps — the cave ingest/eval
                        contract: prompt on stdin and {prompt-file}
                        (substituted shell-quoted), CAVE reply on stdout
-                       (appended, spec §29.3)
+                       (appended, spec §29.3); /bin/sh on POSIX and Windows
+                       PowerShell on Windows
   --timeout <seconds>  per-prompt agent timeout (default ${defaultAgentTimeoutSeconds})
   --aliases            triggers match through the alias closure (spec §13.6)
   --no-derive          do not fire the store's rules each pass (spec §29.4)
@@ -156,7 +157,7 @@ const renderReport = (report: SettleReport): string[] => {
   return lines
 }
 
-const settleOptions = (values: Values): SettleOptions => {
+const settleOptions = (values: Values, signal?: AbortSignal): SettleOptions => {
   const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
   const timeoutSeconds = values.timeout === undefined ? defaultAgentTimeoutSeconds : Number(values.timeout)
   return {
@@ -165,7 +166,9 @@ const settleOptions = (values: Values): SettleOptions => {
     check: values['no-check'] !== true,
     ...values['max-passes'] === undefined ? {} : { maxPasses: Number(values['max-passes']) },
     ...hooksPath === undefined ? {} : { hooks: readHooks(hooksPath) },
-    ...values.agent === undefined ? {} : { complete: shellComplete(values.agent, { timeoutSeconds }) }
+    ...values.agent === undefined ? {} : {
+      complete: shellComplete(values.agent, { timeoutSeconds, ...signal === undefined ? {} : { signal } })
+    }
   }
 }
 
@@ -326,7 +329,7 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
       return 1
     }
 
-    const options = settleOptions(values)
+    const options = settleOptions(values, io.signal)
     if (values.once === true) {
       const report = await settle(store, options)
       if (values.json === true) {
