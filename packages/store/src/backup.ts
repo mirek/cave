@@ -48,7 +48,15 @@ const hashFile = (path: string): string => {
 const syncFile = (path: string): void => {
   const fd = openSync(path, 'r')
   try {
-    fsyncSync(fd)
+    try {
+      fsyncSync(fd)
+    } catch (error) {
+      // Windows can reject a redundant fsync while SQLite's completed
+      // VACUUM statement still owns the snapshot handle. Verification below
+      // must still reopen and validate the complete database before publish.
+      if (process.platform !== 'win32' ||
+        !(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') throw error
+    }
   } finally {
     closeSync(fd)
   }
