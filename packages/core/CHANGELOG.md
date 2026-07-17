@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.29.1
+
+### Patch Changes
+
+- 3d2f5b9: Document the pnpm-based first-package bootstrap procedure after restoring coherent releases.
+
 ## 0.29.0
 
 ### Minor Changes
