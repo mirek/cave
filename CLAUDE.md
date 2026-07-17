@@ -65,3 +65,11 @@ changelog, version-commit, and tag coherence before npm authentication or
 builds. Rerun an interrupted release at that exact version commit;
 already-published packages are skipped and a missing tag is repaired only
 after the build, tests, and packed-artifact smoke test.
+
+A brand-new public package must exist on npm before its trusted publisher can
+be configured. Bootstrap it from the exact version commit with `make publish`,
+then configure `.github/workflows/publish.yml` as its npm trusted publisher and
+rerun that commit's Publish workflow. Do not substitute `npm publish` for the
+repository command: pnpm materializes each package's production `exports` and
+`bin` fields from `publishConfig`, while direct npm publication ignores those
+manifest overrides.

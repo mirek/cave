@@ -9,7 +9,9 @@
 #   make publish     check + smoke, then publish public packages to npm from
 #                    this machine (needs npm auth) — for first-time publishes,
 #                    since npm trusted publishing can only be configured on
-#                    packages that already exist on the registry
+#                    packages that already exist on the registry. Always use
+#                    this pnpm-backed path: direct `npm publish` does not apply
+#                    the production export/bin overrides in publishConfig.
 #
 # Releases are automated by changesets (see CLAUDE.md): every PR adds a
 # .changeset/*.md file, merged changesets accumulate in an automated

@@ -15,7 +15,8 @@ name: Publish
 # rename this file. Provenance is automatic. First-time publishes of new
 # packages still need `make publish` from a machine with npm auth, since
 # trusted publishing can only be configured on packages that already exist
-# on the registry.
+# on the registry. Do not use `npm publish` for that bootstrap: pnpm applies
+# the production export/bin overrides stored in publishConfig.
 
 on:
   push:
