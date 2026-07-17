@@ -3,7 +3,8 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 
 const root = new URL('../../../', import.meta.url)
-const read = (path: string): string => readFileSync(new URL(path, root), 'utf8')
+const read = (path: string): string =>
+  readFileSync(new URL(path, root), 'utf8').replace(/\r\n?/g, '\n')
 
 test('package engines name the exact minimum Node runtime', () => {
   const manifests = [
