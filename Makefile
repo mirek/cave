@@ -3,7 +3,8 @@
 #   make bootstrap   one-time setup: ensure pnpm is available, install dependencies
 #   make build       incremental build of the whole project graph (tsc -b)
 #   make watch       rebuild on change (tsc -b --watch)
-#   make check       typecheck + tests
+#   make typecheck   compatibility alias for the emitting build
+#   make check       incremental build/typecheck + tests
 #   make smoke       pack public packages and exercise the installed `cave` bin
 #   make publish     check + smoke, then publish public packages to npm from
 #                    this machine (needs npm auth) — for first-time publishes,
@@ -32,10 +33,9 @@ watch:
 test:
 	pnpm test
 
-typecheck:
-	pnpm typecheck
+typecheck: build
 
-check: typecheck test
+check: build test
 
 clean:
 	pnpm clean

@@ -67,7 +67,11 @@ jobs:
       - name: Generate tree-sitter artifacts
         run: pnpm --filter @cavelang/tree-sitter-cave build
 
-      - run: pnpm build
+      - name: Build the TypeScript project graph from clean outputs
+        run: pnpm clean && pnpm build
+
+      - name: Verify an incremental rebuild is a no-op
+        run: pnpm build:verify
 
       - run: pnpm test
 

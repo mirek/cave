@@ -15,13 +15,14 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "tsc -b",
+    "build:verify": "node scripts/verify-incremental-build.mjs",
     "bench:performance": "node --disable-warning=ExperimentalWarning scripts/performance-bench.mjs",
     "site:dev": "pnpm --filter @cavelang/website dev",
     "site:build": "pnpm --filter @cavelang/website build",
     "watch": "tsc -b --watch --preserveWatchOutput",
     "clean": "rm -rf packages/*/dist",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "typecheck": "tsc -b",
+    "typecheck": "pnpm run build",
     "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:validate": "node scripts/release-validate.mjs",
     "release:publish": "./scripts/release-publish.sh"

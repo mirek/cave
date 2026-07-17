@@ -54,9 +54,12 @@ packages the same grammar WASM and highlight query as a VSCode extension
 
 - **Build-free development, emitted releases.** Node ≥ 22.18 can run the
   workspace `.ts` sources directly through type stripping and pnpm symlinks.
-  `pnpm build` / `pnpm typecheck` run composite `tsc -b`: they typecheck and
-  emit package `dist/` trees. CI builds before tests, and package `prepack`
-  scripts emit the JavaScript and declarations published to npm.
+  `pnpm build` is the canonical composite `tsc -b` operation: it typechecks
+  and emits package `dist/` trees. `pnpm typecheck` is a compatibility alias
+  for that same emitting build, not a check-only command. CI starts from clean
+  outputs, builds once, verifies a second incremental build would compile no
+  project, then tests. Package `prepack` scripts emit the JavaScript and
+  declarations published to npm.
 - **Builtin test runner** — `node --test`, zero test dependencies.
 - **SQLite has an explicit adapter boundary.** Node uses builtin
   `node:sqlite` with no native modules; the browser playground injects SQL.js
@@ -100,7 +103,7 @@ packages the same grammar WASM and highlight query as a VSCode extension
 ```sh
 pnpm install
 pnpm test          # all packages, bottom-up
-pnpm typecheck
+pnpm build          # typecheck + emit; pnpm typecheck is an alias
 pnpm --filter @cavelang/loop demo
 ```
 

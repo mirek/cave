@@ -507,7 +507,7 @@ The roadmap is complete — every numbered item shipped, and the knowledge loop 
 
 ```sh
 pnpm test             # all packages, bottom-up
-pnpm typecheck
+pnpm build             # typecheck + emit (`pnpm typecheck` is an alias)
 pnpm bench:performance # deterministic representative regression budgets
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
