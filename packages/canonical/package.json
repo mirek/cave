@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/canonical",
-  "version": "0.29.0",
+  "version": "0.29.1",
   "type": "module",
   "description": "CAVE canonicalization — verb lifecycle and inverse registry, continuation expansion, canonical emitter.",
   "keywords": [
