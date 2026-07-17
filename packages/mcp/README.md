@@ -112,10 +112,14 @@ wins). `--src <context>` replaces the stamp — useful for pipelines, e.g.
 ## Protocol
 
 Newline-delimited JSON-RPC 2.0 on stdio, implementing the tools-only MCP
-slice: `initialize` (echoes the client's protocol version),
+slice: `initialize` (currently protocol revision `2025-06-18`),
 `notifications/initialized`, `ping`, `tools/list`, `tools/call`. Tool
 failures return `isError` results; protocol violations return JSON-RPC
-errors. Stdout is protocol-only; the startup banner goes to stderr.
+errors. Unsupported MCP revisions fail initialization with `-32602` instead
+of being echoed. JSON-RPC batches execute in order, omit notification
+responses, and return `-32600` for empty batches or malformed requests;
+invalid JSON returns `-32700`. Stdout is protocol-only; the startup banner
+goes to stderr.
 
 Hand-rolled rather than an SDK dependency: the surface is ~150 lines, the
 dispatcher is a pure function (tested without processes), and

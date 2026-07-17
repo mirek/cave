@@ -45,7 +45,7 @@ export const agentSource = (clientName: undefined | string): string => {
   return name === '' ? 'agent' : `agent/${name}`
 }
 
-/** Protocol revision answered when the client's is not a string. */
+/** The single MCP protocol revision this server implements. */
 export const protocolVersion = '2025-06-18'
 
 export const serverInfo = {
@@ -125,7 +125,7 @@ export const instructionsFor = (served: readonly Tool[], options: { actions?: bo
  */
 export const instructions = instructionsFor(tools, { actions: true })
 
-type Id = string | number
+type Id = null | string | number
 
 type Message = {
   jsonrpc?: unknown
@@ -148,7 +148,9 @@ const failure = (id: null | Id, code: number, message: string): Response =>
   ({ jsonrpc: '2.0', id, error: { code, message } })
 
 const isId = (value: unknown): value is Id =>
-  typeof value === 'string' || typeof value === 'number'
+  value === null || typeof value === 'string' || typeof value === 'number'
+
+type Reply = Response | Response[]
 
 /**
  * @returns pure MCP dispatcher over an open store: message in, response
@@ -171,37 +173,46 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
   let clientName: undefined | string
   const source = (): undefined | string =>
     options.source === false ? undefined : options.source ?? agentSource(clientName)
-  const handle = (message: unknown): undefined | Response => {
-    if (typeof message !== 'object' || message === null) {
+  const dispatch = (message: unknown): undefined | Response => {
+    if (typeof message !== 'object' || message === null || Array.isArray(message)) {
       return failure(null, -32600, 'Invalid request')
     }
-    const { id, method, params } = message as Message
-    if (typeof method !== 'string') {
-      return isId(id) ? failure(id, -32600, 'Invalid request: missing method') : undefined
+    const { jsonrpc, id, method, params } = message as Message
+    const hasId = Object.hasOwn(message, 'id')
+    if (jsonrpc !== '2.0' || typeof method !== 'string' || (hasId && !isId(id))) {
+      return failure(isId(id) ? id : null, -32600, 'Invalid request')
     }
-    if (!isId(id)) {
+    if (!hasId) {
       // Notifications (notifications/initialized, notifications/cancelled, …)
       // require no response.
       return undefined
     }
+    const requestId = id as Id
     switch (method) {
       case 'initialize': {
         const requested = (params as undefined | { protocolVersion?: unknown })?.protocolVersion
+        if (requested !== protocolVersion) {
+          return failure(
+            requestId,
+            -32602,
+            `Unsupported protocol version: ${String(requested)}; supported: ${protocolVersion}`
+          )
+        }
         const name = (params as undefined | { clientInfo?: { name?: unknown } })?.clientInfo?.name
         if (typeof name === 'string') {
           clientName = name
         }
-        return result(id, {
-          protocolVersion: typeof requested === 'string' ? requested : protocolVersion,
+        return result(requestId, {
+          protocolVersion,
           capabilities: { tools: {} },
           serverInfo,
           instructions: servedInstructions
         })
       }
       case 'ping':
-        return result(id, {})
+        return result(requestId, {})
       case 'tools/list':
-        return result(id, {
+        return result(requestId, {
           tools: [...served, ...actServed()].map(tool => ({
             name: tool.name,
             description: tool.description,
@@ -217,7 +228,7 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
             (call.name.startsWith(actToolPrefix) ? actServed().find(candidate => candidate.name === call.name) : undefined) :
           undefined
         if (tool === undefined) {
-          return failure(id, -32602, `Unknown tool: ${String(call.name)}`)
+          return failure(requestId, -32602, `Unknown tool: ${String(call.name)}`)
         }
         const args = typeof call.arguments === 'object' && call.arguments !== null ?
           call.arguments as Record<string, unknown> :
@@ -228,15 +239,24 @@ export const createServer = (store: Store, options: ServerOptions = {}) => {
             ...stamp === undefined ? {} : { source: stamp },
             ...options.hooks === undefined ? {} : { hooks: options.hooks }
           })
-          return result(id, { content: [{ type: 'text', text }] })
+          return result(requestId, { content: [{ type: 'text', text }] })
         } catch (error) {
           const text = error instanceof Error ? error.message : String(error)
-          return result(id, { content: [{ type: 'text', text }], isError: true })
+          return result(requestId, { content: [{ type: 'text', text }], isError: true })
         }
       }
       default:
-        return failure(id, -32601, `Method not found: ${method}`)
+        return failure(requestId, -32601, `Method not found: ${method}`)
     }
+  }
+  const handle = (message: unknown): undefined | Reply => {
+    if (!Array.isArray(message)) return dispatch(message)
+    if (message.length === 0) return failure(null, -32600, 'Invalid request')
+    const responses = message.flatMap(item => {
+      const response = dispatch(item)
+      return response === undefined ? [] : [response]
+    })
+    return responses.length === 0 ? undefined : responses
   }
   return { handle }
 }
