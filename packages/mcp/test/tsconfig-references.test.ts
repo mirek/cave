@@ -134,6 +134,17 @@ test('the stable CI check and release script both require packed-artifact smoke 
   assert.ok(finalTag > publish, 'normal release tagging must follow npm publishing')
 })
 
+test('packed smoke coverage owns child cleanup and major offline surfaces', () => {
+  const smoke = readFileSync(fileURLToPath(new URL('../../../scripts/smoke.sh', import.meta.url)), 'utf8')
+  assert.match(smoke, /children=\(\)[\s\S]*trap cleanup EXIT/)
+  assert.match(smoke, /children\+=\("\$serve_pid"\)/)
+  for (const command of ['import', 'act', 'report', 'connect', 'mcp']) {
+    assert.match(smoke, new RegExp(`echo "==> cave ${command}`), `packed smoke omits cave ${command}`)
+  }
+  assert.match(smoke, /const roots = \[[\s\S]*'canonical'[\s\S]*'store'/)
+  assert.match(smoke, /@cavelang\/tree-sitter-cave\/package\.json/)
+})
+
 test('release automation validates identity before npm and matches the supported runtime', () => {
   const root = fileURLToPath(new URL('../../..', import.meta.url))
   const manifest = parse<Manifest>(join(root, 'package.json'))
