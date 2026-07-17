@@ -15,6 +15,7 @@ import * as Value from './value.ts'
 import * as Tag from './tag.ts'
 import * as Context from './context.ts'
 import * as Confidence from './confidence.ts'
+import * as Uncertainty from './uncertainty.ts'
 
 /** Subject or object term (spec §16: atom, literal or code literal). */
 export type TermKind = 'entity' | 'text' | 'code'
@@ -106,20 +107,24 @@ export type Init = {
 }
 
 /** @returns claim with defaults applied (spec §6: all suffixes optional). */
-export const of = (init: Init): Claim => ({
-  subject: init.subject,
-  verb: init.verb,
-  negated: init.negated ?? false,
-  payload: init.payload,
-  contexts: Context.dedupe(init.contexts ?? []),
-  tags: init.tags ?? [],
-  conf: init.conf ?? Confidence.defaultConfidence,
-  importance: init.importance ?? false,
-  ...init.delta !== undefined ? { delta: init.delta } : {},
-  ...init.sigmaLevel !== undefined ? { sigmaLevel: init.sigmaLevel } : {},
-  ...init.comment !== undefined ? { comment: init.comment } : {},
-  raw: init.raw ?? ''
-})
+export const of = (init: Init): Claim => {
+  if (init.delta !== undefined) Uncertainty.validateDelta(init.delta.num)
+  if (init.sigmaLevel !== undefined) Uncertainty.validateSigmaLevel(init.sigmaLevel)
+  return {
+    subject: init.subject,
+    verb: init.verb,
+    negated: init.negated ?? false,
+    payload: init.payload,
+    contexts: Context.dedupe(init.contexts ?? []),
+    tags: init.tags ?? [],
+    conf: init.conf ?? Confidence.defaultConfidence,
+    importance: init.importance ?? false,
+    ...init.delta !== undefined ? { delta: init.delta } : {},
+    ...init.sigmaLevel !== undefined ? { sigmaLevel: init.sigmaLevel } : {},
+    ...init.comment !== undefined ? { comment: init.comment } : {},
+    raw: init.raw ?? ''
+  }
+}
 
 /** @returns relational claim payload. */
 export const relation = (object: Term): Payload =>
@@ -145,4 +150,4 @@ export const none: Payload =
 export const sigmaOf = (claim: Claim): undefined | number =>
   claim.delta?.num === undefined ?
     undefined :
-    claim.delta.num / (claim.sigmaLevel ?? 2)
+    Uncertainty.sigma(claim.delta.num, claim.sigmaLevel)

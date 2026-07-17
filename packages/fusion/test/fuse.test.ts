@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Claim, Value } from '@cavelang/core'
+import { Claim, Uncertainty, Value } from '@cavelang/core'
 import { FusionUnitError, fuse, fuseClaims, estimateOf } from '@cavelang/fusion'
 
 const metricClaim = (value: string, delta: string, conf: number): Claim.t =>
@@ -87,15 +87,16 @@ test('fusion rejects missing/present and incompatible units with a typed error',
   ]), FusionUnitError)
 })
 
-test('zero-confidence and zero-sigma estimates are skipped', () => {
+test('zero-confidence estimates are skipped; invalid sigma fails loudly', () => {
   const posterior = fuse([
     { mean: 100, sigma: 1, conf: 0 },
-    { mean: 10, sigma: 2 },
-    { mean: 50, sigma: 0 }
+    { mean: 10, sigma: 2 }
   ])
   assert.ok(posterior)
   assert.equal(posterior.mean, 10)
-  assert.equal(fuse([{ mean: 1, sigma: 0 }]), undefined)
+  for (const sigma of [0, -1, Infinity, -Infinity, NaN]) {
+    assert.throws(() => fuse([{ mean: 1, sigma }]), Uncertainty.InvalidUncertaintyError)
+  }
   assert.equal(fuse([]), undefined)
 })
 

@@ -26,8 +26,10 @@ For normally distributed estimates with `+/- Δ` at kσ: σ = Δ/k, precision
 
 `estimateOf(claim)` extracts `{ mean, sigma, conf }` from any numeric claim
 carrying `+/-` uncertainty (attribute or metric payload); claims without a
-usable estimate are skipped, zero-confidence and zero-σ estimates
-contribute nothing. The spec's worked example is a test case verbatim.
+usable estimate and zero-confidence estimates are skipped. Invalid zero,
+negative, or non-finite σ values throw the same typed core uncertainty error
+used by parsed and constructed claims. The spec's worked example is a test
+case verbatim.
 
 Fusion preserves units at the library boundary. Missing units combine only
 with missing units, arbitrary units combine only by exact equality, and the

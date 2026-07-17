@@ -7,7 +7,7 @@
  * everything before the first metadata token is payload.
  */
 
-import { Claim, Confidence, Tag, Value, Verb } from '@cavelang/core'
+import { Claim, Confidence, Tag, Uncertainty, Value, Verb } from '@cavelang/core'
 import type * as Ast from './ast.ts'
 import type { Token } from './token.ts'
 
@@ -22,6 +22,7 @@ const fail = (message: string): Result<never> =>
   ({ ok: false, message })
 
 const sigmaRe = /^\((\d+(?:\.\d+)?)σ\)$/u
+const sigmaLikeRe = /^\([^)]*σ\)$/u
 
 /** @returns `true` if `token` starts a metadata item (spec §4.3). */
 export const isMetaStart = (token: Token): boolean =>
@@ -30,7 +31,7 @@ export const isMetaStart = (token: Token): boolean =>
     token.text.startsWith('#') ||
     token.text.startsWith('+/-') ||
     token.text === '!' ||
-    sigmaRe.test(token.text)
+    sigmaLikeRe.test(token.text)
   )
 
 /** @returns term from a single token (spec §16: atom, literal or code literal). */
@@ -139,15 +140,30 @@ export const parseMeta = (tokens: readonly Token[], comment?: string): { meta: A
       if (delta !== undefined) {
         problems.push('repeated +/- uncertainty — only contexts and tags may repeat (spec §3.2); last one wins')
       }
-      delta = Value.parse(raw)
+      const parsed = Value.parse(raw)
+      try {
+        Uncertainty.validateDelta(parsed.num)
+        delta = parsed
+      } catch (error) {
+        problems.push(`invalid +/- uncertainty ${JSON.stringify(raw)}: ${error instanceof Error ? error.message : String(error)}`)
+      }
       continue
     }
-    const sigma = sigmaRe.exec(word)
-    if (sigma) {
+    if (sigmaLikeRe.test(word)) {
+      const sigma = sigmaRe.exec(word)
+      if (sigma === null) {
+        problems.push(`invalid sigma level ${JSON.stringify(word)}: expected (Nσ) with a positive finite decimal N`)
+        continue
+      }
       if (sigmaLevel !== undefined) {
         problems.push('repeated (Nσ) level — only contexts and tags may repeat (spec §3.2); last one wins')
       }
-      sigmaLevel = Number(sigma[1])
+      const parsed = Number(sigma[1])
+      try {
+        sigmaLevel = Uncertainty.validateSigmaLevel(parsed)
+      } catch (error) {
+        problems.push(`invalid sigma level ${JSON.stringify(word)}: ${error instanceof Error ? error.message : String(error)}`)
+      }
       continue
     }
     if (word === '!') {

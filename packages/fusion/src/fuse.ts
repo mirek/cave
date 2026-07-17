@@ -13,7 +13,7 @@
  * CAVE itself only stores claims and metadata.
  */
 
-import { Claim } from '@cavelang/core'
+import { Claim, Uncertainty } from '@cavelang/core'
 
 /** One numeric estimate: mean, σ, and confidence weight p ∈ (0, 1]. */
 export type Estimate = {
@@ -68,7 +68,8 @@ export class FusionUnitError extends Error {
  * @returns `undefined` when no estimate carries usable weight.
  */
 export const fuse = (estimates: readonly Estimate[]): undefined | Posterior => {
-  const usable = estimates.filter(estimate => estimate.sigma > 0 && (estimate.conf ?? 1) > 0)
+  estimates.forEach(estimate => Uncertainty.validateSigma(estimate.sigma))
+  const usable = estimates.filter(estimate => (estimate.conf ?? 1) > 0)
   if (usable.length === 0) return undefined
   const unit = usable[0]!.unit
   const factors = usable.map(estimate => conversionFactor(estimate.unit, unit))
