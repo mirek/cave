@@ -3,7 +3,7 @@
  * `--watch`, `--query`), and report rendering around `run.ts`.
  */
 
-import { existsSync, readFileSync, watch } from 'node:fs'
+import { existsSync, readFileSync, watch as watchFs } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
@@ -85,7 +85,21 @@ export type RunContext = {
   readonly stdout?: NodeJS.WritableStream
   readonly stderr?: NodeJS.WritableStream
   readonly signal?: AbortSignal
+  /** URL transport injection for deterministic integrations. */
+  readonly fetchImpl?: Source.FetchLike
+  /** Directory-watcher injection; production uses `node:fs.watch`. */
+  readonly watch?: WatchLike
+  /** Debounce scheduler injection; production waits 200ms. */
+  readonly schedule?: ScheduleLike
+  readonly cancelScheduled?: (handle: unknown) => void
 }
+
+export type WatchLike = (
+  path: string,
+  listener: (event: string, filename: string | Buffer | null) => void
+) => { close(): void }
+
+export type ScheduleLike = (callback: () => Promise<void>, delayMs: number) => unknown
 
 type IO = {
   readonly stdout: NodeJS.WritableStream
@@ -118,21 +132,37 @@ const renderReport = (report: Report): string => {
 const loadMapping = (path: string): { mapping?: Template.Mapping, problems: readonly string[] } =>
   Template.parse(readFileSync(path, 'utf8'))
 
-const sourceOptions = (values: Values): Source.Options => ({
+const sourceOptions = (values: Values, context: RunContext): Source.Options => ({
   ...values.format === undefined ? {} : { format: values.format as Source.Format },
   ...values.delimiter === undefined ? {} : { delimiter: values.delimiter },
   ...values.table === undefined ? {} : { table: values.table },
   ...values.sql === undefined ? {} : { sql: values.sql },
-  ...values.records === undefined ? {} : { records: values.records }
+  ...values.records === undefined ? {} : { records: values.records },
+  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl }
 })
 
-const runPass = async (store: Store, source: string, values: Values, name: string, io: IO): Promise<number> => {
+const loadSource = async (source: string, values: Values, context: RunContext): Promise<Source.Loaded> => {
+  try {
+    return await Source.load(source, sourceOptions(values, context))
+  } catch (error) {
+    throw new Error(`load ${source}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+const runPass = async (
+  store: Store,
+  source: string,
+  values: Values,
+  name: string,
+  io: IO,
+  context: RunContext
+): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
     io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
-  const loaded = await Source.load(source, sourceOptions(values))
+  const loaded = await loadSource(source, values, context)
   const report = connect(store, mapping, loaded.records, {
     name,
     source,
@@ -145,13 +175,13 @@ const runPass = async (store: Store, source: string, values: Values, name: strin
   return report.failures.length > 0 ? 1 : 0
 }
 
-const runDry = async (source: string, values: Values, io: IO): Promise<number> => {
+const runDry = async (source: string, values: Values, io: IO, context: RunContext): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
     io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
-  const loaded = await Source.load(source, sourceOptions(values))
+  const loaded = await loadSource(source, values, context)
   const out: string[] = []
   if (mapping.prelude !== '') {
     out.push('; --- prelude', mapping.prelude.trimEnd())
@@ -171,13 +201,19 @@ const runDry = async (source: string, values: Values, io: IO): Promise<number> =
   return failures > 0 ? 1 : 0
 }
 
-const runQuery = async (source: string, values: Values, name: string, io: IO): Promise<number> => {
+const runQuery = async (
+  source: string,
+  values: Values,
+  name: string,
+  io: IO,
+  context: RunContext
+): Promise<number> => {
   const { mapping, problems } = loadMapping(values.map!)
   if (mapping === undefined) {
     io.stderr.write(`${problems.join('\n')}\n`)
     return 1
   }
-  const loaded = await Source.load(source, sourceOptions(values))
+  const loaded = await loadSource(source, values, context)
   const db = values.db ?? defaultDbPath()
   const registry = values['no-prelude'] === true ? { registry: Registry.empty } : {}
   const store = existsSync(db) ? open(db, registry) : open(':memory:', registry)
@@ -220,18 +256,24 @@ const runQuery = async (source: string, values: Values, name: string, io: IO): P
   }
 }
 
-const runWatch = async (store: Store, source: string, values: Values, name: string, io: IO): Promise<number> => {
+const runWatch = async (
+  store: Store,
+  source: string,
+  values: Values,
+  name: string,
+  io: IO,
+  context: RunContext
+): Promise<number> => {
   const passOnce = async (): Promise<void> => {
     try {
-      await runPass(store, source, values, name, io)
+      await runPass(store, source, values, name, io, context)
     } catch (error) {
-      io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+      io.stderr.write(`cave connect watch pass: ${error instanceof Error ? error.message : String(error)}\n`)
     }
   }
-  await passOnce()
   let running = false
   let queued = false
-  let timer: undefined | NodeJS.Timeout
+  let timer: unknown
   let active: undefined | Promise<void>
   const fire = async (): Promise<void> => {
     if (running) {
@@ -245,28 +287,46 @@ const runWatch = async (store: Store, source: string, values: Values, name: stri
     } while (queued)
     running = false
   }
+  const schedule: ScheduleLike = context.schedule ?? ((callback, delayMs) =>
+    setTimeout(() => { void callback() }, delayMs))
+  const cancelScheduled = context.cancelScheduled ?? (handle =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>))
   const trigger = (): void => {
-    clearTimeout(timer)
-    timer = setTimeout(() => {
-      active = fire()
-      void active
+    if (running) {
+      queued = true
+      return
+    }
+    if (timer !== undefined) cancelScheduled(timer)
+    timer = schedule(async () => {
+      timer = undefined
+      const pass = fire()
+      active = pass
+      await pass
+      if (active === pass) active = undefined
     }, 200)
   }
   // Watch the parent directories — editors replace files on save, and a
   // watcher on the file itself dies with the old inode.
   const targets = [...new Set([resolve(source), resolve(values.map!)])]
+  const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
   const watchers = targets.map(target =>
     watch(dirname(target), (_event, filename) => {
       if (filename === basename(target)) {
         trigger()
       }
     }))
-  io.stdout.write('watching (ctrl-c to stop)\n')
-  await waitForAbort(io.signal)
-  clearTimeout(timer)
-  watchers.forEach(watcher => watcher.close())
-  await active
-  return 0
+  try {
+    // Install watchers before the initial pass. A save during startup is
+    // therefore either read by this pass or queued for the next one.
+    await passOnce()
+    io.stdout.write('watching (ctrl-c to stop)\n')
+    await waitForAbort(io.signal)
+    return 0
+  } finally {
+    if (timer !== undefined) cancelScheduled(timer)
+    watchers.forEach(watcher => watcher.close())
+    await active
+  }
 }
 
 export const runConnect = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
@@ -328,17 +388,17 @@ export const runConnect = async (argv: readonly string[], context: RunContext = 
   const name = values.name ?? Source.nameOf(source)
   try {
     if (values['dry-run'] === true) {
-      return await runDry(source, values, io)
+      return await runDry(source, values, io, context)
     }
     if (values.query !== undefined) {
-      return await runQuery(source, values, name, io)
+      return await runQuery(source, values, name, io, context)
     }
     const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
     try {
       if (values.watch === true) {
-        return await runWatch(store, source, values, name, io)
+        return await runWatch(store, source, values, name, io, context)
       }
-      return await runPass(store, source, values, name, io)
+      return await runPass(store, source, values, name, io, context)
     } finally {
       store.close()
     }

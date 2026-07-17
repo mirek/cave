@@ -58,5 +58,4 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 
 ## Testing
 
-- [Close integration test gaps](todo/integration-test-gaps.md) — Pin lifecycle, watcher, URL, and daemon behavior end to end.
 - [Close edge-case test gaps](todo/edge-case-test-gaps.md) — Cover parser, MCP, escaping, FTS, time, alias, and unit boundaries.

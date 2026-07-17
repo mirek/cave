@@ -79,12 +79,20 @@ never poison the rest of the run — or the prune set.
 ## Continuous and query-time reads (§23.3)
 
 - `--watch` re-runs the pass when the source or mapping file changes;
-  digests keep each pass incremental.
+  digests keep each pass incremental. Parent directories are watched before
+  the startup pass (so atomic file replacement and startup saves cannot fall
+  into a gap), bursts debounce for 200 ms, and a failed pass is named on
+  stderr while the next save remains retryable.
 - `--query '<pattern>'` is federation-lite: mapped claims append inside a
   transaction, the CAVE-Q pattern runs over the union of store and
   source, and everything rolls back — external data consulted at query
   time, nothing persisted (digest bookkeeping included).
 - `--dry-run` prints the instantiated claims and writes nothing.
+
+`runConnect` accepts optional `fetchImpl`, `watch`, `schedule`, and
+`cancelScheduled` runtime hooks. Production defaults remain built-in fetch,
+`node:fs.watch`, and timers; integrations can drive URL, watcher, debounce,
+retry, and cleanup boundaries without external network access or sleeps.
 
 ## Design notes
 

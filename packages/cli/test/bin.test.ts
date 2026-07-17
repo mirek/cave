@@ -134,32 +134,56 @@ test('binary: serve routes through main and answers over HTTP (spec §30.3)', as
     assert.deepEqual(await exited, { code: 143, signal: null }, 'SIGTERM is handled after awaited server/store cleanup')
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill()
+    await exited
     rmSync(dir, { recursive: true, force: true })
   }
 })
 
-test('binary: automate awaits timer and store cleanup before the signal exit', async () => {
+test('binary: automate polls live writes once, then awaits timer and store cleanup on signal', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
   const db = join(dir, 'k.db')
+  const declared = run(['automate', '--db', db, '--declare'],
+    'automation/watch HAS automation: `?x IS hot => hook/log`\n')
+  assert.equal(declared.status, 0, declared.stderr)
   const child = spawn(process.execPath, [
     '--disable-warning=ExperimentalWarning', main, 'automate', '--db', db, '--interval', '0.05'
   ])
   const exited = exitOf(child)
+  let output = ''
   try {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('automate did not enter watch mode')), 15_000)
       child.stdout.on('data', chunk => {
-        if (String(chunk).includes('watching')) {
+        output += String(chunk)
+        if (output.includes('watching')) {
           clearTimeout(timer)
           resolve()
         }
       })
     })
+
+    const added = run(['add', '--db', db], 'api IS hot\n')
+    assert.equal(added.status, 0, added.stderr)
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('automate polling did not report the live write')), 15_000)
+      const inspect = (): void => {
+        if (output.includes('automation/watch: fired 1 solution(s)')) {
+          clearTimeout(timer)
+          resolve()
+        }
+      }
+      child.stdout.on('data', inspect)
+      inspect()
+    })
+
     child.kill('SIGINT')
     assert.deepEqual(await exited, { code: 130, signal: null })
-    assert.equal(run(['automate', '--db', db, '--once']).status, 0, 'the cleaned store reopens immediately')
+    const quiet = run(['automate', '--db', db, '--once'])
+    assert.equal(quiet.status, 0, 'the cleaned store reopens immediately')
+    assert.match(quiet.stdout, /settled: 0 firing\(s\)/, 'the processed event is neither retried nor echoed')
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill()
+    await exited
     rmSync(dir, { recursive: true, force: true })
   }
 })
