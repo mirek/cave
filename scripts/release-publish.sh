@@ -174,13 +174,9 @@ if [ "${#unpublished[@]}" -eq 0 ]; then
 fi
 
 echo "==> publishing v${version} to npm"
-for manifest in packages/*/package.json; do
-  is_private="$(node -p "require('./${manifest}').private === true")"
-  [ "$is_private" = "true" ] && continue
-  cp License.md "$(dirname "$manifest")"
-done
 # Recursive publish skips versions that are already on the registry, so a
-# retry after a partial failure only publishes what's missing.
+# retry after a partial failure only publishes what's missing. Each public
+# package stages the canonical legal files in its prepack lifecycle.
 pnpm -r publish --access public --no-git-checks
 
 # Only tag once every public package is actually on the registry.

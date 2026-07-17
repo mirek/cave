@@ -24,7 +24,8 @@
     "queries",
     "tree-sitter-cave.wasm",
     "README.md",
-    "License.md"
+    "License.md",
+    "Authors.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -34,7 +35,7 @@
     "build": "tree-sitter generate && tree-sitter build --wasm -o tree-sitter-cave.wasm",
     "test": "pnpm run build && tree-sitter test",
     "typecheck": "true",
-    "prepack": "pnpm run build"
+    "prepack": "node ../../scripts/prepare-package-legal.mjs && pnpm run build"
   },
   "devDependencies": {
     "tree-sitter-cli": "^0.26.10"

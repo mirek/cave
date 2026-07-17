@@ -14,3 +14,7 @@ dist/
 # fetches wasi-sdk itself) and shipped only inside the npm tarball via prepack.
 *.wasm
 packages/tree-sitter-cave/src/
+
+# Canonical legal files are staged into public packages by their prepack hook.
+packages/*/License.md
+packages/*/Authors.md
