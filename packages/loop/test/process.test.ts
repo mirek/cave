@@ -39,9 +39,7 @@ test('intentional shell commands use platform quoting for substituted values', a
     assert.equal(Buffer.from(windows.args.at(-1)!, 'base64').toString('utf16le'),
       [
         '$global:LASTEXITCODE = $null',
-        '& {',
         `node '${script.replaceAll("'", "''")}' '${value.replaceAll("'", "''")}'`,
-        '}',
         '$caveSucceeded = $?',
         '$caveExitCode = $global:LASTEXITCODE',
         'if ($caveSucceeded) { exit 0 }',

@@ -89,9 +89,7 @@ export const substituteShell = (
 
 const powershellScript = (command: string): string => [
   '$global:LASTEXITCODE = $null',
-  '& {',
   command,
-  '}',
   '$caveSucceeded = $?',
   '$caveExitCode = $global:LASTEXITCODE',
   'if ($caveSucceeded) { exit 0 }',
