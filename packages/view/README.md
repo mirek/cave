@@ -99,7 +99,9 @@ the §26 winner — the fix when sources contest a fact). Every rendered
 row cites: `[^cN]` markers land at the fragment's `[^?]` placeholder
 (appended when absent), and the definitions — canonical line, tx date,
 claim key — collect at the end of the document, so a reader can pull the
-belief history behind any sentence. `--aliases`, `--as-of`, and `--at` compose
+belief history behind any sentence. Canonical declarations containing
+backtick literals use longer CommonMark code-span delimiters in both default
+bullets and footnotes. `--aliases`, `--as-of`, and `--at` compose
 exactly as on `cave query`; `--at` filters valid-time claims and interpolates
 trajectories while `--as-of` independently freezes transaction time. The
 template stays under version control and

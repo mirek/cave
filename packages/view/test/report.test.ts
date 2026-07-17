@@ -78,6 +78,21 @@ test('query block without a fragment renders cited bullets (spec §31.1)', () =>
   store.close()
 })
 
+test('default bullets and citation footnotes survive declaration backticks', () => {
+  const store = open()
+  store.ingest('`left` EQUALS `right`')
+  const rendered = report(store, [
+    '```cave-q',
+    '`left` EQUALS `right`',
+    '```'
+  ].join('\n'))
+  assert.deepEqual(rendered.problems, [])
+  assert.match(rendered.markdown, /- `` `left` EQUALS `right` `` \[\^c1\]/)
+  assert.match(rendered.markdown, /\[\^c1\]: `` `left` EQUALS `right` `` — \d{4}-\d{2}-\d{2}/)
+  assert.equal(rendered.citations, 1)
+  store.close()
+})
+
 test('fragment renders per solution with ?var substitution and [^?] placement', () => {
   const store = fixture()
   const rendered = report(store, [
