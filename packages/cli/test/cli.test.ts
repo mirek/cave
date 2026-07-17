@@ -76,11 +76,13 @@ test('add → query → export round trip', () => {
     assert.match(inverse.out, /\?x = packages\/api/)
 
     const json = queryCommand(['?x HAS bug: ?bug #security', '--db', db, '--json'])
-    const matches = JSON.parse(json.out)
-    assert.deepEqual(matches[0].bindings, { x: 'auth/middleware', bug: 'token-expiry' })
-    assert.equal(matches[0].format, 'cave.query-match')
-    assert.equal(matches[0].version, 1)
-    assert.equal(matches[0].claim.format, 'cave.claim')
+    const page = JSON.parse(json.out)
+    assert.equal(page.format, 'cave.query-page')
+    assert.equal(page.version, 1)
+    assert.deepEqual(page.matches[0].bindings, { x: 'auth/middleware', bug: 'token-expiry' })
+    assert.equal(page.matches[0].format, 'cave.query-match')
+    assert.equal(page.matches[0].version, 1)
+    assert.equal(page.matches[0].claim.format, 'cave.claim')
     assert.doesNotMatch(json.out, /claim_key|raw_line|value_text/)
 
     const exported = exportCommand(['--db', db])
@@ -97,6 +99,30 @@ test('query with WHERE filter as second positional', () => {
     addCommand([file, '--db', db])
     const filtered = queryCommand(['?cause CAUSE app/crash', 'WHERE conf >= 0.4', '--db', db])
     assert.equal(filtered.out, '?cause = memory-leak\n')
+  })
+})
+
+test('query defaults to a bounded page and continues the frozen snapshot', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'many.cave')
+    writeFileSync(file, Array.from({ length: 102 }, (_, index) =>
+      `service/${index.toString().padStart(3, '0')} USES jwt`).join('\n'))
+    assert.equal(addCommand([file, '--db', db]).code, 0)
+
+    const first = JSON.parse(queryCommand(['?service USES jwt', '--db', db, '--json']).out)
+    assert.equal(first.matches.length, 100)
+    assert.equal(typeof first.next, 'string')
+
+    const later = join(dir, 'later.cave')
+    writeFileSync(later, 'service/later USES jwt')
+    assert.equal(addCommand([later, '--db', db]).code, 0)
+    const second = JSON.parse(queryCommand([
+      '?service USES jwt', '--db', db, '--json', '--cursor', first.next
+    ]).out)
+    assert.deepEqual(second.matches.map((match: { bindings: { service: string } }) => match.bindings.service),
+      ['service/100', 'service/101'])
+    assert.equal(second.next, undefined)
   })
 })
 
