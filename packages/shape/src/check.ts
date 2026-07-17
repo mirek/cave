@@ -118,25 +118,62 @@ const isEntityName = (name: string): boolean =>
 const all = (store: Store, sql: string, ...params: (string | number)[]): Row.t[] =>
   store.db.prepare(sql).all(...params) as unknown as Row.t[]
 
-const tagValue = (store: Store, row: Row.t, key: string): undefined | string =>
-  (store.db.prepare('SELECT value FROM cave_tag WHERE claim_id = ? AND key = ? ORDER BY rowid LIMIT 1')
-    .get(row.id, key) as undefined | { value: null | string })?.value ?? undefined
+type ShapeState = {
+  /** Every current belief, materialized once in transaction order. */
+  readonly rows: readonly Row.t[]
+  readonly tags: ReadonlyMap<string, ReadonlyMap<string, null | string>>
+  readonly excludedDeclarations: ReadonlySet<string>
+}
 
-const expectationOf = (store: Store, row: Row.t): undefined | Expectation => {
+/**
+ * One evaluation snapshot. Query count is constant: current beliefs, tags,
+ * and declaration-excluding qualifier edges, independent of shape size.
+ */
+const shapeState = (store: Store): ShapeState => {
+  const rows = all(store, `SELECT c.* FROM (${currentSql}) c ORDER BY c.tx`)
+  const currentIds = new Set(rows.map(row => row.id))
+  const tags = new Map<string, Map<string, null | string>>()
+  const tagRows = store.db.prepare(
+    "SELECT claim_id, key, value FROM cave_tag WHERE key IN ('unit', 'cardinality') ORDER BY rowid"
+  ).all() as { claim_id: string, key: string, value: null | string }[]
+  for (const tag of tagRows) {
+    if (!currentIds.has(tag.claim_id)) continue
+    const byKey = tags.get(tag.claim_id) ?? new Map<string, null | string>()
+    if (!byKey.has(tag.key)) byKey.set(tag.key, tag.value)
+    tags.set(tag.claim_id, byKey)
+  }
+  const excludedDeclarations = new Set((store.db.prepare(`
+    SELECT DISTINCT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE')
+  `).all() as { child_id: string }[]).map(row => row.child_id))
+  return { rows, tags, excludedDeclarations }
+}
+
+const tagValue = (state: ShapeState, row: Row.t, key: string): undefined | string =>
+  state.tags.get(row.id)?.get(key) ?? undefined
+
+const expectationOf = (state: ShapeState, row: Row.t): undefined | Expectation => {
   if (!isEntityName(row.subject) || row.object === null || row.object.startsWith('"') || row.object.startsWith('`')) {
     return undefined
   }
   const kind = Verb.isVerbToken(row.object) ? 'relation' as const : 'attribute' as const
-  const unit = kind === 'attribute' ? tagValue(store, row, 'unit') : undefined
+  const unit = kind === 'attribute' ? tagValue(state, row, 'unit') : undefined
   return {
     type: row.subject,
     kind,
     name: row.object,
-    cardinality: tagValue(store, row, 'cardinality') === 'one' ? 'one' : 'some',
+    cardinality: tagValue(state, row, 'cardinality') === 'one' ? 'one' : 'some',
     ...unit === undefined ? {} : { unit },
     row
   }
 }
+
+const expectationsOf = (state: ShapeState): Expectation[] =>
+  state.rows.flatMap(row => {
+    if (row.verb !== 'EXPECTS' || row.negated !== 0 || row.conf <= 0 || row.object === null ||
+        state.excludedDeclarations.has(row.id)) return []
+    const expectation = expectationOf(state, row)
+    return expectation === undefined ? [] : [expectation]
+  })
 
 /**
  * Current positive `EXPECTS` declarations (spec §20.1), oldest first.
@@ -145,40 +182,49 @@ const expectationOf = (store: Store, row: Row.t): undefined | Expectation => {
  * not types.
  */
 export const expectations = (store: Store): Expectation[] =>
-  all(store, `
-    SELECT c.* FROM (${currentSql}) c
-    WHERE c.verb = 'EXPECTS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-      AND c.id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
-    ORDER BY c.tx
-  `).flatMap(row => {
-    const expectation = expectationOf(store, row)
-    return expectation === undefined ? [] : [expectation]
-  })
+  expectationsOf(shapeState(store))
 
 /**
  * Instances of a type (spec §20.1): entities with a current positive `IS`
  * claim into the type or any `EXTENDS+` descendant — the taxonomy is the
  * binding surface. Returns instance → the `IS` object it bound through.
  */
-const instancesOf = (store: Store, type: string): Map<string, string> => {
-  const rows = store.db.prepare(`
-    WITH RECURSIVE extends_edge(src, dst) AS (
-      SELECT c.subject, c.object FROM (${currentSql}) c
-      WHERE c.verb = 'EXTENDS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-    ), type_set(name, depth) AS (
-      SELECT ?, 0
-      UNION
-      SELECT e.src, t.depth + 1 FROM type_set t JOIN extends_edge e ON e.dst = t.name
-      WHERE t.depth < 32
-    )
-    SELECT c.subject AS entity, c.object AS via FROM (${currentSql}) c
-    WHERE c.verb = 'IS' AND c.negated = 0 AND c.conf > 0
-      AND c.object IN (SELECT name FROM type_set)
-    ORDER BY c.tx
-  `).all(type) as { entity: string, via: string }[]
+type TargetIndexes = {
+  readonly children: ReadonlyMap<string, readonly string[]>
+  readonly typings: readonly { readonly entity: string, readonly via: string }[]
+}
+
+const targetIndexes = (state: ShapeState): TargetIndexes => {
+  const children = new Map<string, string[]>()
+  const typings: { entity: string, via: string }[] = []
+  for (const row of state.rows) {
+    if (row.negated !== 0 || row.conf <= 0 || row.object === null) continue
+    if (row.verb === 'EXTENDS') {
+      children.set(row.object, [...children.get(row.object) ?? [], row.subject])
+    } else if (row.verb === 'IS' && isEntityName(row.subject)) {
+      typings.push({ entity: row.subject, via: row.object })
+    }
+  }
+  return { children, typings }
+}
+
+const instancesOf = (targets: TargetIndexes, type: string): Map<string, string> => {
+  const types = new Set([type])
+  let frontier = [type]
+  for (let depth = 0; depth < 32 && frontier.length > 0; depth += 1) {
+    const next: string[] = []
+    for (const parent of frontier) {
+      for (const child of targets.children.get(parent) ?? []) {
+        if (types.has(child)) continue
+        types.add(child)
+        next.push(child)
+      }
+    }
+    frontier = next
+  }
   const instances = new Map<string, string>()
-  for (const { entity, via } of rows) {
-    if (isEntityName(entity) && !instances.has(entity)) {
+  for (const { entity, via } of targets.typings) {
+    if (types.has(via) && !instances.has(entity)) {
       instances.set(entity, via)
     }
   }
@@ -190,31 +236,60 @@ type Observed = {
   readonly units: readonly (string | null)[]
 }
 
-const unitsOf = (rows: readonly Row.t[]): (string | null)[] =>
-  [...new Set(rows.map(row => row.value_unit))]
-    .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+type MutableObserved = { count: number, readonly units: Set<string | null> }
+type SlotIndex = Map<string, Map<string, MutableObserved>>
 
-/** Current positive rows occupying the expected slot (spec §20.1). */
-const observed = (store: Store, entity: string, expectation: Expectation): Observed => {
-  if (expectation.kind === 'attribute') {
-    const rows = all(store, `
-      SELECT c.* FROM (${currentSql}) c
-      WHERE c.subject = ? AND c.verb = 'HAS' AND c.attribute = ?
-        AND c.negated = 0 AND c.conf > 0 ORDER BY c.tx
-    `, entity, expectation.name)
-    return { count: rows.length, units: unitsOf(rows) }
+const addObserved = (index: SlotIndex, slot: string, entity: string, unit?: string | null): void => {
+  const byEntity = index.get(slot) ?? new Map<string, MutableObserved>()
+  const actual = byEntity.get(entity) ?? { count: 0, units: new Set<string | null>() }
+  actual.count += 1
+  if (unit !== undefined) actual.units.add(unit)
+  byEntity.set(entity, actual)
+  index.set(slot, byEntity)
+}
+
+type ObservedIndexes = {
+  readonly attributes: SlotIndex
+  readonly forward: SlotIndex
+  readonly reverse: SlotIndex
+}
+
+const observedIndexes = (state: ShapeState): ObservedIndexes => {
+  const attributes: SlotIndex = new Map()
+  const forward: SlotIndex = new Map()
+  const reverse: SlotIndex = new Map()
+  for (const row of state.rows) {
+    if (row.negated !== 0 || row.conf <= 0) continue
+    if (row.verb === 'HAS' && row.attribute !== null) {
+      addObserved(attributes, row.attribute, row.subject, row.value_unit)
+    }
+    if (row.object !== null) {
+      addObserved(forward, row.verb, row.subject)
+      addObserved(reverse, row.verb, row.object)
+    }
   }
-  // Relation: the expected verb reads from the subject side when primary,
-  // from the object side of the stored primary row when it is a declared
-  // inverse (spec §5.5) — `team EXPECTS PART-OF` is met by `org CONTAINS team-x`.
-  const { primary, isInverse } = Registry.primaryOf(store.registry(), expectation.name)
-  const side = isInverse ? 'c.object = ?' : 'c.subject = ?'
-  const rows = all(store, `
-    SELECT c.* FROM (${currentSql}) c
-    WHERE ${side} AND c.verb = ? AND c.object IS NOT NULL
-      AND c.negated = 0 AND c.conf > 0 ORDER BY c.tx
-  `, entity, primary)
-  return { count: rows.length, units: [] }
+  return { attributes, forward, reverse }
+}
+
+const observed = (
+  store: Store,
+  indexes: ObservedIndexes,
+  entity: string,
+  expectation: Expectation
+): Observed => {
+  let actual: undefined | MutableObserved
+  if (expectation.kind === 'attribute') {
+    actual = indexes.attributes.get(expectation.name)?.get(entity)
+  } else {
+    // An inverse expectation reads the object side of its stored primary.
+    const { primary, isInverse } = Registry.primaryOf(store.registry(), expectation.name)
+    actual = (isInverse ? indexes.reverse : indexes.forward).get(primary)?.get(entity)
+  }
+  if (actual === undefined) return { count: 0, units: [] }
+  return {
+    count: actual.count,
+    units: [...actual.units].sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+  }
 }
 
 const satisfies = (expectation: Expectation, actual: Observed): boolean =>
@@ -234,7 +309,10 @@ export type Evaluation = {
 
 /** Evaluates every declared expectation against its instances (spec §20.2). */
 export const evaluate = (store: Store): Evaluation => {
-  const declared = expectations(store)
+  const state = shapeState(store)
+  const declared = expectationsOf(state)
+  const indexes = observedIndexes(state)
+  const targets = targetIndexes(state)
   const byType = new Map<string, Expectation[]>()
   for (const expectation of declared) {
     byType.set(expectation.type, [...byType.get(expectation.type) ?? [], expectation])
@@ -243,11 +321,11 @@ export const evaluate = (store: Store): Evaluation => {
   const targeted = new Set<string>()
   let checks = 0
   for (const [type, typeExpectations] of byType) {
-    for (const [entity, via] of instancesOf(store, type)) {
+    for (const [entity, via] of instancesOf(targets, type)) {
       targeted.add(entity)
       for (const expectation of typeExpectations) {
         checks += 1
-        const actual = observed(store, entity, expectation)
+        const actual = observed(store, indexes, entity, expectation)
         if (!satisfies(expectation, actual)) {
           violations.push({
             entity,

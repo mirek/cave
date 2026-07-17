@@ -1,7 +1,25 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { open } from '@cavelang/store'
+import { open, type Store } from '@cavelang/store'
 import { check, evaluate, expectations } from '@cavelang/shape'
+
+const evaluationQueryCount = (store: Store): { readonly queries: number, readonly checks: number } => {
+  const database = store.db
+  let queries = 0
+  const counted: Store = {
+    ...store,
+    db: {
+      exec: sql => database.exec(sql),
+      prepare: sql => {
+        queries += 1
+        return database.prepare(sql)
+      },
+      close: () => database.close()
+    }
+  }
+  const checks = evaluate(counted).checks
+  return { queries, checks }
+}
 
 test('EXPECTS declarations read back as expectations (spec §20.1)', () => {
   const store = open()
@@ -155,6 +173,26 @@ test('relation expectations follow the verb direction, inverses included (spec �
   store.ingest('org/payments CONTAINS checkout ; satisfies PART-OF via the stored primary row')
   assert.equal(evaluate(store).violations.length, 0)
   store.close()
+})
+
+test('shape evaluation query count is independent of instances × expectations', () => {
+  const small = open()
+  small.ingest('service EXPECTS owner\napi IS service')
+  const smallCount = evaluationQueryCount(small)
+  assert.deepEqual(smallCount, { queries: 3, checks: 1 })
+  small.close()
+
+  const large = open()
+  const expectationCount = 20
+  const instanceCount = 200
+  large.ingest([
+    ...Array.from({ length: expectationCount }, (_, index) => `service EXPECTS field-${index}`),
+    ...Array.from({ length: instanceCount }, (_, index) => `entity/${index} IS service`)
+  ].join('\n'))
+  const largeCount = evaluationQueryCount(large)
+  assert.equal(largeCount.checks, expectationCount * instanceCount)
+  assert.equal(largeCount.queries, smallCount.queries)
+  large.close()
 })
 
 test('violations make the report; satisfied instances do not (spec §20.2)', () => {

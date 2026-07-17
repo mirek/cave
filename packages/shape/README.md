@@ -138,3 +138,16 @@ writeSuggestions(store, suggestAliases(store))  // append, stamped @src:suggest/
 - **Constraints are tags, not a type system.** Only `#cardinality:one` and
   attribute `#unit:<unit>` have shape semantics. Omitting them preserves the
   original presence check, and unit conversion remains explicit elsewhere.
+- **Evaluation materializes current belief once.** Three SQL reads load the
+  current rows, relevant tags, and declaration-excluding edges; taxonomy,
+  inverse-relation, attribute, cardinality, and unit indexes are then built in
+  memory. SQL statement count is therefore independent of
+  instances × expectations. The write gate performs one bounded evaluation
+  before and one after its transaction because pre-existing violations must
+  remain distinguishable from newly introduced ones.
+
+Run the deterministic large-shape benchmark with:
+
+```sh
+pnpm --filter @cavelang/shape bench:shape
+```
