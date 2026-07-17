@@ -178,4 +178,15 @@ test('the TODO index names every active backlog file and no retired one', () => 
     .map(entry => entry.name)
     .sort()
   assert.deepEqual(indexed, files)
+  if (files.length === 0) assert.match(index, /There are no active backlog items\./)
+
+  const boundaries = read(new URL('PROJECT-BOUNDARIES.md', root))
+  for (const resolved of [
+    'Variables in ordinary claims',
+    'Reified `[S V O]` terms',
+    'Temporal `(t -> expr)` functions',
+    'Socket, webhook, or push listeners',
+  ]) {
+    assert.ok(boundaries.includes(`| ${resolved} |`), `PROJECT-BOUNDARIES.md omits ${resolved}`)
+  }
 })
