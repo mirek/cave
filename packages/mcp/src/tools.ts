@@ -103,12 +103,6 @@ const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boo
     .map(row => emitClaim(store.toClaim(row)))
 }
 
-/** Unit of the numeric value a claim carries, when it carries one. */
-const unitOf = (claim: Claim.t): undefined | string =>
-  claim.payload.kind === 'attribute' ? claim.payload.value.unit :
-  claim.payload.kind === 'metric' ? claim.payload.value.unit :
-  undefined
-
 /**
  * Multiplier-compacted rendering of a fused number, 4 significant digits:
  * `19965517241` → `19.97B` (spec §7.1 multipliers, largest that fits).
@@ -315,13 +309,8 @@ export const tools: readonly Tool[] = [
           ...[...quantities.values()].map(claim => `  ${emitClaim(claim)}`)
         ].join('\n'))
       }
-      const units = [...new Set(estimates.map(({ claim }) => unitOf(claim) ?? ''))].sort()
-      if (units.length > 1) {
-        throw new Error('cannot fuse mixed units: ' +
-          `${units.map(unit => unit === '' ? '(none)' : unit).join(', ')} — convert the estimates to one unit first`)
-      }
       const posterior = fuse(estimates.map(({ estimate }) => estimate))!
-      const unit = units[0] === '' ? undefined : units[0]
+      const unit = posterior.unit
       const skipped = claims.length - estimates.length
       return [
         `fused ${estimates.length} estimate(s)${skipped > 0 ? `, skipped ${skipped} without a positive numeric +/- estimate` : ''}:`,

@@ -7,6 +7,6 @@
  * (§10.3). No storage, no I/O.
  */
 
-export { fuse, fuseClaims, estimateOf } from './fuse.ts'
+export { FusionUnitError, fuse, fuseClaims, estimateOf } from './fuse.ts'
 export type { Estimate, Posterior } from './fuse.ts'
 export { noisyAndIndependent, normalizeHypotheses, hypothesisGap } from './conditional.ts'
