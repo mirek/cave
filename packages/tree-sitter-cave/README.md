@@ -26,6 +26,10 @@ values include negative scalars and negative trajectory endpoints.
 
 ## Consuming
 
+The published entry points are `@cavelang/tree-sitter-cave/wasm` for the
+generated grammar, `@cavelang/tree-sitter-cave/highlights` for the shared
+query, and `@cavelang/tree-sitter-cave/package.json` for package metadata.
+
 ```js
 import { Language, Parser } from 'web-tree-sitter'
 

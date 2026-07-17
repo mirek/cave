@@ -1,10 +1,29 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { commandHelp, commandRegistry, usage } from '@cavelang/cli'
 import { tools } from '@cavelang/mcp'
 
 const read = (url: URL): string => readFileSync(url, 'utf8')
+const json = <T>(url: URL): T => JSON.parse(read(url)) as T
+
+type Manifest = {
+  readonly name: string
+  readonly exports?: Readonly<Record<string, unknown>>
+}
+
+type Surface = {
+  readonly published?: boolean
+  readonly replacement?: string
+}
+
+type Surfaces = {
+  readonly public: Readonly<Record<string, Surface>>
+  readonly internal: Readonly<Record<string, Surface>>
+  readonly tooling: Readonly<Record<string, Surface>>
+}
+
+const root = new URL('../../../', import.meta.url)
 
 const section = (markdown: string, heading: string): string => {
   const start = markdown.indexOf(`## ${heading}`)
@@ -72,4 +91,78 @@ test('command references state read-only and hook security boundaries', () => {
   assert.match(mcp, /executable commands are\s+never read from claims/)
   assert.match(mcp, /Hook failure is reported after the committed claims\s+remain durable/)
   assert.match(mcp, /`--read-only` is the compatibility shorthand that keeps `read` and `evaluate`/)
+})
+
+test('published package API entry points follow their manifests', () => {
+  const surfaces = json<Surfaces>(new URL('package-surfaces.json', root))
+  const published = [
+    ...Object.keys(surfaces.public),
+    ...Object.entries(surfaces.tooling)
+      .filter(([, surface]) => surface.published === true)
+      .map(([name]) => name)
+  ]
+
+  for (const name of published) {
+    const directory = name.slice('@cavelang/'.length)
+    const manifest = json<Manifest>(new URL(`packages/${directory}/package.json`, root))
+    const readme = read(new URL(`packages/${directory}/README.md`, root))
+    assert.equal(manifest.name, name)
+    for (const entry of Object.keys(manifest.exports ?? {})) {
+      const specifier = entry === '.' ? name : `${name}/${entry.slice(2)}`
+      assert.ok(readme.includes(specifier), `${name}/README.md does not document ${specifier}`)
+    }
+  }
+})
+
+test('package migration and website documentation follow package registries', () => {
+  const surfaces = json<Surfaces>(new URL('package-surfaces.json', root))
+  const migration = read(new URL('PACKAGE_SURFACES.md', root))
+  const retired = [
+    ...Object.entries(surfaces.internal),
+    ...Object.entries(surfaces.tooling).filter(([, surface]) => surface.published === false)
+  ]
+  for (const [name, surface] of retired) {
+    assert.ok(surface.replacement !== undefined, `${name} needs a replacement`)
+    assert.ok(
+      migration.includes(`| \`${name}\` | \`${surface.replacement}\` |`),
+      `PACKAGE_SURFACES.md does not map ${name} to ${surface.replacement}`
+    )
+  }
+
+  const website = read(new URL('website/src/content.ts', root))
+  const packageDirectories = readdirSync(new URL('packages/', root), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && existsSync(new URL(`packages/${entry.name}/package.json`, root)))
+    .map(entry => entry.name)
+    .sort()
+  for (const directory of packageDirectories) {
+    assert.ok(
+      website.includes(`../../packages/${directory}/README.md?raw`),
+      `website navigation does not import packages/${directory}/README.md`
+    )
+    assert.ok(
+      website.includes(`source: 'packages/${directory}/README.md'`),
+      `website navigation does not identify packages/${directory}/README.md as its source`
+    )
+  }
+})
+
+test('specification and version projections keep their authoritative sources', () => {
+  const documentation = read(new URL('DOCUMENTATION.md', root))
+  const overview = read(new URL('README.md', root))
+  const skillDirectories = readdirSync(new URL('.claude/skills/', root), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('cave-'))
+    .filter(entry => existsSync(new URL(`.claude/skills/${entry.name}/SKILL.md`, root)))
+    .map(entry => entry.name)
+    .sort()
+  for (const directory of skillDirectories) {
+    const path = `.claude/skills/${directory}/SKILL.md`
+    assert.ok(overview.includes(path), `README.md specification index omits ${path}`)
+    assert.ok(documentation.includes(path), `DOCUMENTATION.md source registry omits ${path}`)
+  }
+
+  const websiteVersion = read(new URL('website/src/version.ts', root))
+  assert.match(websiteVersion, /import repositoryPackage from '\.\.\/\.\.\/package\.json'/)
+  assert.match(websiteVersion, /repositoryPackage\.version/)
+  const book = read(new URL('book/cave.typ', root))
+  assert.match(book, /json\("\.\.\/package\.json"\)\.at\("version"\)/)
 })

@@ -18,11 +18,11 @@ rationale into the relevant live document or changelog.
 | Subject | Authoritative source | Kept aligned |
 |---|---|---|
 | Public behavior | implementation, types, tests, and CLI `--help` | package READMEs, root README, book, website |
-| Normative CAVE language and semantics | `.claude/skills/cave-*/SKILL.md` | parser/canonical docs, book, examples |
+| Normative CAVE language and semantics | `.claude/skills/cave-*/SKILL.md` | parser/canonical docs, book, examples; the root specification index is registry-checked |
 | System boundaries and runtime flows | `ARCHITECTURE.md` plus package dependency graph | `IMPLEMENTATION.md`, book architecture chapter, website docs |
-| Package API | exported types and package tests | `packages/*/README.md` |
+| Package API | implementation exports, package-manifest `exports`, and `package-surfaces.json` | `packages/*/README.md`, `PACKAGE_SURFACES.md`, root overview, and website navigation; registry projections are checked in tests |
 | CLI and MCP surfaces | `packages/cli/src/commands.ts`, `packages/mcp/src/tools.ts`, and their help output | CLI/MCP READMEs, root README, book field guide; `packages/cli/test/documentation.test.ts` validates the package reference tables |
-| Project version | root `package.json` and release automation | website and book read it dynamically; do not copy a current version literal |
+| Project version | root `package.json` and release automation | website and book must read it dynamically; the import paths are checked in tests and must not become copied literals |
 | Work status | implementation and merged changes | `TODO.md`, `todo/**/*.md`, `BUGS.md`, `bugs/**/*.md` |
 
 If two documents disagree, fix the lower-authority projection rather than
@@ -58,6 +58,17 @@ Configuration and source comments may also be user-facing documentation. In
 particular, keep command usage strings in `packages/*/src/main.ts` and
 `packages/cli/src/cli.ts`, package descriptions in `package.json` files, and
 workflow comments aligned when their behavior changes.
+
+## Automated projection checks
+
+`packages/cli/test/documentation.test.ts` keeps the mechanical copies small
+and reviewable. It checks command and MCP tables against their registries,
+every published package entry point against its package README, package
+migrations against `package-surfaces.json`, website navigation against package
+READMEs, the root specification index against `.claude/skills/cave-*`, and the
+book/website version imports against the root manifest. Contributors update
+the authoritative registry and its human explanation in one PR; ordinary
+`pnpm test` reports the exact stale projection.
 
 ## Change map
 
