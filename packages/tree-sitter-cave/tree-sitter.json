@@ -15,7 +15,7 @@
     }
   ],
   "metadata": {
-    "version": "0.28.1",
+    "version": "0.29.0",
     "license": "CC0-1.0",
     "description": "Tree-sitter grammar for CAVE — Compressed Atomic Verb Expressions",
     "authors": [
