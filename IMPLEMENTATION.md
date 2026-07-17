@@ -52,6 +52,14 @@ packages the same grammar WASM and highlight query as a VSCode extension
 
 ## Toolchain
 
+- **Tool versions and generated output are deterministic.** `make bootstrap`
+  reads the exact pnpm version from the root `packageManager` field, preferring
+  an already matching binary, then Corepack, then an exact ephemeral npm
+  package. `pnpm clean` removes compiler output, website and VS Code bundles,
+  packaged extensions, generated tree-sitter files, build metadata, and legal
+  files staged by package hooks. CI and release workflows pin third-party
+  actions to reviewed commit revisions while retaining major-version comments
+  for update tooling.
 - **Build-free development, emitted releases.** Node ≥ 22.18 can run the
   workspace `.ts` sources directly through type stripping and pnpm symlinks.
   `pnpm build` is the canonical composite `tsc -b` operation: it typechecks

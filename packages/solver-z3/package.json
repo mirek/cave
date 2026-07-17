@@ -3,6 +3,9 @@
   "version": "0.28.0",
   "type": "module",
   "description": "Optional Node.js Z3 WebAssembly adapter and allowlisted workflow fixture for CAVE formal reasoning.",
+  "keywords": ["cave", "knowledge-graph", "knowledge-representation", "typescript"],
+  "homepage": "https://github.com/mirek/cave#readme",
+  "bugs": { "url": "https://github.com/mirek/cave/issues" },
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {

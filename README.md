@@ -506,6 +506,8 @@ The roadmap is complete — every numbered item shipped, and the knowledge loop 
 ## Development
 
 ```sh
+make bootstrap         # install with the exact pnpm version declared by the repo
+pnpm clean             # remove generated output from every workspace
 pnpm test             # all packages, bottom-up
 pnpm build             # typecheck + emit (`pnpm typecheck` is an alias)
 pnpm bench:performance # deterministic representative regression budgets

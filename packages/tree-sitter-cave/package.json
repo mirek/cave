@@ -2,6 +2,9 @@
   "name": "@cavelang/tree-sitter-cave",
   "version": "0.28.1",
   "description": "Tree-sitter grammar for CAVE — the canonical grammar artifact behind editor and terminal highlighting.",
+  "keywords": ["cave", "knowledge-graph", "knowledge-representation", "typescript"],
+  "homepage": "https://github.com/mirek/cave#readme",
+  "bugs": { "url": "https://github.com/mirek/cave/issues" },
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {

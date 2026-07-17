@@ -21,8 +21,7 @@
 .PHONY: bootstrap build watch test typecheck check clean smoke publish
 
 bootstrap:
-	@command -v pnpm >/dev/null 2>&1 || corepack enable 2>/dev/null || npm install -g pnpm
-	pnpm install
+	node scripts/bootstrap.mjs
 
 build:
 	pnpm build

@@ -3,6 +3,9 @@
   "version": "0.28.1",
   "type": "module",
   "description": "Solver-neutral models, bounded verification workflows, validation, and result contracts for CAVE formal reasoning.",
+  "keywords": ["cave", "knowledge-graph", "knowledge-representation", "typescript"],
+  "homepage": "https://github.com/mirek/cave#readme",
+  "bugs": { "url": "https://github.com/mirek/cave/issues" },
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
