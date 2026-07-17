@@ -225,10 +225,18 @@ test('watch startup, debounce, retry, pruning and explicit-source lifecycle are 
     assert.match(stderr.value, new RegExp(`cave connect watch pass: .*${basename(source)}`),
       'a failed watch pass names its lifecycle stage and source')
 
+    writeFileSync(source, JSON.stringify([{ id: 'alice', company: 'rescanned' }]))
+    listeners[0]!('change', null)
+    await flush()
+    store = open(db)
+    row = store.currentBeliefs().find(entry => entry.subject === 'alice' && entry.verb === 'WORKS-AT')!
+    assert.equal(row.object, 'rescanned', 'a filename-less event rescans its watched target')
+    store.close()
+
     writeFileSync(source, '[]')
     listeners[0]!('change', basename(source))
     listeners[0]!('rename', basename(source))
-    listeners[1]!('change', basename(map))
+    listeners[1]!('change', Buffer.from(basename(map)))
     assert.equal(scheduled.size, 1)
     assert.ok(cancelled >= 2, 'later source/map events cancel earlier debounce callbacks')
     await flush()

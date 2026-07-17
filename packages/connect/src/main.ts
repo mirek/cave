@@ -311,7 +311,10 @@ const runWatch = async (
   const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
   const watchers = targets.map(target =>
     watch(dirname(target), (_event, filename) => {
-      if (filename === basename(target)) {
+      // Some platforms and watcher backends cannot identify the changed
+      // directory entry. A filename-less event is therefore a rescan signal,
+      // while Buffer filenames retain the same exact target filtering.
+      if (filename === null || filename.toString() === basename(target)) {
         trigger()
       }
     }))

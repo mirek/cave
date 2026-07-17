@@ -81,8 +81,9 @@ never poison the rest of the run — or the prune set.
 - `--watch` re-runs the pass when the source or mapping file changes;
   digests keep each pass incremental. Parent directories are watched before
   the startup pass (so atomic file replacement and startup saves cannot fall
-  into a gap), bursts debounce for 200 ms, and a failed pass is named on
-  stderr while the next save remains retryable.
+  into a gap), filename-less events conservatively rescan, bursts debounce for
+  200 ms, and a failed pass is named on stderr while the next save remains
+  retryable.
 - `--query '<pattern>'` is federation-lite: mapped claims append inside a
   transaction, the CAVE-Q pattern runs over the union of store and
   source, and everything rolls back — external data consulted at query
