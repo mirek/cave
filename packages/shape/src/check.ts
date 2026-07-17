@@ -389,6 +389,13 @@ const scopeOf = (store: Store, row: Row.t): string =>
     .sort()
     .join(' ')
 
+/** Whether two rows from different alias names actually conflict. */
+const hasCrossNamePair = (
+  rows: readonly Row.t[],
+  differs: (left: Row.t, right: Row.t) => boolean
+): boolean => rows.some((left, at) =>
+  rows.slice(at + 1).some(right => left.subject !== right.subject && differs(left, right)))
+
 /**
  * Cross-series conflicts inside alias groups (spec §20.2) — the checking
  * half open decision 2 deferred: union-of-rows keeps disagreeing series
@@ -416,13 +423,11 @@ const findDisagreements = (store: Store): Disagreement[] => {
       if (first.attribute !== null) {
         const positives = bucket.filter(row => row.negated === 0)
         const subjects = [...new Set(positives.map(row => row.subject))].sort()
-        if (subjects.length >= 2 && new Set(positives.map(row => row.value_text)).size > 1) {
+        if (hasCrossNamePair(positives, (left, right) => left.value_text !== right.value_text)) {
           disagreements.push({ kind: 'value', about: `${first.verb} ${first.attribute}`, entities: subjects, rows: positives })
         }
       } else {
-        const positive = new Set(bucket.filter(row => row.negated === 0).map(row => row.subject))
-        const negative = new Set(bucket.filter(row => row.negated === 1).map(row => row.subject))
-        if ([...positive].some(p => [...negative].some(n => n !== p))) {
+        if (hasCrossNamePair(bucket, (left, right) => left.negated !== right.negated)) {
           disagreements.push({
             kind: 'polarity',
             about: `${first.verb} ${first.object}`,

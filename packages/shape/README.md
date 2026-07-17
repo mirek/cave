@@ -50,7 +50,10 @@ gatedIngest(store, 'cache IS service', { source: 'cli' })
 - **disagreements** — cross-series conflicts inside alias closure groups
   (§13.6 keeps aliased series separate; this is what looks at them):
   same verb+attribute with different values, or same verb+object asserted
-  by one name and negated by another. Series scoped to different
+  by one name and negated by another. A report requires a conflicting pair
+  whose originating alias names differ; actor forks within one name remain
+  visible as belief series but are not mislabeled as alias disagreements.
+  Series scoped to different
   non-`src:` contexts describe different facts and never disagree; actor
   provenance stamps (§9.5) are provenance, not scope.
 - **coverage** — the §17.6 precursor: row/fact/belief-state counts,
