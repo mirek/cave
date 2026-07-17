@@ -174,6 +174,11 @@ try {
   if (vscodeVersion !== version) {
     fail(`editors/vscode/package.json is at committed version ${vscodeVersion}, expected ${version}`)
   }
+  const vscodeChangelog = runGit(['show', 'HEAD:editors/vscode/CHANGELOG.md'], { allowFailure: true })
+  if (vscodeChangelog.status !== 0 ||
+      !new RegExp(`^## ${version.replace(/\./g, '\\.')}$`, 'm').test(vscodeChangelog.stdout)) {
+    fail(`editors/vscode/CHANGELOG.md has no release entry for ${version}`)
+  }
 
   let versionCommit
   for (const commit of git('rev-list', '--first-parent', 'HEAD', '--', 'package.json').split('\n')) {

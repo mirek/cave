@@ -11,12 +11,19 @@
 // the repository release identity without entering the npm fixed group.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
-const root = join(import.meta.dirname, '..')
+const root = resolve(process.env.CAVE_RELEASE_ROOT ?? join(import.meta.dirname, '..'))
 
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'))
 const write = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n')
+const releaseType = (previous, next) => {
+  const [previousMajor, previousMinor] = previous.split('.').map(Number)
+  const [nextMajor, nextMinor] = next.split('.').map(Number)
+  if (nextMajor !== previousMajor) return 'Major'
+  if (nextMinor !== previousMinor) return 'Minor'
+  return 'Patch'
+}
 
 // @cavelang/core is in the fixed group, so it always carries the current
 // lockstep version after `changeset version` has run.
@@ -44,9 +51,27 @@ if (rootManifest.version !== version) {
 const vscodeManifestPath = join(root, 'editors/vscode/package.json')
 const vscodeManifest = read(vscodeManifestPath)
 if (vscodeManifest.version !== version) {
+  const previousVersion = vscodeManifest.version
   vscodeManifest.version = version
   write(vscodeManifestPath, vscodeManifest)
   console.log(`editors/vscode/package.json: ${version}`)
+
+  // changesets/action summarizes every version-changed workspace package,
+  // including this ignored private package, and therefore requires a
+  // changelog entry even though Changesets itself does not generate one.
+  const changelogPath = join(root, 'editors/vscode/CHANGELOG.md')
+  const changelog = existsSync(changelogPath)
+    ? readFileSync(changelogPath, 'utf8').trimEnd()
+    : '# cave-language'
+  const heading = `## ${version}`
+  if (!changelog.split('\n').includes(heading)) {
+    const title = '# cave-language'
+    const history = changelog === title ? '' : changelog.slice(title.length).trim()
+    const entry = `${heading}\n\n### ${releaseType(previousVersion, version)} Changes\n\n` +
+      `- Align the VS Code extension with the CAVE ${version} release identity.`
+    writeFileSync(changelogPath, `${title}\n\n${entry}${history.length > 0 ? `\n\n${history}` : ''}\n`)
+    console.log(`editors/vscode/CHANGELOG.md: ${version}`)
+  }
 }
 
 const grammarPath = join(root, 'packages/tree-sitter-cave/tree-sitter.json')

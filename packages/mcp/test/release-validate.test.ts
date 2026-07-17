@@ -1,12 +1,13 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const validator = fileURLToPath(new URL('../../../scripts/release-validate.mjs', import.meta.url))
+const synchronizer = fileURLToPath(new URL('../../../scripts/sync-versions.mjs', import.meta.url))
 
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
@@ -27,6 +28,7 @@ const writeVersions = (root: string, version: string): void => {
   writeFileSync(join(root, 'packages/tree-sitter-cave/CHANGELOG.md'), `# @fixture/grammar\n\n## ${version}\n`)
   writeFileSync(join(root, 'editors/vscode/package.json'),
     `${JSON.stringify({ name: 'cave-language', version, private: true }, null, 2)}\n`)
+  writeFileSync(join(root, 'editors/vscode/CHANGELOG.md'), `# cave-language\n\n## ${version}\n`)
 }
 
 const writeReleaseConfig = (root: string, fixed: string[]): void => {
@@ -81,6 +83,49 @@ const validate = (root: string, mode: 'version-pr' | 'publish' = 'publish') =>
       GITHUB_SHA: ''
     }
   })
+
+test('version synchronization gives the private VS Code workspace a changelog entry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cave-version-sync-'))
+  try {
+    mkdirSync(join(root, 'packages/core'), { recursive: true })
+    mkdirSync(join(root, 'packages/private'), { recursive: true })
+    mkdirSync(join(root, 'packages/tree-sitter-cave'), { recursive: true })
+    mkdirSync(join(root, 'editors/vscode'), { recursive: true })
+    writeFileSync(join(root, 'packages/core/package.json'), '{"name":"@fixture/core","version":"2.0.0"}\n')
+    writeFileSync(join(root, 'packages/private/package.json'),
+      '{"name":"@fixture/private","version":"1.9.0","private":true}\n')
+    writeFileSync(join(root, 'package.json'), '{"name":"fixture","version":"1.9.0","private":true}\n')
+    writeFileSync(join(root, 'editors/vscode/package.json'),
+      '{"name":"cave-language","version":"1.9.0","private":true}\n')
+    writeFileSync(join(root, 'editors/vscode/CHANGELOG.md'), '# cave-language\n\n## 1.9.0\n\nPrevious release.\n')
+    writeFileSync(join(root, 'packages/tree-sitter-cave/tree-sitter.json'),
+      '{"metadata":{"version":"1.9.0"}}\n')
+
+    const first = spawnSync(process.execPath, [synchronizer], {
+      encoding: 'utf8',
+      env: { ...process.env, CAVE_RELEASE_ROOT: root }
+    })
+    assert.equal(first.status, 0, first.stderr)
+    assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '2.0.0')
+    assert.equal(JSON.parse(readFileSync(join(root, 'packages/private/package.json'), 'utf8')).version, '2.0.0')
+    assert.equal(JSON.parse(readFileSync(join(root, 'editors/vscode/package.json'), 'utf8')).version, '2.0.0')
+    assert.equal(JSON.parse(readFileSync(join(root, 'packages/tree-sitter-cave/tree-sitter.json'), 'utf8'))
+      .metadata.version, '2.0.0')
+    const changelog = readFileSync(join(root, 'editors/vscode/CHANGELOG.md'), 'utf8')
+    assert.match(changelog, /^# cave-language\n\n## 2\.0\.0\n\n### Major Changes/m)
+    assert.ok(changelog.indexOf('## 2.0.0') < changelog.indexOf('## 1.9.0'))
+
+    const second = spawnSync(process.execPath, [synchronizer], {
+      encoding: 'utf8',
+      env: { ...process.env, CAVE_RELEASE_ROOT: root }
+    })
+    assert.equal(second.status, 0, second.stderr)
+    assert.equal([...readFileSync(join(root, 'editors/vscode/CHANGELOG.md'), 'utf8')
+      .matchAll(/^## 2\.0\.0$/gm)].length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
 
 test('version-PR preflight preserves a recovery path for a new package with version drift', async t => {
   await t.test('accepts repairable drift while changesets are pending', () => {
@@ -261,6 +306,21 @@ test('release preflight accepts only an authoritative version commit and matchin
       const result = validate(root)
       assert.equal(result.status, 1)
       assert.match(result.stderr, /packages\/public\/CHANGELOG\.md has no release entry for 1\.2\.3/)
+    } finally {
+      cleanup()
+    }
+  })
+
+  await t.test('rejects a missing VS Code changelog entry', () => {
+    const { root, cleanup } = fixture()
+    try {
+      writeFileSync(join(root, 'editors/vscode/CHANGELOG.md'), '# cave-language\n')
+      git(root, 'add', '.')
+      git(root, 'commit', '--amend', '--no-edit')
+      git(root, 'push', '--force', 'origin', 'main')
+      const result = validate(root)
+      assert.equal(result.status, 1)
+      assert.match(result.stderr, /editors\/vscode\/CHANGELOG\.md has no release entry for 1\.2\.3/)
     } finally {
       cleanup()
     }
