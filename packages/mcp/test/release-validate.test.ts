@@ -92,7 +92,7 @@ test('version-PR preflight preserves a recovery path for a new package with vers
         version: '0.1.0'
       }, null, 2)}\n`)
       writeReleaseConfig(root, ['@fixture/public', '@fixture/grammar', '@fixture/new-package'])
-      writeChangeset(root, 'new-package', '---\n"@fixture/new-package": minor\n---\n\nRelease the new package.\n')
+      writeChangeset(root, 'new-package', "---\n'@fixture/new-package': minor\n---\n\nRelease the new package.\n")
       git(root, 'add', '.')
       git(root, 'commit', '-m', 'add new package')
       git(root, 'push', 'origin', 'main')
@@ -116,6 +116,22 @@ test('version-PR preflight preserves a recovery path for a new package with vers
       const result = validate(root, 'version-pr')
       assert.equal(result.status, 1)
       assert.match(result.stderr, /names unknown package @fixture\/missing/)
+    } finally {
+      cleanup()
+    }
+  })
+
+  await t.test('accepts documentation-only changesets with empty frontmatter', () => {
+    const { root, cleanup } = fixture()
+    try {
+      writeChangeset(root, 'documentation', '---\n---\n\nDocument the release.\n')
+      git(root, 'add', '.')
+      git(root, 'commit', '-m', 'document release')
+      git(root, 'push', 'origin', 'main')
+
+      const result = validate(root, 'version-pr')
+      assert.equal(result.status, 0, result.stderr)
+      assert.match(result.stdout, /version-PR preflight ok: 1 pending changeset/)
     } finally {
       cleanup()
     }

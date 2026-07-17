@@ -30,15 +30,19 @@ const sameMembers = (actual, expected) =>
 
 const parseChangeset = path => {
   const text = committedText(path)
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(text)
-  if (match === null) fail(`${path} must contain YAML frontmatter and a summary`)
-  if (match[2].trim().length === 0) fail(`${path} has an empty summary`)
+  const lines = text.split(/\r?\n/)
+  const closingDelimiter = lines.indexOf('---', 1)
+  if (lines[0] !== '---' || closingDelimiter < 1) {
+    fail(`${path} must contain YAML frontmatter and a summary`)
+  }
+  const summary = lines.slice(closingDelimiter + 1).join('\n').trim()
+  if (summary.length === 0) fail(`${path} has an empty summary`)
 
   const releases = []
-  for (const line of match[1].split(/\r?\n/).filter(line => line.trim().length > 0)) {
-    const release = /^"([^"]+)": (major|minor|patch)$/.exec(line)
+  for (const line of lines.slice(1, closingDelimiter).filter(line => line.trim().length > 0)) {
+    const release = /^(?:"([^"]+)"|'([^']+)'): (major|minor|patch)$/.exec(line)
     if (release === null) fail(`${path} has invalid release entry ${JSON.stringify(line)}`)
-    releases.push({ name: release[1], type: release[2] })
+    releases.push({ name: release[1] ?? release[2], type: release[3] })
   }
   const names = releases.map(release => release.name)
   if (new Set(names).size !== names.length) fail(`${path} names a package more than once`)
