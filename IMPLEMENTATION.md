@@ -360,15 +360,16 @@ Package READMEs document local decisions; these are the global ones:
 
 - **Normative spec**: implemented, including legacy acceptance
   (colonless attributes parse, emitters always produce the colon form).
-- **Draft layer (§17)** — rules `=>` passed the parser gate and are
+- **Draft history (§17)** — rules `=>` passed the parser gate and are
   committed + implemented as §24 (`@cavelang/rules`, `cave derive`);
   temporal layer 2 passed it too and is committed + implemented as §32
   (trajectory values in `@cavelang/core`, time contexts in `Time`,
-  interpolation in `@cavelang/query` / `cave query --at`); variables in
-  core grammar, reification `[S V O]` and temporal layer 3
-  (`(t -> expr)` functions) remain *not implemented*, as speced
-  ("commitment is gated on the parser implementation"). CAVE-Q's `?x`
-  layer (§12) is implemented.
+  interpolation in `@cavelang/query` / `cave query --at`). The remaining
+  sketches are resolved non-features: stored claims stay fully bound,
+  qualifier/provenance edges replace `[S V O]` values, and executable
+  `(t -> expr)` formulas stay in external evaluators. CAVE-Q's contextual
+  `?x` layer (§12) is implemented. The durable rationale and evidence needed
+  to revisit these boundaries live in `PROJECT-BOUNDARIES.md`.
 - **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`,
   including the LLM-driven policy over shell-agent templates
   with the heuristic policy as its eval baseline.

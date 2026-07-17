@@ -501,7 +501,12 @@ One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave
 
 ## What's left
 
-The roadmap is complete — every numbered item shipped, and the knowledge loop (sense, model, conclude, act, trust, distribute) runs on one machine. [TODO.md](TODO.md) tracks what remains: the deliberately unfinished edges, the open design decisions, and issues found by analysis. [BUGS.md](BUGS.md) indexes suspected bugs with self-contained repro notes under [`bugs/`](bugs/).
+The roadmap is complete — every numbered item shipped, and the knowledge loop
+(sense, model, conclude, act, trust, distribute) runs on one machine. There are
+currently no active backlog items; [TODO.md](TODO.md) is the queue and
+[PROJECT-BOUNDARIES.md](PROJECT-BOUNDARIES.md) records deliberately excluded
+extensions and their reopening criteria. [BUGS.md](BUGS.md) separately indexes
+suspected defects with self-contained repro notes under [`bugs/`](bugs/).
 
 ## Development
 

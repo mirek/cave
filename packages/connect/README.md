@@ -84,6 +84,10 @@ never poison the rest of the run — or the prune set.
   into a gap), filename-less events conservatively rescan, bursts debounce for
   200 ms, and a failed pass is named on stderr while the next save remains
   retryable.
+- Socket and webhook listeners are deliberately external adapters. They own
+  transport authentication, retry, delivery, deduplication, and shutdown,
+  then write a watched file or invoke one bounded connect pass. The core does
+  not become a resident network service with source-specific lifecycle rules.
 - `--query '<pattern>'` is federation-lite: mapped claims append inside a
   transaction, the CAVE-Q pattern runs over the union of store and
   source, and everything rolls back — external data consulted at query

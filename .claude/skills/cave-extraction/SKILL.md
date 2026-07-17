@@ -138,7 +138,7 @@ reject-valid-tokens CAUSED-BY token-expiry   ; inverse read of the CAUSE row
 token-expiry PART-OF topic/auth-hardening    ; inverse read of the CONTAINS row
 ```
 
-and, once the Draft layer lands:
+The same store can be asked through committed CAVE-Q patterns:
 
 ```cave
 ?fix FIX token-expiry                     ; → `<=`
@@ -253,6 +253,11 @@ Retraction never touches vocabulary declaration claims (`X IS verb`,
   per-record digests make each pass row-level incremental. This is
   continuous ingestion scaled to one machine — a tail loop, not a
   platform.
+- **Push transports stay outside the core.** A socket or webhook bridge owns
+  its transport-specific authentication, retry, delivery, deduplication, and
+  shutdown policy, then writes a watched file or invokes one bounded connect
+  pass. CAVE does not open a resident network listener whose semantics would
+  vary by source.
 - **`--query '<pattern>'`** is federation-lite: the mapped claims are
   appended *inside a transaction*, the CAVE-Q pattern runs over the
   union of store and source, and the transaction **rolls back** —

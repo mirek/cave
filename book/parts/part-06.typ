@@ -59,17 +59,17 @@ Performance is designed for local SQLite scale. Indexes support direct entity, v
 Package boundaries stay fine-grained inside the source workspace, but only independently consumed kernel libraries and tooling publish separately. Command implementation modules such as rules, actions, automation, ingestion, MCP, and views ship as documented `@cavelang/cli/<feature>` subpaths. This keeps focused tests and ownership without multiplying npm version and compatibility surfaces; consumers of the former package names migrate by changing the import specifier only.
 
 
-= Draft and Deliberately Unfinished Areas
-The specification marks sections as normative, legacy, draft, or non-normative. Implemented rule syntax and temporal trajectories have graduated from the draft unified grammar. General reification, variables in ordinary stored claim lines, and arbitrary temporal functions remain draft.
+= Historical Drafts and Deliberate Boundaries
+The specification marks sections as normative, legacy, draft, or non-normative. Implemented rule syntax and temporal trajectories graduated from the unified-grammar draft. The remaining sketches are not active roadmap items: ordinary stored claims stay fully bound, explicit qualifier and provenance structures replace recursively reified claim values, and executable temporal formulas stay in bounded external evaluators.
 
 ```cave
-[server CAUSE crash] WHEN load EXCEEDS 1000 req/s   ; draft reification
-revenue IS (t -> 20B * 1.25^(t - 2025)) USD/yr ; draft function
+[server CAUSE crash] WHEN load EXCEEDS 1000 req/s   ; historical sketch
+revenue IS (t -> 20B * 1.25^(t - 2025)) USD/yr ; external model instead
 ```
 
-The unified-grammar idea is that facts, queries, and rules share one triple structure and differ primarily by binding state: all slots bound is a fact, some variables is a query, and variables plus => form a rule. Features graduate only after parser and evaluator implementations prove the semantics.
+The useful part of the unified-grammar idea survives in scoped surfaces: CAVE-Q patterns, connector templates, and rule bodies bind variables, while persisted claims remain concrete facts. A future proposal must demonstrate a workflow that the existing structures cannot express and specify identity, scope, determinism, security, lifecycle, and compatibility before changing these boundaries.
 
-Open design items and suspected bugs are tracked in TODO.md and BUGS.md. The project treats incompleteness as explicit data rather than filling gaps with unimplemented promises.
+Network push transports follow the same discipline. A transport-specific bridge owns webhook or socket authentication, retry, deduplication, and shutdown, then feeds a bounded connect pass or watched file; the local core does not become a resident integration platform. Active work and suspected bugs are tracked separately in TODO.md and BUGS.md.
 
 
 = CLI Field Guide
