@@ -68,6 +68,9 @@ Decisions this package pins down where the spec leaves latitude:
   syntax and CAVE-Q filter syntax.
 - **`Value.parse` never fails** — unparseable text degrades to an `atom`
   value with raw text preserved, honoring the LLM-friendliness goal (§1.6).
+- **Uncertainty is positive and finite** — `+/-` deltas, `(Nσ)` levels, and
+  directly supplied σ values share `Uncertainty` validation. `Claim.of`
+  enforces the invariant for programmatic callers as well as parsed text.
 - **Date classification uses `Time.parsePeriod`** — leap days, month lengths,
   ISO week-years, quarters, halves, and partial periods have one shared
   structural and calendar validator. Invalid date-shaped values stay atoms.

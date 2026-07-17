@@ -160,6 +160,22 @@ test('value uncertainty and sigma override (spec §7.2)', () => {
   assert.equal(value.meta.conf, 0.9)
 })
 
+test('invalid uncertainty and sigma metadata produce clear diagnostics', () => {
+  for (const [suffix, pattern] of [
+    ['+/- 0', /positive finite uncertainty delta/],
+    ['+/- -1', /positive finite uncertainty delta/],
+    ['+/- unknown', /positive finite uncertainty delta/],
+    ['+/- 1 (0σ)', /positive finite sigma level/],
+    ['+/- 1 (-1σ)', /expected \(Nσ\)/],
+    ['+/- 1 (1..2σ)', /expected \(Nσ\)/],
+    [`+/- 1 (${'9'.repeat(400)}σ)`, /positive finite sigma level/]
+  ] as const) {
+    const result = claim(`latency IS 10ms ${suffix}`)
+    assert.match(result.problems.join('\n'), pattern, suffix)
+    assert.equal(result.value.meta.sigmaLevel, undefined)
+  }
+})
+
 test('approximate value with uncertainty (spec §7.3)', () => {
   const { value } = claim('OpenAI HAS revenue: ~20B USD/yr +/- 2B USD/yr @ 95%')
   assert.equal(value.payload.kind, 'attribute')

@@ -26,7 +26,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Digest path encoding](todo/ingest-digest-path-encoding.md) — Record digests safely for paths and URLs containing syntax characters.
 - [Rules pass-limit retraction](todo/rules-max-passes-retraction.md) — Avoid false retractions when derivation stops at its pass limit.
 - [MCP protocol compliance](todo/mcp-protocol-compliance.md) — Negotiate supported versions and respond correctly to JSON-RPC batches.
-- [Zero-sigma validation](todo/zero-sigma-validation.md) — Reject zero uncertainty and use one validated sigma implementation.
 - [Transitive depth truncation](todo/transitive-depth-truncation.md) — Remove or expose the silent 32-hop closure limit.
 
 ## Grammar and editor support
