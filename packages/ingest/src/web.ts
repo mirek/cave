@@ -84,6 +84,34 @@ export const readableTextOf = (html: string): string => {
 /** Injection point for tests; the built-in fetch otherwise. */
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
 
+export type FailureKind = 'network' | 'http'
+
+export type Failure = {
+  readonly path: string
+  readonly kind: FailureKind
+  readonly retryable: boolean
+  readonly message: string
+  readonly status?: number
+}
+
+class FetchFailure extends Error {
+  readonly failure: Failure
+
+  constructor(failure: Failure) {
+    super(failure.message)
+    this.failure = failure
+  }
+}
+
+const retryableStatus = (status: number): boolean =>
+  status === 408 || status === 425 || status === 429 || status >= 500
+
+const failureOf = (url: string, error: unknown): Failure => {
+  if (error instanceof FetchFailure) return error.failure
+  const detail = error instanceof Error ? error.message : String(error)
+  return { path: url, kind: 'network', retryable: true, message: `fetch ${url} failed: ${detail}` }
+}
+
 /**
  * Fetches one URL and returns it as a selectable source — readable text
  * for HTML responses, the verbatim body for anything else.
@@ -93,16 +121,27 @@ export const fetchDocument = async (
   fetchImpl: FetchLike = fetch,
   timeoutSeconds = 60
 ): Promise<Selected> => {
-  const response = await fetchImpl(url, {
-    headers: {
-      'user-agent': 'cave-ingest',
-      accept: 'text/html, text/markdown, text/plain, application/json;q=0.9, */*;q=0.8'
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(timeoutSeconds * 1000)
-  })
+  let response: Response
+  try {
+    response = await fetchImpl(url, {
+      headers: {
+        'user-agent': 'cave-ingest',
+        accept: 'text/html, text/markdown, text/plain, application/json;q=0.9, */*;q=0.8'
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(timeoutSeconds * 1000)
+    })
+  } catch (error) {
+    throw new FetchFailure(failureOf(url, error))
+  }
   if (!response.ok) {
-    throw new Error(`fetch ${url} failed: ${response.status} ${response.statusText}`)
+    throw new FetchFailure({
+      path: url,
+      kind: 'http',
+      retryable: retryableStatus(response.status),
+      status: response.status,
+      message: `fetch ${url} failed: ${response.status} ${response.statusText}`
+    })
   }
   const type = response.headers.get('content-type') ?? ''
   const body = await response.text()
@@ -121,18 +160,28 @@ export const select = async (
   store: Store,
   urls: readonly string[],
   options: { force?: boolean, fetchImpl?: FetchLike } = {}
-): Promise<Selection> => {
+): Promise<Selection & { failures: readonly Failure[] }> => {
   const files: Selected[] = []
   const skipped: string[] = []
-  const documents = await Promise.all(
-    [...new Set(urls)].map(url => fetchDocument(url, options.fetchImpl))
-  )
-  for (const document of documents) {
+  const failures: Failure[] = []
+  const outcomes: ({ document: Selected } | { failure: Failure })[] = await Promise.all([...new Set(urls)].map(async url => {
+    try {
+      return { document: await fetchDocument(url, options.fetchImpl) }
+    } catch (error) {
+      return { failure: failureOf(url, error) }
+    }
+  }))
+  for (const outcome of outcomes) {
+    if ('failure' in outcome) {
+      failures.push(outcome.failure)
+      continue
+    }
+    const document = outcome.document
     if (options.force !== true && isIngested(store, document.path, document.digest)) {
       skipped.push(document.path)
     } else {
       files.push(document)
     }
   }
-  return { files, skipped }
+  return { files, skipped, failures }
 }

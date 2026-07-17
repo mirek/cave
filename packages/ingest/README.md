@@ -30,6 +30,10 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    participate in incremental skipping as well. A URL's digest is taken over
    the *extracted* text, so a page re-ingests only when its readable content
    changes.
+   Each URL is selected independently: a failed request is reported without
+   discarding healthy file or URL sources. Network errors and retryable HTTP
+   statuses (408, 425, 429, and 5xx) are distinguished from permanent HTTP
+   failures in the source manifest.
 2. **Batch & prompt** — files are batched (`--batch`, default 8) and each
    batch gets a prompt built from: the CAVE writing card (shared with the
    MCP server), the spec §14 extraction rules, your `--instructions`
@@ -99,8 +103,10 @@ cave ingest 'notes/*.md' --db k.db --stdout --embed \
 **Explicit partial progress** — `--lenient` commits valid output batch by
 batch and continues after agent or parse failures. It still exits 1 when any
 source is rejected, and rejected sources receive no digest so the next run
-retries them. `--json` emits the complete manifest (`accepted`, `rejected`,
-`skipped`, or `not-run` for every matched source):
+retries them. This also preserves healthy sources when another URL fails to
+fetch. `--json` emits the complete manifest (`accepted`, `rejected`,
+`skipped`, or `not-run` for every matched source), including URL failure kind,
+HTTP status, and retryability:
 
 ```sh
 cave ingest 'notes/*.md' --db k.db --stdout --lenient --json \
@@ -157,6 +163,9 @@ cave ingest 'notes/*.md' --db k.db --stdout --lenient --json \
   sources `not-run`. `--lenient` is the deliberate partial-progress mode: it
   attempts every batch, commits valid lines even from a rejected stdout batch
   (spec §1.6), and records digests only for accepted sources.
+  URL selection is source-isolated under both policies: any failed URL rolls
+  the strict run back before an agent call, while lenient mode continues with
+  healthy files and URLs.
 
 ## Exit codes, retries, and agent calls
 
