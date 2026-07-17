@@ -337,8 +337,11 @@ Package READMEs document local decisions; these are the global ones:
   single grammar source, and no client-side parser exists to drift —
   while `raw_line` is shown where the authored text is the point.
   Binding is `127.0.0.1` unless `--host` widens it deliberately. Every model
-  runs against the §9.7 sensitivity-scoped snapshot, not against full-store
-  results scrubbed afterward.
+  runs against a §9.7 sensitivity-scoped projection, not against full-store
+  results scrubbed afterward. Narrow audiences reuse immutable, indexed
+  projections keyed by source revision and sensitivity ceiling; local writes
+  and commits from other connections invalidate them before the next read,
+  while an explicit `restricted` read uses the complete store directly.
 - **Reports render deterministically or mark the hole** (§31):
   `cave report` (also `@cavelang/view`) walks the template line by
   line — fenced `cave-q` blocks render a fragment per CAVE-Q solution

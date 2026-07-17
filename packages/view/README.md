@@ -13,7 +13,11 @@ malformed and unknown labels fail closed as `restricted`. Use
 `--max-sensitivity <level>` (or `maxSensitivity` programmatically) to select a
 different audience. Filtering happens before view semantics: dashboard counts,
 aliases, history, search and lineage cannot disclose hidden rows indirectly,
-and lineage edges survive only when both endpoints are visible.
+and lineage edges survive only when both endpoints are visible. Narrow audiences
+reuse an immutable, indexed projection for each source store and sensitivity
+ceiling instead of copying visible rows on every request. A local append or a
+commit from another database connection invalidates the affected projection
+before the next read; changing the ceiling selects a separate projection.
 
 Claim JSON also parses every §9.8 source context into `sources` entries with
 the decoded source, inclusive line range, display location, and an `href` for
@@ -63,8 +67,9 @@ the whole store is reachable by clicking.
 ## Read-only, local (spec §30.3)
 
 Only GET/HEAD are answered (anything else is 405), no endpoint writes,
-and every request reads the live store — a running `cave automate`
-loop's appends show on the next refresh. The server binds `127.0.0.1`
+and every request reflects the live store — a running `cave automate`
+loop's appends invalidate the cached audience projection and show on the next
+refresh. The server binds `127.0.0.1`
 by default; `--host` widens deliberately (it shares the selected sensitivity
 view, read-only). Sensitivity is routing metadata, not authentication or
 encryption; a widened server still belongs behind an appropriate access layer.

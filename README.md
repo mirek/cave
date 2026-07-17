@@ -520,9 +520,12 @@ pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
 
 The performance gate covers canonical-text import/export, contested-belief
-resolution, large shape checks, bounded query pages, and seeded transitive
-queries. It emits a versioned JSON report with fixture/store sizes and SQLite
-plan evidence, then compares timings with the recorded
+resolution, large shape checks, bounded query pages, seeded transitive queries,
+and small/5,000-row sensitivity-scoped views. The view workloads record cold
+and warm latency plus cached claims, edges, and bytes, and verify that explicit
+`restricted` reads allocate no projection. The gate emits a versioned JSON
+report with fixture/store sizes and SQLite plan evidence, then compares timings
+with the recorded
 [`performance-baseline.json`](benchmarks/performance-baseline.json). CI uses
 generous absolute thresholds to catch material regressions without treating
 runner noise as a failure.
