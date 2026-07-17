@@ -2,7 +2,6 @@
 
 ## Active backlog
 
-- [Validate packed type and API contracts](todo/packed-type-api-contracts.md) — Test tarball declarations, resolution metadata, and public API changes as an external consumer.
 - [Exercise the production browser bundle](todo/browser-production-smoke.md) — Run critical website and playground flows through the built GitHub Pages asset graph.
 - [Make grammar builds reproducible](todo/grammar-build-reproducibility.md) — Remove unverified network downloads from ordinary installs and verify generated grammar artifacts.
 - [Automate dependency maintenance](todo/dependency-action-maintenance.md) — Add low-noise recurring npm and action updates plus production advisory checks.

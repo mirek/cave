@@ -5,7 +5,9 @@
 #   make watch       rebuild on change (tsc -b --watch)
 #   make typecheck   compatibility alias for the emitting build
 #   make check       incremental build/typecheck + tests
-#   make smoke       pack public packages and exercise the installed `cave` bin
+#   make smoke       pack public packages, verify their types/API, and exercise
+#                    the installed `cave` bin. Set UPDATE_PACKED_API=1 after an
+#                    intentional public API change to refresh the snapshot.
 #   make publish     check + smoke, then publish public packages to npm from
 #                    this machine (needs npm auth) — for first-time publishes,
 #                    since npm trusted publishing can only be configured on
