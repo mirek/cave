@@ -81,13 +81,15 @@ WHERE conf >= 0.8        (also accepts 80%)
 WHERE tag = security     (bare key matches any value; topic:auth is exact)
 WHERE context = production
 WHERE value > 1000 req/s (numeric column; unit equality when given)
-WHERE tx > 2026-01-01    (dates are whole-day UTC intervals)
+WHERE tx > 2026-01-01    (date-like values are whole UTC periods)
+WHERE tx <= 2026-01-01T12:00:00 (offset-less timestamps mean UTC)
 ```
 
-`tx` filters compile a date to the interval `[day-start, next-day-start)`
-in UUIDv7 space: `=` means "recorded that day", `<=` includes the boundary
-day that `<` excludes, and `>` starts the day after. A timestamp value
-covers one second.
+`tx` filters compile a date-like value to its UTC period in UUIDv7 space:
+`=` means "recorded in that period", `<=` includes the boundary period that
+`<` excludes, and `>` starts after it. A timestamp value covers one second.
+An explicit `Z` or numeric offset is honored; a timestamp without either is
+UTC, so `2026-01-01T12:00:00` equals `2026-01-01T12:00:00Z` on every host.
 
 ## Semantics
 
@@ -126,8 +128,8 @@ covers one second.
 - **`{ asOf }` resolves beliefs as of a past moment** (§12.3): only rows
   recorded up to the boundary participate, then resolution proceeds as
   usual — so a claim retracted later is still believed at the boundary,
-  and one first recorded later is unknown. The boundary is a date (whole
-  UTC day included), a timestamp (whole second included), or a
+  and one first recorded later is unknown. The boundary is a date-like value
+  (whole UTC period included), a timestamp (whole second included), or a
   transaction id (that append included). The alias closure and transitive
   hops reconstruct at the same instant; `{ all: true }` composes as
   full-history-up-to-the-boundary.

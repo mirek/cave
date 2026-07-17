@@ -44,6 +44,8 @@ test('trajectories interpolate at the instant (spec §32.3)', () => {
   assert.equal(mid[0]!.at?.num, 30_000_000_000)
   assert.equal(mid[0]!.at?.text, '30B USD/yr')
   assert.equal(mid[0]!.at?.unit, 'USD/yr')
+  const zoneless = query(store, 'revenue IS', { at: '2026-07-02T12:00:00' })
+  assert.equal(zoneless[0]!.at?.num, mid[0]!.at?.num, 'zoneless --at anchors in UTC')
   const start = query(store, 'revenue IS', { at: '2025' })
   assert.equal(start[0]!.at?.num, 20_000_000_000)
   const arrived = query(store, 'revenue IS', { at: '2028' })

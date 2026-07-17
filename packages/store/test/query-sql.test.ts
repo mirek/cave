@@ -3,11 +3,15 @@ import { test } from 'node:test'
 import { Uuidv7 } from '@cavelang/core'
 import { QuerySql } from '@cavelang/store'
 
-test('transaction boundaries use whole UTC days and one-second timestamps', () => {
+test('transaction boundaries use whole UTC periods and one-second timestamps', () => {
   const day = QuerySql.transactionBounds('2026-07-16')!
   assert.equal(Uuidv7.msOf(day.hi) - Uuidv7.msOf(day.lo), 86_400_000)
   const second = QuerySql.transactionBounds('2026-07-16T12:34:56Z')!
   assert.equal(Uuidv7.msOf(second.hi) - Uuidv7.msOf(second.lo), 1_000)
+  assert.deepEqual(QuerySql.transactionBounds('2026-07-16T12:34:56'), second)
+  const quarter = QuerySql.transactionBounds('2026-Q1')!
+  assert.equal(Uuidv7.msOf(quarter.lo), Date.UTC(2026, 0, 1))
+  assert.equal(Uuidv7.msOf(quarter.hi), Date.UTC(2026, 3, 1))
   assert.equal(QuerySql.transactionBounds('yesterday'), undefined)
 })
 

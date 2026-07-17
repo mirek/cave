@@ -7,7 +7,7 @@
  * nested CTEs where positional-parameter ordering would be fragile.
  */
 
-import { Uuidv7 } from '@cavelang/core'
+import { Time, Uuidv7 } from '@cavelang/core'
 import * as Row from './row.ts'
 
 export type TransactionBounds = {
@@ -20,21 +20,19 @@ export type AsOfBoundary = {
   readonly tx: string
 }
 
-/** UUIDv7 interval `[lo, hi)` for a UTC day or one-second timestamp. */
+/** UUIDv7 interval `[lo, hi)` for a UTC period or one-second timestamp. */
 export const transactionBounds = (text: string): TransactionBounds | undefined => {
-  const hasTime = text.includes('T')
-  const start = Date.parse(hasTime ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(start)) return undefined
-  const end = start + (hasTime ? 1_000 : 86_400_000)
+  const boundary = Time.parseBoundary(text)
+  if (boundary === undefined) return undefined
   return {
-    lo: Uuidv7.at(start, 0, new Uint8Array(8)),
-    hi: Uuidv7.at(end, 0, new Uint8Array(8)),
+    lo: Uuidv7.at(boundary.start, 0, new Uint8Array(8)),
+    hi: Uuidv7.at(boundary.end, 0, new Uint8Array(8)),
   }
 }
 
 /**
  * Inclusive transaction boundary: an exact UUID includes that append; a
- * date/timestamp includes its whole UTC day/second through an exclusive high
+ * period/timestamp includes its whole UTC period/second through an exclusive high
  * bound. Returns `undefined` for text that is neither form.
  */
 export const asOfBoundary = (text: string): AsOfBoundary | undefined => {

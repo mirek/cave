@@ -245,12 +245,14 @@ test('tx date filters use whole-day intervals (spec §12.2)', () => {
   const store = open()
   store.ingest('a USES jwt')
   const row = store.currentBeliefs()[0]!
-  const day = new Date(parseInt(row.tx.slice(0, 8) + row.tx.slice(9, 13), 16)).toISOString().slice(0, 10)
+  const instant = new Date(parseInt(row.tx.slice(0, 8) + row.tx.slice(9, 13), 16)).toISOString()
+  const day = instant.slice(0, 10)
   assert.equal(query(store, `?x USES jwt\n  WHERE tx = ${day}`).length, 1, 'recorded that day')
   assert.equal(query(store, `?x USES jwt\n  WHERE tx <= ${day}`).length, 1, '<= includes the boundary day')
   assert.equal(query(store, `?x USES jwt\n  WHERE tx > ${day}`).length, 0, '> excludes the boundary day')
   assert.equal(query(store, `?x USES jwt\n  WHERE tx >= ${day}`).length, 1)
   assert.equal(query(store, `?x USES jwt\n  WHERE tx != ${day}`).length, 0)
+  assert.equal(query(store, `?x USES jwt\n  WHERE tx = ${instant.slice(0, 19)}`).length, 1, 'a zoneless second is UTC')
   store.close()
 })
 

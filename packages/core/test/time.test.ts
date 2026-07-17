@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { Time } from '@cavelang/core'
 
 const utc = (text: string): number => Date.parse(text)
@@ -66,7 +67,26 @@ test('instants: periods anchor at their start, timestamps read exactly (spec §3
   assert.equal(Time.parseInstant('2026'), utc('2026-01-01T00:00:00Z'))
   assert.equal(Time.parseInstant('2026-07'), utc('2026-07-01T00:00:00Z'))
   assert.equal(Time.parseInstant('2026-04-10T14:30:00Z'), utc('2026-04-10T14:30:00Z'))
+  assert.equal(Time.parseInstant('2026-04-10T14:30:00'), utc('2026-04-10T14:30:00Z'))
+  assert.equal(Time.parseInstant('2026-04-10T16:30:00+02:00'), utc('2026-04-10T14:30:00Z'))
+  assert.deepEqual(Time.parseBoundary('2026-Q1'), Time.parsePeriod('2026-Q1'))
+  assert.equal(Time.parseTimestamp('2026-02-30T12:00:00Z'), undefined)
+  assert.equal(Time.parseTimestamp('2026-04-10T24:00:00Z'), undefined)
   assert.equal(Time.parseInstant('not-a-time'), undefined)
+})
+
+test('zoneless timestamps mean UTC in every process timezone', () => {
+  const moduleUrl = new URL('../src/time.ts', import.meta.url).href
+  const program = `import * as Time from ${JSON.stringify(moduleUrl)}; process.stdout.write(String(Time.parseInstant('2026-04-10T14:30:00')))`
+  const expected = String(utc('2026-04-10T14:30:00Z'))
+  for (const TZ of ['UTC', 'Europe/Paris', 'America/Los_Angeles']) {
+    const result = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--input-type=module', '--eval', program], {
+      encoding: 'utf8',
+      env: { ...process.env, TZ },
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout, expected, `timestamp changed under TZ=${TZ}`)
+  }
 })
 
 test('coverage: points cover their period, ranges cover whole end periods (spec §32.4)', () => {
