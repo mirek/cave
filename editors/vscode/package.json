@@ -43,7 +43,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @cavelang/tree-sitter-cave build && node build.mjs",
-    "test": "pnpm run typecheck && pnpm run build",
+    "test": "pnpm run typecheck && pnpm run build && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "package": "pnpm run build && vsce package --no-dependencies"
   },

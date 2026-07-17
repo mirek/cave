@@ -33,6 +33,15 @@ test('captures values, units and uncertainty (spec §7)', async () => {
   assert.deepEqual(of('constant'), ['(1σ)'])
 })
 
+test('captures trajectory arrows as operators', async () => {
+  const input = 'revenue IS 20B -> 40B USD/yr'
+  const spans = (await highlighter()).spans(input)
+  const operators = spans
+    .filter(span => span.capture === 'operator')
+    .map(span => textOf(input, span))
+  assert.deepEqual(operators, ['->'])
+})
+
 test('qualifier keywords and negation (spec §8.2)', async () => {
   const input = 'server CAUSE crash\n  WHEN NOT cache/enabled'
   const spans = (await highlighter()).spans(input)

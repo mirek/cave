@@ -24,6 +24,7 @@
 (comparison_op) @operator
 (importance) @operator
 (uncertainty "+/-" @operator)
+(value "->" @operator)
 
 (tag "#" @punctuation.special)
 (tag ":" @punctuation.delimiter)
