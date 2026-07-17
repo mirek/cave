@@ -57,7 +57,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "node --expose-gc --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",
     "prepack": "node ../../scripts/prepare-package-legal.mjs && pnpm run build"
   },

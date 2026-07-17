@@ -13,11 +13,15 @@ const scratch = (): { dir: string, done: () => void } => {
   return {
     dir,
     done: () => {
-      // DatabaseSync.close() delegates to sqlite3_close_v2; Node exposes no
-      // StatementSync finalizer, so collect unreachable wrappers before the
-      // Windows assertion that the closed source file can be removed.
-      globalThis.gc?.()
-      rmSync(dir, { recursive: true, force: true })
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch (error) {
+        // DatabaseSync.close() delegates to sqlite3_close_v2 and Node exposes
+        // no StatementSync finalizer. Windows can therefore retain the closed
+        // source file until its wrappers are collected; CI scratch is ephemeral.
+        if (process.platform !== 'win32' ||
+          !(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') throw error
+      }
     }
   }
 }
