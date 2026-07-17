@@ -42,7 +42,7 @@ import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { query as caveQuery, Record as QueryRecord } from '@cavelang/query'
+import { defaultLimit as defaultQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
   generateClient, suggestAliases, writeSuggestions
@@ -113,7 +113,7 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
-  cave query [--db <path>] <pattern>       run a CAVE-Q pattern [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]
   cave resolve [--db <path>]               contested facts + winners (spec §26) [--aliases] [--policy] [--json]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
@@ -247,11 +247,13 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
 
 Options:
   ${dbHelp}
-  --json         emit matches as JSON
+  --json         emit a versioned cave.query-page/v1 JSON object
+  --limit <n>    matches per page (default ${defaultQueryLimit}, maximum 1000)
+  --cursor <t>   continue the same frozen query snapshot
   --all          match all beliefs, not just current ones
   --aliases      resolve entities through current ALIAS claims (spec §13.6)
   --as-of <t>    resolve beliefs as of a past moment (spec §12.3): a date
@@ -867,6 +869,8 @@ export const queryCommand = (argv: readonly string[]): Output => {
       'as-of': { type: 'string' },
       at: { type: 'string' },
       resolve: { type: 'boolean' },
+      limit: { type: 'string' },
+      cursor: { type: 'string' },
       'no-prelude': { type: 'boolean' }
     },
     allowPositionals: true
@@ -877,18 +881,22 @@ export const queryCommand = (argv: readonly string[]): Output => {
   const pattern = positionals.join('\n')
   const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
   try {
-    const matches = caveQuery(store, pattern, {
+    const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
+    const result = caveQueryPage(store, pattern, {
       all: values.all === true,
       aliases: values.aliases === true,
       resolve: values.resolve === true,
+      limit,
+      ...values.cursor === undefined ? {} : { cursor: values.cursor },
       ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
       ...values.at === undefined ? {} : { at: values.at }
     })
     if (values.json === true) {
-      return ok(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
+      return ok(`${JSON.stringify(result, undefined, 2)}\n`)
     }
+    const matches = result.matches
     if (matches.length === 0) {
-      return ok('no matches\n')
+      return ok(`no matches\n${result.next === undefined ? '' : `next: ${result.next}\n`}`)
     }
     const lines = matches.map(match => {
       const bindings = Object.entries(match.bindings)
@@ -896,14 +904,14 @@ export const queryCommand = (argv: readonly string[]): Output => {
         .join('  ')
       // A fully bound pattern has no bindings to print; transitive matches
       // additionally carry no row — confirm with the pattern itself.
-      const line = bindings !== '' ? bindings : match.row?.raw_line ?? pattern.split('\n')[0]!
+      const line = bindings !== '' ? bindings : match.claim?.claim.raw ?? pattern.split('\n')[0]!
       // An interpolated trajectory shows its value at the anchor
       // (spec §32.4) — bindings already carry it in the value slot.
       return match.at !== undefined && bindings === '' ?
         `${line} ; at ${values.at}: ${match.at.text}` :
         line
     })
-    return ok(`${lines.join('\n')}\n`)
+    return ok(`${lines.join('\n')}\n${result.next === undefined ? '' : `next: ${result.next}\n`}`)
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {

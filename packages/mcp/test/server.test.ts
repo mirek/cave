@@ -176,6 +176,25 @@ test('cave_add → cave_query round trip through the protocol', () => {
   store.close()
 })
 
+test('cave_query returns bounded continuations over a frozen snapshot', () => {
+  const store = open()
+  store.ingest('service/0 USES jwt\nservice/1 USES jwt\nservice/2 USES jwt')
+  const server = createServer(store)
+  const first = contentText(call(server, 8, 'cave_query', { pattern: '?x USES jwt', limit: 2 }))
+  assert.match(first, /\?x = service\/0/)
+  assert.match(first, /\?x = service\/1/)
+  const cursor = /next cursor: (.+)$/.exec(first)?.[1]
+  assert.ok(cursor)
+
+  store.ingest('service/later USES jwt')
+  const second = contentText(call(server, 9, 'cave_query', {
+    pattern: '?x USES jwt', limit: 2, cursor
+  }))
+  assert.match(second, /\?x = service\/2/)
+  assert.doesNotMatch(second, /service\/later|next cursor:/)
+  store.close()
+})
+
 test('cave_query asOf resolves beliefs at a past tx (spec §12.3)', () => {
   const store = open()
   store.ingest('server IS compromised @ 60%')

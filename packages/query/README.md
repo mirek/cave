@@ -14,9 +14,17 @@ public JSON and durable integrations, use `queryRecords()`: every result is a
 transitive support records. `Record.decode` verifies the version and all
 nested claim records.
 
+For interactive or remote reads, `page()` returns a bounded
+`cave.query-page/v1` envelope. The first request freezes the maximum visible
+transaction; pass its opaque `next` cursor back with the same pattern,
+options, and limit to continue. Appends made between pages are therefore
+excluded, while a new first page sees them. The default page size is 100 and
+the maximum is 1,000. `query()` and `queryRecords()` remain unbounded for
+in-process callers that explicitly want the complete result.
+
 ```ts
 import { open } from '@cavelang/store'
-import { query } from '@cavelang/query'
+import { page, query } from '@cavelang/query'
 
 const store = open('knowledge.db')
 query(store, '?x USES jwt')
@@ -32,6 +40,10 @@ query(store, '?x USES postgres', { aliases: true }) // + rows about aliased name
 query(store, 'server IS compromised', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
 query(store, 'mill/wage IS', { at: '1962' }) // valid-time filtering + trajectory interpolation (§32.4)
 query(store, 'service HAS owner: ?who', { resolve: true }) // §26 winners only — one row per contested fact
+
+const first = page(store, '?x USES jwt', { limit: 50 })
+const second = first.next === undefined ? undefined :
+  page(store, '?x USES jwt', { limit: 50, cursor: first.next })
 ```
 
 ## Pattern language (§12.1)
@@ -133,6 +145,15 @@ covers one second.
   through the closure) and `asOf` (candidates and the in-band policy
   declarations reconstruct at the boundary); incompatible with
   `{ all: true }`, which asks for the unresolved history.
+- **Pagination is deterministic and transaction-snapshot stable.** SQL applies
+  `LIMIT`/`OFFSET` after the query's stable transaction or endpoint ordering,
+  and every continuation pins `asOf` to the first page's maximum transaction.
+  Cursors are scoped to the exact pattern, options, and page size. Valid-time
+  coverage and exact numeric approximation checks run after row selection, so
+  those pages consume bounded one-row SQL windows to advance past rejected
+  rows without skipping the next match. A heavily filtered page can therefore
+  contain fewer than its requested limit (including zero) while still carrying
+  `next`; following it continues from the bounded scan frontier.
 
 ## Tests
 

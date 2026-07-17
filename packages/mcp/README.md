@@ -28,7 +28,7 @@ connected model knows how to write CAVE claims without further prompting.
 | Tool | Purpose |
 |---|---|
 | `cave_add` | append CAVE text (extraction output); lenient, `strict` opt-in |
-| `cave_query` | CAVE-Q patterns (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3), `at` valid time (§32.4), and `resolve` (§26 winners only) opt-ins |
+| `cave_query` | Bounded CAVE-Q pages (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3), `at` valid time (§32.4), and `resolve` (§26 winners only) opt-ins. `limit` defaults to 100 (maximum 1,000); a `next cursor:` line continues the frozen first-page snapshot through `cursor`. |
 | `cave_fuse` | Bayesian fusion of numeric estimates (§10.1) — named computation over a CAVE-Q `pattern`, an entity's current claims (`about`), or literal `text` |
 | `cave_search` | FTS over claims, values, comments |
 | `cave_about` | current claims about an entity, both directions, canonical lines; `aliases` / `resolve` opt-ins |

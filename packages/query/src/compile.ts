@@ -49,6 +49,10 @@ export type Match = {
 }
 
 export type Options = {
+  /** Maximum rows SQLite may return. Prefer the snapshot-aware page API for continuations. */
+  readonly limit?: number
+  /** Internal SQL offset used by the snapshot-aware page API. */
+  readonly offset?: number
   /** Match all appended rows, not only current beliefs. */
   readonly all?: boolean
   /**
@@ -192,6 +196,19 @@ type Compiled = {
   readonly valueVars: readonly string[]
 }
 
+const bounded = (compiled: Compiled, options: Options): Compiled => {
+  if (options.limit === undefined) return compiled
+  if (!Number.isInteger(options.limit) || options.limit < 1 ||
+      !Number.isInteger(options.offset ?? 0) || (options.offset ?? 0) < 0) {
+    throw new Error('CAVE-Q: limit must be positive and offset must be non-negative')
+  }
+  return {
+    ...compiled,
+    sql: `${compiled.sql}\nLIMIT ? OFFSET ?`,
+    params: [...compiled.params, options.limit, options.offset ?? 0]
+  }
+}
+
 export const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
   // Inverse resolution (spec §12.1): swap the pattern's endpoint slots and
   // query the primary verb.
@@ -217,7 +234,7 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
   }
 
   if (verb.kind === 'verb' && verb.transitive) {
-    return compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options, policy)
+    return bounded(compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options, policy), options)
   }
 
   const aliases = options.aliases === true
@@ -386,7 +403,7 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
   const valueVars = [...varColumns]
     .filter(([, columns]) => columns[0] === 'value_text')
     .map(([name]) => name)
-  return { sql, params, bind, transitive: false, valueVars }
+  return bounded({ sql, params, bind, transitive: false, valueVars }, options)
 }
 
 const compileTransitive = (
@@ -467,6 +484,18 @@ const compileTransitive = (
   UNION
   ${supportRecursiveSql}
 )`
+  const aliasedSelect = (() => {
+    if (!aliases) return 'SELECT DISTINCT h.src AS src, h.dst AS dst FROM hops h'
+    // Alias widening can produce several physical endpoint pairs with the
+    // same visible bindings. Project unbound slots to constants before
+    // DISTINCT so SQL-level pagination sees the same solutions match()
+    // exposes, rather than duplicate pairs that only collapse afterwards.
+    const repeated = subjectSlot.kind === 'var' && objectSlot?.kind === 'var' &&
+      subjectSlot.name === objectSlot.name
+    const src = subjectSlot.kind === 'var' ? repeated ? 'h.dst' : 'h.src' : "''"
+    const dst = objectSlot?.kind === 'var' ? 'h.dst' : "''"
+    return `SELECT DISTINCT ${src} AS src, ${dst} AS dst FROM hops h`
+  })()
   const sql = options.support === true ? `
 ${withRecursive}edge AS (
   SELECT c.* FROM (${base}) c
@@ -486,9 +515,9 @@ ${withRecursive}cur AS (
   FROM (${base}) c
   WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
 ), ${hopsSql}
-SELECT DISTINCT h.src AS src, h.dst AS dst FROM hops h
+${aliasedSelect}
 ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
-ORDER BY h.src, h.dst`
+ORDER BY src, dst`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
     const bindings: Record<string, string> = {}
     if (subjectSlot.kind === 'var') {
@@ -552,7 +581,14 @@ const evaluateAt = (
  * (the §24 rules engine substitutes bindings into premise patterns
  * between joins) rather than as text.
  */
-export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] => {
+export type Window = {
+  /** Matches remaining after any valid-time evaluation. */
+  readonly matches: Match[]
+  /** Rows returned by SQLite before valid-time evaluation. */
+  readonly scanned: number
+}
+
+const run = (store: Store, pattern: Pattern.t, options: Options = {}): Window => {
   const instant = options.at === undefined ? undefined : Time.parseInstant(options.at)
   if (options.at !== undefined && instant === undefined) {
     throw new Error(
@@ -588,7 +624,10 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
         entry.rows.push(row as unknown as Row.t)
       }
     }
-    return [...matches.values()].map(entry => ({ bindings: entry.bindings, rows: entry.rows }))
+    return {
+      scanned: rows.length,
+      matches: [...matches.values()].map(entry => ({ bindings: entry.bindings, rows: entry.rows }))
+    }
   }
   if (compiled.transitive && options.aliases === true) {
     // Distinct (src, dst) pairs can repeat a binding set when an endpoint
@@ -596,7 +635,7 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
     // transitive match carries no row, so identical bindings are identical
     // answers.
     const seen = new Set<string>()
-    return rows.flatMap(row => {
+    return { scanned: rows.length, matches: rows.flatMap(row => {
       const bindings = compiled.bind(row)
       const key = JSON.stringify(bindings)
       if (seen.has(key)) {
@@ -604,18 +643,21 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
       }
       seen.add(key)
       return [{ bindings }]
-    })
+    }) }
   }
   if (compiled.transitive) {
-    return rows.map(row => ({ bindings: compiled.bind(row) }))
+    return { scanned: rows.length, matches: rows.map(row => ({ bindings: compiled.bind(row) })) }
   }
   if (instant === undefined) {
-    return rows.map(row => ({ bindings: compiled.bind(row), row: row as unknown as Row.t }))
+    return {
+      scanned: rows.length,
+      matches: rows.map(row => ({ bindings: compiled.bind(row), row: row as unknown as Row.t }))
+    }
   }
   // Valid-time pass (spec §32.4): contexts are read per row — coverage
   // needs period interpretation no SQL expression can do.
   const contextsOf = store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?')
-  return rows.flatMap(row => {
+  return { scanned: rows.length, matches: rows.flatMap(row => {
     const contexts = (contextsOf.all(String(row['id'])) as { context: string }[])
       .map(entry => entry.context)
     if (!Time.appliesAt(contexts, instant)) {
@@ -630,5 +672,12 @@ export const match = (store: Store, pattern: Pattern.t, options: Options = {}): 
       bindings[name] = at.text
     }
     return [{ bindings, row: row as unknown as Row.t, at }]
-  })
+  }) }
 }
+
+/** Execute one SQL window and report how many pre-filter rows it consumed. */
+export const window = (store: Store, pattern: Pattern.t, options: Options = {}): Window =>
+  run(store, pattern, options)
+
+export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] =>
+  run(store, pattern, options).matches

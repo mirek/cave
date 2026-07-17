@@ -28,7 +28,7 @@ import { parseDocument } from '@cavelang/parser'
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { query as caveQuery } from '@cavelang/query'
+import { defaultLimit as defaultQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
 import { estimateOf, fuse } from '@cavelang/fusion'
 import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
@@ -77,6 +77,13 @@ export type Scope = {
 const text = (value: unknown, name: string): string => {
   if (typeof value !== 'string' || value === '') {
     throw new Error(`${name} must be a non-empty string`)
+  }
+  return value
+}
+
+const integer = (value: unknown, name: string): number => {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error(`${name} must be an integer`)
   }
   return value
 }
@@ -225,32 +232,39 @@ export const tools: readonly Tool[] = [
         aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' },
         asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' },
         at: { type: 'string', description: 'anchor in valid time (spec §32.4): a date-like period (its start instant) or a timestamp — claims whose time contexts (@2026-Q1, @2025..2028) do not cover it are invisible, timeless claims always match, and trajectory values (20B -> 40B USD/yr) interpolate at the instant; composes with asOf' },
-        resolve: { type: 'boolean', description: 'match resolved winners only (spec §26): contested facts — one fact from several sources, or opposite polarity — collapse to the row the resolution policy picks; incompatible with all' }
+        resolve: { type: 'boolean', description: 'match resolved winners only (spec §26): contested facts — one fact from several sources, or opposite polarity — collapse to the row the resolution policy picks; incompatible with all' },
+        limit: { type: 'integer', minimum: 1, maximum: 1000, default: defaultQueryLimit, description: `matches per page (default ${defaultQueryLimit})` },
+        cursor: { type: 'string', description: 'opaque continuation from a prior cave_query page; freezes the original transaction snapshot' }
       }
     },
     run: (store, args) => {
-      const matches = caveQuery(store, text(args['pattern'], 'pattern'), {
+      const result = caveQueryPage(store, text(args['pattern'], 'pattern'), {
         all: args['all'] === true,
         aliases: args['aliases'] === true,
         resolve: args['resolve'] === true,
+        limit: args['limit'] === undefined ? defaultQueryLimit : integer(args['limit'], 'limit'),
+        ...typeof args['cursor'] === 'string' ? { cursor: args['cursor'] } : {},
         ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {},
         ...typeof args['at'] === 'string' ? { at: args['at'] } : {}
       })
+      const matches = result.matches
       if (matches.length === 0) {
-        return 'no matches'
+        return result.next === undefined ? 'no matches' : `no matches\nnext cursor: ${result.next}`
       }
-      return matches.map(match => {
+      const lines = matches.map(match => {
         const bindings = Object.entries(match.bindings)
           .map(([name, value]) => `?${name} = ${value}`)
           .join('  ')
-        let line = match.row === undefined ? undefined : match.row.raw_line
+        let line = match.claim?.claim.raw
         // An interpolated trajectory shows its value at the anchor
         // (spec §32.4); value-slot bindings already carry it.
         if (match.at !== undefined && line !== undefined && bindings === '') {
           line = `${line} ; at ${String(args['at'])}: ${match.at.text}`
         }
         return bindings === '' ? line ?? 'match' : line === undefined ? bindings : `${bindings}  ; ${line}`
-      }).join('\n')
+      })
+      if (result.next !== undefined) lines.push(`next cursor: ${result.next}`)
+      return lines.join('\n')
     }
   },
   {

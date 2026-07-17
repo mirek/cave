@@ -4,6 +4,7 @@ import * as Compile from './compile.ts'
 import * as Pattern from './pattern.ts'
 
 export type { Match, Options } from './compile.ts'
+export type { Window } from './compile.ts'
 
 /**
  * Compile historical queries against vocabulary reconstructed at the same
@@ -25,17 +26,17 @@ const storeAtBoundary = (store: Store, options: Compile.Options): Store => {
  * value filter pushes the normalized comparison into SQL; the final check
  * preserves exact unit and approximation semantics.
  */
-export const match = (
+const execute = (
   store: Store,
   pattern: Pattern.t,
   options: Compile.Options = {}
-): Compile.Match[] => {
+): Compile.Window => {
   if (pattern.payload.kind !== 'attribute' || pattern.payload.value.kind !== 'term') {
-    return Compile.match(storeAtBoundary(store, options), pattern, options)
+    return Compile.window(storeAtBoundary(store, options), pattern, options)
   }
   const value = Value.parse(pattern.payload.value.text)
   if (value.kind !== 'number' || value.num === undefined) {
-    return Compile.match(storeAtBoundary(store, options), pattern, options)
+    return Compile.window(storeAtBoundary(store, options), pattern, options)
   }
   const expectedNum = value.num
   const filter: Pattern.Filter = {
@@ -53,15 +54,27 @@ export const match = (
   }
   const expectedUnit = value.unit ?? null
   const expectedApprox = value.approx ? 1 : 0
-  return Compile.match(storeAtBoundary(store, options), normalized, options)
-    .filter(result => {
-      const row = result.row
-      return row !== undefined &&
-        row.value_num === expectedNum &&
-        row.value_unit === expectedUnit &&
-        row.value_approx === expectedApprox
-    })
+  const result = Compile.window(storeAtBoundary(store, options), normalized, options)
+  return { ...result, matches: result.matches.filter(match => {
+    const row = match.row
+    return row !== undefined &&
+      row.value_num === expectedNum &&
+      row.value_unit === expectedUnit &&
+      row.value_approx === expectedApprox
+  }) }
 }
+
+export const window = (
+  store: Store,
+  pattern: Pattern.t,
+  options: Compile.Options = {}
+): Compile.Window => execute(store, pattern, options)
+
+export const match = (
+  store: Store,
+  pattern: Pattern.t,
+  options: Compile.Options = {}
+): Compile.Match[] => execute(store, pattern, options).matches
 
 export const query = (
   store: Store,
