@@ -475,6 +475,10 @@ const runOnce = async (
       files: [basename(kase.source)],
       cwd: dirname(kase.source),
       mode: options.mode,
+      // Eval must score valid lines from imperfect model output and report
+      // lint problems, not discard the run under ingest's strict default.
+      // Every eval database is already an isolated throwaway store.
+      policy: 'lenient',
       ...agent === undefined ? {} : { agent },
       embed: options.embed !== false,
       timeoutSeconds: options.timeoutSeconds,
@@ -482,7 +486,8 @@ const runOnce = async (
       ...kase.instructions === undefined ? {} : { instructions: kase.instructions }
     })
     const batch = report.batches[0]
-    if (batch === undefined || !batch.ok) {
+    const scoreablePartial = batch !== undefined && batch.added > 0 && batch.problems.length > 0
+    if (batch === undefined || (!batch.ok && !scoreablePartial)) {
       return failedRun(fixture.facts.length, batch?.note ?? 'agent produced no batch')
     }
     return await scoreRun(store, db, kase, fixture, {
