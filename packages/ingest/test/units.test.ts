@@ -62,13 +62,39 @@ test('provenance claims are ordinary CAVE claims with @src:cave-ingest', () => {
   store.close()
 })
 
-test('digest provenance supports paths that are not valid entity atoms (BUGS.md digest-path-lexing)', () => {
+test('digest provenance gives arbitrary paths and URLs stable identities (BUGS.md digest-path-lexing)', () => {
   const store = open()
-  const file = { path: 'design notes.md', digest: 'abc123def456' }
-  Files.recordDigests(store, [file])
-  assert.equal(Files.isIngested(store, file.path, file.digest), true)
+  const files = [
+    { path: 'design notes.md', digest: '111111111111' },
+    { path: 'notes/[draft]; #one?.md', digest: '222222222222' },
+    { path: 'notes/a`tick-and-"quote.md', digest: '333333333333' },
+    { path: '資料/élan.md', digest: '444444444444' },
+    { path: 'https://example.test/design?q=a%20b&mode=full#section-2', digest: '555555555555' }
+  ]
+  Files.recordDigests(store, files)
+  for (const file of files) {
+    assert.equal(Files.isIngested(store, file.path, file.digest), true, file.path)
+    assert.equal(Files.isIngested(store, file.path, '000000000000'), false, file.path)
+  }
+  assert.equal(store.currentBeliefs().length, files.length, 'every source gets a distinct identity')
   assert.equal(store.currentBeliefs()[0]!.subject, '`design notes.md`')
+
+  const restored = open()
+  restored.ingest(store.exportText({ maxSensitivity: 'restricted' }), { strict: true })
+  for (const file of files) {
+    assert.equal(Files.isIngested(restored, file.path, file.digest), true, `exported ${file.path}`)
+  }
+  restored.close()
   store.close()
+})
+
+test('digest write failures identify the affected sources and propagate', () => {
+  const store = open()
+  store.close()
+  assert.throws(
+    () => Files.recordDigests(store, [{ path: 'notes/design.md', digest: 'abc123def456' }]),
+    /failed to record ingest digest\(s\) for "notes\/design\.md"/
+  )
 })
 
 test('path tokens skip noise segments', () => {

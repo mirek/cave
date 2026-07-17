@@ -26,8 +26,11 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    ingest-digest: <sha256/12> @src:cave-ingest` — provenance as ordinary
    CAVE claims, so incremental re-runs come free and live in the same
    append-only store. Paths that are not valid entity atoms (for example,
-   names containing spaces) are preserved as code-literal subjects, so they
-   participate in incremental skipping as well. A URL's digest is taken over
+   names containing spaces or syntax delimiters) are preserved as literal
+   subjects through programmatic claim construction, so arbitrary supported
+   paths and URLs participate in incremental skipping as well. Digest write
+   errors fail the run with the affected source names instead of being
+   discarded. A URL's digest is taken over
    the *extracted* text, so a page re-ingests only when its readable content
    changes.
    Each URL is selected independently: a failed request is reported without

@@ -34,9 +34,23 @@ const provenanceSubject = (path: string): Claim.Term => {
     return Claim.entity(path)
   }
   // Prefer a code literal for path-like data; use text when the path itself
-  // contains a backtick and can therefore only round-trip in double quotes.
-  return path.includes('`') && !path.includes('"') ? Claim.text(path) : Claim.code(path)
+  // contains a backtick. CAVE has no literal escape syntax, so a path with
+  // both delimiters needs a deterministic encoded representation to remain
+  // valid through canonical export/import.
+  if (path.includes('`')) {
+    return path.includes('"') ? Claim.code(`percent-encoded:${encodeURIComponent(path)}`) : Claim.text(path)
+  }
+  return Claim.code(path)
 }
+
+/** One construction path keeps digest lookup and storage identities identical. */
+const provenanceClaim = (path: string, digest: string): Claim.t =>
+  Claim.of({
+    subject: provenanceSubject(path),
+    verb: 'HAS',
+    payload: Claim.attribute(digestAttribute, Value.parse(digest)),
+    contexts: [provenanceContext]
+  })
 
 /** @returns matching regular-file paths — globs expanded, directories dropped, deduplicated, sorted. */
 export const expand = (patterns: readonly string[], cwd: string = process.cwd()): string[] => {
@@ -52,12 +66,7 @@ export const digestOf = (content: string): string =>
 
 /** Claim key of a file's provenance claim (value excluded by design, §9.2). */
 const provenanceKey = (path: string): string =>
-  Key.of(Claim.of({
-    subject: provenanceSubject(path),
-    verb: 'HAS',
-    payload: Claim.attribute(digestAttribute, Value.parse('x')),
-    contexts: [provenanceContext]
-  }))
+  Key.of(provenanceClaim(path, 'x'))
 
 export type Selected = {
   readonly path: string
@@ -107,20 +116,20 @@ export const recordDigests = (store: Store, files: readonly Selected[]): void =>
   if (files.length === 0) {
     return
   }
-  store.insertResult({
-    claims: files.map((file, index) => ({
-      line: index + 1,
-      claim: Claim.of({
-        subject: provenanceSubject(file.path),
-        verb: 'HAS',
-        payload: Claim.attribute(digestAttribute, Value.parse(file.digest)),
-        contexts: [provenanceContext]
-      })
-    })),
-    edges: [],
-    registry: store.registry(),
-    problems: []
-  })
+  try {
+    store.insertResult({
+      claims: files.map((file, index) => ({
+        line: index + 1,
+        claim: provenanceClaim(file.path, file.digest)
+      })),
+      edges: [],
+      registry: store.registry(),
+      problems: []
+    })
+  } catch (error) {
+    const sources = files.map(file => JSON.stringify(file.path)).join(', ')
+    throw new Error(`failed to record ingest digest(s) for ${sources}`, { cause: error })
+  }
 }
 
 /** @returns `files` split into batches of at most `size`. */
