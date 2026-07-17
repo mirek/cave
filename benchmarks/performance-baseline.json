@@ -1,0 +1,13 @@
+{
+  "format": "cave.performance-baseline",
+  "version": 1,
+  "runtime": "node-22",
+  "workloads": {
+    "export": { "baselineMs": 110, "thresholdMs": 750 },
+    "import": { "baselineMs": 190, "thresholdMs": 1500 },
+    "resolution": { "baselineMs": 70, "thresholdMs": 500 },
+    "shape": { "baselineMs": 10, "thresholdMs": 250 },
+    "boundedQuery": { "baselineMs": 13, "thresholdMs": 250 },
+    "transitiveQuery": { "baselineMs": 25, "thresholdMs": 500 }
+  }
+}

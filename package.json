@@ -15,6 +15,7 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "tsc -b",
+    "bench:performance": "node --disable-warning=ExperimentalWarning scripts/performance-bench.mjs",
     "site:dev": "pnpm --filter @cavelang/website dev",
     "site:build": "pnpm --filter @cavelang/website build",
     "watch": "tsc -b --watch --preserveWatchOutput",

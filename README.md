@@ -507,8 +507,17 @@ The roadmap is complete — every numbered item shipped, and the knowledge loop 
 ```sh
 pnpm test             # all packages, bottom-up
 pnpm typecheck
+pnpm bench:performance # deterministic representative regression budgets
 pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
 ```
+
+The performance gate covers canonical-text import/export, contested-belief
+resolution, large shape checks, bounded query pages, and seeded transitive
+queries. It emits a versioned JSON report with fixture/store sizes and SQLite
+plan evidence, then compares timings with the recorded
+[`performance-baseline.json`](benchmarks/performance-baseline.json). CI uses
+generous absolute thresholds to catch material regressions without treating
+runner noise as a failure.
 
 Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (including the solver-neutral `solver`, typed `scenario` bindings, optional `solver-z3` adapter, and the ordinary CAVE language, data, behavior, integration, and presentation packages), toolchain, and cross-package design decisions.
 
