@@ -3,6 +3,9 @@
   "version": "0.28.1",
   "type": "module",
   "description": "CAVE syntax highlighting — web-tree-sitter over the @cavelang/tree-sitter-cave grammar, rendered to ANSI for terminals.",
+  "keywords": ["cave", "knowledge-graph", "knowledge-representation", "typescript"],
+  "homepage": "https://github.com/mirek/cave#readme",
+  "bugs": { "url": "https://github.com/mirek/cave/issues" },
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {

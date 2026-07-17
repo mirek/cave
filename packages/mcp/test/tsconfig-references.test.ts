@@ -15,6 +15,10 @@ const packagesDir = fileURLToPath(new URL('../..', import.meta.url))
 type Manifest = {
   name?: string
   private?: boolean
+  packageManager?: string
+  keywords?: string[]
+  homepage?: string
+  bugs?: { url?: string }
   engines?: { node?: string }
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
@@ -135,6 +139,62 @@ test('every public package packs the canonical license and author files', () => 
   const smoke = readFileSync(fileURLToPath(new URL('../../../scripts/smoke.sh', import.meta.url)), 'utf8')
   assert.match(smoke, /for legal_file in License\.md Authors\.md/)
   assert.match(smoke, /tar -xOf "\$tarball" "package\/\$legal_file" \| cmp -s - "\$root\/\$legal_file"/)
+})
+
+test('every public package exposes consistent discovery and support metadata', () => {
+  const expectedKeywords = ['cave', 'knowledge-graph', 'knowledge-representation', 'typescript']
+  for (const name of readdirSync(packagesDir).sort()) {
+    const path = join(packagesDir, name, 'package.json')
+    if (!existsSync(path)) continue
+    const manifest = parse<Manifest>(path)
+    if (manifest.private === true) continue
+    assert.deepEqual(manifest.keywords, expectedKeywords, `${manifest.name} has inconsistent keywords`)
+    assert.equal(manifest.homepage, 'https://github.com/mirek/cave#readme')
+    assert.equal(manifest.bugs?.url, 'https://github.com/mirek/cave/issues')
+  }
+})
+
+test('bootstrap and clean derive deterministic tooling from the root manifest', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const manifest = parse<Manifest>(join(root, 'package.json'))
+  assert.match(manifest.packageManager ?? '', /^pnpm@\d+\.\d+\.\d+$/)
+  assert.equal(manifest.scripts?.clean, 'node scripts/clean.mjs')
+
+  const makefile = readFileSync(join(root, 'Makefile'), 'utf8')
+  assert.match(makefile, /^bootstrap:\n\tnode scripts\/bootstrap\.mjs$/m)
+
+  const bootstrap = readFileSync(join(root, 'scripts/bootstrap.mjs'), 'utf8')
+  assert.match(bootstrap, /const \{ packageManager \} = JSON\.parse/)
+  assert.match(bootstrap, /availableVersion\('corepack', \[manager, '--version'\]\)/)
+  assert.match(bootstrap, /\['exec', '--yes', '--package', `\$\{manager\}@\$\{version\}`/)
+  assert.doesNotMatch(bootstrap, /install -g|corepack enable/)
+
+  const clean = readFileSync(join(root, 'scripts/clean.mjs'), 'utf8')
+  for (const output of [
+    "join(directory, 'dist')",
+    "join(directory, 'License.md')",
+    "join(directory, 'Authors.md')",
+    "join(root, 'editors/vscode/dist')",
+    "join(root, 'website/dist')",
+    "join(root, 'packages/tree-sitter-cave/src')",
+    "join(root, 'packages/tree-sitter-cave/tree-sitter-cave.wasm')",
+    "entry.name.endsWith('.vsix')",
+    "entry.name.endsWith('.tsbuildinfo')",
+  ]) {
+    assert.ok(clean.includes(output), `clean script omits ${output}`)
+  }
+})
+
+test('all third-party workflow actions use reviewable immutable revisions', () => {
+  const workflows = fileURLToPath(new URL('../../../.github/workflows', import.meta.url))
+  for (const name of readdirSync(workflows).filter(name => name.endsWith('.yml')).sort()) {
+    const source = readFileSync(join(workflows, name), 'utf8')
+    const uses = source.split('\n').filter(line => /^\s*uses:/.test(line))
+    assert.ok(uses.length > 0, `${name} contains no action references`)
+    for (const line of uses) {
+      assert.match(line, /^\s*-?\s*uses:\s+[^\s@]+@[0-9a-f]{40}\s+#\s+v\d+\s*$/, `${name}: ${line.trim()}`)
+    }
+  }
 })
 
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {
