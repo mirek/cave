@@ -8,6 +8,10 @@
     "resolution": { "baselineMs": 70, "thresholdMs": 500 },
     "shape": { "baselineMs": 10, "thresholdMs": 250 },
     "boundedQuery": { "baselineMs": 13, "thresholdMs": 250 },
-    "transitiveQuery": { "baselineMs": 25, "thresholdMs": 500 }
+    "transitiveQuery": { "baselineMs": 25, "thresholdMs": 500 },
+    "scopedViewSmall": { "baselineMs": 25, "thresholdMs": 250 },
+    "scopedViewLargeCold": { "baselineMs": 750, "thresholdMs": 2500 },
+    "scopedViewLargeWarm": { "baselineMs": 220, "thresholdMs": 750 },
+    "restrictedViewLarge": { "baselineMs": 300, "thresholdMs": 1000 }
   }
 }

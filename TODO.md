@@ -2,7 +2,6 @@
 
 ## Active backlog
 
-- [Scale sensitivity-scoped views](todo/sensitivity-scoped-view-performance.md) — Preserve fail-closed visibility without rebuilding the visible store for every read.
 - [Harden external process execution](todo/external-process-boundary.md) — Centralize shell and agent execution with portable arguments, bounded output, and full process cleanup.
 - [Define and test runtime/platform support](todo/runtime-platform-contract.md) — Align Node and OS compatibility promises with CI coverage and explicit job limits.
 - [Validate packed type and API contracts](todo/packed-type-api-contracts.md) — Test tarball declarations, resolution metadata, and public API changes as an external consumer.

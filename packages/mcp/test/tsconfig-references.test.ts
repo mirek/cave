@@ -313,7 +313,8 @@ test('CI runs every recorded representative performance budget', () => {
   assert.equal(baseline.format, 'cave.performance-baseline')
   assert.equal(baseline.version, 1)
   assert.deepEqual(Object.keys(baseline.workloads).sort(), [
-    'boundedQuery', 'export', 'import', 'resolution', 'shape', 'transitiveQuery'
+    'boundedQuery', 'export', 'import', 'resolution', 'restrictedViewLarge',
+    'scopedViewLargeCold', 'scopedViewLargeWarm', 'scopedViewSmall', 'shape', 'transitiveQuery'
   ])
   for (const [name, budget] of Object.entries(baseline.workloads)) {
     assert.ok(budget.baselineMs > 0, `${name} needs a positive recorded baseline`)
