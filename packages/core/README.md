@@ -38,7 +38,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 | `Verb` | §5 | Standard vocabulary, qualifier verbs, `REVERSE`, `RENAMED-TO`, lexical shape of verbs. |
 | `Multiplier` | §7.1 | `T`/`B`/`M`/`K` scale factors. |
 | `Uuidv7` | §9.1 | Monotonic UUIDv7 transaction ids — lexicographic order ⇒ transaction order, so `MAX(tx)` resolves current belief; `withStatePreserved` isolates synchronous speculative work. |
-| `Time` | §32 | Date-like instant/range parsing, valid-time coverage, and exact trajectory interpolation helpers. |
+| `Time` | §32 | Shared UTC query-boundary and date-like range parsing, valid-time coverage, and exact trajectory interpolation helpers. Offset-less timestamps mean UTC. |
 
 ## Design decisions
 

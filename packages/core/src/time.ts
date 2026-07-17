@@ -24,6 +24,9 @@ export type Period = {
 
 export type t = Period
 
+/** A query boundary as a UTC half-open interval. */
+export type Boundary = Period
+
 /** How a context reads as time: a point period, or a `..` range. */
 export type TimeContext =
   | { readonly kind: 'point', readonly period: Period }
@@ -154,6 +157,40 @@ export const ofContext = (context: string): undefined | TimeContext => {
   return period === undefined ? undefined : { kind: 'point', period }
 }
 
+const timestampRe = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?([zZ]|[+-]\d{2}:\d{2})?$/
+
+/**
+ * Parses an ISO timestamp into a UTC instant. An omitted offset means UTC,
+ * never the host's local timezone; explicit `Z` and numeric offsets retain
+ * their usual ISO meaning. Date and clock fields are validated before the
+ * platform parser can normalize them.
+ */
+export const parseTimestamp = (text: string): undefined | number => {
+  const match = timestampRe.exec(text)
+  if (match === null) return undefined
+  const [, date, hour, minute, second, , zone] = match
+  if (parsePeriod(date!) === undefined || Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) {
+    return undefined
+  }
+  if (zone !== undefined && zone !== 'Z' && zone !== 'z') {
+    const [offsetHour, offsetMinute] = zone.slice(1).split(':').map(Number)
+    if (offsetHour! > 23 || offsetMinute! > 59) return undefined
+  }
+  const parsed = Date.parse(zone === undefined ? `${text}Z` : text)
+  return Number.isNaN(parsed) ? undefined : parsed
+}
+
+/**
+ * Parses the shared query-time boundary: a date-like period keeps its whole
+ * UTC interval, while a timestamp covers one second from its exact instant.
+ */
+export const parseBoundary = (text: string): undefined | Boundary => {
+  const period = parsePeriod(text)
+  if (period !== undefined) return period
+  const start = parseTimestamp(text)
+  return start === undefined ? undefined : { start, end: start + 1_000 }
+}
+
 /**
  * Parses a query anchor into an instant (ms since epoch): a date-like
  * period reads as its *start* instant (`2026` is 2026-01-01T00:00:00Z —
@@ -161,15 +198,7 @@ export const ofContext = (context: string): undefined | TimeContext => {
  * exactly. @returns `undefined` when `text` is neither.
  */
 export const parseInstant = (text: string): undefined | number => {
-  const period = parsePeriod(text)
-  if (period !== undefined) {
-    return period.start
-  }
-  if (!text.includes('T')) {
-    return undefined
-  }
-  const parsed = Date.parse(text)
-  return Number.isNaN(parsed) ? undefined : parsed
+  return parseBoundary(text)?.start
 }
 
 /** @returns whether a time context covers the instant (spec §32.4). */

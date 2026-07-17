@@ -110,10 +110,10 @@ export type Options = {
 }
 
 /**
- * UUIDv7 interval `[lo, hi)` for a tx filter value: a bare date covers the
- * whole UTC day, a timestamp covers one second. Interval semantics keep
- * adjacent operators distinguishable (`<=` includes the boundary day that
- * `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
+ * UUIDv7 interval `[lo, hi)` for a tx filter value: a date-like value covers
+ * its whole UTC period and a timestamp covers one second. Interval semantics
+ * keep adjacent operators distinguishable (`<=` includes the boundary period
+ * that `<` excludes) and make `WHERE tx = 2026-01-01` mean "recorded that day".
  */
 const txBounds = (text: string, label = 'tx date'): { lo: string, hi: string } => {
   const bounds = QuerySql.transactionBounds(text)
@@ -125,8 +125,8 @@ const txBounds = (text: string, label = 'tx date'): { lo: string, hi: string } =
 
 /**
  * SQL tx condition for an as-of boundary (spec §12.3). A UUIDv7 names an
- * exact transaction, included — belief as of that append; a date or
- * timestamp is inclusive of the whole named day/second, the same interval
+ * exact transaction, included — belief as of that append; a date-like value
+ * or timestamp is inclusive of the whole named period/second, the same interval
  * semantics as `WHERE tx <=` (§12.2). Both forms inline as literals: the
  * id is shape-validated hex-and-dashes and the interval bound is a generated
  * UUIDv7 — no free-form text reaches the SQL, and a literal keeps

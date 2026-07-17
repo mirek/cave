@@ -57,6 +57,7 @@ test('date and timestamp boundaries are inclusive intervals (spec §12.2, §12.3
   const second = `${new Date(ms).toISOString().slice(0, 19)}Z`
   assert.equal(query(store, '?x USES jwt', { asOf: day }).length, 1, 'the named day is included')
   assert.equal(query(store, '?x USES jwt', { asOf: second }).length, 1, 'the named second is included')
+  assert.equal(query(store, '?x USES jwt', { asOf: second.slice(0, -1) }).length, 1, 'a zoneless second is UTC')
   assert.equal(query(store, '?x USES jwt', { asOf: '2000-01-01' }).length, 0, 'nothing was believed then')
   store.close()
 })

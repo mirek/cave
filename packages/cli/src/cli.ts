@@ -258,9 +258,11 @@ Options:
   --aliases      resolve entities through current ALIAS claims (spec §13.6)
   --as-of <t>    resolve beliefs as of a past moment (spec §12.3): a date
                  (whole day included), a timestamp (whole second), or a
-                 transaction id — rows recorded later are invisible
+                 transaction id — rows recorded later are invisible;
+                 timestamps without an offset mean UTC
   --at <t>       anchor in valid time (spec §32.4): a date-like period
-                 (read as its start instant) or a timestamp. Claims whose
+                 (read as its start instant) or a timestamp (offset-less
+                 means UTC). Claims whose
                  time contexts — @2026-Q1 points, @2025..2028 ranges — do
                  not cover the instant are invisible; timeless claims
                  always match; trajectory values (20B -> 40B USD/yr)

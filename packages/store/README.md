@@ -51,8 +51,9 @@ const rows = store.db.prepare(`SELECT * FROM (${currentThen}) WHERE conf > 0`).a
 `current()` selects latest tx per claim key without filtering negation or
 retraction; consumers add those predicates for their read mode. `aliasEdges`,
 `aliasPairs`, `aliasClosure`, and `aliasSame` implement entity-only current
-positive ALIAS semantics. `transactionBounds` and `asOfBoundary` implement the
-shared whole-day/whole-second and exact-transaction rules. Fragments own no
+positive ALIAS semantics. `transactionBounds` and `asOfBoundary` use
+`Time.parseBoundary` for shared whole-period/whole-second semantics
+(offset-less timestamps are UTC) and exact-transaction rules. Fragments own no
 ordering or outer filtering, so consumers can extend them without copying
 semantic clauses.
 

@@ -94,6 +94,11 @@ is reported. Unexpected errors are one-line and stack-free by default; set
 | `version` | | Print the cave version. |
 | `help [command]` | | The overview, or one command's options and examples. |
 
+All query-time arguments share one UTC parser. For example,
+`--at 2026-07-02T12:00:00` and `--at 2026-07-02T12:00:00Z` select the same
+instant on every host; explicit numeric offsets such as `+02:00` are honored.
+The same rule applies to `--as-of` and CAVE-Q `WHERE tx` timestamps.
+
 Shape declarations may add `#cardinality:one` or an attribute
 `#unit:<unit>` tag. `cave check` reports the observed count and normalized
 units when those constraints fail; declarations without either tag keep the
