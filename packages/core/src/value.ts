@@ -20,6 +20,7 @@
  */
 
 import * as Multiplier from './multiplier.ts'
+import { parsePeriod } from './time.ts'
 
 /** How the value text was classified. */
 export type Kind =
@@ -54,18 +55,17 @@ export type t = Value
 
 const numberRe = /^(-?\d+(?:\.\d+)?)([A-Za-z%]*)$/
 const unitRe = /^[A-Za-z%$][A-Za-z0-9%$]*(?:\/[A-Za-z0-9%$]+)*$/
-const dateRe = /^\d{4}-(?:H[1-2]|Q[1-4]|W\d{1,2}|\d{2})(?:-\d{2})?$/
-
 /** @returns `true` if `s` is a valid unit expression (`USD/yr`, `ms`, `%`). */
 export const isUnit = (s: string): boolean =>
   unitRe.test(s)
 
 /**
  * @returns `true` if `s` is date-like (spec §16 `date_like`): `2026-H2`,
- * `2026-Q1`, `2026-04`, `2026-04-10`. A bare year parses as a number instead.
+ * `2026-Q1`, `2026-04`, `2026-04-10`. Calendar validity is shared with
+ * {@link parsePeriod}; a bare year parses as a number instead.
  */
 export const isDateLike = (s: string): boolean =>
-  dateRe.test(s)
+  s.includes('-') && parsePeriod(s) !== undefined
 
 type Numeric = { num: number, unit?: string }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Value } from '@cavelang/core'
+import { Time, Value } from '@cavelang/core'
 
 test('simple units glue to the number (spec §7.1)', () => {
   assert.deepEqual(Value.parse('30ms'), { raw: '30ms', kind: 'number', approx: false, num: 30, unit: 'ms' })
@@ -54,6 +54,18 @@ test('bare year is a number, dashed forms are date-like (spec §16 date_like)', 
   assert.equal(Value.parse('2026-Q1').kind, 'date')
   assert.equal(Value.parse('2026-04').kind, 'date')
   assert.equal(Value.parse('2026-04-10').kind, 'date')
+})
+
+test('date classification uses calendar-valid temporal periods', () => {
+  for (const text of ['2024-02-29', '2026-04', '2026-Q4', '2026-H2', '2020-W53']) {
+    assert.equal(Value.isDateLike(text), true, text)
+    assert.equal(Value.parse(text).kind, 'date', text)
+    assert.notEqual(Time.parsePeriod(text), undefined, text)
+  }
+  for (const text of ['2025-02-29', '2026-04-31', '2026-13', '2021-W53', '2026-W00', '2026-Q5']) {
+    assert.equal(Value.isDateLike(text), false, text)
+    assert.equal(Value.parse(text).kind, 'atom', text)
+  }
 })
 
 test('atoms stay textual', () => {

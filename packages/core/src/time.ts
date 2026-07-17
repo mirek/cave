@@ -34,8 +34,14 @@ export type TimeContext =
 
 const dayMs = 86_400_000
 
-const utcDay = (year: number, month: number, day: number): number =>
-  Date.UTC(year, month - 1, day)
+const utcDay = (year: number, month: number, day: number): number => {
+  // Date.UTC treats years 0..99 as 1900..1999. Setting the full year on an
+  // existing date preserves the four-digit year written in the CAVE value.
+  const date = new Date(0)
+  date.setUTCHours(0, 0, 0, 0)
+  date.setUTCFullYear(year, month - 1, day)
+  return date.getTime()
+}
 
 /** Monday starting ISO week `week` of `year` (ISO 8601: week 1 contains Jan 4). */
 const isoWeekStart = (year: number, week: number): number => {
@@ -73,6 +79,10 @@ export const parsePeriod = (text: string): undefined | Period => {
       return undefined
     }
     const start = isoWeekStart(year, w)
+    // Only years whose next ISO week-year starts after week 53 have one.
+    if (start >= isoWeekStart(year + 1, 1)) {
+      return undefined
+    }
     return { start, end: start + 7 * dayMs }
   }
   if (month !== undefined) {

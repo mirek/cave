@@ -28,7 +28,7 @@ Uuidv7.next()   // '01977b6e-…' — monotonic transaction id
 |---|---|---|
 | `Claim` | §2.1, §3.1 | Canonical claim shape: subject/verb/payload/negated + metadata. Payloads: `relation`, `attribute`, `metric`. Terms: `entity`, `text` (double-quoted), `code` (backticked). |
 | `Key` | §9.2 | Stable claim keys computed on the canonical form. Values excluded; contexts as a sorted set; negation included. |
-| `Value` | §7.1 | Value parsing: numbers, glued units (`30ms`), multipliers (`20B` → 2×10¹⁰), compound units (`USD/yr`), `~` approximation, date-likes (`2026-H2`), atoms. Raw text always preserved. |
+| `Value` | §7.1 | Value parsing: numbers, glued units (`30ms`), multipliers (`20B` → 2×10¹⁰), compound units (`USD/yr`), `~` approximation, calendar-valid date-likes (`2026-H2`), atoms. Raw text always preserved. |
 | `Uncertainty` | §7.2 | Aleatory `+/- Δ (kσ)` semantics: σ = Δ/k, default 2σ. |
 | `Confidence` | §6.3 | Epistemic `@ N%` in [0, 1]; omitted means 1. |
 | `Tag` | §6.2 | Flat `#tag` and scoped `#key:value`; flat ≡ value `undefined`. |
@@ -68,6 +68,9 @@ Decisions this package pins down where the spec leaves latitude:
   syntax and CAVE-Q filter syntax.
 - **`Value.parse` never fails** — unparseable text degrades to an `atom`
   value with raw text preserved, honoring the LLM-friendliness goal (§1.6).
+- **Date classification uses `Time.parsePeriod`** — leap days, month lengths,
+  ISO week-years, quarters, halves, and partial periods have one shared
+  structural and calendar validator. Invalid date-shaped values stay atoms.
 - **UUIDv7 monotonicity**: same-millisecond calls increment a 12-bit
   sequence in `rand_a`; a backwards clock reuses the last timestamp. Strictly
   increasing ids within a process, random `rand_b` across processes.
