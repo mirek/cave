@@ -19,11 +19,21 @@ test('ISO weeks: week 1 contains Jan 4, weeks start Monday (spec §32.1)', () =>
   // 2026-01-04 is a Sunday; the week containing it starts Monday 2025-12-29.
   assert.deepEqual(Time.parsePeriod('2026-W01'), { start: utc('2025-12-29T00:00:00Z'), end: utc('2026-01-05T00:00:00Z') })
   assert.deepEqual(Time.parsePeriod('2026-W15'), { start: utc('2026-04-06T00:00:00Z'), end: utc('2026-04-13T00:00:00Z') })
+  assert.deepEqual(Time.parsePeriod('2020-W53'), { start: utc('2020-12-28T00:00:00Z'), end: utc('2021-01-04T00:00:00Z') })
+  assert.equal(Time.parsePeriod('2021-W53'), undefined)
 })
 
-test('out-of-calendar points are not periods', () => {
+test('calendar validation covers leap years and month lengths', () => {
+  assert.deepEqual(Time.parsePeriod('2024-02-29'), { start: utc('2024-02-29T00:00:00Z'), end: utc('2024-03-01T00:00:00Z') })
+  assert.equal(Time.parsePeriod('2025-02-29'), undefined)
   assert.equal(Time.parsePeriod('2026-02-30'), undefined)
+  assert.equal(Time.parsePeriod('2026-04-31'), undefined)
+  assert.equal(Time.parsePeriod('2026-04-00'), undefined)
   assert.equal(Time.parsePeriod('2026-13'), undefined)
+})
+
+test('out-of-calendar and malformed points are not periods', () => {
+  assert.equal(Time.parsePeriod('2026-W00'), undefined)
   assert.equal(Time.parsePeriod('2026-W54'), undefined)
   assert.equal(Time.parsePeriod('production'), undefined)
   assert.equal(Time.parsePeriod('306'), undefined)

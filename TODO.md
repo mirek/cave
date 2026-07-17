@@ -30,7 +30,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [MCP source-prefix normalization](todo/mcp-source-prefix-normalization.md) — Prevent `src:src:` provenance when users pass a prefixed source.
 - [Report backtick citations](todo/report-backtick-citations.md) — Render declarations containing backticks as valid Markdown.
 - [Zero-sigma validation](todo/zero-sigma-validation.md) — Reject zero uncertainty and use one validated sigma implementation.
-- [Calendar-date validation](todo/calendar-date-validation.md) — Make date classification and temporal parsing agree.
 - [Mixed-unit fusion](todo/mixed-unit-fusion.md) — Reject incompatible units at the library boundary.
 - [Transitive depth truncation](todo/transitive-depth-truncation.md) — Remove or expose the silent 32-hop closure limit.
 
