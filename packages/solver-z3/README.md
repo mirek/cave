@@ -73,6 +73,18 @@ Node.js use. Browser delivery remains deferred because threaded Wasm requires
 `SharedArrayBuffer`, cross-origin isolation headers, and separate worker asset
 handling.
 
+## Browser delivery decision
+
+The supported browser profile is deliberately **no in-browser solver**. The
+GitHub Pages playground remains query-only and never imports this package,
+fetches Z3 Wasm, or exposes a solver control that could fail after startup.
+CI scans the built website for Z3 modules and assets, while packed-artifact
+smoke tests execute the optional Node workflow and verify its backend version
+and clean process exit. Browser support may be reconsidered only with explicit
+cross-origin-isolation deployment, capability detection, worker cancellation,
+asset URL, license, and failure-state tests; it will not silently fall back to
+a remote solver.
+
 ## Named workflow CLI fixture
 
 The optional package also ships one allowlisted architecture-decision fixture

@@ -90,6 +90,19 @@ const grammar = JSON.parse(readFileSync(new URL(import.meta.resolve('@cavelang/t
 if (grammar.name !== '@cavelang/tree-sitter-cave') throw new Error('tree-sitter package metadata is unavailable')
 "
 
+echo "==> packed optional Z3 workflow resolves Wasm and exits cleanly"
+./node_modules/.bin/cave-solver-workflow architecture feasibility \
+  --team-size 10 --deployment-frequency 6 > "$tmp/solver.json"
+node -e "
+const report = require('$tmp/solver.json')
+if (report.schema !== 'cave.solver/workflow@1') throw new Error('unexpected solver workflow schema')
+if (report.explanation?.outcome?.status !== 'satisfied') throw new Error('packed Z3 workflow did not solve')
+const backend = report.explanation?.run?.backend
+if (backend?.name !== 'z3-wasm' || !/^Z3 4\\.16\\./.test(backend.version)) {
+  throw new Error('packed workflow omitted the pinned Z3 backend version')
+}
+"
+
 cave=./node_modules/.bin/cave
 echo "==> cave --help"
 "$cave" --help >/dev/null
