@@ -2,11 +2,29 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
+import { Writable } from 'node:stream'
 import { runConnect } from '@cavelang/connect'
 import { open } from '@cavelang/store'
 
 type Captured = { code: number, out: string, err: string }
+
+class Capture extends Writable {
+  value = ''
+
+  override _write(chunk: Buffer | string, _encoding: BufferEncoding, done: (error?: Error | null) => void): void {
+    this.value += String(chunk)
+    done()
+  }
+}
+
+const until = async (condition: () => boolean, stage: string): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (condition()) return
+    await new Promise<void>(resolve => setImmediate(resolve))
+  }
+  throw new Error(`connect integration did not reach ${stage}`)
+}
 
 /** Runs the CLI entry with stdout/stderr captured, returning the exit code. */
 const captured = async (argv: readonly string[]): Promise<Captured> => {
@@ -99,6 +117,137 @@ test('the CLI attaches loaded record spans to persisted claims (spec §9.8)', as
     assert.ok(store.toClaim(row).contexts.includes(`src:${source.replaceAll(' ', '%20')}#L2`))
     store.close()
   } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('URL ingestion crosses the CLI, source loader, mapper and store with an injected transport', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
+  const map = join(dir, 'people.map.cave')
+  const db = join(dir, 'k.db')
+  const url = 'https://records.test/people.json'
+  writeFileSync(map, '?id WORKS-AT ?company\n')
+  const stdout = new Capture()
+  const stderr = new Capture()
+  let requests = 0
+  try {
+    const code = await runConnect([url, '--map', map, '--key', 'id', '--db', db], {
+      stdout,
+      stderr,
+      fetchImpl: async (requested, init) => {
+        requests += 1
+        assert.equal(requested, url)
+        assert.equal((init.headers as Record<string, string>)['user-agent'], 'cave-connect')
+        assert.ok(init.signal instanceof AbortSignal)
+        return new Response(JSON.stringify([{ id: 'alice', company: 'acme' }]), {
+          headers: { 'content-type': 'application/json' }
+        })
+      }
+    })
+    assert.equal(code, 0, stderr.value)
+    assert.equal(requests, 1)
+    assert.match(stdout.value, /1 record\(s\): 1 mapped/)
+    const store = open(db)
+    assert.equal(store.currentBeliefs().filter(row => row.subject === 'alice' && row.verb === 'WORKS-AT').length, 1)
+    store.close()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('watch startup, debounce, retry, pruning and explicit-source lifecycle are deterministic', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
+  const source = join(dir, 'people.json')
+  const map = join(dir, 'people.map.cave')
+  const db = join(dir, 'k.db')
+  writeFileSync(source, JSON.stringify([{ id: 'alice', company: 'old' }]))
+  writeFileSync(map, '?id WORKS-AT ?company @src:upstream\n')
+
+  type Listener = (event: string, filename: string | Buffer | null) => void
+  const listeners: Listener[] = []
+  const closed: boolean[] = []
+  const scheduled = new Map<object, () => Promise<void>>()
+  const delays: number[] = []
+  let cancelled = 0
+  const stdout = new Capture()
+  const stderr = new Capture()
+  const controller = new AbortController()
+  let running: Promise<number> | undefined
+
+  const flush = async (): Promise<void> => {
+    assert.equal(scheduled.size, 1, 'rapid events collapse to one pending pass')
+    const [handle, callback] = scheduled.entries().next().value!
+    scheduled.delete(handle)
+    await callback()
+  }
+
+  try {
+    running = runConnect([
+      source, '--map', map, '--key', 'id', '--db', db, '--watch', '--prune'
+    ], {
+      stdout,
+      stderr,
+      signal: controller.signal,
+      watch: (_path, listener) => {
+        const at = listeners.push(listener) - 1
+        closed.push(false)
+        if (listeners.length === 2) {
+          // This save lands after the source watcher exists but before the
+          // initial pass. Installing watchers first means it cannot vanish.
+          writeFileSync(source, JSON.stringify([{ id: 'alice', company: 'new' }]))
+          listeners[0]!('rename', basename(source))
+        }
+        return { close: () => { closed[at] = true } }
+      },
+      schedule: (callback, delayMs) => {
+        delays.push(delayMs)
+        const handle = {}
+        scheduled.set(handle, callback)
+        return handle
+      },
+      cancelScheduled: handle => {
+        if (scheduled.delete(handle as object)) cancelled += 1
+      }
+    })
+
+    await until(() => stdout.value.includes('watching'), 'watch setup')
+    let store = open(db)
+    let row = store.currentBeliefs().find(entry => entry.subject === 'alice' && entry.verb === 'WORKS-AT')!
+    assert.equal(row.object, 'new', 'the startup save is present in the initial pass')
+    assert.ok(store.toClaim(row).contexts.includes('src:upstream'))
+    assert.ok(store.toClaim(row).contexts.includes('src:connect/people/alice'))
+    store.close()
+    await flush() // queued startup event rechecks and skips the same digest
+
+    writeFileSync(source, '{broken json')
+    listeners[0]!('change', basename(source))
+    await flush()
+    assert.match(stderr.value, new RegExp(`cave connect watch pass: .*${basename(source)}`),
+      'a failed watch pass names its lifecycle stage and source')
+
+    writeFileSync(source, '[]')
+    listeners[0]!('change', basename(source))
+    listeners[0]!('rename', basename(source))
+    listeners[1]!('change', basename(map))
+    assert.equal(scheduled.size, 1)
+    assert.ok(cancelled >= 2, 'later source/map events cancel earlier debounce callbacks')
+    await flush()
+
+    store = open(db)
+    row = store.currentBeliefs().find(entry => entry.subject === 'alice' && entry.verb === 'WORKS-AT')!
+    assert.equal(row.conf, 0, 'pruning retracts the lifecycle-owned claim even with an authored source')
+    assert.ok(store.toClaim(row).contexts.includes('src:upstream'))
+    assert.ok(store.toClaim(row).contexts.includes('src:connect/people/alice'))
+    store.close()
+
+    controller.abort()
+    assert.equal(await running, 0)
+    assert.deepEqual(closed, [true, true])
+    assert.equal(scheduled.size, 0)
+    assert.ok(delays.every(delay => delay === 200))
+  } finally {
+    controller.abort()
+    await running
     rmSync(dir, { recursive: true, force: true })
   }
 })
