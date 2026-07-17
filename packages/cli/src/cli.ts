@@ -60,6 +60,7 @@ import type { SyncReport } from '@cavelang/sync'
 import { report as caveReport } from '@cavelang/view'
 import { emitClaim } from '@cavelang/canonical'
 import { doctorCommand } from './doctor.ts'
+import { delegatedCommandNames } from './commands.ts'
 
 export type Output = {
   readonly code: number
@@ -1735,7 +1736,7 @@ export const helpCommand = (argv: readonly string[]): Output => {
     return ok(`${text}\n`)
   }
   // Delegated commands own their help; dispatch.ts forwards `help X` to `X --help`.
-  if (topic === 'mcp' || topic === 'ingest' || topic === 'connect' || topic === 'eval' || topic === 'automate' || topic === 'serve') {
+  if (delegatedCommandNames.includes(topic)) {
     return ok(`see: cave ${topic} --help\n`)
   }
   return fail(`cave help: unknown command ${JSON.stringify(topic)}\n\n${usage}\n`, 2)

@@ -1,6 +1,7 @@
 /** One promise-based command dispatcher and process lifecycle for every command. */
 
 import { cave, highlightCommand, reconstructCommand, suggestAliasCommand } from './cli.ts'
+import { delegatedCommandNames } from './commands.ts'
 import type { Output } from './cli.ts'
 
 export type CommandRuntime = {
@@ -19,7 +20,7 @@ const processRuntime = (): CommandRuntime => ({
   debug: process.env['CAVE_DEBUG'] === '1'
 })
 
-const delegatedHelp = new Set(['mcp', 'ingest', 'connect', 'eval', 'automate', 'serve'])
+const delegatedHelp = new Set<string>(delegatedCommandNames)
 
 const normalizedArgs = (raw: readonly string[]): readonly string[] =>
   raw[0] === 'help' && raw[1] !== undefined && delegatedHelp.has(raw[1]) ? [raw[1], '--help'] : raw
