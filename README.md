@@ -195,13 +195,14 @@ The extraction above was done by hand to show the language. `cave ingest` automa
 $ pnpm exec cave ingest --db lore.db examples/family-history/notes.md \
     --instructions examples/family-history/instructions.md \
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
-ingest: 1 file(s) matched, 0 skipped (unchanged), 1 batch(es)
+ingest (strict): 1 source(s) matched, 0 skipped (unchanged), 1 batch(es), applied
 batch 1/1 (1 file(s)): +14 claim(s)
   agent: done: 14 claims added
+source accepted: examples/family-history/notes.md — batch 1; done: 14 claims added
 done: +14 claim(s)
 ```
 
-The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
+The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Ingestion is atomic by default: all batches use an isolated stage and nothing reaches the requested database if a fetch, agent, or extraction fails. `--lenient` explicitly keeps valid partial progress, continues later paid-agent calls, exits 1 on any rejection, and reports every source (`--json` for the machine-readable manifest); rejected sources keep no digest and retry next time. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
 
 ```
 $ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'

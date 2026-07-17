@@ -19,6 +19,9 @@
       "path": "../store"
     },
     {
+      "path": "../sync"
+    },
+    {
       "path": "../core"
     },
     {

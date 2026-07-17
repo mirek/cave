@@ -246,6 +246,9 @@ importers:
       '@cavelang/store':
         specifier: workspace:*
         version: link:../store
+      '@cavelang/sync':
+        specifier: workspace:*
+        version: link:../sync
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
