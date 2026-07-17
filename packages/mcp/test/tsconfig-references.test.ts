@@ -241,10 +241,12 @@ test('release automation validates identity before npm and matches the supported
   const root = fileURLToPath(new URL('../../..', import.meta.url))
   const manifest = parse<Manifest>(join(root, 'package.json'))
   assert.match(manifest.engines?.node ?? '', /^>=22(?:\.|$)/)
-  assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs')
+  assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs --mode=publish')
+  assert.equal(manifest.scripts?.['release:validate:version-pr'],
+    'node scripts/release-validate.mjs --mode=version-pr')
 
   const publishWorkflow = readFileSync(join(root, '.github/workflows/publish.yml'), 'utf8')
-  const preflight = publishWorkflow.indexOf('Validate release branch, commit, versions, and tag')
+  const preflight = publishWorkflow.indexOf('Validate version-PR or publish readiness')
   const registry = publishWorkflow.indexOf('registry-url: https://registry.npmjs.org')
   assert.ok(preflight >= 0 && preflight < registry, 'release identity must be checked before npm registry setup')
   assert.deepEqual([...publishWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
@@ -257,7 +259,7 @@ test('release automation validates identity before npm and matches the supported
   }
 
   const release = readFileSync(join(root, 'scripts/release-publish.sh'), 'utf8')
-  const validation = release.indexOf('node scripts/release-validate.mjs')
+  const validation = release.indexOf('node scripts/release-validate.mjs --mode=publish')
   const registryLookup = release.indexOf('npm view')
   const build = release.indexOf('pnpm --filter @cavelang/tree-sitter-cave build')
   assert.ok(validation >= 0 && validation < registryLookup && validation < build)
@@ -294,7 +296,7 @@ test('the VS Code extension is packed, versioned, and published through a scoped
   assert.match(release, /^permissions:\n  contents: read$/m)
   assert.match(release, /environment: vscode-marketplace/)
   assert.match(release, /ref: refs\/tags\/v\$\{\{ inputs\.version \}\}/)
-  assert.match(release, /node scripts\/release-validate\.mjs/)
+  assert.match(release, /node scripts\/release-validate\.mjs --mode=publish/)
   assert.match(release, /VSCE_PAT: \$\{\{ secrets\.VSCE_PAT \}\}/)
   assert.match(release, /vsce publish .*--skip-duplicate/)
 })

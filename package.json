@@ -24,7 +24,8 @@
     "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "pnpm run build",
     "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only --no-frozen-lockfile",
-    "release:validate": "node scripts/release-validate.mjs",
+    "release:validate": "node scripts/release-validate.mjs --mode=publish",
+    "release:validate:version-pr": "node scripts/release-validate.mjs --mode=version-pr",
     "release:publish": "./scripts/release-publish.sh"
   },
   "devDependencies": {

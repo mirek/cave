@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Propagates the lockstep version to version sources that `changeset
-// version` does not manage: the private root and VS Code manifests and
-// the tree-sitter grammar metadata. Runs as part of `pnpm run
+// version` does not manage consistently: private package manifests, the
+// private root and VS Code manifests, and tree-sitter grammar metadata. Runs as part of `pnpm run
 // version-packages` so the version packages PR carries every version
 // source in one commit.
 //
@@ -10,7 +10,7 @@
 // here only after Changesets has finished so its Marketplace artifact shares
 // the repository release identity without entering the npm fixed group.
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
@@ -21,6 +21,17 @@ const write = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2
 // @cavelang/core is in the fixed group, so it always carries the current
 // lockstep version after `changeset version` has run.
 const version = read(join(root, 'packages/core/package.json')).version
+
+for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
+  const manifestPath = join(root, 'packages', entry.name, 'package.json')
+  if (!entry.isDirectory() || !existsSync(manifestPath)) continue
+  const manifest = read(manifestPath)
+  if (manifest.version !== version) {
+    manifest.version = version
+    write(manifestPath, manifest)
+    console.log(`packages/${entry.name}/package.json: ${version}`)
+  }
+}
 
 const rootManifestPath = join(root, 'package.json')
 const rootManifest = read(rootManifestPath)

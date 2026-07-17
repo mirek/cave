@@ -35,7 +35,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Validate tag and lockstep release identity
-        run: node scripts/release-validate.mjs
+        run: node scripts/release-validate.mjs --mode=publish
 
       - name: Package and validate the VSIX
         run: pnpm --filter cave-language package
