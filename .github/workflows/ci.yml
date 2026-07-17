@@ -81,6 +81,9 @@ jobs:
       - name: Build website
         run: pnpm site:build
 
+      - name: Verify the default website excludes optional solver assets
+        run: node scripts/verify-website-bundle.mjs
+
   # Pack every public package and install the tarballs into a clean npm
   # project. This catches missing files, broken publishConfig exports, and
   # bin paths that workspace symlinks cannot expose.

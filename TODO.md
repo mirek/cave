@@ -12,7 +12,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Centralize query primitives](todo/shared-query-primitives.md) — Share current-belief, alias, and temporal SQL instead of copying it.
 - [Stabilize external records](todo/stable-external-records.md) — Define a versioned public JSON and record representation.
 - [Decision and scenario layer](todo/decision-scenario-layer.md) — Support ephemeral overlays and typed external evaluation without polluting facts.
-- [Formal verification and constraint solving](todo/formal-verification.md) — Add solver-backed feasibility, optimization, counterexamples, and unsatisfiable explanations.
 - [Add `cave doctor`](todo/cave-doctor.md) — Diagnose runtime, database, extension, hook, and packaging problems.
 - [Add performance benchmarks](todo/performance-benchmarks.md) — Track representative storage and query regressions in CI.
 - [Paginate queries](todo/query-pagination.md) — Push limits into SQL and expose bounded iteration.

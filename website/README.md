@@ -18,4 +18,9 @@ No source-module alias or custom Node test loader selects the runtime.
 CAVE examples and the playground editor are highlighted in-browser by the
 Tree-sitter WASM grammar and its shared `queries/highlights.scm` captures.
 
+The playground intentionally does not bundle a formal solver. The optional
+threaded Z3 backend remains Node-only because this GitHub Pages deployment does
+not provide the cross-origin isolation and worker-asset contract it requires.
+CI verifies that ordinary website builds contain no Z3 package or Wasm asset.
+
 `.github/workflows/pages.yml` publishes `website/dist` to GitHub Pages on changes to the site, packages, or documentation.

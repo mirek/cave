@@ -162,6 +162,18 @@ test('packed smoke coverage owns child cleanup and major offline surfaces', () =
   }
   assert.match(smoke, /const roots = \[[\s\S]*'canonical'[\s\S]*'store'/)
   assert.match(smoke, /@cavelang\/tree-sitter-cave\/package\.json/)
+  assert.match(smoke, /cave-solver-workflow architecture feasibility/)
+  assert.match(smoke, /backend\?\.name !== 'z3-wasm'/)
+})
+
+test('the default website build excludes the optional solver runtime', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
+  assert.match(ci, /Build website[\s\S]*Verify the default website excludes optional solver assets[\s\S]*verify-website-bundle\.mjs/)
+
+  const website = parse<Manifest>(join(root, 'website/package.json'))
+  assert.equal(website.dependencies?.['@cavelang/solver-z3'], undefined)
+  assert.equal(website.dependencies?.['z3-solver'], undefined)
 })
 
 test('release automation validates identity before npm and matches the supported runtime', () => {
