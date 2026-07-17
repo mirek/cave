@@ -137,11 +137,14 @@ module.exports = grammar({
     // keywords (`NOT`, `WHEN`, …) win as strings over this regex.
     verb: () => /[A-Z][A-Z-]*/,
 
-    entity: () => /[A-Za-z_][A-Za-z0-9_./-]*/,
+    // Entity names may use Unicode letters, combining marks and numbers.
+    // The first code point remains a letter or `_`; scope and
+    // kebab-case separators keep their existing ASCII spellings (§4.1).
+    entity: () => /[\p{L}_][\p{L}\p{M}\p{N}_./-]*/u,
 
-    attribute: () => token(/[A-Za-z_][A-Za-z0-9_./-]*:/),
+    attribute: () => token(/[\p{L}_][\p{L}\p{M}\p{N}_./-]*:/u),
 
-    number: () => /~?[0-9][0-9A-Za-z.,%_-]*/,
+    number: () => /~?-?[0-9][0-9A-Za-z.,%_-]*/,
 
     string: () => token(seq('"', /[^"\r\n]*/, '"')),
 

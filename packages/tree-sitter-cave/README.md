@@ -8,6 +8,10 @@ needs no external scanner: indentation is skipped and qualifier/continuation
 lines are recognized by their leading verb. Parent attachment (spec §8) is
 semantic and left to consumers such as `@cavelang/parser`.
 
+Entity and attribute names accept Unicode letters, combining marks and
+numbers, with `/`, `-`, `_`, and `.` as structural characters. Numeric
+values include negative scalars and negative trajectory endpoints.
+
 ## Contents
 
 - `grammar.js` — the grammar (spec §16, §3–§8)
