@@ -133,3 +133,53 @@ db/query-time IS 5ms -> 800ms @2026-04-10..04-11
       (number)
       (number))
     (context)))
+
+==================
+negative scalar and trajectory values
+==================
+temperature IS -12.5C
+balance IS ~-20 -> -5 USD @2025..2028
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number)))
+  (claim_line
+    (entity)
+    (verb)
+    (value
+      (number)
+      (number)
+      (unit))
+    (context)))
+
+==================
+Unicode entity names and attributes
+==================
+München HAS température: -3.5 C
+東京 CONTAINS 渋谷
+café/équipe USES PostgreSQL
+---
+
+(document
+  (claim_line
+    (entity)
+    (verb)
+    (attr_value
+      (attribute)
+      (value
+        (number)
+        (unit))))
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity)))
+  (claim_line
+    (entity)
+    (verb)
+    (object
+      (entity))))

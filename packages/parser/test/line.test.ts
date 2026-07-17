@@ -98,6 +98,26 @@ test('metric claim: IS + trajectory value (spec §32.3)', () => {
   assert.deepEqual(revenue.meta.contexts, ['2025..2028'])
 })
 
+test('negative values and Unicode entities share the executable grammar', () => {
+  const temperature = claim('München HAS température: -3.5 C').value
+  assert.deepEqual(temperature.subject, { kind: 'entity', text: 'München' })
+  assert.equal(temperature.payload.kind, 'attribute')
+  if (temperature.payload.kind === 'attribute') {
+    assert.equal(temperature.payload.attribute, 'température')
+    assert.equal(temperature.payload.value.num, -3.5)
+    assert.equal(temperature.payload.value.unit, 'C')
+  }
+
+  const trajectory = claim('東京 HAS balance: ~-20 -> -5 USD').value
+  assert.deepEqual(trajectory.subject, { kind: 'entity', text: '東京' })
+  assert.equal(trajectory.payload.kind, 'attribute')
+  if (trajectory.payload.kind === 'attribute') {
+    assert.equal(trajectory.payload.value.kind, 'trajectory')
+    assert.equal(trajectory.payload.value.from, -20)
+    assert.equal(trajectory.payload.value.to, -5)
+  }
+})
+
 test('attribute claim: trajectory value (spec §32.3)', () => {
   const headcount = claim('acme HAS headcount: 100 -> 400 @2025..2027').value
   assert.equal(headcount.payload.kind, 'attribute')

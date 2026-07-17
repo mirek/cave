@@ -42,6 +42,16 @@ test('qualifier keywords and negation (spec §8.2)', async () => {
   assert.deepEqual(keywords, ['CAUSE', 'WHEN', 'NOT'])
 })
 
+test('highlights negative values and Unicode entities without grammar gaps', async () => {
+  const input = 'München HAS température: -3.5 C\n東京 CONTAINS 渋谷'
+  const spans = (await highlighter()).spans(input)
+  const of = (capture: string): string[] =>
+    spans.filter(span => span.capture === capture).map(span => textOf(input, span))
+  assert.deepEqual(of('variable'), ['München', '東京', '渋谷'])
+  assert.deepEqual(of('property'), ['température:'])
+  assert.deepEqual(of('number'), ['-3.5'])
+})
+
 test('spans are disjoint and ordered', async () => {
   const input = 'deploy NEEDS docker #env:prod ; staged\npool HAS max: 20 conn'
   const spans = (await highlighter()).spans(input)
