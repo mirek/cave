@@ -51,8 +51,9 @@ preserves direction and makes reverse reads return the preferred opposite name.
   nodes joined to the parent by role edges. `UNLESS x` normalizes to
   role `WHEN` + negated condition. Condition shapes:
   - bare entity → `x EXISTS` claim (negated for `NOT x`);
-  - comparison → `left EXCEEDS value` (metric payload); `>`→`EXCEEDS`,
-    other operators keep their symbol as the verb;
+  - comparison → a metric claim with a canonical verb: `>` → `EXCEEDS`,
+    `<` → `IS-BELOW`, `>=` → `IS-AT-LEAST`, `<=` → `IS-AT-MOST`,
+    `=` → `EQUALS`, and `!=` → `DIFFERS-FROM`;
   - full claim → canonicalized as usual (inverse resolution applies).
 - **Grouped claims** (§8.4): indented full triples stay independent and
   link to their parent with the `QUALIFIES` edge role (§13.2's role list).
@@ -72,9 +73,9 @@ preserves direction and makes reverse reads return the preferred opposite name.
 
 Emission of a complete canonicalization result is stable:
 `emit ∘ canonicalize ∘ emit ≡ emit`, and claim keys survive the round trip
-(tested). Symbolic comparison rows are valid only as attached qualifier
-conditions; callers emitting an isolated child row must retain that context
-until the canonical comparison-verb work tracked in the backlog is complete.
+(tested). Comparison rows are valid CAVE both under their qualifier edge and
+when emitted in isolation, which keeps storage fallbacks and citations
+parseable.
 
 ## Design decisions
 
@@ -93,9 +94,11 @@ until the canonical comparison-verb work tracked in the backlog is complete.
   be *detected* — `PART-OF` without a declaration is just an unknown verb,
   so the line canonicalizes forward with the inherited subject. Loading the
   standard prelude first gives the intended reading.
-- **Comparison verbs**: only `>` has a standard verb (`EXCEEDS`); `<`,
-  `>=`, `<=`, `=`, `!=` keep their symbol as the stored verb. They appear
-  only as condition claims.
+- **Comparison compatibility**: symbolic operators remain accepted in authored
+  `WHEN`/`UNLESS` input, and `>` retains its existing stored `EXCEEDS` verb.
+  The other five operators now store and emit the canonical verbs listed
+  above. Consumers that inspect condition-row verbs should accept those names;
+  operator input and CAVE-Q `WHERE value <op> ...` filters are unchanged.
 - **Three-way negation XOR** for qualifier conditions: inner `NOT`,
   qualifier-level `NOT`, and `UNLESS` each flip the condition's negation.
 

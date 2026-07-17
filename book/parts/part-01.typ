@@ -125,7 +125,9 @@ IS and HAS are sufficient to bootstrap the language. Standard verbs improve grap
   [Dependency and production],
   [NEEDS, USES, YIELDS, ENABLES, BLOCKS],
   [Structure and ordering],
-  [CONTAINS, PRECEDES, EXCEEDS],
+  [CONTAINS, PRECEDES],
+  [Comparison],
+  [EXCEEDS, IS-BELOW, IS-AT-LEAST, IS-AT-MOST, EQUALS, DIFFERS-FROM],
   [Evidence and qualification],
   [BECAUSE, VIA, WHEN, UNLESS],
 )

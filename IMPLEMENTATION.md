@@ -117,7 +117,9 @@ Package READMEs document local decisions; these are the global ones:
   object-less `none` payload is an extension the grammar needs for bare
   existence claims.
 - **Qualifier conditions are claims** (§8.1): bare entities become
-  `x EXISTS`, comparisons become `left EXCEEDS value` (metric payload),
+  `x EXISTS`, comparisons become metric claims with canonical verbs
+  (`EXCEEDS`, `IS-BELOW`, `IS-AT-LEAST`, `IS-AT-MOST`, `EQUALS`, or
+  `DIFFERS-FROM`),
   `UNLESS` becomes `WHEN` + negation. Grouped full claims link with the
   `QUALIFIES` edge role from §13.2's role list.
 - **Terms are stored formatted** (literals keep their delimiters) so

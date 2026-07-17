@@ -65,6 +65,30 @@ test('comparison condition emits as standard-verb claim', () => {
   assert.equal(emit(result), 'server CAUSE crash\n  WHEN load EXCEEDS ~1000 req/s\n')
 })
 
+test('all comparison conditions and isolated stored rows round-trip as valid CAVE', () => {
+  const cases = [
+    ['>', 'EXCEEDS'],
+    ['<', 'IS-BELOW'],
+    ['>=', 'IS-AT-LEAST'],
+    ['<=', 'IS-AT-MOST'],
+    ['=', 'EQUALS'],
+    ['!=', 'DIFFERS-FROM']
+  ] as const
+  for (const [operator, verb] of cases) {
+    const result = canonicalizeText(`server CAUSE crash\n  WHEN load ${operator} 100 req/s`, standardRegistry)
+    const text = emit(result)
+    assert.equal(text, `server CAUSE crash\n  WHEN load ${verb} 100 req/s\n`, operator)
+    const again = canonicalizeText(text, standardRegistry)
+    assert.deepEqual(again.problems, [], operator)
+    assert.equal(Key.of(again.claims[1]!.claim), Key.of(result.claims[1]!.claim), operator)
+
+    const isolated = `${emitClaim(result.claims[1]!.claim)}\n`
+    const isolatedAgain = canonicalizeText(isolated, standardRegistry)
+    assert.deepEqual(isolatedAgain.problems, [], `isolated ${operator}`)
+    assert.equal(Key.of(isolatedAgain.claims[0]!.claim), Key.of(result.claims[1]!.claim), operator)
+  }
+})
+
 test('grouped claims re-indent under their parent (spec §8.4)', () => {
   const result = canonicalizeText('deploy VIA github-actions\n  build PRECEDES deploy', standardRegistry)
   assert.equal(emit(result), 'deploy VIA github-actions\n  build PRECEDES deploy\n')
@@ -88,7 +112,7 @@ test('empty result emits empty text', () => {
 test('negated comparison conditions emit as WHEN NOT and round-trip keys (spec §8.2)', () => {
   const result = canonicalizeText('server CAUSE crash\n  UNLESS cpu >= 900', standardRegistry)
   const text = emit(result)
-  assert.equal(text, 'server CAUSE crash\n  WHEN NOT cpu >= 900\n')
+  assert.equal(text, 'server CAUSE crash\n  WHEN NOT cpu IS-AT-LEAST 900\n')
   const again = canonicalizeText(text, standardRegistry)
   assert.deepEqual(again.problems, [])
   assert.equal(Key.of(again.claims[1]!.claim), Key.of(result.claims[1]!.claim))

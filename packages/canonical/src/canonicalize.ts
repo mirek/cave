@@ -60,9 +60,15 @@ const roleOf: Record<Verb.Qualifier, EdgeRole> = {
   BECAUSE: 'BECAUSE'
 }
 
-/** `>` maps to the standard `EXCEEDS`; other operators keep their symbol. */
-const comparisonVerb = (op: Ast.ComparisonOp): string =>
-  op === '>' ? 'EXCEEDS' : op
+/** Every qualifier operator maps to a parseable canonical verb. */
+const comparisonVerbs: Readonly<Record<Ast.ComparisonOp, string>> = {
+  '>': 'EXCEEDS',
+  '<': 'IS-BELOW',
+  '>=': 'IS-AT-LEAST',
+  '<=': 'IS-AT-MOST',
+  '=': 'EQUALS',
+  '!=': 'DIFFERS-FROM'
+}
 
 const normalizeTerm = (term: Claim.Term): Claim.Term =>
   term.kind === 'entity' ? Claim.entity(Entity.normalize(term.text)) : term
@@ -204,7 +210,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
       case 'comparison':
         return {
           subject: payload.left,
-          verb: comparisonVerb(payload.op),
+          verb: comparisonVerbs[payload.op],
           negated: payload.negated !== unless,
           payload: Claim.metric(payload.value),
           meta: payload.meta

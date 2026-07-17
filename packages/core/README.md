@@ -62,6 +62,10 @@ Decisions this package pins down where the spec leaves latitude:
 - **Claim classification** (relation vs metric) is the parser's job; core
   only defines the shapes. A numeric, date-like, or trajectory value after
   any verb is a metric payload; other objects are relations.
+- **Comparison condition verbs** are ordinary standard verbs after
+  canonicalization: `EXCEEDS`, `IS-BELOW`, `IS-AT-LEAST`, `IS-AT-MOST`,
+  `EQUALS`, and `DIFFERS-FROM`. Symbolic operators remain qualifier input
+  syntax and CAVE-Q filter syntax.
 - **`Value.parse` never fails** — unparseable text degrades to an `atom`
   value with raw text preserved, honoring the LLM-friendliness goal (§1.6).
 - **UUIDv7 monotonicity**: same-millisecond calls increment a 12-bit
