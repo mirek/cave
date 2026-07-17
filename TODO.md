@@ -24,7 +24,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Comparison operator emission](todo/comparison-operator-emission.md) — Emit every comparison as valid, parseable CAVE.
 - [Partial URL ingest failure](todo/ingest-partial-url-failure.md) — Isolate failed URLs instead of aborting unrelated healthy sources.
 - [Digest path encoding](todo/ingest-digest-path-encoding.md) — Record digests safely for paths and URLs containing syntax characters.
-- [Rules pass-limit retraction](todo/rules-max-passes-retraction.md) — Avoid false retractions when derivation stops at its pass limit.
 - [MCP protocol compliance](todo/mcp-protocol-compliance.md) — Negotiate supported versions and respond correctly to JSON-RPC batches.
 - [Transitive depth truncation](todo/transitive-depth-truncation.md) — Remove or expose the silent 32-hop closure limit.
 

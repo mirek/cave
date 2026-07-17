@@ -63,6 +63,34 @@ test('re-runs are idempotent and watermark-incremental (spec §24.4)', () => {
   store.close()
 })
 
+test('pass truncation preserves valid suspended conclusions and resumes safely', () => {
+  const store = open()
+  store.ingest('a NEEDS b\nb NEEDS c\nc NEEDS d\nd NEEDS e\ne NEEDS f')
+  declareRules(store, '?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z')
+  const initial = derive(store)
+  assert.equal(initial.complete, true)
+  const deepest = query(store, 'a NEEDS f')[0]!.row!
+  const historyBefore = store.history(deepest.claim_key).length
+
+  const full = derive(store, { full: true, maxPasses: 1 })
+  assert.equal(full.complete, false)
+  assert.equal(full.retracted, 0)
+  assert.match(full.notes.join('\n'), /no unsupported conclusions were retracted/)
+  assert.equal(query(store, 'a NEEDS f').length, 1, 'full truncation keeps a still-valid deep conclusion')
+  assert.equal(store.history(deepest.claim_key).length, historyBefore, 'no transient @ 0% row was appended')
+
+  store.ingest('f NEEDS g')
+  const incremental = derive(store, { maxPasses: 1 })
+  assert.equal(incremental.complete, false)
+  assert.equal(incremental.retracted, 0)
+  assert.equal(query(store, 'a NEEDS f').length, 1, 'incremental truncation also preserves prior support')
+
+  const resumed = derive(store)
+  assert.equal(resumed.complete, true)
+  assert.equal(query(store, 'a NEEDS g').length, 1, 'an incomplete run did not advance its watermark')
+  store.close()
+})
+
 test('retracting a rule preserves RENAMED-TO vocabulary it derived (spec §5.8, §24.5)', () => {
   const store = open()
   store.ingest('schema HAS replacement: EMPLOYED-BY')

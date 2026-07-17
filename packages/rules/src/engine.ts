@@ -102,6 +102,8 @@ export type DeriveReport = {
   readonly rules: readonly RuleOutcome[]
   /** Stored rule declarations that failed to parse — reported, skipped. */
   readonly problems: readonly RuleProblem[]
+  /** Whether evaluation and destructive support reconciliation reached a fixpoint. */
+  readonly complete: boolean
   readonly passes: number
   readonly appended: number
   readonly updated: number
@@ -469,6 +471,7 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   /** Per-rule scan mark: rows at or before it are fully accounted for. */
   const marks = new Map<string, undefined | string>()
   const storedMarks = new Map<string, undefined | string>()
+  let complete = true
 
   for (const { rule, row } of loaded) {
     const watermark = store.currentBelief(bookkeepingKey(ruleSubject(rule.digest), watermarkAttribute))
@@ -583,6 +586,10 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   }
 
   const run = (): void => {
+    const truncate = (): void => {
+      complete = false
+      notes.push(`stopped at ${maxPasses} passes before reaching a fixpoint — no unsupported conclusions were retracted and no watermarks were advanced; re-run to continue, or raise maxPasses`)
+    }
     for (;;) {
       // Pass loop: evaluate until no rule writes or extends support.
       let quiescent = false
@@ -607,6 +614,13 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
         }
         quiescent = !progress
       }
+      // Support is incomplete when the pass guard stops active evaluation.
+      // Retraction would turn every not-yet-revisited suspended row into a
+      // false negative, so leave both rows and watermarks untouched.
+      if (!quiescent) {
+        truncate()
+        return
+      }
       // Retraction phase (§24.5): suspended rows never re-supported lost
       // their premises. Retraction rows are ordinary appends — the loop
       // re-enters so dependent rules see them and cascade.
@@ -620,16 +634,18 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
         outcome.retracted += 1
         retracted = true
       }
-      if (!retracted || passes >= maxPasses) {
-        if (passes >= maxPasses && (!quiescent || retracted)) {
-          notes.push(`stopped at ${maxPasses} passes before reaching a fixpoint — re-run to continue, or raise maxPasses`)
-        }
+      if (!retracted) {
+        return
+      }
+      if (passes >= maxPasses) {
+        truncate()
         return
       }
     }
   }
 
   const finalize = (): void => {
+    if (!complete) return
     for (const entry of loaded) {
       if (!fired.has(entry.rule.digest)) {
         continue
@@ -664,6 +680,7 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   return {
     rules: outcomes,
     problems,
+    complete,
     passes,
     appended: outcomes.reduce((sum, outcome) => sum + outcome.appended, 0),
     updated: outcomes.reduce((sum, outcome) => sum + outcome.updated, 0),

@@ -1070,7 +1070,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
         (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : ''))
     }
     if (values.json === true) {
-      return { code: report.problems.length > 0 ? 1 : 0, out: `${stableJson(store, report)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
+      return { code: report.problems.length > 0 || !report.complete ? 1 : 0, out: `${stableJson(store, report)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
     }
     for (const problem of report.problems) {
       err.push(`${problem.subject}: ${problem.problems.join('; ')}`)
@@ -1087,7 +1087,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
       `derived${values['dry-run'] === true ? ' (dry run)' : ''}: ` +
       `+${report.appended} appended, ${report.updated} updated, ${report.retracted} retracted, ` +
       `${report.unchanged} unchanged (${report.passes} pass(es))`)
-    const hasProblems = report.problems.length > 0 || report.rules.some(rule => rule.problems.length > 0)
+    const hasProblems = !report.complete || report.problems.length > 0 || report.rules.some(rule => rule.problems.length > 0)
     return { code: hasProblems ? 1 : 0, out: `${out.join('\n')}\n`, err: err.length === 0 ? '' : `${err.join('\n')}\n` }
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)

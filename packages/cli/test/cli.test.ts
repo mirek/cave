@@ -307,6 +307,25 @@ test('derive --dry-run reports without writing; problems set the exit code', () 
   })
 })
 
+test('derive pass exhaustion is a resumable non-zero status', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const facts = join(dir, 'facts.cave')
+    writeFileSync(facts, 'a NEEDS b\nb NEEDS c\nc NEEDS d\nd NEEDS e\n')
+    addCommand([facts, '--db', db])
+    const rules = join(dir, 'rules.cave')
+    writeFileSync(rules, '?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z\n')
+
+    const truncated = deriveCommand([rules, '--db', db, '--max-passes', '1', '--json'])
+    assert.equal(truncated.code, 1)
+    assert.equal(JSON.parse(truncated.out).complete, false)
+    const resumed = deriveCommand(['--db', db, '--json'])
+    assert.equal(resumed.code, 0)
+    assert.equal(JSON.parse(resumed.out).complete, true)
+    assert.equal(queryCommand(['a NEEDS e', '--db', db]).code, 0)
+  })
+})
+
 test('add --strict fails on problems and leaves the db empty', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
