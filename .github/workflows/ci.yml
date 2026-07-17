@@ -110,6 +110,33 @@ jobs:
       - name: Test packed npm artifacts
         run: bash scripts/smoke.sh
 
+  # Package the editor product through the Marketplace toolchain and inspect
+  # the resulting archive, not just its source bundle.
+  vscode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Package and validate the VS Code extension
+        run: pnpm --filter cave-language package
+
+      - name: Retain the validated VSIX
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cave-language-${{ github.sha }}
+          path: editors/vscode/cave-language-*.vsix
+          if-no-files-found: error
+          retention-days: 7
+
   # Keep CI/test as the stable branch-protection check while running the
   # full source suite and packed-artifact smoke test independently.
   test:
@@ -117,15 +144,18 @@ jobs:
     needs:
       - suite
       - smoke
+      - vscode
     runs-on: ubuntu-latest
     steps:
       - name: Require source and artifact checks
         env:
           SUITE_RESULT: ${{ needs.suite.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
+          VSCODE_RESULT: ${{ needs.vscode.result }}
         run: |
-          if [ "$SUITE_RESULT" != success ] || [ "$SMOKE_RESULT" != success ]; then
+          if [ "$SUITE_RESULT" != success ] || [ "$SMOKE_RESULT" != success ] || [ "$VSCODE_RESULT" != success ]; then
             echo "source suite: $SUITE_RESULT" >&2
             echo "artifact smoke: $SMOKE_RESULT" >&2
+            echo "VS Code package: $VSCODE_RESULT" >&2
             exit 1
           fi

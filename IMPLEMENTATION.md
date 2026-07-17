@@ -60,6 +60,13 @@ packages the same grammar WASM and highlight query as a VSCode extension
   files staged by package hooks. CI and release workflows pin third-party
   actions to reviewed commit revisions while retaining major-version comments
   for update tooling.
+- **The VS Code extension is a separately delivered product with shared
+  identity.** The automated version PR stamps its private manifest from the
+  same lockstep version as the npm packages. CI creates and inspects the real
+  VSIX archive, then retains it as a short-lived artifact. Marketplace
+  publication is an explicit dispatch against an existing `v<version>` tag;
+  the workflow re-runs release validation, rebuilds the VSIX, and obtains its
+  token only from the protected `vscode-marketplace` environment.
 - **Build-free development, emitted releases.** Node ≥ 22.18 can run the
   workspace `.ts` sources directly through type stripping and pnpm symlinks.
   `pnpm build` is the canonical composite `tsc -b` operation: it typechecks

@@ -1,0 +1,48 @@
+name: Publish VS Code extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing CAVE release version to publish (without v)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-marketplace-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    environment: vscode-marketplace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate tag and lockstep release identity
+        run: node scripts/release-validate.mjs
+
+      - name: Package and validate the VSIX
+        run: pnpm --filter cave-language package
+
+      - name: Publish the validated VSIX to Marketplace
+        working-directory: editors/vscode
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: pnpm exec vsce publish --packagePath "cave-language-${RELEASE_VERSION}.vsix" --skip-duplicate
