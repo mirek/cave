@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { PassThrough } from 'node:stream'
 import { open } from '@cavelang/store'
-import { agentSource, createServer, instructions, instructionsFor, scopedTools, tools } from '@cavelang/mcp'
+import { agentSource, createServer, instructions, instructionsFor, protocolVersion, scopedTools, serve, tools } from '@cavelang/mcp'
 
 type Response = {
   jsonrpc: '2.0'
@@ -25,19 +26,75 @@ const contentText = (response: Response): string => {
   return content[0]!.text
 }
 
-test('initialize echoes the client protocol version and advertises tools', () => {
+test('initialize negotiates the supported protocol version and advertises tools', () => {
   const store = open()
   const server = createServer(store)
   const response = server.handle(request(1, 'initialize', {
-    protocolVersion: '2025-03-26',
+    protocolVersion,
     capabilities: {},
     clientInfo: { name: 'test', version: '0' }
   })) as Response
-  assert.equal(response.result?.['protocolVersion'], '2025-03-26')
+  assert.equal(response.result?.['protocolVersion'], protocolVersion)
   assert.deepEqual(response.result?.['capabilities'], { tools: {} })
   assert.equal((response.result?.['serverInfo'] as { name: string }).name, 'cave')
   assert.equal(response.result?.['instructions'], instructions)
   assert.match(instructions, /subject VERB/)
+  store.close()
+})
+
+test('initialize rejects unsupported and missing protocol versions with JSON-RPC errors', () => {
+  const store = open()
+  const server = createServer(store)
+  const old = server.handle(request('old', 'initialize', {
+    protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '0' }
+  })) as Response
+  assert.equal(old.jsonrpc, '2.0')
+  assert.equal(old.id, 'old')
+  assert.equal(old.error?.code, -32602)
+  assert.match(old.error?.message ?? '', /supported: 2025-06-18/)
+  const missing = server.handle(request(2, 'initialize', { capabilities: {} })) as Response
+  assert.equal(missing.error?.code, -32602)
+  store.close()
+})
+
+test('JSON-RPC batches preserve order, omit notifications, and reject malformed requests', () => {
+  const store = open()
+  const server = createServer(store)
+  const batch = server.handle([
+    request(1, 'ping'),
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    request('missing', 'resources/list'),
+    { jsonrpc: '1.0', id: 4, method: 'ping' },
+    42,
+  ]) as Response[]
+  assert.deepEqual(batch.map(response => response.id), [1, 'missing', 4, null])
+  assert.deepEqual(batch.map(response => response.error?.code), [undefined, -32601, -32600, -32600])
+  assert.equal((server.handle([]) as Response).error?.code, -32600)
+  assert.equal(server.handle([
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', method: 'notifications/cancelled' },
+  ]), undefined)
+  store.close()
+})
+
+test('stdio transport returns parse, empty-batch, and ordered batch errors', async () => {
+  const store = open()
+  const input = new PassThrough()
+  const output = new PassThrough()
+  let text = ''
+  output.setEncoding('utf8').on('data', chunk => { text += chunk })
+  const serving = serve(store, input, output)
+  input.end([
+    '{bad json',
+    '[]',
+    JSON.stringify([request(1, 'ping'), { jsonrpc: '2.0', method: 'notifications/initialized' }, request(2, 'nope')]),
+  ].join('\n'))
+  await serving
+  const responses = text.trim().split('\n').map(line => JSON.parse(line) as Response | Response[])
+  assert.equal((responses[0] as Response).error?.code, -32700)
+  assert.equal((responses[1] as Response).error?.code, -32600)
+  assert.deepEqual((responses[2] as Response[]).map(response => response.id), [1, 2])
+  assert.equal((responses[2] as Response[])[1]!.error?.code, -32601)
   store.close()
 })
 
