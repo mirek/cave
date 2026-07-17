@@ -84,6 +84,25 @@ test('the root solution references every composite package', () => {
   assert.deepEqual(missing, [], `root tsconfig.json is missing references: ${missing.join(', ')}`)
 })
 
+test('the root has one emitting build path and CI verifies clean and incremental behavior', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const manifest = parse<Manifest>(join(root, 'package.json'))
+  assert.equal(manifest.scripts?.build, 'tsc -b')
+  assert.equal(manifest.scripts?.typecheck, 'pnpm run build')
+  assert.equal(manifest.scripts?.['build:verify'], 'node scripts/verify-incremental-build.mjs')
+
+  const makefile = readFileSync(join(root, 'Makefile'), 'utf8')
+  assert.match(makefile, /^typecheck: build$/m)
+  assert.match(makefile, /^check: build test$/m)
+  assert.doesNotMatch(makefile, /^typecheck:\n\tpnpm typecheck$/m)
+
+  const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
+  const cleanBuild = ci.indexOf('run: pnpm clean && pnpm build')
+  const verify = ci.indexOf('run: pnpm build:verify')
+  const tests = ci.indexOf('run: pnpm test', verify)
+  assert.ok(cleanBuild >= 0 && verify > cleanBuild && tests > verify)
+})
+
 test('package test globs use shell-portable quoting', () => {
   for (const name of readdirSync(packagesDir).sort()) {
     const path = join(packagesDir, name, 'package.json')
