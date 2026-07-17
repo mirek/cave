@@ -116,6 +116,23 @@ test('qualifier lines become condition claims joined by edges (spec §8.1, §8.2
   assert.deepEqual(negated.subject, { kind: 'entity', text: 'cache/enabled' })
 })
 
+test('every comparison operator becomes a parseable canonical verb', () => {
+  const cases = [
+    ['>', 'EXCEEDS'],
+    ['<', 'IS-BELOW'],
+    ['>=', 'IS-AT-LEAST'],
+    ['<=', 'IS-AT-MOST'],
+    ['=', 'EQUALS'],
+    ['!=', 'DIFFERS-FROM']
+  ] as const
+  for (const [operator, verb] of cases) {
+    const result = canonicalizeText(`server CAUSE crash\n  WHEN load ${operator} 100 req/s`, standardRegistry)
+    assert.deepEqual(result.problems, [], operator)
+    assert.equal(result.claims[1]!.claim.verb, verb, operator)
+    assert.equal(result.claims[1]!.claim.payload.kind, 'metric', operator)
+  }
+})
+
 test('UNLESS normalizes to WHEN + negated condition (spec §8.2)', () => {
   const whenNot = canonicalizeText('server CAUSE crash\n  WHEN NOT cache/enabled', standardRegistry)
   const unless = canonicalizeText('server CAUSE crash\n  UNLESS cache/enabled', standardRegistry)

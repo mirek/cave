@@ -69,7 +69,8 @@ Examples:
   memory-leak CAUSE app/crash @ 70% #topic:stability
 
 Verbs are UPPERCASE (IS, HAS, CAUSE, FIX, NEEDS, USES, YIELDS, ENABLES, BLOCKS,
-CONTAINS, PRECEDES, EXTENDS, ALIAS, LIKE, EXISTS, VS, BECOMES, EXCEEDS).
+CONTAINS, PRECEDES, EXTENDS, ALIAS, LIKE, EXISTS, VS, BECOMES, EXCEEDS,
+IS-BELOW, IS-AT-LEAST, IS-AT-MOST, EQUALS, DIFFERS-FROM).
 Entities are kebab-case with / for scope (auth/middleware). @ctx = context
 (no space), @ 90% = confidence (space). Storage is append-only: update belief
 by adding the same claim with new confidence; retract with @ 0%.`

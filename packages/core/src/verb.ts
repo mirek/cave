@@ -25,7 +25,12 @@ export const causation = ['CAUSE', 'FIX', 'BECOMES'] as const
 export const dependency = ['NEEDS', 'USES', 'YIELDS', 'ENABLES', 'BLOCKS'] as const
 
 /** Structure and ordering (spec §5.2). */
-export const structure = ['CONTAINS', 'PRECEDES', 'EXCEEDS', 'VS'] as const
+export const structure = ['CONTAINS', 'PRECEDES', 'VS'] as const
+
+/** Canonical verbs for qualifier comparisons (spec §8.2). */
+export const comparison = [
+  'EXCEEDS', 'IS-BELOW', 'IS-AT-LEAST', 'IS-AT-MOST', 'EQUALS', 'DIFFERS-FROM'
+] as const
 
 /** Qualifier verbs — appear indented under another claim (spec §5.2, §8.2). */
 export const qualifiers = ['WHEN', 'UNLESS', 'VIA', 'BECAUSE'] as const
@@ -52,7 +57,8 @@ export const standard: readonly Verb[] = [
   ...identity,
   ...causation,
   ...dependency,
-  ...structure
+  ...structure,
+  ...comparison
 ]
 
 const standardSet = new Set<string>(standard)

@@ -111,6 +111,21 @@ test('fragment without [^?] gets the citation appended to its last line', () => 
   store.close()
 })
 
+test('comparison condition citations use parseable canonical verbs', () => {
+  const store = open()
+  store.ingest('server CAUSE crash\n  WHEN latency <= 100ms')
+  const rendered = report(store, [
+    '```cave-q',
+    'latency IS-AT-MOST 100ms',
+    '- latency is capped at 100ms [^?]',
+    '```'
+  ].join('\n'))
+  assert.deepEqual(rendered.problems, [])
+  assert.match(rendered.markdown, /- latency is capped at 100ms \[\^c1\]/)
+  assert.match(rendered.markdown, /\[\^c1\]: `latency IS-AT-MOST 100ms`/)
+  store.close()
+})
+
 test('WHERE filters ride with the block pattern (spec §12.2)', () => {
   const store = fixture()
   const rendered = report(store, [
