@@ -382,7 +382,7 @@ Options:
   --aliases      preconditions match through the alias closure (spec §13.6)
   --hooks <file> JSON file of out-of-band hook command templates,
                  name → shell template (spec §25.4); /bin/sh on POSIX,
-                 Windows PowerShell on Windows; default: $CAVE_HOOKS
+                 PowerShell 7 (pwsh) on Windows; default: $CAVE_HOOKS
   --declare      declare the actions of CAVE documents (stdin when no
                  file); other lines are prelude, ingested first
   --list         print the store's current actions and exit

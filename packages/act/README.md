@@ -82,7 +82,7 @@ cave act --db k.db --retract mark-deployed
   configuration (`--hooks hooks.json`, `{"deploy-notify": "curl …"}`)
   and runs strictly after commit, with `{action}`/`{param}` placeholders
   shell-quoted and the appended claims as canonical CAVE text on stdin. Hook
-  templates use `/bin/sh` syntax on POSIX and Windows PowerShell syntax on
+  templates use `/bin/sh` syntax on POSIX and PowerShell 7 syntax on
   Windows; output is bounded, and timeout or limit failure kills the complete
   process tree without putting command text into diagnostics.
   A failing hook is reported, never rolled back into the store; no-op

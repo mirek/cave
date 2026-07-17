@@ -51,7 +51,7 @@ cave ingest 'packages/**/*.ts' 'docs/**/*.md' https://example.com/design-notes \
    `{db}` are substituted. Each value is shell-quoted — paths with spaces
    or metacharacters stay single arguments — so write placeholders bare,
    without wrapping quotes. Templates run explicitly through `/bin/sh` on
-   POSIX and Windows PowerShell on Windows; the shared process boundary bounds
+   POSIX and PowerShell 7 (`pwsh`) on Windows; the shared process boundary bounds
    stdout/stderr and kills the whole child tree on timeout. Strict mode is the default: every generated MCP
    config and `{db}` substitution points at an isolated staging store, and
    the complete run merges into the requested database only after every batch

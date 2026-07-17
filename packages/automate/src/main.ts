@@ -39,7 +39,7 @@ Options:
                        contract: prompt on stdin and {prompt-file}
                        (substituted shell-quoted), CAVE reply on stdout
                        (appended, spec §29.3); /bin/sh on POSIX and Windows
-                       PowerShell on Windows
+                       PowerShell 7 (pwsh) on Windows
   --timeout <seconds>  per-prompt agent timeout (default ${defaultAgentTimeoutSeconds})
   --aliases            triggers match through the alias closure (spec §13.6)
   --no-derive          do not fire the store's rules each pass (spec §29.4)

@@ -124,7 +124,7 @@ Every local command uses one bounded process boundary. The pnpm diagnostic
 probe uses direct execution on POSIX and a fixed `cmd.exe` launcher for the
 Windows command shim, without interpolating user data. Agent
 and hook strings are intentionally platform-shell templates: `/bin/sh` on
-POSIX, Windows PowerShell on Windows, with placeholder values quoted for that
+POSIX, PowerShell 7 (`pwsh`) on Windows, with placeholder values quoted for that
 shell. stdout/stderr limits, timeouts, and CLI cancellation terminate the
 complete child tree, and failure messages omit command and environment data.
 

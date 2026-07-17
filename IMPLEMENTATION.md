@@ -259,7 +259,7 @@ Package READMEs document local decisions; these are the global ones:
   (§19.5) behind `shellComplete` — the `cave ingest`/`cave eval`
   `--agent` shell-template contract. Every external-command integration uses
   the same bounded runner: ordinary executable/argument arrays never enter a
-  shell; intentional templates select `/bin/sh` or Windows PowerShell and
+  shell; intentional templates select `/bin/sh` or PowerShell 7 and
   quote placeholders for that platform; timeout, cancellation, and output
   limits terminate the complete process tree with typed, command-redacted
   diagnostics. The heuristic baseline is

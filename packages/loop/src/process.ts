@@ -89,7 +89,7 @@ export const substituteShell = (
 
 /**
  * Make an intentional shell command explicit. POSIX uses `/bin/sh`; Windows
- * uses Windows PowerShell. The shell itself is still spawned with `shell:false`.
+ * uses PowerShell 7. The shell itself is still spawned with `shell:false`.
  */
 export const shellCommand = (
   template: string,
@@ -98,11 +98,11 @@ export const shellCommand = (
 ): ProcessCommand => {
   const syntax = shellSyntaxFor(platform)
   const command = substituteShell(template, substitutions, syntax)
-  // powershell.exe reparses native argv before interpreting -Command, which
-  // can discard embedded double quotes even when Node passed one argument.
-  // EncodedCommand transports the exact UTF-16LE script through that layer.
+  // EncodedCommand transports the exact UTF-16LE script without a native argv
+  // reparse. PowerShell 7 is required for standard native argument passing;
+  // Windows PowerShell 5.1 corrupts embedded quotes passed to executables.
   return platform === 'win32' ?
-    directCommand('powershell.exe', [
+    directCommand('pwsh.exe', [
       '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')
     ]) :
