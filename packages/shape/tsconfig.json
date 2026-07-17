@@ -5,6 +5,7 @@
     "outDir": "dist"
   },
   "include": [
+    "bench/**/*.ts",
     "src/**/*.ts",
     "test/**/*.ts"
   ],

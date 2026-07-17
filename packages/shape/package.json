@@ -18,6 +18,7 @@
     ".": "./src/index.ts"
   },
   "files": [
+    "bench",
     "dist",
     "!dist/test",
     "!dist/tsconfig.tsbuildinfo",
@@ -36,6 +37,7 @@
     }
   },
   "scripts": {
+    "bench:shape": "node --disable-warning=ExperimentalWarning bench/evaluate.ts",
     "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { Registry } from '@cavelang/canonical'
-import { open } from '@cavelang/store'
+import { open, type Store } from '@cavelang/store'
 import { gatedIngest } from '@cavelang/shape'
 
 test('a clean append passes the gate (spec §20.3)', () => {
@@ -32,6 +32,31 @@ test('pre-existing violations never block (spec §20.3)', () => {
   const outcome = gatedIngest(store, 'auth USES jwt')
   assert.ok(outcome.ok)
   assert.equal(store.claimsAbout('auth').length, 1)
+  store.close()
+})
+
+test('the gate uses two bounded shape snapshots regardless of check count', () => {
+  const store = open()
+  store.ingest([
+    ...Array.from({ length: 10 }, (_, index) => `service EXPECTS field-${index}`),
+    ...Array.from({ length: 100 }, (_, index) => `entity/${index} IS service`)
+  ].join('\n'))
+  const database = store.db
+  let queries = 0
+  const counted: Store = {
+    ...store,
+    db: {
+      exec: sql => database.exec(sql),
+      prepare: sql => {
+        queries += 1
+        return database.prepare(sql)
+      },
+      close: () => database.close()
+    }
+  }
+  const outcome = gatedIngest(counted, 'auth USES jwt')
+  assert.ok(outcome.ok, 'the append introduces none of the existing 1,000 violations')
+  assert.equal(queries, 6, 'one three-query snapshot before and after the append')
   store.close()
 })
 
