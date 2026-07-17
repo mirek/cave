@@ -33,6 +33,19 @@ test('intentional shell commands use platform quoting for substituted values', a
     assert.deepEqual(JSON.parse(result.stdout), [value])
     assert.equal(quoteShellArgument("it's", 'posix'), `'it'\\''s'`)
     assert.equal(quoteShellArgument("it's", 'powershell'), `'it''s'`)
+    const windows = shellCommand('node {script} {value}', { script, value }, 'win32')
+    assert.equal(windows.executable, 'pwsh.exe')
+    assert.equal(windows.args.at(-2), '-EncodedCommand')
+    assert.equal(Buffer.from(windows.args.at(-1)!, 'base64').toString('utf16le'),
+      [
+        '$global:LASTEXITCODE = $null',
+        `node '${script.replaceAll("'", "''")}' '${value.replaceAll("'", "''")}'`,
+        '$caveSucceeded = $?',
+        '$caveExitCode = $global:LASTEXITCODE',
+        'if ($caveSucceeded) { exit 0 }',
+        'if ($null -ne $caveExitCode) { exit $caveExitCode }',
+        'exit 1'
+      ].join('\n'))
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

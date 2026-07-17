@@ -10,7 +10,20 @@ import type { SqliteDatabase } from '@cavelang/store/adapter'
 
 const scratch = (): { dir: string, done: () => void } => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-backup-'))
-  return { dir, done: () => rmSync(dir, { recursive: true, force: true }) }
+  return {
+    dir,
+    done: () => {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch (error) {
+        // DatabaseSync.close() delegates to sqlite3_close_v2 and Node exposes
+        // no StatementSync finalizer. Windows can therefore retain the closed
+        // source file until its wrappers are collected; CI scratch is ephemeral.
+        if (process.platform !== 'win32' ||
+          !(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') throw error
+      }
+    }
+  }
 }
 
 const table = (db: SqliteDatabase | DatabaseSync, name: string, order: string): unknown[] =>

@@ -20,7 +20,7 @@
     "directory": "packages/tree-sitter-cave"
   },
   "engines": {
-    "node": ">=22.18"
+    "node": "^22.18.0 || ^24.0.0"
   },
   "exports": {
     "./wasm": "./tree-sitter-cave.wasm",

@@ -87,9 +87,19 @@ export const substituteShell = (
 ): string => template.replace(/\{([A-Za-z][A-Za-z0-9_-]*)\}/g, (whole, name: string) =>
   Object.hasOwn(substitutions, name) ? quoteShellArgument(substitutions[name]!, syntax) : whole)
 
+const powershellScript = (command: string): string => [
+  '$global:LASTEXITCODE = $null',
+  command,
+  '$caveSucceeded = $?',
+  '$caveExitCode = $global:LASTEXITCODE',
+  'if ($caveSucceeded) { exit 0 }',
+  'if ($null -ne $caveExitCode) { exit $caveExitCode }',
+  'exit 1'
+].join('\n')
+
 /**
  * Make an intentional shell command explicit. POSIX uses `/bin/sh`; Windows
- * uses Windows PowerShell. The shell itself is still spawned with `shell:false`.
+ * uses PowerShell 7. The shell itself is still spawned with `shell:false`.
  */
 export const shellCommand = (
   template: string,
@@ -98,9 +108,14 @@ export const shellCommand = (
 ): ProcessCommand => {
   const syntax = shellSyntaxFor(platform)
   const command = substituteShell(template, substitutions, syntax)
+  // EncodedCommand transports the exact UTF-16LE script without a native argv
+  // reparse. PowerShell 7 is required for standard native argument passing;
+  // Windows PowerShell 5.1 corrupts embedded quotes passed to executables. The
+  // wrapper preserves the last native command's exact non-zero exit code.
   return platform === 'win32' ?
-    directCommand('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command
+    directCommand('pwsh.exe', [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-EncodedCommand', Buffer.from(powershellScript(command), 'utf16le').toString('base64')
     ]) :
     directCommand('/bin/sh', ['-c', command])
 }

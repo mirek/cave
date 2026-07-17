@@ -44,7 +44,7 @@ export const sqliteAdapterContract = (
 
   if (expectations.backup) {
     test(`${adapter.name}: snapshot capability writes a readable database`, () => {
-      const directory = mkdtempSync(join(tmpdir(), 'cave-adapter-contract-'))
+      const directory = mkdtempSync(join(tmpdir(), "cave-adapter-contract-'-"))
       const source = join(directory, 'source.db')
       const snapshot = join(directory, 'snapshot.db')
       const capability = adapter.capabilities.backup!

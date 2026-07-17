@@ -20,7 +20,8 @@ jobs:
   # exception: it consumes changesets rather than adding them.
   changeset:
     if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -45,7 +46,8 @@ jobs:
           echo "$added"
 
   suite:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
@@ -53,7 +55,7 @@ jobs:
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24.18.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -84,11 +86,26 @@ jobs:
       - name: Verify the default website excludes optional solver assets
         run: node scripts/verify-website-bundle.mjs
 
-  # Pack every public package and install the tarballs into a clean npm
-  # project. This catches missing files, broken publishConfig exports, and
-  # bin paths that workspace symlinks cannot expose.
-  smoke:
-    runs-on: ubuntu-latest
+  # Exercise the exact minimum runtime and every supported OS without
+  # multiplying the complete source and website suite. These tests own the
+  # platform-sensitive native, path, process-tree, and package-layout paths.
+  runtime:
+    name: Runtime (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: node-22.18.0 / ubuntu-24.04
+            os: ubuntu-24.04
+            node: 22.18.0
+          - name: node-24.18.0 / macos-15
+            os: macos-15
+            node: 24.18.0
+          - name: node-24.18.0 / windows-2022
+            os: windows-2022
+            node: 24.18.0
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
@@ -96,7 +113,52 @@ jobs:
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Verify the exact Node runtime
+        run: node -e "if (process.version !== 'v${{ matrix.node }}') throw new Error('expected v${{ matrix.node }}, received ' + process.version)"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cache tree-sitter WASI SDK
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cache/tree-sitter
+          key: tree-sitter-wasi-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/tree-sitter-cave/package.json') }}
+
+      - name: Build and test the native grammar toolchain
+        run: pnpm --filter @cavelang/tree-sitter-cave test
+
+      - name: Test process and shell portability
+        run: pnpm --filter @cavelang/loop test
+
+      - name: Test the Node SQLite adapter and filesystem behavior
+        run: pnpm --filter @cavelang/store test
+
+      - name: Build the consolidated CLI package layout
+        run: pnpm --filter @cavelang/cli build
+
+      - name: Verify the built process worker is packaged with the CLI
+        run: node -e "if (!require('node:fs').existsSync('packages/cli/dist/internal/loop/process-worker.js')) throw new Error('consolidated process worker is missing')"
+
+      - name: Test CLI paths, shell hooks, and the runtime contract
+        run: node --disable-warning=ExperimentalWarning --test packages/cli/test/cli.test.ts packages/cli/test/runtime-contract.test.ts
+
+  # Pack every public package and install the tarballs into a clean npm
+  # project. This catches missing files, broken publishConfig exports, and
+  # bin paths that workspace symlinks cannot expose.
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -113,7 +175,8 @@ jobs:
   # Package the editor product through the Marketplace toolchain and inspect
   # the resulting archive, not just its source bundle.
   vscode:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
@@ -121,7 +184,7 @@ jobs:
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24.18.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -143,18 +206,22 @@ jobs:
     if: always()
     needs:
       - suite
+      - runtime
       - smoke
       - vscode
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Require source and artifact checks
         env:
           SUITE_RESULT: ${{ needs.suite.result }}
+          RUNTIME_RESULT: ${{ needs.runtime.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           VSCODE_RESULT: ${{ needs.vscode.result }}
         run: |
-          if [ "$SUITE_RESULT" != success ] || [ "$SMOKE_RESULT" != success ] || [ "$VSCODE_RESULT" != success ]; then
+          if [ "$SUITE_RESULT" != success ] || [ "$RUNTIME_RESULT" != success ] || [ "$SMOKE_RESULT" != success ] || [ "$VSCODE_RESULT" != success ]; then
             echo "source suite: $SUITE_RESULT" >&2
+            echo "runtime matrix: $RUNTIME_RESULT" >&2
             echo "artifact smoke: $SMOKE_RESULT" >&2
             echo "VS Code package: $VSCODE_RESULT" >&2
             exit 1

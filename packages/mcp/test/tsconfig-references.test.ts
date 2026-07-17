@@ -201,7 +201,7 @@ test('all third-party workflow actions use reviewable immutable revisions', () =
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {
   const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
   assert.match(ci, /\n  smoke:\n[\s\S]*?bash scripts\/smoke\.sh/)
-  assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - smoke/)
+  assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - smoke/)
 
   const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
   const smoke = release.indexOf('bash scripts/smoke.sh')
@@ -240,7 +240,7 @@ test('the default website build excludes the optional solver runtime', () => {
 test('release automation validates identity before npm and matches the supported runtime', () => {
   const root = fileURLToPath(new URL('../../..', import.meta.url))
   const manifest = parse<Manifest>(join(root, 'package.json'))
-  assert.match(manifest.engines?.node ?? '', /^>=22(?:\.|$)/)
+  assert.equal(manifest.engines?.node, '^22.18.0 || ^24.0.0')
   assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs --mode=publish')
   assert.equal(manifest.scripts?.['release:validate:version-pr'],
     'node scripts/release-validate.mjs --mode=version-pr')
@@ -249,10 +249,14 @@ test('release automation validates identity before npm and matches the supported
   const preflight = publishWorkflow.indexOf('Validate version-PR or publish readiness')
   const registry = publishWorkflow.indexOf('registry-url: https://registry.npmjs.org')
   assert.ok(preflight >= 0 && preflight < registry, 'release identity must be checked before npm registry setup')
-  assert.deepEqual([...publishWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
+  assert.deepEqual([...publishWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
+    ['24.18.0', '24.18.0'])
 
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
-  assert.deepEqual([...ciWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22', '22'])
+  assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
+    ['24.18.0', '24.18.0', '24.18.0'])
+  assert.match(ciWorkflow, /node: 22\.18\.0/)
+  assert.match(ciWorkflow, /node: 24\.18\.0/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/tree-sitter/)
     assert.match(workflow, /tree-sitter-wasi-\$\{\{ runner\.os \}\}/)
@@ -290,7 +294,7 @@ test('the VS Code extension is packed, versioned, and published through a scoped
   assert.match(sync, /editors\/vscode\/package\.json/)
   const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.match(ci, /\n  vscode:\n[\s\S]*pnpm --filter cave-language package[\s\S]*actions\/upload-artifact@[0-9a-f]{40}/)
-  assert.match(ci, /needs:\n      - suite\n      - smoke\n      - vscode/)
+  assert.match(ci, /needs:\n      - suite\n      - runtime\n      - smoke\n      - vscode/)
 
   const release = readFileSync(join(root, '.github/workflows/vscode.yml'), 'utf8')
   assert.match(release, /^permissions:\n  contents: read$/m)

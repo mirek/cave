@@ -159,7 +159,13 @@ const pnpmCheck = (): DoctorCheck => {
   }
   let actual: string | undefined
   try {
-    const result = runProcessSync(directCommand('pnpm', ['--version']), {
+    // Windows command shims are batch files and cannot be executed directly
+    // with shell:false. Use the fixed system launcher without interpolating
+    // any user-controlled data; POSIX resolves pnpm as an ordinary executable.
+    const command = process.platform === 'win32' ?
+      directCommand(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', 'pnpm --version']) :
+      directCommand('pnpm', ['--version'])
+    const result = runProcessSync(command, {
       timeoutMs: 3_000,
       maxStdoutBytes: 1024,
       maxStderrBytes: 1024

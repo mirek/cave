@@ -64,7 +64,7 @@ await settle(store, { hooks, complete })
   and *phrases* prompts; the hook commands (`--hooks hooks.json`,
   `$CAVE_HOOKS`) and the agent command (`--agent`, the `cave ingest` /
   `cave eval` shell contract) live in configuration. They share the bounded
-  process runner: explicit `/bin/sh` or Windows PowerShell templates,
+  process runner: explicit `/bin/sh` or PowerShell 7 templates,
   platform-specific placeholder quoting, and whole-tree timeout cleanup.
 
 ## CLI

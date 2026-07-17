@@ -36,6 +36,14 @@ Outside the workspace, install `@cavelang/cli`. Its documented feature
 subpaths (for example `@cavelang/cli/rules`) expose programmatic workflow APIs
 without requiring each internal module to publish independently.
 
+The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
+24.18.0 Active LTS is the recommended production runtime. CAVE supports Linux,
+macOS, and Windows. CI
+proves the platform-specific process, filesystem, SQLite, grammar, and package
+paths on Ubuntu 24.04, macOS 15, and Windows Server 2022 respectively. Browser
+support is a separate WASM-backed runtime described in
+[ARCHITECTURE.md](ARCHITECTURE.md#runtime-variants).
+
 Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
 
 > Talked family history with Grandma Maria today. Her father Jan was born in Kraków — she says 1932, but her cousin has always insisted it was 1931. Jan's mother Helena ran a bakery on Long Street until the war. Family lore says Helena's father — my great-great-grandfather — fought in the 1920 war; Maria is only fairly sure it's true (60%, say), nobody has papers.
@@ -205,7 +213,7 @@ done: +14 claim(s)
 The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Ingestion is atomic by default: all batches use an isolated stage and nothing reaches the requested database if a fetch, agent, or extraction fails. `--lenient` explicitly keeps valid partial progress, continues later paid-agent calls, exits 1 on any rejection, and reports every source (`--json` for the machine-readable manifest); rejected sources keep no digest and retry next time. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
 
 Agent and hook strings are intentional shell templates: CAVE uses `/bin/sh`
-on POSIX and Windows PowerShell on Windows, quotes placeholder values for that
+on POSIX and PowerShell 7 (`pwsh`) on Windows, quotes placeholder values for that
 shell, bounds both output streams, and terminates the whole process tree on a
 timeout or cancellation. Programmatic direct commands use executable/argument
 arrays without shell interpolation.

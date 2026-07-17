@@ -12,7 +12,7 @@
     "directory": "packages/eval"
   },
   "engines": {
-    "node": ">=22.18"
+    "node": "^22.18.0 || ^24.0.0"
   },
   "exports": {
     ".": "./src/index.ts"

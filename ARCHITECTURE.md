@@ -54,8 +54,9 @@ process termination.
 Local command integrations cross one process boundary in `@cavelang/loop`.
 Direct commands are executable/argument arrays with no shell interpolation;
 agent and hook strings are explicitly platform-shell templates (`/bin/sh` on
-POSIX, Windows PowerShell on Windows). The boundary separately bounds stdout
-and stderr, normalizes exits, redacts command material from failures, and owns
+POSIX, PowerShell 7 via encoded command transport on Windows). The
+boundary separately bounds stdout and stderr, normalizes exits, redacts command
+material from failures, and owns
 whole-tree termination for timeouts, cancellation, and output overflow. A
 worker-backed synchronous facade preserves action and doctor APIs without
 weakening those lifecycle guarantees.
@@ -377,11 +378,18 @@ immutable domain values rather than class-based domain entities; conventional
 
 ## Runtime variants
 
-The primary runtime is Node.js 22.18 or newer. During development, TypeScript
-source can execute directly through Node's type stripping; `node:sqlite`
-supplies persistence and `node:test` supplies the test runner. Release and CI
-builds run composite `tsc -b`, which both typechecks and emits package `dist/`
-trees consumed by packed npm artifacts.
+The supported Node.js lines are 22 and 24. Node.js 22.18.0 is the exact
+minimum, and Node.js 24.18.0 Active LTS is the recommended production runtime;
+Current, non-LTS Node lines are outside the
+support contract. Linux, macOS, and Windows are supported, represented in CI
+by Ubuntu 24.04, macOS 15, and Windows Server 2022. The full suite runs on the
+recommended runtime, while a focused matrix proves the exact minimum plus the
+platform-sensitive process, filesystem, native grammar, built-package, and
+`node:sqlite` paths on every supported OS. During development, TypeScript source
+can execute directly through Node's type stripping; `node:sqlite` supplies
+persistence and `node:test` supplies the test runner. Release and CI builds run
+composite `tsc -b`, which both typechecks and emits package `dist/` trees
+consumed by packed npm artifacts.
 
 The website playground reuses `core`, `parser`, `canonical`, `store`, and
 `query`. It passes a SQL.js/WASM implementation to the store's explicit SQLite

@@ -52,6 +52,13 @@ packages the same grammar WASM and highlight query as a VSCode extension
 
 ## Toolchain
 
+- **Runtime support is explicit.** The supported Node.js lines are 22 and 24:
+  22.18.0 is the exact minimum and 24.18.0 Active LTS is recommended. Ubuntu
+  24.04, macOS 15, and Windows Server 2022 are the CI representatives for the
+  supported Linux, macOS, and Windows families. The full suite stays on the
+  recommended Linux runtime; a focused matrix covers the minimum plus
+  platform-specific process, filesystem, native grammar, SQLite, and
+  consolidated-package behavior.
 - **Tool versions and generated output are deterministic.** `make bootstrap`
   reads the exact pnpm version from the root `packageManager` field, preferring
   an already matching binary, then Corepack, then an exact ephemeral npm
@@ -252,7 +259,7 @@ Package READMEs document local decisions; these are the global ones:
   (§19.5) behind `shellComplete` — the `cave ingest`/`cave eval`
   `--agent` shell-template contract. Every external-command integration uses
   the same bounded runner: ordinary executable/argument arrays never enter a
-  shell; intentional templates select `/bin/sh` or Windows PowerShell and
+  shell; intentional templates select `/bin/sh` or PowerShell 7 and
   quote placeholders for that platform; timeout, cancellation, and output
   limits terminate the complete process tree with typed, command-redacted
   diagnostics. The heuristic baseline is

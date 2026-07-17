@@ -23,7 +23,7 @@ Options:
   --agent <template>     shell command run once per batch; the prompt is piped
                          to stdin and {prompt-file}, {mcp-config}, {db} are
                          substituted shell-quoted (write placeholders bare);
-                         /bin/sh on POSIX, Windows PowerShell on Windows
+                         /bin/sh on POSIX, PowerShell 7 (pwsh) on Windows
   --instructions <md>    markdown file with domain instructions for the agent
   --stdout               agent prints CAVE text instead of using MCP tools
   --batch <n>            files per agent run (default 8)

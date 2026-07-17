@@ -3,6 +3,12 @@
 The `cave` command — the whole stack behind one binary. Runs directly from
 TypeScript sources in the workspace; npm releases contain emitted JavaScript.
 
+The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
+24.18.0 Active LTS is recommended. Linux, macOS, and Windows are supported; CI
+represents them with Ubuntu 24.04, macOS 15, and Windows Server 2022 and
+exercises the CLI's native, filesystem, process, and built-package paths on
+each.
+
 ```
 $ echo 'auth USES jwt @ 90%' | pnpm exec cave parse
 ok: 1 claim
@@ -115,9 +121,10 @@ instant on every host; explicit numeric offsets such as `+02:00` are honored.
 The same rule applies to `--as-of` and CAVE-Q `WHERE tx` timestamps.
 
 Every local command uses one bounded process boundary. The pnpm diagnostic
-probe is an executable plus argument array with no shell interpolation. Agent
+probe uses direct execution on POSIX and a fixed `cmd.exe` launcher for the
+Windows command shim, without interpolating user data. Agent
 and hook strings are intentionally platform-shell templates: `/bin/sh` on
-POSIX, Windows PowerShell on Windows, with placeholder values quoted for that
+POSIX, PowerShell 7 (`pwsh`) on Windows, with placeholder values quoted for that
 shell. stdout/stderr limits, timeouts, and CLI cancellation terminate the
 complete child tree, and failure messages omit command and environment data.
 
