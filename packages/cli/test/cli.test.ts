@@ -878,11 +878,12 @@ test('highlight renders ANSI colors from the grammar query', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
   try {
     const file = join(dir, 'notes.cave')
-    const text = 'auth USES jwt @ 90% #security ; note\n'
+    const text = 'auth USES jwt @ 90% #security ; note\nrevenue IS 20B -> 40B USD/yr\n'
     writeFileSync(file, text)
     const result = await highlightCommand([file])
     assert.equal(result.code, 0)
     assert.match(result.out, /\u001B\[[0-9;]+mUSES\u001B\[0m/u)
+    assert.match(result.out, /\u001B\[[0-9;]+m->\u001B\[0m/u)
     assert.match(result.out, /\u001B\[[0-9;]+m; note\u001B\[0m/u)
     assert.equal(result.out.replaceAll(/\u001B\[[0-9;]*m/gu, ''), text)
   } finally {

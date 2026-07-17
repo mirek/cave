@@ -17,7 +17,8 @@ values include negative scalars and negative trajectory endpoints.
 - `grammar.js` — the grammar (spec §16, §3–§8)
 - `queries/highlights.scm` — highlight captures (nvim/helix vocabulary);
   the single source used by `@cavelang/highlight` (terminal ANSI) and the
-  CAVE VSCode extension (semantic tokens)
+  CAVE VSCode extension (semantic tokens), including trajectory arrows as
+  operators
 - `src/` (generated parser) and `tree-sitter-cave.wasm` are **not
   committed** — generated artifacts are unauditable, so `pnpm build`
   produces both on demand (tree-sitter-cli fetches wasi-sdk itself; no

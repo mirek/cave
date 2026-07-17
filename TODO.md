@@ -30,7 +30,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 ## Grammar and editor support
 
 - [Negative and Unicode grammar](todo/parser-grammar-negative-unicode.md) — Align tree-sitter with accepted negative values and Unicode entities.
-- [Trajectory arrow highlighting](todo/trajectory-arrow-highlighting.md) — Capture the trajectory arrow as an operator.
 - [Parser classification drift](todo/parser-grammar-classification.md) — Align or document remaining hand-parser and tree-sitter differences.
 
 ## Performance
