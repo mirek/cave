@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { Claim, Value } from '@cavelang/core'
-import { fuse, fuseClaims, estimateOf } from '@cavelang/fusion'
+import { FusionUnitError, fuse, fuseClaims, estimateOf } from '@cavelang/fusion'
 
 const metricClaim = (value: string, delta: string, conf: number): Claim.t =>
   Claim.of({
@@ -37,6 +37,8 @@ test('sigma derives from +/- Δ at the claim σ level (spec §7.2)', () => {
     conf: 0.6
   }))
   assert.equal(oneSigma?.sigma, 3e9)
+  assert.equal(estimateOf(metricClaim('1s', '200ms', 1))?.sigma, 0.1)
+  assert.throws(() => estimateOf(metricClaim('1s', '2 USD', 1)), FusionUnitError)
 })
 
 test('a single estimate passes through', () => {
@@ -51,6 +53,38 @@ test('equal estimates tighten the posterior by √n', () => {
   assert.ok(posterior)
   assert.equal(posterior.mean, 10)
   assert.ok(Math.abs(posterior.sigma - 2 / Math.SQRT2) < 1e-12)
+})
+
+test('fusion units: missing and equal units agree, fixed durations convert', () => {
+  assert.equal(fuse([{ mean: 10, sigma: 2 }, { mean: 12, sigma: 2 }])?.unit, undefined)
+  assert.equal(fuse([{ mean: 10, sigma: 2, unit: 'USD' }, { mean: 12, sigma: 2, unit: 'USD' }])?.unit, 'USD')
+  const converted = fuse([
+    { mean: 1, sigma: 0.1, unit: 's' },
+    { mean: 500, sigma: 100, unit: 'ms' }
+  ])
+  assert.equal(converted?.unit, 's')
+  assert.ok(Math.abs(converted!.mean - 0.75) < 1e-12)
+  assert.ok(Math.abs(converted!.sigma - 0.1 / Math.SQRT2) < 1e-12)
+  const claims = fuseClaims([
+    metricClaim('1s', '200ms', 1),
+    metricClaim('500ms', '200ms', 1)
+  ])
+  assert.equal(claims?.unit, 's')
+  assert.ok(Math.abs(claims!.mean - 0.75) < 1e-12)
+})
+
+test('fusion rejects missing/present and incompatible units with a typed error', () => {
+  for (const estimates of [
+    [{ mean: 1, sigma: 1 }, { mean: 2, sigma: 1, unit: 'ms' }],
+    [{ mean: 1, sigma: 1, unit: 'USD/yr' }, { mean: 2, sigma: 1, unit: 'ms' }]
+  ]) {
+    assert.throws(() => fuse(estimates), error =>
+      error instanceof FusionUnitError && error.message.includes('cannot fuse mixed units'))
+  }
+  assert.throws(() => fuseClaims([
+    metricClaim('1 ms', '1 ms', 1),
+    metricClaim('1 USD/yr', '1 USD/yr', 1)
+  ]), FusionUnitError)
 })
 
 test('zero-confidence and zero-sigma estimates are skipped', () => {
@@ -93,4 +127,5 @@ test('attribute claims fuse too', () => {
   const estimate = estimateOf(claim)
   assert.equal(estimate?.mean, 20e9)
   assert.equal(estimate?.sigma, 1e9)
+  assert.equal(estimate?.unit, 'USD/yr')
 })

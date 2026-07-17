@@ -29,6 +29,12 @@ carrying `+/-` uncertainty (attribute or metric payload); claims without a
 usable estimate are skipped, zero-confidence and zero-σ estimates
 contribute nothing. The spec's worked example is a test case verbatim.
 
+Fusion preserves units at the library boundary. Missing units combine only
+with missing units, arbitrary units combine only by exact equality, and the
+fixed-duration units `ms`, `s`, `min`, and `h` convert to the first estimate's
+unit before weighting. Every other mixture throws a typed `FusionUnitError`;
+adapters surface that same failure instead of maintaining separate checks.
+
 ## Conditional confidence (§10.2)
 
 `noisyAndIndependent(pClaim, pConditions)` multiplies through — named
