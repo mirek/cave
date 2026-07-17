@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { runInNewContext } from 'node:vm'
 import { open } from '@cavelang/store'
-import { serve } from '@cavelang/view'
+import { overview, page, serve } from '@cavelang/view'
 import type { Handle } from '@cavelang/view'
 
 const fixture = () => {
@@ -43,6 +44,26 @@ test('serves the page at / — self-contained, stamped, CSP-locked (spec §30.1)
     assert.equal(html.includes('http://'), false, 'no external references')
     assert.equal(html.includes('https://'), false, 'no external references')
   }))
+
+test('the shipped browser renderer HTML-escapes hostile stored text', () => {
+  const store = open()
+  const hostile = '</span><script>globalThis.pwned=true</script><img src=x onerror=alert(1)>'
+  store.ingest(`server IS compromised ; ${hostile}`)
+  const row = overview(store).recent[0]!
+  store.close()
+
+  const start = page.indexOf('function esc (value)')
+  const end = page.indexOf('\nfunction section', start)
+  assert.ok(start >= 0 && end > start, 'browser rendering helpers remain present in the shipped page')
+  const claimHtml = runInNewContext(
+    `var BACKTICK = '\\u0060'\n${page.slice(start, end)}\nclaimHtml`
+  ) as (claim: typeof row) => string
+  const html = claimHtml(row)
+
+  assert.doesNotMatch(html, /<script|<img/)
+  assert.match(html, /&lt;\/span&gt;&lt;script&gt;globalThis\.pwned=true&lt;\/script&gt;/)
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/)
+})
 
 test('api endpoints answer JSON over the live store (spec §30.2)', () =>
   withServer(async ({ url }) => {

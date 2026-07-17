@@ -212,6 +212,9 @@ test('@ with space is confidence, without is context (spec §6.3)', () => {
   const ctx = claim('memory-leak EXISTS @production').value
   assert.equal(ctx.meta.conf, undefined)
   assert.deepEqual(ctx.meta.contexts, ['production'])
+  const compact = claim('memory-leak EXISTS @70%').value
+  assert.equal(compact.meta.conf, undefined, 'compact @70% is not confidence')
+  assert.deepEqual(compact.meta.contexts, ['70%'])
 })
 
 test('REVERSE declaration parses as an ordinary claim (spec §5.5)', () => {
