@@ -25,19 +25,19 @@ connected model knows how to write CAVE claims without further prompting.
 
 ## Tools
 
-| Tool | Purpose |
-|---|---|
-| `cave_add` | append CAVE text (extraction output); lenient, `strict` opt-in |
-| `cave_query` | Bounded CAVE-Q pages (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3), `at` valid time (§32.4), and `resolve` (§26 winners only) opt-ins. `limit` defaults to 100 (maximum 1,000); a `next cursor:` line continues the frozen first-page snapshot through `cursor`. |
-| `cave_fuse` | Bayesian fusion of numeric estimates (§10.1) — named computation over a CAVE-Q `pattern`, an entity's current claims (`about`), or literal `text` |
-| `cave_search` | FTS over claims, values, comments |
-| `cave_about` | current claims about an entity, both directions, canonical lines; `aliases` / `resolve` opt-ins |
-| `cave_neighbors` | named forward + inverse edges (§13.3) for graph walking; `aliases` / `resolve` opt-ins |
-| `cave_reconstruct` | cave-loop active reconstruction from seed cues (§18) — pull everything related to a symptom before reasoning |
-| `cave_derive` | fire the stored rules (§24) — named computation; `dryRun`, `full`, `aliases`, `minConf`, `maxPasses` |
-| `cave_export` | sensitivity-scoped canonical text (default `internal`; `maxSensitivity: restricted` for complete portable history; `current` for beliefs only) |
-| `cave_lint` | validate CAVE text without storing |
-| `act_<name>` | one generated governed-write tool per current action declaration (§25.5); parameters come from the declaration and hooks stay out of band |
+| Tool | Parameters | Purpose |
+|---|---|---|
+| `cave_add` | `text`, `strict` | append CAVE text (extraction output); lenient, `strict` opt-in |
+| `cave_query` | `pattern`, `all`, `aliases`, `asOf`, `at`, `resolve`, `limit`, `cursor` | Bounded CAVE-Q pages (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3), `at` valid time (§32.4), and `resolve` (§26 winners only) opt-ins. `limit` defaults to 100 (maximum 1,000); a `next cursor:` line continues the frozen first-page snapshot through `cursor`. |
+| `cave_fuse` | one of `pattern`, `about`, `text`; optional `aliases`, `asOf` | Bayesian fusion of numeric estimates (§10.1) — named computation over a CAVE-Q `pattern`, an entity's current claims (`about`), or literal `text` |
+| `cave_search` | `query`, `raw` | FTS over claims, values, comments |
+| `cave_about` | `entity`, `aliases`, `resolve` | current claims about an entity, both directions, canonical lines; `aliases` / `resolve` opt-ins |
+| `cave_neighbors` | `entity`, `aliases`, `resolve` | named forward + inverse edges (§13.3) for graph walking; `aliases` / `resolve` opt-ins |
+| `cave_reconstruct` | `seeds`, `maxSteps`, `maxClaims` | cave-loop active reconstruction from seed cues (§18) — pull everything related to a symptom before reasoning |
+| `cave_derive` | `dryRun`, `full`, `aliases`, `minConf`, `maxPasses` | fire the stored rules (§24) — named computation |
+| `cave_export` | `current`, `maxSensitivity` | sensitivity-scoped canonical text (default `internal`; `maxSensitivity: restricted` for complete portable history; `current` for beliefs only) |
+| `cave_lint` | `text` | validate CAVE text without storing |
+| `act_<name>` | current action declaration's parameter schema | one generated governed-write tool per current action declaration (§25.5); hooks stay out of band |
 
 `cave_reconstruct` runs the `@cavelang/loop` heuristic policy over the SQLite
 store through the §18 store contract (`sqliteStore`) — the same multi-hop

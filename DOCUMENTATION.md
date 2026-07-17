@@ -21,7 +21,7 @@ rationale into the relevant live document or changelog.
 | Normative CAVE language and semantics | `.claude/skills/cave-*/SKILL.md` | parser/canonical docs, book, examples |
 | System boundaries and runtime flows | `ARCHITECTURE.md` plus package dependency graph | `IMPLEMENTATION.md`, book architecture chapter, website docs |
 | Package API | exported types and package tests | `packages/*/README.md` |
-| CLI and MCP surfaces | command/tool registries and their help output | CLI/MCP READMEs, root README, book field guide |
+| CLI and MCP surfaces | `packages/cli/src/commands.ts`, `packages/mcp/src/tools.ts`, and their help output | CLI/MCP READMEs, root README, book field guide; `packages/cli/test/documentation.test.ts` validates the package reference tables |
 | Project version | root `package.json` and release automation | website and book read it dynamically; do not copy a current version literal |
 | Work status | implementation and merged changes | `TODO.md`, `todo/**/*.md`, `BUGS.md`, `bugs/**/*.md` |
 

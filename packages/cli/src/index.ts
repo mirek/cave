@@ -7,6 +7,8 @@
 export { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, suggestAliasCommand, syncCommand, usage, versionCommand } from './cli.ts'
 export { dispatch, runCli } from './dispatch.ts'
 export type { CommandRuntime } from './dispatch.ts'
+export { commandRegistry } from './commands.ts'
+export type { CommandReference } from './commands.ts'
 export type { Output } from './cli.ts'
 export { diagnose, doctorCommand } from './doctor.ts'
 export type { DoctorCheck, DoctorOutput, DoctorReport, DoctorStatus } from './doctor.ts'
