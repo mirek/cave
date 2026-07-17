@@ -2,4 +2,4 @@
 "@cavelang/core": patch
 ---
 
-Record the prioritized project audit follow-up backlog.
+Record the project audit findings as prioritized, independently actionable backlog items.
