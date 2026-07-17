@@ -65,6 +65,9 @@ jobs:
 
       - run: pnpm test
 
+      - name: Check representative performance budgets
+        run: pnpm bench:performance
+
       - name: Build website
         run: pnpm site:build
 

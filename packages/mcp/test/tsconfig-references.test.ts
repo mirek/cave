@@ -34,6 +34,11 @@ type Surfaces = {
   tooling: Record<string, Surface>
 }
 type ChangesetConfig = { fixed: string[][] }
+type PerformanceBaseline = {
+  format: string
+  version: number
+  workloads: Record<string, { baselineMs: number, thresholdMs: number }>
+}
 
 const parse = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
 
@@ -105,6 +110,27 @@ test('the stable CI check and release script both require packed-artifact smoke 
   assert.ok(recoveryTag > smoke, 'interrupted-release tagging must follow smoke validation')
   assert.ok(publish > smoke, 'npm publishing must follow smoke validation')
   assert.ok(finalTag > publish, 'normal release tagging must follow npm publishing')
+})
+
+test('CI runs every recorded representative performance budget', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const manifest = parse<Manifest>(join(root, 'package.json'))
+  assert.equal(manifest.scripts?.['bench:performance'],
+    'node --disable-warning=ExperimentalWarning scripts/performance-bench.mjs')
+  const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
+  assert.match(ci, /Check representative performance budgets\n        run: pnpm bench:performance/)
+
+  const baseline = parse<PerformanceBaseline>(join(root, 'benchmarks/performance-baseline.json'))
+  assert.equal(baseline.format, 'cave.performance-baseline')
+  assert.equal(baseline.version, 1)
+  assert.deepEqual(Object.keys(baseline.workloads).sort(), [
+    'boundedQuery', 'export', 'import', 'resolution', 'shape', 'transitiveQuery'
+  ])
+  for (const [name, budget] of Object.entries(baseline.workloads)) {
+    assert.ok(budget.baselineMs > 0, `${name} needs a positive recorded baseline`)
+    assert.ok(budget.thresholdMs >= budget.baselineMs, `${name} threshold is below its baseline`)
+    assert.ok(budget.thresholdMs <= budget.baselineMs * 25, `${name} threshold is too loose to catch regressions`)
+  }
 })
 
 test('every package has one enforced public, internal, or tooling classification', () => {
