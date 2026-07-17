@@ -75,7 +75,8 @@ the shell executable with Node's `shell: false`. PowerShell scripts cross the
 native Windows argv boundary through `-EncodedCommand`, so embedded quotes are
 preserved before PowerShell parses them. PowerShell 7's standard native argument
 passing also preserves embedded quotes when templates invoke executables.
-Templates therefore use the
+The wrapper returns the last command's exact native exit code, matching the
+POSIX shell contract. Templates therefore use the
 syntax of their target platform; placeholder values are data, not syntax.
 
 Execution captures stdout and stderr separately (defaults: 8 MiB and 1 MiB),
