@@ -5,8 +5,6 @@ import type { Adapter, Database } from './adapter.ts'
 
 const asNodeDatabase = (db: Database): DatabaseSync => db as DatabaseSync
 
-const sqliteString = (value: string): string => `'${value.replaceAll("'", "''")}'`
-
 export const nodeSqliteAdapter: Adapter = {
   name: 'node:sqlite',
   capabilities: {
@@ -17,10 +15,7 @@ export const nodeSqliteAdapter: Adapter = {
       location: db => asNodeDatabase(db).location(),
       inTransaction: db => asNodeDatabase(db).isTransaction,
       write: (db, destination) => {
-        // StatementSync has no explicit finalize API. A one-shot prepared
-        // VACUUM can therefore keep the source file open on Windows until GC,
-        // even after DatabaseSync.close(). exec leaves no statement wrapper.
-        db.exec(`VACUUM INTO ${sqliteString(destination)}`)
+        db.prepare('VACUUM INTO ?').run(destination)
       },
     },
   },
