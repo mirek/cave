@@ -21,9 +21,25 @@ $ pnpm exec cave demo
 
 ## Programmatic feature subpaths
 
-The root export provides command functions. Workflow implementation APIs ship
-in the same npm artifact through `@cavelang/cli/act`, `/automate`, `/connect`,
-`/eval`, `/ingest`, `/loop`, `/mcp`, `/rules`, `/shape`, `/sync`, and `/view`.
+The package manifest is the entry-point registry. Every published entry point
+is documented here and follows the CLI package's semantic-versioning promise:
+
+| Entry point | Contract |
+|---|---|
+| `@cavelang/cli` | Buffered command functions plus the shared dispatcher and command registry. |
+| `@cavelang/cli/main` | Executable process entry point; prefer the `cave` binary from package scripts. |
+| `@cavelang/cli/act` | Action declarations and governed execution. |
+| `@cavelang/cli/automate` | Event-driven automation declarations and settling. |
+| `@cavelang/cli/connect` | Deterministic structured-source ingestion. |
+| `@cavelang/cli/eval` | Golden-fixture extraction and reconstruction evaluation. |
+| `@cavelang/cli/ingest` | LLM-driven document ingestion. |
+| `@cavelang/cli/loop` | Active memory reconstruction. |
+| `@cavelang/cli/mcp` | MCP tools, scopes, and stdio server. |
+| `@cavelang/cli/rules` | Rule declarations and forward chaining. |
+| `@cavelang/cli/shape` | Expectations, health checks, and typed-client generation. |
+| `@cavelang/cli/sync` | Store synchronization and annotated interchange. |
+| `@cavelang/cli/view` | Read-only view models, HTTP serving, and cited reports. |
+
 For example:
 
 ```ts
@@ -31,10 +47,9 @@ import { declareRules, derive } from '@cavelang/cli/rules'
 import { createServer } from '@cavelang/cli/mcp'
 ```
 
-These subpaths have the CLI package's semantic-versioning promise. The source
-modules remain separate private workspace packages for focused ownership and
-tests. See [the package migration table](../../PACKAGE_SURFACES.md) when
-updating an import from a former standalone package name.
+The source modules remain separate private workspace packages for focused
+ownership and tests. See [the package migration table](../../PACKAGE_SURFACES.md)
+when updating an import from a former standalone package name.
 
 ## Commands
 

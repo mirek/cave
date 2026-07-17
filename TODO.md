@@ -56,11 +56,6 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Add a VS Code release pipeline](todo/vscode-release-pipeline.md) — Package, version, and publish the extension deliberately.
 - [Polish package metadata and tooling](todo/package-tooling-metadata.md) — Complete manifests and make bootstrap, clean, and action pinning predictable.
 
-## Documentation
-
-- [Validate command documentation](todo/command-docs-coverage.md) — Detect CLI and MCP registry drift automatically.
-- [Choose a documentation source of truth](todo/documentation-source-of-truth.md) — Generate or validate repeated command and API descriptions.
-
 ## Testing
 
 - [Close integration test gaps](todo/integration-test-gaps.md) — Pin lifecycle, watcher, URL, and daemon behavior end to end.
