@@ -15,6 +15,7 @@ const packagesDir = fileURLToPath(new URL('../..', import.meta.url))
 type Manifest = {
   name?: string
   private?: boolean
+  engines?: { node?: string }
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   exports?: Record<string, unknown>
@@ -110,6 +111,38 @@ test('the stable CI check and release script both require packed-artifact smoke 
   assert.ok(recoveryTag > smoke, 'interrupted-release tagging must follow smoke validation')
   assert.ok(publish > smoke, 'npm publishing must follow smoke validation')
   assert.ok(finalTag > publish, 'normal release tagging must follow npm publishing')
+})
+
+test('release automation validates identity before npm and matches the supported runtime', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const manifest = parse<Manifest>(join(root, 'package.json'))
+  assert.match(manifest.engines?.node ?? '', /^>=22(?:\.|$)/)
+  assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs')
+
+  const publishWorkflow = readFileSync(join(root, '.github/workflows/publish.yml'), 'utf8')
+  const preflight = publishWorkflow.indexOf('Validate release branch, commit, versions, and tag')
+  const registry = publishWorkflow.indexOf('registry-url: https://registry.npmjs.org')
+  assert.ok(preflight >= 0 && preflight < registry, 'release identity must be checked before npm registry setup')
+  assert.deepEqual([...publishWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
+
+  const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
+  assert.deepEqual([...ciWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
+  for (const workflow of [publishWorkflow, ciWorkflow]) {
+    assert.match(workflow, /path: ~\/\.cache\/tree-sitter/)
+    assert.match(workflow, /tree-sitter-wasi-\$\{\{ runner\.os \}\}/)
+  }
+
+  const release = readFileSync(join(root, 'scripts/release-publish.sh'), 'utf8')
+  const validation = release.indexOf('node scripts/release-validate.mjs')
+  const registryLookup = release.indexOf('npm view')
+  const build = release.indexOf('pnpm --filter @cavelang/tree-sitter-cave build')
+  assert.ok(validation >= 0 && validation < registryLookup && validation < build)
+  assert.match(release, /CAVE_NPM_VIEW_ATTEMPTS:-4/)
+  assert.match(release, /npm view \$\{selector\} failed after \$\{attempts\} attempts/)
+  assert.match(release, /registry_has "\$\{name\}@\$\{version\}" version "\$version" true/)
+  const makefile = readFileSync(join(root, 'Makefile'), 'utf8')
+  assert.match(makefile, /publish:\n\tpnpm release:publish/)
+  assert.doesNotMatch(makefile, /publish:[^\n]*\n\tpnpm -r publish/)
 })
 
 test('CI runs every recorded representative performance budget', () => {

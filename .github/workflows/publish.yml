@@ -32,7 +32,27 @@ concurrency:
   cancel-in-progress: false # never cancel a run that may be mid-publish
 
 jobs:
+  # Validate the committed release identity before npm registry setup grants
+  # the publish process an authentication path. Ordinary changeset-bearing
+  # commits are skipped until their version PR lands.
+  preflight:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Validate release branch, commit, versions, and tag
+        run: node scripts/release-validate.mjs --if-release-ready
+
   release:
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,11 +63,17 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version: 22
           registry-url: https://registry.npmjs.org
           package-manager-cache: false # never use caching in release builds
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Cache tree-sitter WASI SDK
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/tree-sitter
+          key: tree-sitter-wasi-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/tree-sitter-cave/package.json') }}
 
       # Note: the version packages PR is opened with GITHUB_TOKEN, so CI
       # does not run on it automatically (GitHub suppresses workflows for
