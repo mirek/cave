@@ -123,6 +123,8 @@ test('comment search via SQL LIKE and FTS (spec §13.5)', () => {
   const like = store.db.prepare("SELECT * FROM cave_claim WHERE comment LIKE '%heap dump%'").all()
   assert.equal(like.length, 1)
   assert.equal(store.search('heap dump').length, 1, 'default phrase search')
+  assert.equal(store.search('heap "dump"').length, 1, 'quotes are escaped inside literal phrase searches')
+  assert.equal(store.search('"heap dump"').length, 1, 'user-supplied phrase quotes remain safe')
   assert.equal(store.search('token-expiry').length, 0, 'hyphenated terms are safe by default')
   assert.equal(store.search('heap AND analysis', { raw: true }).length, 1, 'raw FTS5 syntax')
   store.close()

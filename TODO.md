@@ -44,7 +44,3 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Expand smoke coverage](todo/smoke-test-coverage.md) — Cover more commands, libraries, and reliable process cleanup.
 - [Add a VS Code release pipeline](todo/vscode-release-pipeline.md) — Package, version, and publish the extension deliberately.
 - [Polish package metadata and tooling](todo/package-tooling-metadata.md) — Complete manifests and make bootstrap, clean, and action pinning predictable.
-
-## Testing
-
-- [Close edge-case test gaps](todo/edge-case-test-gaps.md) — Cover parser, MCP, escaping, FTS, time, alias, and unit boundaries.
