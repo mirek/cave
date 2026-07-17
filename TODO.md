@@ -41,4 +41,3 @@ Each backlog item is an independent, self-contained file in [`todo/`](todo/).
 - [Harden publish guards](todo/publish-workflow-guards.md) — Validate branch, version, runtime, cache, and retry assumptions.
 - [Ship license files](todo/package-license-files.md) — Include complete license attribution in every package path.
 - [Expand smoke coverage](todo/smoke-test-coverage.md) — Cover more commands, libraries, and reliable process cleanup.
-- [Add a VS Code release pipeline](todo/vscode-release-pipeline.md) — Package, version, and publish the extension deliberately.

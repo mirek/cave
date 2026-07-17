@@ -17,11 +17,14 @@ const writeVersions = (root: string, version: string): void => {
   const grammarManifest = { name: '@fixture/grammar', version }
   mkdirSync(join(root, 'packages/public'), { recursive: true })
   mkdirSync(join(root, 'packages/tree-sitter-cave'), { recursive: true })
+  mkdirSync(join(root, 'editors/vscode'), { recursive: true })
   writeFileSync(join(root, 'package.json'), `${JSON.stringify(rootManifest, null, 2)}\n`)
   writeFileSync(join(root, 'packages/public/package.json'), `${JSON.stringify(packageManifest, null, 2)}\n`)
   writeFileSync(join(root, 'packages/tree-sitter-cave/package.json'), `${JSON.stringify(grammarManifest, null, 2)}\n`)
   writeFileSync(join(root, 'packages/tree-sitter-cave/tree-sitter.json'),
     `${JSON.stringify({ metadata: { version } }, null, 2)}\n`)
+  writeFileSync(join(root, 'editors/vscode/package.json'),
+    `${JSON.stringify({ name: 'cave-language', version, private: true }, null, 2)}\n`)
 }
 
 const fixture = (): { root: string, cleanup: () => void } => {
@@ -103,6 +106,23 @@ test('release preflight accepts only an authoritative version commit and matchin
       const result = validate(root)
       assert.equal(result.status, 1)
       assert.match(result.stderr, /version sources differ from their committed contents/)
+    } finally {
+      cleanup()
+    }
+  })
+
+  await t.test('rejects extension version drift at a release commit', () => {
+    const { root, cleanup } = fixture()
+    try {
+      const manifestPath = join(root, 'editors/vscode/package.json')
+      writeFileSync(manifestPath,
+        `${JSON.stringify({ name: 'cave-language', version: '1.2.2', private: true }, null, 2)}\n`)
+      git(root, 'add', manifestPath)
+      git(root, 'commit', '--amend', '--no-edit')
+      git(root, 'push', '--force', 'origin', 'main')
+      const result = validate(root)
+      assert.equal(result.status, 1)
+      assert.match(result.stderr, /editors\/vscode\/package\.json is at committed version 1\.2\.2, expected 1\.2\.3/)
     } finally {
       cleanup()
     }

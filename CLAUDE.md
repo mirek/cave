@@ -22,9 +22,12 @@ license records remain point-in-time records.
 
 All `@cavelang/*` packages release together at one version (a changesets
 `fixed` group; `scripts/sync-versions.mjs` syncs the private root
-manifest and `tree-sitter.json` to it — the private website and VS Code
-manifests deliberately stay put). **Never edit a `version` field by
-hand** — versions only move in the automated release PR.
+manifest, VS Code extension manifest, and `tree-sitter.json` to it — the
+private website manifest deliberately stays put). **Never edit a `version`
+field by hand** — versions only move in the automated release PR. The VS Code
+extension is not in the npm fixed group; it receives the resulting version
+only after Changesets finishes, then publishes separately from an existing
+`v<version>` tag through `.github/workflows/vscode.yml`.
 
 **Every change adds a changeset instead of a version bump** — package
 source, docs, these instructions, or the spec skills in `.claude/skills/`.

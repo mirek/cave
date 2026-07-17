@@ -14,6 +14,7 @@ const packagesDir = fileURLToPath(new URL('../..', import.meta.url))
 
 type Manifest = {
   name?: string
+  version?: string
   private?: boolean
   packageManager?: string
   keywords?: string[]
@@ -189,7 +190,7 @@ test('all third-party workflow actions use reviewable immutable revisions', () =
   const workflows = fileURLToPath(new URL('../../../.github/workflows', import.meta.url))
   for (const name of readdirSync(workflows).filter(name => name.endsWith('.yml')).sort()) {
     const source = readFileSync(join(workflows, name), 'utf8')
-    const uses = source.split('\n').filter(line => /^\s*uses:/.test(line))
+    const uses = source.split('\n').filter(line => /^\s*-?\s*uses:/.test(line))
     assert.ok(uses.length > 0, `${name} contains no action references`)
     for (const line of uses) {
       assert.match(line, /^\s*-?\s*uses:\s+[^\s@]+@[0-9a-f]{40}\s+#\s+v\d+\s*$/, `${name}: ${line.trim()}`)
@@ -249,7 +250,7 @@ test('release automation validates identity before npm and matches the supported
   assert.deepEqual([...publishWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
 
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
-  assert.deepEqual([...ciWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22'])
+  assert.deepEqual([...ciWorkflow.matchAll(/node-version: (\d+)/g)].map(match => match[1]), ['22', '22', '22'])
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/tree-sitter/)
     assert.match(workflow, /tree-sitter-wasi-\$\{\{ runner\.os \}\}/)
@@ -266,6 +267,36 @@ test('release automation validates identity before npm and matches the supported
   const makefile = readFileSync(join(root, 'Makefile'), 'utf8')
   assert.match(makefile, /publish:\n\tpnpm release:publish/)
   assert.doesNotMatch(makefile, /publish:[^\n]*\n\tpnpm -r publish/)
+})
+
+test('the VS Code extension is packed, versioned, and published through a scoped release path', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const editor = parse<Manifest>(join(root, 'editors/vscode/package.json'))
+  assert.equal(editor.private, true)
+  assert.equal(editor.scripts?.package, 'pnpm run build && node package.mjs')
+  assert.equal(editor.devDependencies?.yauzl, '^3.2.0')
+
+  const packager = readFileSync(join(root, 'editors/vscode/package.mjs'), 'utf8')
+  assert.match(packager, /'vsce',\n  'package'/)
+  assert.match(packager, /await verifyVsix\(output, manifest\.version\)/)
+  const verifier = readFileSync(join(root, 'editors/vscode/verify-vsix.mjs'), 'utf8')
+  for (const asset of ['extension.js', 'web-tree-sitter.wasm', 'tree-sitter-cave.wasm', 'highlights.scm']) {
+    assert.match(verifier, new RegExp(asset.replace('.', '\\.')))
+  }
+
+  const sync = readFileSync(join(root, 'scripts/sync-versions.mjs'), 'utf8')
+  assert.match(sync, /editors\/vscode\/package\.json/)
+  const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
+  assert.match(ci, /\n  vscode:\n[\s\S]*pnpm --filter cave-language package[\s\S]*actions\/upload-artifact@[0-9a-f]{40}/)
+  assert.match(ci, /needs:\n      - suite\n      - smoke\n      - vscode/)
+
+  const release = readFileSync(join(root, '.github/workflows/vscode.yml'), 'utf8')
+  assert.match(release, /^permissions:\n  contents: read$/m)
+  assert.match(release, /environment: vscode-marketplace/)
+  assert.match(release, /ref: refs\/tags\/v\$\{\{ inputs\.version \}\}/)
+  assert.match(release, /node scripts\/release-validate\.mjs/)
+  assert.match(release, /VSCE_PAT: \$\{\{ secrets\.VSCE_PAT \}\}/)
+  assert.match(release, /vsce publish .*--skip-duplicate/)
 })
 
 test('CI runs every recorded representative performance budget', () => {

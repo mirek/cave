@@ -53,7 +53,12 @@ try {
     .filter(entry => entry.isDirectory() && existsSync(join(root, 'packages', entry.name, 'package.json')))
     .map(entry => `packages/${entry.name}/package.json`)
     .sort()
-  const versionPaths = ['package.json', ...manifestPaths, 'packages/tree-sitter-cave/tree-sitter.json']
+  const versionPaths = [
+    'package.json',
+    ...manifestPaths,
+    'packages/tree-sitter-cave/tree-sitter.json',
+    'editors/vscode/package.json',
+  ]
   if (runGit(['diff', '--quiet', 'HEAD', '--', ...versionPaths], { allowFailure: true }).status !== 0) {
     fail('release version sources differ from their committed contents')
   }
@@ -72,6 +77,13 @@ try {
   const grammarVersion = committedJson('packages/tree-sitter-cave/tree-sitter.json').metadata?.version
   if (grammarVersion !== version) {
     fail(`packages/tree-sitter-cave/tree-sitter.json is at committed version ${grammarVersion}, expected ${version}`)
+  }
+  const vscodeVersion = committedJson('editors/vscode/package.json').version
+  // Ordinary changeset-bearing commits precede the automated version PR, so
+  // the extension may still carry the previous released version here. The
+  // version PR runs sync-versions.mjs and must align it before publishing.
+  if (vscodeVersion !== version && !(conditional && pending.length > 0)) {
+    fail(`editors/vscode/package.json is at committed version ${vscodeVersion}, expected ${version}`)
   }
 
   let versionCommit
