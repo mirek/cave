@@ -59,6 +59,6 @@
   "dependencies": {
     "@cavelang/tree-sitter-cave": "workspace:*",
     "@types/emscripten": "^1.41.5",
-    "web-tree-sitter": "^0.26.10"
+    "web-tree-sitter": "^0.26.11"
   }
 }

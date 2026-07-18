@@ -50,6 +50,6 @@
     "@cavelang/store": "workspace:*",
     "@cavelang/sync": "workspace:*",
     "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.12"
+    "linkedom": "^0.18.13"
   }
 }
