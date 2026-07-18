@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@cavelang/tree-sitter-cave": "workspace:*",
-    "web-tree-sitter": "^0.26.10"
+    "web-tree-sitter": "^0.26.11"
   },
   "devDependencies": {
     "@types/vscode": "^1.100.0",

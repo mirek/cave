@@ -204,6 +204,8 @@ test('dependency maintenance is grouped, reviewable, and owned', () => {
   assert.match(dependabot, /package-ecosystem: npm[\s\S]*interval: weekly/)
   assert.match(dependabot, /package-ecosystem: github-actions[\s\S]*interval: weekly/)
   assert.equal((dependabot.match(/routine-compatible:/g) ?? []).length, 2)
+  assert.match(dependabot, /dependency-name: "@types\/node"[\s\S]*version-update:semver-major/,
+    '@types/node majors must follow the minimum supported Node runtime')
   for (const separatelyReviewed of [
     '@changesets/*', '@playwright/*', '@prelude/parser', '@vscode/vsce*',
     'esbuild', 'sql.js', 'typescript', 'vite', 'web-tree-sitter', 'z3-solver',
