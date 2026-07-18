@@ -32,6 +32,6 @@
     "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^6.0.3",
     "typescript": "^5.8.0",
-    "vite": "^8.1.4"
+    "vite": "^8.1.5"
   }
 }
