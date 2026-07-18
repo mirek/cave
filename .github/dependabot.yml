@@ -1,0 +1,69 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    assignees:
+      - mirek
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      routine-compatible:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        exclude-patterns:
+          # Native/WASM runtimes, parsers, compilers, and release tools get
+          # one PR each so their generated output and packaging stay legible.
+          - "@changesets/*"
+          - "@playwright/*"
+          - "@prelude/parser"
+          - "@vitejs/*"
+          - "@vscode/vsce*"
+          - "esbuild"
+          - "sql.js"
+          - "typescript"
+          - "vite"
+          - "web-tree-sitter"
+          - "z3-solver"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+      time: "05:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    assignees:
+      - mirek
+    commit-message:
+      prefix: "chore(actions)"
+    groups:
+      routine-compatible:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        exclude-patterns:
+          # Checkout/runtime bootstrap, compiler setup, and publishing actions
+          # remain independent supply-chain review units.
+          - "actions/checkout"
+          - "actions/configure-pages"
+          - "actions/deploy-pages"
+          - "actions/setup-node"
+          - "actions/upload-pages-artifact"
+          - "changesets/action"
+          - "pnpm/action-setup"
+          - "typst-community/setup-typst"
+        update-types:
+          - minor
+          - patch

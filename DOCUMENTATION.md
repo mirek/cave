@@ -38,7 +38,7 @@ in the repository.
 | Surface | Files | Purpose |
 |---|---|---|
 | Entry points | `README.md`, `DOCUMENTATION.md` | User overview, specification index, and this maintenance map. |
-| Project references | `PROJECT-BOUNDARIES.md`, `RETIRED-ROADMAP.md` | Permanent non-goals and historical roadmap resolution outside the active backlog. |
+| Project references | `PROJECT-BOUNDARIES.md`, `RETIRED-ROADMAP.md`, `DEPENDENCY-MAINTENANCE.md` | Permanent non-goals, historical roadmap resolution, and dependency triage policy. |
 | System design | `ARCHITECTURE.md`, `IMPLEMENTATION.md` | Boundaries, flows, package map, toolchain, and implementation decisions. |
 | Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md` | Required repository and PR workflow. |
 | Normative specification skills | `.claude/skills/cave-design/SKILL.md`, `.claude/skills/cave-writing/SKILL.md`, `.claude/skills/cave-extraction/SKILL.md`, `.claude/skills/cave-storage-query/SKILL.md` | Numbered CAVE specification sections. |

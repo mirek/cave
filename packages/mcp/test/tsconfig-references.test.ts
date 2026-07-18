@@ -198,6 +198,39 @@ test('all third-party workflow actions use reviewable immutable revisions', () =
   }
 })
 
+test('dependency maintenance is grouped, reviewable, and owned', () => {
+  const root = fileURLToPath(new URL('../../..', import.meta.url))
+  const dependabot = readFileSync(join(root, '.github/dependabot.yml'), 'utf8')
+  assert.match(dependabot, /package-ecosystem: npm[\s\S]*interval: weekly/)
+  assert.match(dependabot, /package-ecosystem: github-actions[\s\S]*interval: weekly/)
+  assert.equal((dependabot.match(/routine-compatible:/g) ?? []).length, 2)
+  for (const separatelyReviewed of [
+    '@changesets/*', '@playwright/*', '@prelude/parser', '@vscode/vsce*',
+    'esbuild', 'sql.js', 'typescript', 'vite', 'web-tree-sitter', 'z3-solver',
+    'actions/checkout', 'actions/setup-node', 'changesets/action', 'pnpm/action-setup'
+  ]) {
+    assert.ok(dependabot.includes(`- "${separatelyReviewed}"`),
+      `${separatelyReviewed} must stay outside routine groups`)
+  }
+
+  const advisories = readFileSync(join(root, '.github/workflows/dependency-advisories.yml'), 'utf8')
+  assert.match(advisories, /schedule:[\s\S]*cron: '17 5 \* \* 1-5'/)
+  assert.match(advisories, /pnpm install --frozen-lockfile/)
+  assert.match(advisories, /pnpm audit --prod --audit-level=low/)
+  assert.match(advisories, /Owner @mirek[\s\S]*DEPENDENCY-MAINTENANCE\.md/)
+
+  const policy = readFileSync(join(root, 'DEPENDENCY-MAINTENANCE.md'), 'utf8')
+  const policyProse = policy.replace(/\s+/g, ' ')
+  for (const requirement of [
+    'Major updates remain individual',
+    'complete commit SHA',
+    'no more than 30 days',
+    'auditConfig.ignoreGhsas',
+    'Never ignore a registry failure',
+    'Escalate immediately'
+  ]) assert.ok(policyProse.includes(requirement), `maintenance policy omits: ${requirement}`)
+})
+
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {
   const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
   assert.match(ci, /\n  smoke:\n[\s\S]*?bash scripts\/smoke\.sh/)
