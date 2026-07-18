@@ -126,7 +126,7 @@
     "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*",
     "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.12"
+    "linkedom": "^0.18.13"
   },
   "devDependencies": {
     "@cavelang/act": "workspace:*",
