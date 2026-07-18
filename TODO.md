@@ -2,7 +2,7 @@
 
 ## Active backlog
 
-- [Automate dependency maintenance](todo/dependency-action-maintenance.md) — Add low-noise recurring npm and action updates plus production advisory checks.
+There are no active backlog items.
 
 New work belongs in a self-contained `todo/<name>.md` file linked here.
 Deliberate non-features and their evidence-based reopening criteria live in
