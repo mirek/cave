@@ -62,6 +62,6 @@
   },
   "dependencies": {
     "@cavelang/solver": "workspace:*",
-    "z3-solver": "4.16.0"
+    "z3-solver": "5.0.0"
   }
 }
