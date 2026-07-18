@@ -156,10 +156,8 @@ if [ "${#first_time[@]}" -gt 0 ]; then
 fi
 
 echo "==> building, testing, and smoke-checking v${version}"
-# Generated grammar artifacts (parser.c, WASM) are never committed —
-# tree-sitter-cli (a devDependency) regenerates them here; its
-# `build --wasm` downloads wasi-sdk into ~/.cache/tree-sitter on
-# first use. CI caches that external toolchain directory across jobs.
+# Regenerate the committed parser and WASM with the digest-pinned toolchain.
+# The package build verifies cached archives before using them.
 pnpm --filter @cavelang/tree-sitter-cave build
 pnpm build
 pnpm test

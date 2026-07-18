@@ -17,6 +17,8 @@
     "build": "tsc -b",
     "build:verify": "node scripts/verify-incremental-build.mjs",
     "bench:performance": "node --disable-warning=ExperimentalWarning scripts/performance-bench.mjs",
+    "grammar:prepare": "node scripts/grammar-toolchain.mjs prepare",
+    "grammar:verify": "node scripts/grammar-toolchain.mjs verify",
     "site:dev": "pnpm --filter @cavelang/website dev",
     "site:build": "pnpm --filter @cavelang/website build",
     "watch": "tsc -b --watch --preserveWatchOutput",

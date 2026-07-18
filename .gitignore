@@ -11,11 +11,10 @@ test-results/
 *.tsbuildinfo
 *.vsix
 
-# Generated grammar artifacts — unauditable, so never committed; built on
-# demand by `pnpm --filter @cavelang/tree-sitter-cave build` (tree-sitter-cli
-# fetches wasi-sdk itself) and shipped only inside the npm tarball via prepack.
+# Generated runtime Wasm is ignored except for the grammar artifact, which is
+# committed and reproducibility-checked in CI.
 *.wasm
-packages/tree-sitter-cave/src/
+!packages/tree-sitter-cave/tree-sitter-cave.wasm
 
 # Canonical legal files are staged into public packages by their prepack hook.
 packages/*/License.md

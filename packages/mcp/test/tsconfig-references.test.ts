@@ -177,13 +177,13 @@ test('bootstrap and clean derive deterministic tooling from the root manifest', 
     "join(directory, 'Authors.md')",
     "join(root, 'editors/vscode/dist')",
     "join(root, 'website/dist')",
-    "join(root, 'packages/tree-sitter-cave/src')",
-    "join(root, 'packages/tree-sitter-cave/tree-sitter-cave.wasm')",
     "entry.name.endsWith('.vsix')",
     "entry.name.endsWith('.tsbuildinfo')",
   ]) {
     assert.ok(clean.includes(output), `clean script omits ${output}`)
   }
+  assert.doesNotMatch(clean, /packages\/tree-sitter-cave\/(?:src|tree-sitter-cave\.wasm)/,
+    'clean must preserve committed grammar outputs')
 })
 
 test('all third-party workflow actions use reviewable immutable revisions', () => {
@@ -271,8 +271,26 @@ test('release automation validates identity before npm and matches the supported
   assert.match(ciWorkflow, /node: 22\.18\.0/)
   assert.match(ciWorkflow, /node: 24\.18\.0/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
-    assert.match(workflow, /path: ~\/\.cache\/tree-sitter/)
-    assert.match(workflow, /tree-sitter-wasi-\$\{\{ runner\.os \}\}/)
+    assert.match(workflow, /path: ~\/\.cache\/cave\/grammar-toolchain\/downloads/)
+    assert.match(workflow, /grammar-toolchain-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}/)
+  }
+
+  const grammarToolchain = readFileSync(join(root, 'scripts/grammar-toolchain.mjs'), 'utf8')
+  assert.match(grammarToolchain, /CAVE_GRAMMAR_OFFLINE/)
+  assert.match(grammarToolchain, /SHA-256/)
+  assert.match(grammarToolchain, /git[\s\S]*diff[\s\S]*tree-sitter-cave\.wasm/)
+
+  const grammar = parse<Manifest>(join(root, 'packages/tree-sitter-cave/package.json'))
+  assert.equal(grammar.devDependencies?.['tree-sitter-cli'], undefined)
+  const toolchain = parse<{
+    treeSitter: { artifacts: Record<string, { sha256: string }> }
+    wasiSdk: { artifacts: Record<string, { sha256: string }> }
+  }>(join(root, 'scripts/grammar-toolchain.json'))
+  for (const artifacts of [toolchain.treeSitter.artifacts, toolchain.wasiSdk.artifacts]) {
+    assert.deepEqual(Object.keys(artifacts).sort(), [
+      'darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64', 'win32-arm64', 'win32-x64'
+    ])
+    for (const artifact of Object.values(artifacts)) assert.match(artifact.sha256, /^[a-f0-9]{64}$/)
   }
 
   const release = readFileSync(join(root, 'scripts/release-publish.sh'), 'utf8')

@@ -417,11 +417,7 @@ importers:
         specifier: workspace:*
         version: link:../store
 
-  packages/tree-sitter-cave:
-    devDependencies:
-      tree-sitter-cli:
-        specifier: ^0.26.10
-        version: 0.26.10
+  packages/tree-sitter-cave: {}
 
   packages/view:
     devDependencies:
@@ -2505,11 +2501,6 @@ packages:
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
-
-  tree-sitter-cli@0.26.10:
-    resolution: {integrity: sha512-RTse32x5YWOrEtH7wos8ODt3yyB7SKgmGN70jC7R+WcnDA64vrpYU98+LnwrwdXMlxgr0LGQdezZz85DN8Wv0w==}
-    engines: {node: '>=12.0.0'}
-    hasBin: true
 
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
@@ -5061,8 +5052,6 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
-
-  tree-sitter-cli@0.26.10: {}
 
   trim-lines@3.0.1: {}
 
