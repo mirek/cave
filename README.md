@@ -36,9 +36,9 @@ Outside the workspace, install `@cavelang/cli`. Its documented feature
 subpaths (for example `@cavelang/cli/rules`) expose programmatic workflow APIs
 without requiring each internal module to publish independently.
 
-The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
-24.18.0 Active LTS is the recommended production runtime. CAVE supports Linux,
-macOS, and Windows. CI
+The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
+24.18.0 Active LTS is the recommended production runtime, and 26.4.0 Current is
+also tested. CAVE supports Linux, macOS, and Windows. CI
 proves the platform-specific process, filesystem, SQLite, grammar, and package
 paths on Ubuntu 24.04, macOS 15, and Windows Server 2022 respectively. Browser
 support is a separate WASM-backed runtime described in

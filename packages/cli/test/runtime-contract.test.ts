@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { isSupportedNodeVersion } from '../src/doctor.ts'
 
 const root = new URL('../../../', import.meta.url)
 const read = (path: string): string =>
@@ -18,7 +19,7 @@ test('package engines name the exact minimum Node runtime', () => {
     const manifest = JSON.parse(read(path)) as { name?: string, engines?: { node?: string } }
     if (manifest.engines?.node === undefined) continue
     runtimePackages += 1
-    assert.equal(manifest.engines.node, '^22.18.0 || ^24.0.0',
+    assert.equal(manifest.engines.node, '^22.18.0 || ^24.0.0 || ^26.0.0',
       `${manifest.name ?? path} has a divergent Node engine`)
   }
   assert.ok(runtimePackages > 20, 'the runtime contract did not inspect the package graph')
@@ -26,11 +27,20 @@ test('package engines name the exact minimum Node runtime', () => {
 
 test('CI names exact runtimes and supported operating systems', () => {
   const ci = read('.github/workflows/ci.yml')
-  for (const expected of ['22.18.0', '24.18.0', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
+  for (const expected of ['22.18.0', '24.18.0', '26.4.0', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
     assert.ok(ci.includes(expected), `CI omits supported runtime target ${expected}`)
   }
-  assert.doesNotMatch(ci, /node-version:\s*(?:22|24)\s*$/m, 'CI must not select a floating Node major')
+  assert.doesNotMatch(ci, /node-version:\s*(?:22|24|26)\s*$/m, 'CI must not select a floating Node major')
   assert.doesNotMatch(ci, /runs-on:\s*(?:ubuntu|macos|windows)-latest/, 'CI must name exact runner images')
+})
+
+test('doctor accepts exactly the supported Node release lines', () => {
+  for (const version of ['22.18.0', '22.99.0', '24.0.0', '24.18.0', '26.0.0', '26.4.0']) {
+    assert.equal(isSupportedNodeVersion(version), true, `${version} should be supported`)
+  }
+  for (const version of ['22.17.9', '23.0.0', '25.9.0', '27.0.0', 'invalid']) {
+    assert.equal(isSupportedNodeVersion(version), false, `${version} should be unsupported`)
+  }
 })
 
 test('every workflow job has an explicit timeout and Node workflows use the recommended LTS', () => {
@@ -61,7 +71,7 @@ test('every workflow job has an explicit timeout and Node workflows use the reco
 test('runtime documentation agrees with the tested support policy', () => {
   for (const path of ['README.md', 'ARCHITECTURE.md', 'IMPLEMENTATION.md', 'packages/cli/README.md']) {
     const document = read(path).replace(/\s+/g, ' ')
-    for (const expected of ['22.18.0', '24.18.0', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
+    for (const expected of ['22.18.0', '24.18.0', '26.4.0', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
       assert.ok(document.includes(expected), `${path} omits ${expected}`)
     }
   }
