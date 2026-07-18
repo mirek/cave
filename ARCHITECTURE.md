@@ -378,13 +378,13 @@ immutable domain values rather than class-based domain entities; conventional
 
 ## Runtime variants
 
-The supported Node.js lines are 22 and 24. Node.js 22.18.0 is the exact
-minimum, and Node.js 24.18.0 Active LTS is the recommended production runtime;
-Current, non-LTS Node lines are outside the
-support contract. Linux, macOS, and Windows are supported, represented in CI
+The supported Node.js lines are 22, 24, and 26. Node.js 22.18.0 is the exact
+minimum, Node.js 24.18.0 Active LTS is the recommended production runtime, and
+Node.js 26.4.0 Current is also tested; other Node lines are outside the support
+contract. Linux, macOS, and Windows are supported, represented in CI
 by Ubuntu 24.04, macOS 15, and Windows Server 2022. The full suite runs on the
-recommended runtime, while a focused matrix proves the exact minimum plus the
-platform-sensitive process, filesystem, native grammar, built-package, and
+recommended runtime, while a focused matrix proves the exact minimum, Node 26,
+and the platform-sensitive process, filesystem, native grammar, built-package, and
 `node:sqlite` paths on every supported OS. During development, TypeScript source
 can execute directly through Node's type stripping; `node:sqlite` supplies
 persistence and `node:test` supplies the test runner. Release and CI builds run

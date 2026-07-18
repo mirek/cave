@@ -288,7 +288,7 @@ test('the default website build excludes the optional solver runtime', () => {
 test('release automation validates identity before npm and matches the supported runtime', () => {
   const root = fileURLToPath(new URL('../../..', import.meta.url))
   const manifest = parse<Manifest>(join(root, 'package.json'))
-  assert.equal(manifest.engines?.node, '^22.18.0 || ^24.0.0')
+  assert.equal(manifest.engines?.node, '^22.18.0 || ^24.0.0 || ^26.0.0')
   assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs --mode=publish')
   assert.equal(manifest.scripts?.['release:validate:version-pr'],
     'node scripts/release-validate.mjs --mode=version-pr')
@@ -305,6 +305,7 @@ test('release automation validates identity before npm and matches the supported
     ['24.18.0', '24.18.0', '24.18.0', '24.18.0'])
   assert.match(ciWorkflow, /node: 22\.18\.0/)
   assert.match(ciWorkflow, /node: 24\.18\.0/)
+  assert.match(ciWorkflow, /node: 26\.4\.0/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/cave\/grammar-toolchain\/downloads/)
     assert.match(workflow, /grammar-toolchain-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}/)
