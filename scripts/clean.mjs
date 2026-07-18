@@ -17,8 +17,6 @@ for (const entry of readdirSync(packages, { withFileTypes: true })) {
 
 remove(join(root, 'editors/vscode/dist'))
 remove(join(root, 'website/dist'))
-remove(join(root, 'packages/tree-sitter-cave/src'))
-remove(join(root, 'packages/tree-sitter-cave/tree-sitter-cave.wasm'))
 
 for (const entry of readdirSync(join(root, 'editors/vscode'), { withFileTypes: true })) {
   if (entry.isFile() && entry.name.endsWith('.vsix')) remove(join(root, 'editors/vscode', entry.name))

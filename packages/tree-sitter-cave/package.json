@@ -41,13 +41,10 @@
     "access": "public"
   },
   "scripts": {
-    "generate": "tree-sitter generate",
-    "build": "tree-sitter generate && tree-sitter build --wasm -o tree-sitter-cave.wasm",
-    "test": "pnpm run build && tree-sitter test",
+    "generate": "node ../../scripts/grammar-toolchain.mjs generate",
+    "build": "node ../../scripts/grammar-toolchain.mjs build",
+    "test": "node ../../scripts/grammar-toolchain.mjs test",
     "typecheck": "true",
     "prepack": "node ../../scripts/prepare-package-legal.mjs && pnpm run build"
-  },
-  "devDependencies": {
-    "tree-sitter-cli": "^0.26.10"
   }
 }

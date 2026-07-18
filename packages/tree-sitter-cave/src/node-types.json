@@ -1,0 +1,656 @@
+[
+  {
+    "type": "attr_value",
+    "named": true,
+    "fields": {
+      "attribute": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attribute",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "value",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "claim_line",
+    "named": true,
+    "fields": {
+      "payload": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "attr_value",
+            "named": true
+          },
+          {
+            "type": "object",
+            "named": true
+          },
+          {
+            "type": "value",
+            "named": true
+          }
+        ]
+      },
+      "subject": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      },
+      "verb": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "verb",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "confidence",
+          "named": true
+        },
+        {
+          "type": "context",
+          "named": true
+        },
+        {
+          "type": "importance",
+          "named": true
+        },
+        {
+          "type": "negation",
+          "named": true
+        },
+        {
+          "type": "sigma",
+          "named": true
+        },
+        {
+          "type": "tag",
+          "named": true
+        },
+        {
+          "type": "uncertainty",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "comment_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "comparison",
+    "named": true,
+    "fields": {
+      "left": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      },
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "comparison_op",
+            "named": true
+          }
+        ]
+      },
+      "right": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "value",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "comparison_op",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "continuation_line",
+    "named": true,
+    "fields": {
+      "payload": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "attr_value",
+            "named": true
+          },
+          {
+            "type": "object",
+            "named": true
+          },
+          {
+            "type": "value",
+            "named": true
+          }
+        ]
+      },
+      "verb": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "verb",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "confidence",
+          "named": true
+        },
+        {
+          "type": "context",
+          "named": true
+        },
+        {
+          "type": "importance",
+          "named": true
+        },
+        {
+          "type": "negation",
+          "named": true
+        },
+        {
+          "type": "sigma",
+          "named": true
+        },
+        {
+          "type": "tag",
+          "named": true
+        },
+        {
+          "type": "uncertainty",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "document",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "claim_line",
+          "named": true
+        },
+        {
+          "type": "comment_line",
+          "named": true
+        },
+        {
+          "type": "continuation_line",
+          "named": true
+        },
+        {
+          "type": "qualifier_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "object",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "code",
+          "named": true
+        },
+        {
+          "type": "entity",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "qualifier_line",
+    "named": true,
+    "fields": {
+      "payload": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_value",
+            "named": true
+          },
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "comment",
+            "named": true
+          },
+          {
+            "type": "comparison",
+            "named": true
+          },
+          {
+            "type": "confidence",
+            "named": true
+          },
+          {
+            "type": "context",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "importance",
+            "named": true
+          },
+          {
+            "type": "negation",
+            "named": true
+          },
+          {
+            "type": "object",
+            "named": true
+          },
+          {
+            "type": "sigma",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "tag",
+            "named": true
+          },
+          {
+            "type": "uncertainty",
+            "named": true
+          },
+          {
+            "type": "value",
+            "named": true
+          },
+          {
+            "type": "verb",
+            "named": true
+          }
+        ]
+      },
+      "subject": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "code",
+            "named": true
+          },
+          {
+            "type": "entity",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      },
+      "verb": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "qualifier_verb",
+            "named": true
+          },
+          {
+            "type": "verb",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "confidence",
+          "named": true
+        },
+        {
+          "type": "context",
+          "named": true
+        },
+        {
+          "type": "importance",
+          "named": true
+        },
+        {
+          "type": "negation",
+          "named": true
+        },
+        {
+          "type": "sigma",
+          "named": true
+        },
+        {
+          "type": "tag",
+          "named": true
+        },
+        {
+          "type": "uncertainty",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "qualifier_verb",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "tag",
+    "named": true,
+    "fields": {
+      "key": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "tag_key",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "tag_value",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "uncertainty",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "value",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "unit",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "!=",
+    "named": false
+  },
+  {
+    "type": "#",
+    "named": false
+  },
+  {
+    "type": "+/-",
+    "named": false
+  },
+  {
+    "type": "->",
+    "named": false
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
+    "type": "<",
+    "named": false
+  },
+  {
+    "type": "<=",
+    "named": false
+  },
+  {
+    "type": "=",
+    "named": false
+  },
+  {
+    "type": ">",
+    "named": false
+  },
+  {
+    "type": ">=",
+    "named": false
+  },
+  {
+    "type": "BECAUSE",
+    "named": false
+  },
+  {
+    "type": "UNLESS",
+    "named": false
+  },
+  {
+    "type": "VIA",
+    "named": false
+  },
+  {
+    "type": "WHEN",
+    "named": false
+  },
+  {
+    "type": "attribute",
+    "named": true
+  },
+  {
+    "type": "code",
+    "named": true
+  },
+  {
+    "type": "comment",
+    "named": true
+  },
+  {
+    "type": "confidence",
+    "named": true
+  },
+  {
+    "type": "context",
+    "named": true
+  },
+  {
+    "type": "entity",
+    "named": true
+  },
+  {
+    "type": "importance",
+    "named": true
+  },
+  {
+    "type": "negation",
+    "named": true
+  },
+  {
+    "type": "number",
+    "named": true
+  },
+  {
+    "type": "sigma",
+    "named": true
+  },
+  {
+    "type": "string",
+    "named": true
+  },
+  {
+    "type": "tag_key",
+    "named": true
+  },
+  {
+    "type": "tag_value",
+    "named": true
+  },
+  {
+    "type": "unit",
+    "named": true
+  },
+  {
+    "type": "verb",
+    "named": true
+  }
+]

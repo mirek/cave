@@ -1,0 +1,62 @@
+{
+  "treeSitter": {
+    "version": "0.26.10",
+    "baseUrl": "https://github.com/tree-sitter/tree-sitter/releases/download/v0.26.10",
+    "artifacts": {
+      "linux-x64": {
+        "file": "tree-sitter-linux-x64.gz",
+        "sha256": "477ef03e7422f3579187859db7d5407ac345c854f9e2e6c4534d2305dac39a35"
+      },
+      "linux-arm64": {
+        "file": "tree-sitter-linux-arm64.gz",
+        "sha256": "abc3c3fc18c8f9ffeee385f5c34a91443774a371e2bfe5b53344d9d5606705ed"
+      },
+      "darwin-x64": {
+        "file": "tree-sitter-macos-x64.gz",
+        "sha256": "e58c90dc9c14a64b5d824b2bd9df99748fa149705361f51a8e37220be20e9210"
+      },
+      "darwin-arm64": {
+        "file": "tree-sitter-macos-arm64.gz",
+        "sha256": "821a387182db59a1942a90a1fbd8f9756d9926e2c265f5c7b9a23c523114134a"
+      },
+      "win32-x64": {
+        "file": "tree-sitter-windows-x64.gz",
+        "sha256": "6f59606dafabd8ac49c84c36ae4f0178e6aadd9232e5602c6fb0406d1b79129a"
+      },
+      "win32-arm64": {
+        "file": "tree-sitter-windows-arm64.gz",
+        "sha256": "cd2639b99c2f2f2abd253a6bfc0582c2db870f238f639974e030904abed76c93"
+      }
+    }
+  },
+  "wasiSdk": {
+    "version": "29.0",
+    "baseUrl": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29",
+    "artifacts": {
+      "linux-x64": {
+        "file": "wasi-sdk-29.0-x86_64-linux.tar.gz",
+        "sha256": "87d1d1a2879d139cdc624b968efad3d4a97b8078cdff95e63ac88ecafd1a0171"
+      },
+      "linux-arm64": {
+        "file": "wasi-sdk-29.0-arm64-linux.tar.gz",
+        "sha256": "052ad773397dc9e5aa99fb4cfef694175e6b1e81bb2ad1d3c8e7b3fc81441b7c"
+      },
+      "darwin-x64": {
+        "file": "wasi-sdk-29.0-x86_64-macos.tar.gz",
+        "sha256": "d0de2fd3ea5c57060efa87e4356c164bec3689972f2386f0c9a89c58e10cec8d"
+      },
+      "darwin-arm64": {
+        "file": "wasi-sdk-29.0-arm64-macos.tar.gz",
+        "sha256": "e11552913e3f99e834d7fe7da1bd081abaf764759ed76b6097a34c63fc83665e"
+      },
+      "win32-x64": {
+        "file": "wasi-sdk-29.0-x86_64-windows.tar.gz",
+        "sha256": "6c19b820577486f00332ad8d04ac506da67b0892316b8d485371a58cbf216dee"
+      },
+      "win32-arm64": {
+        "file": "wasi-sdk-29.0-arm64-windows.tar.gz",
+        "sha256": "694198d0ec9e949ec2e85e6e99fc13339ea82f699ad9fe5590d97955899f8904"
+      }
+    }
+  }
+}

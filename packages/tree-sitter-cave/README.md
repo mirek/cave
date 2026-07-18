@@ -19,11 +19,29 @@ values include negative scalars and negative trajectory endpoints.
   the single source used by `@cavelang/highlight` (terminal ANSI) and the
   CAVE VSCode extension (semantic tokens), including trajectory arrows as
   operators
-- `src/` (generated parser) and `tree-sitter-cave.wasm` are **not
-  committed** — generated artifacts are unauditable, so `pnpm build`
-  produces both on demand (tree-sitter-cli fetches wasi-sdk itself; no
-  emscripten or docker). They ship inside the npm tarball via `prepack`,
-  and `pnpm test` builds them before running the corpus.
+- `src/` and `tree-sitter-cave.wasm` are committed generated artifacts.
+  `pnpm grammar:verify` regenerates both with the pinned toolchain and fails
+  when the result differs, so grammar changes remain reviewable.
+
+## Rebuilding
+
+`pnpm --filter @cavelang/tree-sitter-cave build` downloads the exact
+tree-sitter CLI and WASI SDK archives listed in
+`scripts/grammar-toolchain.json`, verifies their SHA-256 digests, and caches
+them under `~/.cache/cave/grammar-toolchain`. Package installation itself
+does not run a binary downloader.
+
+For an offline or pre-provisioned build, copy the two archives for the host
+platform into `$CAVE_GRAMMAR_CACHE/downloads` (the variable defaults to the
+cache path above), then run:
+
+```sh
+CAVE_GRAMMAR_OFFLINE=1 pnpm grammar:prepare
+```
+
+Offline mode never accesses the network and reports the missing or invalid
+archive, its expected digest, and the recovery command. Cached archives are
+digest-checked on every invocation before an extracted tool is used.
 
 ## Consuming
 
