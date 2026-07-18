@@ -201,7 +201,10 @@ test('all third-party workflow actions use reviewable immutable revisions', () =
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {
   const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
   assert.match(ci, /\n  smoke:\n[\s\S]*?bash scripts\/smoke\.sh/)
-  assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - smoke/)
+  assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - browser\n      - smoke/)
+
+  const pages = readFileSync(fileURLToPath(new URL('../../../.github/workflows/pages.yml', import.meta.url)), 'utf8')
+  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
 
   const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
   const smoke = release.indexOf('bash scripts/smoke.sh')
@@ -264,7 +267,7 @@ test('release automation validates identity before npm and matches the supported
 
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
-    ['24.18.0', '24.18.0', '24.18.0'])
+    ['24.18.0', '24.18.0', '24.18.0', '24.18.0'])
   assert.match(ciWorkflow, /node: 22\.18\.0/)
   assert.match(ciWorkflow, /node: 24\.18\.0/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
@@ -304,7 +307,7 @@ test('the VS Code extension is packed, versioned, and published through a scoped
   assert.match(sync, /editors\/vscode\/package\.json/)
   const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.match(ci, /\n  vscode:\n[\s\S]*pnpm --filter cave-language package[\s\S]*actions\/upload-artifact@[0-9a-f]{40}/)
-  assert.match(ci, /needs:\n      - suite\n      - runtime\n      - smoke\n      - vscode/)
+  assert.match(ci, /needs:\n      - suite\n      - runtime\n      - browser\n      - smoke\n      - vscode/)
 
   const release = readFileSync(join(root, '.github/workflows/vscode.yml'), 'utf8')
   assert.match(release, /^permissions:\n  contents: read$/m)
