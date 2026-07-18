@@ -1,5 +1,13 @@
 # @cavelang/core
 
+## 0.29.2
+
+### Patch Changes
+
+- afce4f3: Reuse immutable sensitivity-scoped view projections and invalidate them when the source store changes.
+- 6035063: Exercise the production website's worker and WebAssembly playground flow in a real browser before deployment.
+- 26b23cf: Validate packed TypeScript entry points and review public API declaration changes in CI.
+
 ## 0.29.1
 
 ### Patch Changes

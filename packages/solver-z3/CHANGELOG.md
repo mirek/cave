@@ -1,5 +1,11 @@
 # @cavelang/solver-z3
 
+## 0.29.2
+
+### Patch Changes
+
+- @cavelang/solver@0.29.2
+
 ## 0.29.1
 
 ### Patch Changes

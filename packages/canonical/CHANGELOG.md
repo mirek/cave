@@ -1,5 +1,15 @@
 # @cavelang/canonical
 
+## 0.29.2
+
+### Patch Changes
+
+- Updated dependencies [afce4f3]
+- Updated dependencies [6035063]
+- Updated dependencies [26b23cf]
+  - @cavelang/core@0.29.2
+  - @cavelang/parser@0.29.2
+
 ## 0.29.1
 
 ### Patch Changes

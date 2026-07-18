@@ -1,5 +1,22 @@
 # @cavelang/cli
 
+## 0.29.2
+
+### Patch Changes
+
+- 075a804: Run agents, hooks, and direct commands through one portable, output-bounded process-tree boundary.
+- dbe8ad3: Define and continuously test the exact Node and operating-system support contract.
+- Updated dependencies [afce4f3]
+- Updated dependencies [6035063]
+- Updated dependencies [26b23cf]
+  - @cavelang/core@0.29.2
+  - @cavelang/canonical@0.29.2
+  - @cavelang/fusion@0.29.2
+  - @cavelang/parser@0.29.2
+  - @cavelang/query@0.29.2
+  - @cavelang/store@0.29.2
+  - @cavelang/highlight@0.29.2
+
 ## 0.29.1
 
 ### Patch Changes
