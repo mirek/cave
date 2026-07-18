@@ -5,6 +5,8 @@ node_modules/
 *.db-shm
 coverage/
 dist/
+playwright-report/
+test-results/
 .DS_Store
 *.tsbuildinfo
 *.vsix

@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { query, type Match } from '@cavelang/query'
-import { openWith, type Store } from '@cavelang/store/adapter'
 import family from '../../../examples/family-history/notes.cave?raw'
 import incident from '../../../examples/incident/incident.cave?raw'
 import loop from '../../../examples/loop-eval/postmortem.cave?raw'
@@ -8,7 +6,7 @@ import { CaveEditor } from '../components/CaveEditor.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
-import { initializeSqlite } from '../playground/sqlite-shim.ts'
+import { PlaygroundRuntime } from '../playground/client.ts'
 
 type Dataset = {
   readonly id: string
@@ -42,14 +40,8 @@ const datasets: readonly Dataset[] = [
   },
 ]
 
-const formatMatch = (match: Match, index: number): string => {
-  const bindings = Object.entries(match.bindings)
-  if (bindings.length === 0) return `${index + 1}. matched${match.row ? ` · ${match.row.raw_line}` : ''}`
-  return `${index + 1}. ${bindings.map(([name, value]) => `?${name} = ${value}`).join(' · ')}`
-}
-
 export const Playground = () => {
-  const storeRef = useRef<Store | undefined>(undefined)
+  const runtimeRef = useRef<PlaygroundRuntime | undefined>(undefined)
   const [datasetId, setDatasetId] = useState(datasets[0]!.id)
   const [source, setSource] = useState(datasets[0]!.source)
   const [queryText, setQueryText] = useState(datasets[0]!.query)
@@ -57,28 +49,31 @@ export const Playground = () => {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [claimCount, setClaimCount] = useState(0)
 
-  const openDataset = async (dataset: Dataset) => {
+  const openDataset = async (dataset: Dataset, runtime = runtimeRef.current) => {
+    if (runtime === undefined) return
     setStatus('loading')
     setOutput('Loading SQLite WebAssembly…')
     try {
-      const adapter = await initializeSqlite()
-      storeRef.current?.close()
-      const store = openWith(adapter, ':memory:')
-      storeRef.current = store
-      const result = store.ingest(dataset.source, { strict: true, source: `playground/${dataset.id}` })
-      const count = store.currentBeliefs().length
-      setClaimCount(count)
+      const result = await runtime.open(dataset.source, `playground/${dataset.id}`)
+      if (runtimeRef.current !== runtime) return
+      setClaimCount(result.currentBeliefs)
       setStatus('ready')
-      setOutput(`Ready. Loaded ${result.ids.length} claims and ${result.edges} edges into an in-memory SQLite database.`)
+      setOutput(`Ready. Loaded ${result.claims} claims and ${result.edges} edges into an in-memory SQLite database.`)
     } catch (error) {
+      if (runtimeRef.current !== runtime) return
       setStatus('error')
       setOutput(error instanceof Error ? error.message : String(error))
     }
   }
 
   useEffect(() => {
-    void openDataset(datasets[0]!)
-    return () => storeRef.current?.close()
+    const runtime = new PlaygroundRuntime()
+    runtimeRef.current = runtime
+    void openDataset(datasets[0]!, runtime)
+    return () => {
+      if (runtimeRef.current === runtime) runtimeRef.current = undefined
+      runtime.close()
+    }
   }, [])
 
   const selectDataset = (id: string) => {
@@ -95,27 +90,26 @@ export const Playground = () => {
   }
 
   const append = () => {
-    const store = storeRef.current
-    if (store === undefined) return
-    try {
-      const result = store.ingest(source, { strict: true, source: 'playground/editor' })
-      const count = store.currentBeliefs().length
-      setClaimCount(count)
-      setOutput(`Appended ${result.ids.length} claims and ${result.edges} edges. The store now contains ${count} current beliefs.`)
-    } catch (error) {
-      setOutput(error instanceof Error ? error.message : String(error))
-    }
+    const runtime = runtimeRef.current
+    if (runtime === undefined) return
+    void runtime.append(source).then(result => {
+      if (runtimeRef.current !== runtime) return
+      setClaimCount(result.currentBeliefs)
+      setOutput(`Appended ${result.claims} claims and ${result.edges} edges. The store now contains ${result.currentBeliefs} current beliefs.`)
+    }).catch(error => {
+      if (runtimeRef.current === runtime) setOutput(error instanceof Error ? error.message : String(error))
+    })
   }
 
   const runQuery = () => {
-    const store = storeRef.current
-    if (store === undefined) return
-    try {
-      const matches = query(store, queryText)
-      setOutput(matches.length === 0 ? 'No matches.' : `${matches.length} match${matches.length === 1 ? '' : 'es'}\n\n${matches.map(formatMatch).join('\n')}`)
-    } catch (error) {
-      setOutput(error instanceof Error ? error.message : String(error))
-    }
+    const runtime = runtimeRef.current
+    if (runtime === undefined) return
+    void runtime.query(queryText).then(result => {
+      if (runtimeRef.current !== runtime) return
+      setOutput(result.matches === 0 ? result.output : `${result.matches} match${result.matches === 1 ? '' : 'es'}\n\n${result.output}`)
+    }).catch(error => {
+      if (runtimeRef.current === runtime) setOutput(error instanceof Error ? error.message : String(error))
+    })
   }
 
   return (

@@ -50,6 +50,12 @@ jobs:
 
       - run: pnpm site:build
 
+      - name: Install the browser runtime
+        run: pnpm --filter @cavelang/website exec playwright install --with-deps chromium
+
+      - name: Exercise the production website
+        run: pnpm --filter @cavelang/website test:browser
+
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         with:
           enablement: true
