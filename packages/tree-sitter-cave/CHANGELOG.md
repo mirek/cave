@@ -1,5 +1,11 @@
 # @cavelang/tree-sitter-cave
 
+## 0.29.2
+
+### Patch Changes
+
+- 6460bbd: Make grammar generation reproducible with digest-pinned toolchains and committed generated artifacts.
+
 ## 0.29.1
 
 ## 0.29.0
