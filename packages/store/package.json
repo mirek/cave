@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/store",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "type": "module",
   "description": "CAVE SQLite persistence — explicit runtime adapters, append-only belief series, and lifecycle-aware reads.",
   "keywords": [
