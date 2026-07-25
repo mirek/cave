@@ -2,7 +2,10 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { PassThrough } from 'node:stream'
 import { open } from '@cavelang/store'
-import { agentSource, createServer, instructions, instructionsFor, protocolVersion, scopedTools, serve, tools } from '@cavelang/mcp'
+import {
+  agentSource, allowsActions, instructions, instructionsFor, scopedTools, serve, tools
+} from '@cavelang/mcp'
+import { createToolSurface } from '../src/server.ts'
 
 type Response = {
   jsonrpc: '2.0'
@@ -13,6 +16,55 @@ type Response = {
 
 const request = (id: string | number, method: string, params?: unknown) =>
   ({ jsonrpc: '2.0', id, method, ...params === undefined ? {} : { params } })
+
+/** Protocol-free adapter: unit tests exercise CAVE's surface; stdio tests exercise the SDK. */
+const createServer = (
+  store: Parameters<typeof createToolSurface>[0],
+  options: Parameters<typeof createToolSurface>[1] = {}
+) => {
+  const surface = createToolSurface(store, options)
+  let clientName: string | undefined
+  return {
+    handle: (message: unknown): Response => {
+      const value = message as { id?: string | number, method?: string, params?: Record<string, unknown> }
+      const id = value.id ?? null
+      if (value.method === 'initialize') {
+        const info = value.params?.['clientInfo'] as undefined | { name?: unknown }
+        clientName = typeof info?.name === 'string' ? info.name : undefined
+        return {
+          jsonrpc: '2.0', id,
+          result: { instructions: instructionsFor(scopedTools(options), { actions: allowsActions(options) }) }
+        }
+      }
+      if (value.method === 'tools/list') {
+        return { jsonrpc: '2.0', id, result: { tools: surface.list() } }
+      }
+      if (value.method === 'tools/call') {
+        const name = value.params?.['name']
+        const args = value.params?.['arguments']
+        try {
+          return {
+            jsonrpc: '2.0', id,
+            result: surface.call(
+              typeof name === 'string' ? name : String(name),
+              typeof args === 'object' && args !== null ? args as Record<string, unknown> : {},
+              clientName
+            ) as unknown as Record<string, unknown>
+          }
+        } catch (error) {
+          return {
+            jsonrpc: '2.0', id,
+            error: {
+              code: (error as { code?: number }).code ?? -32603,
+              message: error instanceof Error ? error.message : String(error)
+            }
+          }
+        }
+      }
+      return { jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } }
+    }
+  }
+}
 
 const call = (server: ReturnType<typeof createServer>, id: number, name: string, args: unknown): Response => {
   const response = server.handle(request(id, 'tools/call', { name, arguments: args })) as Response
@@ -26,88 +78,28 @@ const contentText = (response: Response): string => {
   return content[0]!.text
 }
 
-test('initialize negotiates the supported protocol version and advertises tools', () => {
-  const store = open()
-  const server = createServer(store)
-  const response = server.handle(request(1, 'initialize', {
-    protocolVersion,
-    capabilities: {},
-    clientInfo: { name: 'test', version: '0' }
-  })) as Response
-  assert.equal(response.result?.['protocolVersion'], protocolVersion)
-  assert.deepEqual(response.result?.['capabilities'], { tools: {} })
-  assert.equal((response.result?.['serverInfo'] as { name: string }).name, 'cave')
-  assert.equal(response.result?.['instructions'], instructions)
-  assert.match(instructions, /subject VERB/)
-  store.close()
-})
-
-test('initialize rejects unsupported and missing protocol versions with JSON-RPC errors', () => {
-  const store = open()
-  const server = createServer(store)
-  const old = server.handle(request('old', 'initialize', {
-    protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '0' }
-  })) as Response
-  assert.equal(old.jsonrpc, '2.0')
-  assert.equal(old.id, 'old')
-  assert.equal(old.error?.code, -32602)
-  assert.match(old.error?.message ?? '', /supported: 2025-06-18/)
-  const missing = server.handle(request(2, 'initialize', { capabilities: {} })) as Response
-  assert.equal(missing.error?.code, -32602)
-  store.close()
-})
-
-test('JSON-RPC batches preserve order, omit notifications, and reject malformed requests', () => {
-  const store = open()
-  const server = createServer(store)
-  const batch = server.handle([
-    request(1, 'ping'),
-    { jsonrpc: '2.0', method: 'notifications/initialized' },
-    request('missing', 'resources/list'),
-    { jsonrpc: '1.0', id: 4, method: 'ping' },
-    42,
-  ]) as Response[]
-  assert.deepEqual(batch.map(response => response.id), [1, 'missing', 4, null])
-  assert.deepEqual(batch.map(response => response.error?.code), [undefined, -32601, -32600, -32600])
-  assert.equal((server.handle([]) as Response).error?.code, -32600)
-  assert.equal(server.handle([
-    { jsonrpc: '2.0', method: 'notifications/initialized' },
-    { jsonrpc: '2.0', method: 'notifications/cancelled' },
-  ]), undefined)
-  store.close()
-})
-
-test('stdio transport returns parse, empty-batch, and ordered batch errors', async () => {
+test('SDK stdio serving advertises the modern protocol era', async () => {
   const store = open()
   const input = new PassThrough()
   const output = new PassThrough()
   let text = ''
   output.setEncoding('utf8').on('data', chunk => { text += chunk })
   const serving = serve(store, input, output)
-  input.end([
-    '{bad json',
-    '[]',
-    JSON.stringify([request(1, 'ping'), { jsonrpc: '2.0', method: 'notifications/initialized' }, request(2, 'nope')]),
-  ].join('\n'))
+  input.end(`${JSON.stringify({
+    jsonrpc: '2.0', id: 1, method: 'server/discover',
+    params: {
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+        'io.modelcontextprotocol/clientCapabilities': {}
+      }
+    }
+  })}\n`)
   await serving
-  const responses = text.trim().split('\n').map(line => JSON.parse(line) as Response | Response[])
-  assert.equal((responses[0] as Response).error?.code, -32700)
-  assert.equal((responses[1] as Response).error?.code, -32600)
-  assert.deepEqual((responses[2] as Response[]).map(response => response.id), [1, 2])
-  assert.equal((responses[2] as Response[])[1]!.error?.code, -32601)
-  store.close()
-})
-
-test('notifications get no response; ping pongs; unknown methods error', () => {
-  const store = open()
-  const server = createServer(store)
-  assert.equal(server.handle({ jsonrpc: '2.0', method: 'notifications/initialized' }), undefined)
-  const pong = server.handle(request(2, 'ping')) as Response
-  assert.deepEqual(pong.result, {})
-  const unknown = server.handle(request(3, 'resources/list')) as Response
-  assert.equal(unknown.error?.code, -32601)
-  const invalid = server.handle('nonsense') as Response
-  assert.equal(invalid.error?.code, -32600)
+  const response = JSON.parse(text.trim()) as Response
+  assert.deepEqual(response.result?.['supportedVersions'], ['2026-07-28'])
+  const meta = response.result?.['_meta'] as Record<string, unknown>
+  assert.equal((meta['io.modelcontextprotocol/serverInfo'] as { name: string }).name, 'cave')
   store.close()
 })
 

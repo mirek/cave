@@ -20,7 +20,7 @@ test('--src accepts exactly one unprefixed context form', () => {
   assert.throws(() => sourceFromOption('@src:pipeline'), /must be a context token/)
 })
 
-test('cave mcp speaks MCP over stdio end to end', async () => {
+test('cave mcp serves Copilot current initialize-era fallback over stdio', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-mcp-'))
   const db = join(dir, 'k.db')
   const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', cliMain, 'mcp', '--db', db], {
@@ -54,8 +54,8 @@ test('cave mcp speaks MCP over stdio end to end', async () => {
     const text = (response: Record<string, unknown>): string =>
       ((response['result'] as Record<string, unknown>)['content'] as { text: string }[])[0]!.text
 
-    const initialized = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } })
-    assert.equal((initialized['result'] as Record<string, unknown>)['protocolVersion'], '2025-06-18')
+    const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 't', version: '0' } })
+    assert.equal((initialized['result'] as Record<string, unknown>)['protocolVersion'], '2025-11-25')
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`)
 
     const added = await rpc('tools/call', { name: 'cave_add', arguments: { text: 'auth USES jwt @ 90%' } })

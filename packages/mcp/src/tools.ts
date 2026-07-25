@@ -33,6 +33,7 @@ import { estimateOf, fuse } from '@cavelang/fusion'
 import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
 import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
+import type { Tool as McpTool } from '@modelcontextprotocol/server'
 
 /** Per-connection state the server threads into tool calls. */
 export type ToolContext = {
@@ -53,7 +54,9 @@ export type Tool = {
   readonly description: string
   /** Evaluation is ephemeral, recording is durable, and action may cause effects. */
   readonly permission: Permission
-  readonly inputSchema: object
+  readonly inputSchema: McpTool['inputSchema'] & {
+    readonly properties: NonNullable<McpTool['inputSchema']['properties']>
+  }
   readonly run: (store: Store, args: Record<string, unknown>, context: ToolContext) => string
 }
 
@@ -481,7 +484,7 @@ export const tools: readonly Tool[] = [
       type: 'object',
       properties: {
         current: { type: 'boolean' },
-        maxSensitivity: { type: 'string', enum: Sensitivity.levels }
+        maxSensitivity: { type: 'string', enum: [...Sensitivity.levels] }
       }
     },
     run: (store, args) => {

@@ -1,19 +1,18 @@
 /**
- * MCP server over stdio — newline-delimited JSON-RPC 2.0.
+ * CAVE's tool surface on the official MCP TypeScript SDK v2.
  *
- * Implements the slice of the Model Context Protocol a tools-only server
- * needs: `initialize` / `notifications/initialized`, `ping`, `tools/list`
- * and `tools/call`. The dispatcher is a pure function from message to
- * optional response, so it is testable without a process or a socket;
- * `serve` wires it to stdin/stdout.
- *
- * Hand-rolled rather than pulling in an SDK: the protocol surface here is
- * ~150 lines, the repo is otherwise dependency-free beyond
- * `@prelude/parser`, and `@prelude/jsonrpc` targets WebSocket-style
- * transports with numeric-only ids (MCP ids may be strings).
+ * `createToolSurface` keeps domain behavior transport-free and testable;
+ * `createServer` binds it to the SDK's low-level Server; `serve` delegates
+ * stdio framing, lifecycle, protocol-era detection, and legacy fallback to
+ * `serveStdio`.
  */
 
-import { createInterface } from 'node:readline'
+import type { Readable, Writable } from 'node:stream'
+import {
+  CLIENT_INFO_META_KEY, LATEST_PROTOCOL_VERSION, ProtocolError,
+  ProtocolErrorCode, Server, SUPPORTED_PROTOCOL_VERSIONS, type ServerContext
+} from '@modelcontextprotocol/server'
+import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio'
 import { Version } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
 import { actToolPrefix, allowsActions, scopedActionTools, scopedTools, tools, type Scope, type Tool } from './tools.ts'
@@ -21,8 +20,9 @@ import { actToolPrefix, allowsActions, scopedActionTools, scopedTools, tools, ty
 export type ServerOptions = Scope & {
   /**
    * Actor provenance stamp for appends (spec §9.5), without the `src:`
-   * prefix. Default: `agent/<client-name>` from the initialize handshake,
-   * plain `agent` before or without one. `false` disables stamping.
+   * prefix. Default: `agent/<client-name>` from the initialize handshake or
+   * modern request envelope, plain `agent` without one. `false` disables
+   * stamping.
    */
   readonly source?: string | false
   /** Out-of-band hook command templates for action tools (spec §25.4). */
@@ -45,8 +45,11 @@ export const agentSource = (clientName: undefined | string): string => {
   return name === '' ? 'agent' : `agent/${name}`
 }
 
-/** The single MCP protocol revision this server implements. */
-export const protocolVersion = '2025-06-18'
+/** Legacy initialize-era revisions supported by the official MCP SDK. */
+export const protocolVersions = [...SUPPORTED_PROTOCOL_VERSIONS]
+
+/** The preferred MCP protocol revision offered during version negotiation. */
+export const protocolVersion = LATEST_PROTOCOL_VERSION
 
 export const serverInfo = {
   name: 'cave',
@@ -125,180 +128,124 @@ export const instructionsFor = (served: readonly Tool[], options: { actions?: bo
  */
 export const instructions = instructionsFor(tools, { actions: true })
 
-type Id = null | string | number
-
-type Message = {
-  jsonrpc?: unknown
-  id?: unknown
-  method?: unknown
-  params?: unknown
+export type ListedTool = {
+  readonly name: string
+  readonly description: string
+  readonly inputSchema: Tool['inputSchema']
+  readonly annotations?: { readonly readOnlyHint: true }
 }
 
-type Response = {
-  jsonrpc: '2.0'
-  id: null | Id
-  result?: unknown
-  error?: { code: number, message: string }
+export type ToolCallResult = {
+  content: [{ type: 'text', text: string }]
+  readonly isError?: true
 }
-
-const result = (id: Id, value: unknown): Response =>
-  ({ jsonrpc: '2.0', id, result: value })
-
-const failure = (id: null | Id, code: number, message: string): Response =>
-  ({ jsonrpc: '2.0', id, error: { code, message } })
-
-const isId = (value: unknown): value is Id =>
-  value === null || typeof value === 'string' || typeof value === 'number'
-
-type Reply = Response | Response[]
 
 /**
- * @returns pure MCP dispatcher over an open store: message in, response
- * out (`undefined` for notifications). The client name captured from
- * `initialize` becomes the default `agent/<name>` provenance stamp on
- * appends (spec §9.5). Serves the scoped tool surface — tools outside the
- * scope are absent from `tools/list` and unknown to `tools/call`; throws
- * when the scope names an unknown tool or serves none.
+ * Pure CAVE tool surface beneath the MCP SDK. Action declarations are read on
+ * every list/call, so actions added mid-session appear without reconnecting.
  */
-export const createServer = (store: Store, options: ServerOptions = {}) => {
+export const createToolSurface = (store: Store, options: ServerOptions = {}) => {
   const served = scopedTools(options)
   const servedByName = new Map(served.map(tool => [tool.name, tool]))
-  // Action tools are generated from the store's current declarations per
-  // request (spec §25.5) — an action declared mid-session appears in the
-  // next tools/list without reconnecting.
   const actionsPossible = allowsActions(options)
   const actServed = (): Tool[] =>
     actionsPossible ? scopedActionTools(store, options) : []
-  const servedInstructions = instructionsFor(served, { actions: actionsPossible })
-  let clientName: undefined | string
-  const source = (): undefined | string =>
-    options.source === false ? undefined : options.source ?? agentSource(clientName)
-  const dispatch = (message: unknown): undefined | Response => {
-    if (typeof message !== 'object' || message === null || Array.isArray(message)) {
-      return failure(null, -32600, 'Invalid request')
+  const list = (): ListedTool[] => [...served, ...actServed()].map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    ...(tool.permission === 'record' || tool.permission === 'action' ?
+      {} : { annotations: { readOnlyHint: true as const } })
+  }))
+  const call = (
+    name: string,
+    args: Record<string, unknown>,
+    clientName?: string
+  ): ToolCallResult => {
+    const tool = servedByName.get(name) ??
+      (name.startsWith(actToolPrefix) ? actServed().find(candidate => candidate.name === name) : undefined)
+    if (tool === undefined) {
+      throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown tool: ${name}`)
     }
-    const { jsonrpc, id, method, params } = message as Message
-    const hasId = Object.hasOwn(message, 'id')
-    if (jsonrpc !== '2.0' || typeof method !== 'string' || (hasId && !isId(id))) {
-      return failure(isId(id) ? id : null, -32600, 'Invalid request')
-    }
-    if (!hasId) {
-      // Notifications (notifications/initialized, notifications/cancelled, …)
-      // require no response.
-      return undefined
-    }
-    const requestId = id as Id
-    switch (method) {
-      case 'initialize': {
-        const requested = (params as undefined | { protocolVersion?: unknown })?.protocolVersion
-        if (requested !== protocolVersion) {
-          return failure(
-            requestId,
-            -32602,
-            `Unsupported protocol version: ${String(requested)}; supported: ${protocolVersion}`
-          )
-        }
-        const name = (params as undefined | { clientInfo?: { name?: unknown } })?.clientInfo?.name
-        if (typeof name === 'string') {
-          clientName = name
-        }
-        return result(requestId, {
-          protocolVersion,
-          capabilities: { tools: {} },
-          serverInfo,
-          instructions: servedInstructions
-        })
-      }
-      case 'ping':
-        return result(requestId, {})
-      case 'tools/list':
-        return result(requestId, {
-          tools: [...served, ...actServed()].map(tool => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-            ...(tool.permission === 'record' || tool.permission === 'action' ?
-              {} : { annotations: { readOnlyHint: true } })
-          }))
-        })
-      case 'tools/call': {
-        const call = (params ?? {}) as { name?: unknown, arguments?: unknown }
-        const tool = typeof call.name === 'string' ?
-          servedByName.get(call.name) ??
-            (call.name.startsWith(actToolPrefix) ? actServed().find(candidate => candidate.name === call.name) : undefined) :
-          undefined
-        if (tool === undefined) {
-          return failure(requestId, -32602, `Unknown tool: ${String(call.name)}`)
-        }
-        const args = typeof call.arguments === 'object' && call.arguments !== null ?
-          call.arguments as Record<string, unknown> :
-          {}
-        try {
-          const stamp = source()
-          const text = tool.run(store, args, {
-            ...stamp === undefined ? {} : { source: stamp },
-            ...options.hooks === undefined ? {} : { hooks: options.hooks }
-          })
-          return result(requestId, { content: [{ type: 'text', text }] })
-        } catch (error) {
-          const text = error instanceof Error ? error.message : String(error)
-          return result(requestId, { content: [{ type: 'text', text }], isError: true })
-        }
-      }
-      default:
-        return failure(requestId, -32601, `Method not found: ${method}`)
+    try {
+      const stamp = options.source === false ? undefined : options.source ?? agentSource(clientName)
+      const text = tool.run(store, args, {
+        ...stamp === undefined ? {} : { source: stamp },
+        ...options.hooks === undefined ? {} : { hooks: options.hooks }
+      })
+      return { content: [{ type: 'text', text }] }
+    } catch (error) {
+      const text = error instanceof Error ? error.message : String(error)
+      return { content: [{ type: 'text', text }], isError: true }
     }
   }
-  const handle = (message: unknown): undefined | Reply => {
-    if (!Array.isArray(message)) return dispatch(message)
-    if (message.length === 0) return failure(null, -32600, 'Invalid request')
-    const responses = message.flatMap(item => {
-      const response = dispatch(item)
-      return response === undefined ? [] : [response]
-    })
-    return responses.length === 0 ? undefined : responses
-  }
-  return { handle }
+  return { list, call }
 }
 
 /**
- * Serves MCP over newline-delimited JSON-RPC on the given streams until
- * the input closes. Protocol traffic only on `output` — logs belong on
- * stderr.
+ * Builds an official SDK server over CAVE's scoped, dynamic tool surface.
+ * Protocol negotiation, validation, lifecycle, ping, and error envelopes are
+ * owned by `@modelcontextprotocol/server`.
  */
+export const createServer = (store: Store, options: ServerOptions = {}): Server => {
+  const served = scopedTools(options)
+  const actionsPossible = allowsActions(options)
+  const surface = createToolSurface(store, options)
+  const server = new Server(serverInfo, {
+    capabilities: { tools: {} },
+    instructions: instructionsFor(served, { actions: actionsPossible })
+  })
+  const clientName = (context: ServerContext): string | undefined => {
+    const envelope = context.mcpReq.envelope as undefined | Record<string, unknown>
+    const modern = envelope?.[CLIENT_INFO_META_KEY] as undefined | { name?: unknown }
+    return typeof modern?.name === 'string' ? modern.name : server.getClientVersion()?.name
+  }
+  server.setRequestHandler('tools/list', async () => ({ tools: surface.list() }))
+  server.setRequestHandler('tools/call', async (request, context) =>
+    server.projectCallToolResult(surface.call(
+      request.params.name,
+      request.params.arguments ?? {},
+      clientName(context)
+    ), undefined))
+  return server
+}
+
+/** Serves both the 2026 MCP era and legacy initialize-era clients on stdio. */
 export const serve = (
   store: Store,
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
   options: ServerOptions = {}
 ): Promise<void> => {
-  const server = createServer(store, options)
-  return new Promise(resolve => {
-    const lines = createInterface({ input })
-    const abort = (): void => lines.close()
-    options.signal?.addEventListener('abort', abort, { once: true })
-    lines.on('line', line => {
-      if (line.trim() === '') {
-        return
-      }
-      let message: unknown
-      try {
-        message = JSON.parse(line)
-      } catch {
-        output.write(`${JSON.stringify(failure(null, -32700, 'Parse error'))}\n`)
-        return
-      }
-      const response = server.handle(message)
-      if (response !== undefined) {
-        output.write(`${JSON.stringify(response)}\n`)
-      }
-    })
-    lines.on('close', () => {
-      options.signal?.removeEventListener('abort', abort)
-      resolve()
-    })
-    if (options.signal?.aborted === true) {
-      lines.close()
+  const transport = new StdioServerTransport(input as Readable, output as Writable)
+  const handle = serveStdio(() => createServer(store, options), { transport })
+  return new Promise((resolve, reject) => {
+    let finished = false
+    const cleanup = (): void => {
+      input.removeListener('end', close)
+      input.removeListener('close', close)
+      input.removeListener('error', fail)
+      options.signal?.removeEventListener('abort', close)
     }
+    const done = (): void => {
+      if (finished) return
+      finished = true
+      cleanup()
+      resolve()
+    }
+    const fail = (error: Error): void => {
+      if (finished) return
+      finished = true
+      cleanup()
+      reject(error)
+    }
+    const close = (): void => {
+      void handle.close().then(done, fail)
+    }
+    input.once('end', close)
+    input.once('close', close)
+    input.once('error', fail)
+    options.signal?.addEventListener('abort', close, { once: true })
+    if (options.signal?.aborted === true) close()
   })
 }
