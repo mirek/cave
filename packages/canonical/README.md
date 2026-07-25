@@ -57,6 +57,10 @@ preserves direction and makes reverse reads return the preferred opposite name.
   - full claim → canonicalized as usual (inverse resolution applies).
 - **Grouped claims** (§8.4): indented full triples stay independent and
   link to their parent with the `QUALIFIES` edge role (§13.2's role list).
+- **Recursive prefix shorthand** (§8.5): incomplete headers prefix all
+  indented descendants and never materialize claims. Completed leaves retain
+  the nearest materialized parent edge, and their stored `raw` text is the
+  expanded self-contained claim.
 - **Declarations**: `A REVERSE B`, `OLD RENAMED-TO NEW`, and `X IS verb`
   claims update the registry after the line itself is canonicalized.
 
@@ -70,6 +74,20 @@ preserves direction and makes reverse reads return the preferred opposite name.
 - `WHEN NOT x`, never `UNLESS` (§8.2);
 - §3.2 anatomy order: payload, `+/- delta`, `(Nσ)`, contexts, tags,
   `@ N%` (omitted at 100%), `!`, `; comment`.
+- recursive factoring of adjacent sibling claims through shared incomplete
+  prefixes, stopping before a header would itself parse as a complete claim.
+
+For example, two canonical rows emit tersely without changing their keys:
+
+```cave
+foo HAS
+  a: A
+  b: B
+```
+
+The same factoring applies inside qualifier/grouping trees. Transaction
+annotations remain directly above each materialized leaf, so annotated export
+and sync preserve row identity.
 
 Emission of a complete canonicalization result is stable:
 `emit ∘ canonicalize ∘ emit ≡ emit`, and claim keys survive the round trip
@@ -101,6 +119,9 @@ parseable.
   operator input and CAVE-Q `WHERE value <op> ...` filters are unchanged.
 - **Three-way negation XOR** for qualifier conditions: inner `NOT`,
   qualifier-level `NOT`, and `UNLESS` each flip the condition's negation.
+- **Comments do not fan out from headers**: a prefix header comment is
+  documentary only. Persisted comments stay on leaf claims, preventing one
+  comment from silently becoming metadata on several rows.
 
 ## Tests
 

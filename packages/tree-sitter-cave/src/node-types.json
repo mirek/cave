@@ -299,6 +299,10 @@
         {
           "type": "qualifier_line",
           "named": true
+        },
+        {
+          "type": "shorthand_line",
+          "named": true
         }
       ]
     }
@@ -476,6 +480,73 @@
     "type": "qualifier_verb",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "shorthand_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "attribute",
+          "named": true
+        },
+        {
+          "type": "code",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "confidence",
+          "named": true
+        },
+        {
+          "type": "context",
+          "named": true
+        },
+        {
+          "type": "entity",
+          "named": true
+        },
+        {
+          "type": "importance",
+          "named": true
+        },
+        {
+          "type": "negation",
+          "named": true
+        },
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "sigma",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "tag",
+          "named": true
+        },
+        {
+          "type": "uncertainty",
+          "named": true
+        },
+        {
+          "type": "verb",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "tag",

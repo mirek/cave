@@ -66,14 +66,17 @@ export type QualifierPayload =
 /**
  * A parsed line. `depth` is the indentation width in characters; `parent` is
  * the index (into the document's `lines`) of the nearest less-indented
- * structural line above (spec §8). `raw` is the line exactly as written.
+ * materialized claim above (spec §8). `raw` is the physical line exactly as
+ * written. A shorthand leaf also carries `expanded`, the self-contained
+ * logical line assembled from its incomplete prefix ancestors (§8.5).
  */
 export type Line =
   | { readonly kind: 'blank', readonly line: number, readonly raw: string }
   | { readonly kind: 'comment', readonly line: number, readonly raw: string, readonly text: string }
-  | { readonly kind: 'claim', readonly line: number, readonly raw: string, readonly depth: number, readonly parent?: number, readonly claim: Full }
-  | { readonly kind: 'continuation', readonly line: number, readonly raw: string, readonly depth: number, readonly parent?: number, readonly body: Body }
-  | { readonly kind: 'qualifier', readonly line: number, readonly raw: string, readonly depth: number, readonly parent?: number, readonly qualifier: Verb.Qualifier, readonly payload: QualifierPayload }
+  | { readonly kind: 'prefix', readonly line: number, readonly raw: string, readonly depth: number, readonly parent?: number, readonly expanded: string, readonly comment?: string }
+  | { readonly kind: 'claim', readonly line: number, readonly raw: string, readonly expanded?: string, readonly depth: number, readonly parent?: number, readonly claim: Full }
+  | { readonly kind: 'continuation', readonly line: number, readonly raw: string, readonly expanded?: string, readonly depth: number, readonly parent?: number, readonly body: Body }
+  | { readonly kind: 'qualifier', readonly line: number, readonly raw: string, readonly expanded?: string, readonly depth: number, readonly parent?: number, readonly qualifier: Verb.Qualifier, readonly payload: QualifierPayload }
   | { readonly kind: 'invalid', readonly line: number, readonly raw: string, readonly message: string }
 
 export type t = Line

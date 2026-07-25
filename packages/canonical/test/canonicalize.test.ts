@@ -91,6 +91,51 @@ test('each continuation is an independent claim with its own metadata (spec §8.
   assert.deepEqual(second.tags, [{ key: 'infra' }])
 })
 
+test('recursive shorthand materializes only complete leaves (spec §8.5)', () => {
+  const terse = canonicalizeText([
+    'foo',
+    '  HAS',
+    '    a:',
+    '      A ; first',
+    '      B',
+    '    b: C'
+  ].join('\n'), standardRegistry)
+  const flat = canonicalizeText([
+    'foo HAS a: A ; first',
+    'foo HAS a: B',
+    'foo HAS b: C'
+  ].join('\n'), standardRegistry)
+  assert.deepEqual(terse.problems, [])
+  assert.deepEqual(
+    terse.claims.map(entry => Key.of(entry.claim)),
+    flat.claims.map(entry => Key.of(entry.claim))
+  )
+  assert.deepEqual(terse.claims.map(entry => entry.claim.raw), [
+    'foo HAS a: A ; first',
+    'foo HAS a: B',
+    'foo HAS b: C'
+  ])
+})
+
+test('shorthand qualifiers and grouped claims retain their enclosing edges (spec §8.5)', () => {
+  const result = canonicalizeText([
+    'parent CAUSE effect',
+    '  WHEN',
+    '    ready',
+    '    enabled',
+    '  foo HAS',
+    '    a: A',
+    '    b: B'
+  ].join('\n'), standardRegistry)
+  assert.deepEqual(result.problems, [])
+  assert.deepEqual(result.edges, [
+    { parent: 0, role: 'WHEN', child: 1 },
+    { parent: 0, role: 'WHEN', child: 2 },
+    { parent: 0, role: 'QUALIFIES', child: 3 },
+    { parent: 0, role: 'QUALIFIES', child: 4 }
+  ])
+})
+
 test('qualifier lines become condition claims joined by edges (spec §8.1, §8.2)', () => {
   const result = canonicalizeText([
     'server CAUSE crash @ 80%',

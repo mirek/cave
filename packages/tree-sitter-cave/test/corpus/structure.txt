@@ -125,6 +125,30 @@ subject USES- object
       (entity))))
 
 ==================
+recursive shorthand fragments
+==================
+foo HAS
+  a: A
+  b:
+    B
+    C
+---
+
+(document
+  (shorthand_line
+    (entity)
+    (verb))
+  (shorthand_line
+    (attribute)
+    (verb))
+  (shorthand_line
+    (attribute))
+  (shorthand_line
+    (verb))
+  (shorthand_line
+    (verb)))
+
+==================
 comment line, blank line, claim
 ==================
 ; a whole-line comment

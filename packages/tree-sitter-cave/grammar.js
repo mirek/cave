@@ -22,6 +22,12 @@ module.exports = grammar({
 
   extras: () => [/[ \t]/],
 
+  conflicts: $ => [
+    [$.claim_line, $.shorthand_line, $._body],
+    [$.shorthand_line, $._body],
+    [$.claim_line, $.shorthand_line]
+  ],
+
   rules: {
     document: $ => seq(optional($._line), repeat(seq(NL, optional($._line)))),
 
@@ -29,7 +35,8 @@ module.exports = grammar({
       $.comment_line,
       $.qualifier_line,
       $.claim_line,
-      $.continuation_line
+      $.continuation_line,
+      $.shorthand_line
     ),
 
     comment_line: $ => $.comment,
@@ -41,6 +48,23 @@ module.exports = grammar({
 
     // Bare relational verb; the subject is inherited from the parent (§8.3).
     continuation_line: $ => prec.dynamic(-1, $._body),
+
+    // A physical fragment participating in §8.5's recursive shorthand.
+    // Indentation and prefix expansion remain consumer responsibilities;
+    // this permissive fallback keeps every fragment highlightable while the
+    // complete line rules above retain precedence.
+    shorthand_line: $ => prec.dynamic(-2, seq(
+      repeat1(choice(
+        $.verb,
+        $.attribute,
+        $._term,
+        $.number,
+        $.negation,
+        $._meta,
+        '->'
+      )),
+      optional($.comment)
+    )),
 
     _body: $ => choice(
       prec.right(seq(

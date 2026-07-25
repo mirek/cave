@@ -32,13 +32,15 @@ parse('a USES b')  // strict variant: throws on any diagnostic
    (`Token.splitComment`).
 3. **Tokenize** into words / `"text"` literals / `` `code` `` literals
    (`token.ts`, `@prelude/parser` combinators).
-4. **Classify** the line per §8's three-kind table: qualifier (starts with
+4. **Expand incomplete prefixes** (§8.5): prepend every incomplete ancestor's
+   tokens recursively; blank and comment lines are transparent.
+5. **Classify** the completed logical line per §8's three-kind table: qualifier (starts with
    `WHEN`/`UNLESS`/`VIA`/`BECAUSE`), continuation (starts with a bare
    relational verb), or full claim.
-5. **Parse the token stream** (`line.ts`): subject, verb, `NOT`, payload,
+6. **Parse the token stream** (`line.ts`): subject, verb, `NOT`, payload,
    then metadata items.
-6. **Resolve parents**: each structural line links to the nearest
-   less-indented structural line above.
+7. **Resolve parents**: each completed line links to the nearest
+   less-indented materialized claim above; prefix headers do not become claims.
 
 ## Payload classification
 
@@ -100,6 +102,14 @@ examples and are tried in order:
   with last-wins retention (§3.2 allows repetition only for contexts and
   tags); a glued attribute colon (`expiry:3600s`) splits into the attribute
   form with a diagnostic, since payload `:` is reserved (§4.3).
+- **Prefix compatibility boundary.** A physical line becomes a §8.5 prefix
+  only when its accumulated tokens are incomplete and it has indented
+  content. Complete lines retain the established qualifier, continuation,
+  and grouped-claim semantics. Prefixes compose recursively; blank and
+  full-line comments are transparent. A prefix's trailing comment is
+  documentary and not inherited, while a leaf comment remains persisted.
+  `raw` preserves the physical leaf and `expanded` carries the self-contained
+  logical line used as stored `raw_line`.
 
 ## Tests
 

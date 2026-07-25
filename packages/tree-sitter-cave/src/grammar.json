@@ -61,6 +61,10 @@
         {
           "type": "SYMBOL",
           "name": "continuation_line"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "shorthand_line"
         }
       ]
     },
@@ -105,6 +109,63 @@
       "content": {
         "type": "SYMBOL",
         "name": "_body"
+      }
+    },
+    "shorthand_line": {
+      "type": "PREC_DYNAMIC",
+      "value": -2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "REPEAT1",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "verb"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "attribute"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_term"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "number"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "negation"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_meta"
+                },
+                {
+                  "type": "STRING",
+                  "value": "->"
+                }
+              ]
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "comment"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
       }
     },
     "_body": {
@@ -782,7 +843,21 @@
       "value": "[ \\t]"
     }
   ],
-  "conflicts": [],
+  "conflicts": [
+    [
+      "claim_line",
+      "shorthand_line",
+      "_body"
+    ],
+    [
+      "shorthand_line",
+      "_body"
+    ],
+    [
+      "claim_line",
+      "shorthand_line"
+    ]
+  ],
   "precedences": [],
   "externals": [],
   "inline": [],

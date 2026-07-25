@@ -93,12 +93,13 @@ cave add --db work.db …                                # ordinary appends
 cave export --db work.db --tx --max-sensitivity restricted --out knowledge.cave
 ```
 
-Rows are immutable and export order is transaction order, so review
-diffs only add lines (a derivation may *move* the premise lines it
-cites into its indented block — verbatim, annotations included). A
-knowledge merge can never conflict; a *text* merge can, and the answer
-is never to hand-merge: sync both sides into a fresh store and
-re-export the union — configurable as a git merge driver
+Rows are immutable and their `;@` identities remain, so review the new
+annotations as the semantic additions. Physical lines can also change when
+terse canonical output factors an old and new adjacent row through a shared
+prefix, or when a derivation moves a cited premise into its indented block. A
+knowledge merge can never conflict; a *text* merge can, and the answer is
+never to hand-merge: sync both sides into a fresh store and re-export the
+union — configurable as a git merge driver
 (`.gitattributes`: `*.cave merge=cave`):
 
 ```ini

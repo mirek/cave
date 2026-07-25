@@ -1681,14 +1681,13 @@ everything seeded, whatever machine the seed came from.
 
 **Review is the diff of the export.** Re-export before committing —
 `cave export --db work.db --tx --max-sensitivity restricted > knowledge.cave` — and the PR diff is
-the appended claims, annotations included: claim rows are immutable
-and export order is transaction order, so a later export never
-rewrites or reorders the lines an earlier one contained. One
-presentational exception, stated honestly: §24.3 lineage rendering
-nests a premise line under the first conclusion that cites it, so a
-derivation *moves* the lines it consumed into its indented block —
-verbatim, annotation and all (further citations only add §28.4
-re-statements) — and the diff shows that move.
+the appended claims plus deterministic presentation changes. Claim rows are
+immutable and every existing `;@` identity remains, but §8.5 terse emission
+may factor an old and new adjacent row through a shared incomplete prefix.
+Review new annotation ids as the semantic additions; a changed physical line
+around an existing id is not a row mutation. The other presentational move is
+§24.3 lineage rendering: a derivation nests a premise under the first
+conclusion that cites it (further citations add §28.4 re-statements).
 
 **Merge is union; conflicts dissolve.** A *knowledge* merge can never
 conflict: rows union by identity (§28.1), contradictory claims
@@ -1714,8 +1713,9 @@ Git can run that as a merge driver (`.gitattributes`:
 ```
 
 The ancestor (`%O`) is deliberately unused: union by identity needs
-no three-way — full annotated exports never lose a row; a line only
-ever gains siblings or moves into the block that first cites it.
+no three-way — full annotated exports never lose a row; physical lines may
+only gain siblings, refactor through §8.5 prefixes, or move into the block
+that first cites them.
 
 **Landing is a sync.** After the PR merges, any live store absorbs
 the merged text — `cave sync --db main.db knowledge.cave --as

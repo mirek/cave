@@ -3,10 +3,12 @@
 Tree-sitter grammar for [CAVE](https://github.com/mirek/cave) — the
 canonical grammar artifact behind editor and terminal highlighting.
 
-The grammar is line-oriented (one claim per physical line, spec §16), so it
-needs no external scanner: indentation is skipped and qualifier/continuation
-lines are recognized by their leading verb. Parent attachment (spec §8) is
-semantic and left to consumers such as `@cavelang/parser`.
+The grammar is line-oriented (one claim or §8.5 shorthand fragment per
+physical line), so it needs no external scanner: indentation is skipped,
+qualifier/continuation lines are recognized by their leading verb, and a
+low-precedence shorthand fallback keeps incomplete fragments highlightable.
+Prefix expansion and parent attachment (spec §8) are semantic and left to
+consumers such as `@cavelang/parser`.
 
 Entity and attribute names accept Unicode letters, combining marks and
 numbers, with `/`, `-`, `_`, and `.` as structural characters. Numeric

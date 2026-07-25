@@ -6178,9 +6178,18 @@ export type Line = {
     readonly raw: string;
     readonly text: string;
 } | {
+    readonly kind: 'prefix';
+    readonly line: number;
+    readonly raw: string;
+    readonly depth: number;
+    readonly parent?: number;
+    readonly expanded: string;
+    readonly comment?: string;
+} | {
     readonly kind: 'claim';
     readonly line: number;
     readonly raw: string;
+    readonly expanded?: string;
     readonly depth: number;
     readonly parent?: number;
     readonly claim: Full;
@@ -6188,6 +6197,7 @@ export type Line = {
     readonly kind: 'continuation';
     readonly line: number;
     readonly raw: string;
+    readonly expanded?: string;
     readonly depth: number;
     readonly parent?: number;
     readonly body: Body;
@@ -6195,6 +6205,7 @@ export type Line = {
     readonly kind: 'qualifier';
     readonly line: number;
     readonly raw: string;
+    readonly expanded?: string;
     readonly depth: number;
     readonly parent?: number;
     readonly qualifier: Verb.Qualifier;
@@ -9702,7 +9713,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/highlight/dist/src/browser.d.ts` — `512506147a1bf5bf9d29850ff6070d9b69f51e54bcad54c945fbf066337649be`
 - `@cavelang/highlight/dist/src/core.d.ts` — `7f254f1808f1620d8250c0abc69ae426ccde4646a3b23fa16f2990a716cf224c`
 - `@cavelang/highlight/dist/src/index.d.ts` — `90763c76868a213d06c7d5efdaa10c398021fd55fa8f24ae5c02c02837d3f1f4`
-- `@cavelang/parser/dist/src/ast.d.ts` — `51b3cf2d88b3fabf83262915fea8341eec134c7cbc1e5972abfa356e70b8a9b8`
+- `@cavelang/parser/dist/src/ast.d.ts` — `7f84ec5ee54f3aefbb549843906f3d8f0bd90a2cdf2c26a964d5d4cbd2992546`
 - `@cavelang/parser/dist/src/document.d.ts` — `2571df5f76191edfcb008f7acea13d97c25ddf64af24da50526da9ec620a42ec`
 - `@cavelang/parser/dist/src/index.d.ts` — `25846cb1d030f184c46f49c8fb941b57e0fe9661da006933b3cf26d1aa5647e6`
 - `@cavelang/parser/dist/src/line.d.ts` — `c7766d6ba681f31c878a5c97c8ec2b132e4fe1bdbf42db212cd41fe3f0e0d439`

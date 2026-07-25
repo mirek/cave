@@ -18,6 +18,24 @@ monorepo CONTAINS packages/api
 
 Continuation lines inherit an endpoint from the parent and expand to sibling claims. An inverse continuation can place the inherited term in object position. The canonicalization phase resolves this before storage.
 
+Incomplete headers provide recursive shorthand for repeated claim prefixes.
+They do not create claim nodes: each completed leaf receives the accumulated
+tokens, while blank lines and full-line comments remain transparent.
+
+```cave
+service HAS
+  owner: platform
+  endpoint:
+    api
+    admin
+```
+
+This expands to three independent claims. Canonical output factors adjacent
+sibling claims this way only while the header remains incomplete; a complete
+line retains the qualifier, continuation, or grouped-claim meaning described
+above. Header comments are documentary and do not fan out into persisted claim
+comments.
+
 The resulting store is a graph of immutable claim rows plus explicit edge rows. Text is a readable tree projection of that graph; exports may restate a shared row when several parents cite it.
 
 

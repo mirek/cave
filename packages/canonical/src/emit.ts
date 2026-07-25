@@ -9,6 +9,7 @@
  */
 
 import { Claim, Confidence, Tag, Value } from '@cavelang/core'
+import { parseDocument, Token } from '@cavelang/parser'
 import type * as Canonicalize from './canonicalize.ts'
 
 const payloadText = (payload: Claim.Payload): undefined | string => {
@@ -108,6 +109,123 @@ export type EmitOptions = {
   readonly annotate?: (index: number) => undefined | string
 }
 
+type RenderNode = {
+  readonly index: number
+  readonly tokens: readonly string[]
+  readonly comment?: string
+  readonly annotation?: string
+  readonly children: readonly RenderNode[]
+}
+
+type RenderItem = {
+  readonly node: RenderNode
+  readonly tokens: readonly string[]
+}
+
+const tokenText = (token: Token.t): string => {
+  switch (token.kind) {
+    case 'text':
+      return `"${token.text}"`
+    case 'code':
+      return `\`${token.text}\``
+    case 'word':
+      return token.text
+  }
+}
+
+const renderParts = (text: string): { tokens: readonly string[], comment?: string } => {
+  const split = Token.splitComment(text)
+  return {
+    tokens: Token.tokenize(split.head).map(tokenText),
+    ...split.comment === undefined ? {} : { comment: split.comment }
+  }
+}
+
+const commonPrefixLength = (items: readonly RenderItem[]): number => {
+  const shortest = Math.min(...items.map(item => item.tokens.length))
+  let length = 0
+  while (
+    length < shortest &&
+    items.every(item => item.tokens[length] === items[0]!.tokens[length])
+  ) {
+    length += 1
+  }
+  return length
+}
+
+/**
+ * A factored header is safe only while the accumulated text is not itself a
+ * materialized claim. This is the compatibility boundary with §8's existing
+ * indentation: complete lines keep qualifier/continuation/grouping meaning;
+ * incomplete lines may be shorthand prefixes (§8.5).
+ */
+const isIncomplete = (tokens: readonly string[], topLevel: boolean): boolean => {
+  const text = tokens.join(' ')
+  const document = parseDocument(topLevel ? text : `cave-root IS claim\n  ${text}`)
+  return document.lines[document.lines.length - 1]!.kind === 'invalid'
+}
+
+const emitForest = (
+  forest: readonly RenderItem[],
+  depth: number,
+  topLevel: boolean,
+  inherited: readonly string[],
+  lines: string[]
+): void => {
+  let at = 0
+  while (at < forest.length) {
+    const firstToken = forest[at]!.tokens[0]
+    let end = at + 1
+    while (end < forest.length && forest[end]!.tokens[0] === firstToken) {
+      end += 1
+    }
+    const run = forest.slice(at, end)
+    if (run.length > 1) {
+      const common = commonPrefixLength(run)
+      const shortest = Math.min(...run.map(item => item.tokens.length))
+      const maximum = Math.min(common, shortest - 1)
+      let safe = 0
+      for (let length = 1; length <= maximum; length += 1) {
+        const candidate = [...inherited, ...run[0]!.tokens.slice(0, length)]
+        if (!isIncomplete(candidate, topLevel)) {
+          break
+        }
+        safe = length
+      }
+      if (safe > 0) {
+        const prefix = run[0]!.tokens.slice(0, safe)
+        lines.push(`${'  '.repeat(depth)}${prefix.join(' ')}`)
+        emitForest(
+          run.map(item => ({ node: item.node, tokens: item.tokens.slice(safe) })),
+          depth + 1,
+          topLevel,
+          [...inherited, ...prefix],
+          lines
+        )
+        at = end
+        continue
+      }
+    }
+
+    const item = forest[at]!
+    const indent = '  '.repeat(depth)
+    if (item.node.annotation !== undefined) {
+      lines.push(`${indent}${item.node.annotation}`)
+    }
+    lines.push(
+      `${indent}${item.tokens.join(' ')}${item.node.comment === undefined ? '' : ` ; ${item.node.comment}`}`
+    )
+    emitForest(
+      item.node.children.map(node => ({ node, tokens: node.tokens })),
+      depth + 1,
+      false,
+      [],
+      lines
+    )
+    at += 1
+  }
+}
+
 /**
  * Emits a whole canonicalization result as canonical CAVE text: top-level
  * claims in claim order, children indented two spaces per level.
@@ -134,37 +252,44 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
       existing.push(edge)
     }
   }
-  const lines: string[] = []
   const expanded = new Set<number>()
-  const emitAt = (index: number, depth: number, role: undefined | Canonicalize.EdgeRole): void => {
+  const nodeAt = (index: number, role: undefined | Canonicalize.EdgeRole): RenderNode => {
     const { claim } = result.claims[index]!
-    const indent = '  '.repeat(depth)
+    const text = role === undefined || role === 'QUALIFIES' ?
+      emitClaim(claim) :
+      `${role} ${conditionText(claim)}`
+    const parts = renderParts(text)
     const annotation = options.annotate?.(index)
-    if (annotation !== undefined) {
-      lines.push(`${indent}${annotation}`)
-    }
-    if (role === undefined || role === 'QUALIFIES') {
-      lines.push(`${indent}${emitClaim(claim)}`)
-    } else {
-      lines.push(`${indent}${role} ${conditionText(claim)}`)
-    }
     if (expanded.has(index)) {
-      return
+      return {
+        index,
+        tokens: parts.tokens,
+        ...parts.comment === undefined ? {} : { comment: parts.comment },
+        ...annotation === undefined ? {} : { annotation },
+        children: []
+      }
     }
     expanded.add(index)
-    for (const edge of childEdges.get(index) ?? []) {
-      emitAt(edge.child, depth + 1, edge.role)
+    return {
+      index,
+      tokens: parts.tokens,
+      ...parts.comment === undefined ? {} : { comment: parts.comment },
+      ...annotation === undefined ? {} : { annotation },
+      children: (childEdges.get(index) ?? []).map(edge => nodeAt(edge.child, edge.role))
     }
   }
+  const forest: RenderNode[] = []
   result.claims.forEach((_, index) => {
     if (!isChild.has(index)) {
-      emitAt(index, 0, undefined)
+      forest.push(nodeAt(index, undefined))
     }
   })
   result.claims.forEach((_, index) => {
     if (!expanded.has(index)) {
-      emitAt(index, 0, undefined)
+      forest.push(nodeAt(index, undefined))
     }
   })
+  const lines: string[] = []
+  emitForest(forest.map(node => ({ node, tokens: node.tokens })), 0, true, [], lines)
   return lines.length === 0 ? '' : `${lines.join('\n')}\n`
 }

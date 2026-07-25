@@ -462,7 +462,8 @@ And because the annotated export is a complete replica, **the store can
 live under git** (spec §28.6): commit the `--tx` export, rebuild a
 working store from it on any checkout (`cave sync --db work.db
 knowledge.cave --no-record`), and a pull request's diff *is* the
-appended claims — reviewable line by line. Text-level conflicts
+appended claim identities plus deterministic prefix/lineage refactoring —
+review new `;@` annotations as the semantic additions. Text-level conflicts
 dissolve by re-exporting the union (a one-stanza git merge driver, see
 [`@cavelang/sync`](packages/sync)); knowledge-level conflicts don't
 exist. Landing an approved branch is one more `cave sync`.
@@ -630,6 +631,10 @@ Sections are **Normative** unless marked Legacy, Draft, or Non-normative (§0). 
 ```cave
 subject VERB [NOT] object                [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
 subject HAS attribute: value [+/- delta [(Nσ)]] [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
+
+subject HAS                              ; incomplete headers prefix children recursively
+  attribute: value
+  other: value
 
 VERB REVERSE INVERSE-VERB                ; declare inverse; left side is primary
 OLD-VERB RENAMED-TO NEW-VERB             ; prefer NEW; both keep OLD's storage history

@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Registry } from '@cavelang/canonical'
+import { canonicalizeText, Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
 
 test('registry rebuilds from stored declaration claims on reopen', () => {
@@ -62,7 +62,7 @@ test('exportText emits canonical text; re-ingest preserves current beliefs', () 
     'OpenAI HAS revenue 20B USD/yr'
   ].join('\n'))
   const text = store.exportText()
-  assert.match(text, /monorepo CONTAINS packages\/api/, 'canonical primary direction')
+  assert.match(text, /monorepo CONTAINS\n  packages\/api/, 'canonical primary direction, tersely factored')
   assert.match(text, /revenue: 20B USD\/yr/, 'canonical colon form')
   assert.match(text, /\n  WHEN load EXCEEDS ~1000 req\/s/, 'qualifier re-indents')
   const copy = open()
@@ -81,9 +81,14 @@ test('exportText current-only skips superseded rows', () => {
   store.ingest('x HAS state: b @ 90%')
   const all = store.exportText()
   const current = store.exportText({ current: true })
-  assert.match(all, /state: a/)
-  assert.match(current, /state: b/)
-  assert.doesNotMatch(current, /state: a/)
+  const stateValues = (text: string): string[] =>
+    canonicalizeText(text, store.registry()).claims.flatMap(({ claim }) =>
+      claim.payload.kind === 'attribute' && claim.payload.attribute === 'state' ?
+        [claim.payload.value.raw] :
+        []
+    )
+  assert.deepEqual(stateValues(all), ['a', 'b'])
+  assert.deepEqual(stateValues(current), ['b'])
   store.close()
 })
 
