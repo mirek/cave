@@ -1,5 +1,16 @@
 # @cavelang/canonical
 
+## 0.32.0
+
+### Minor Changes
+
+- 377758f: Add recursive incomplete-prefix shorthand and terse canonical emission for repeated sibling claims.
+
+### Patch Changes
+
+- @cavelang/core@0.32.0
+- @cavelang/parser@0.32.0
+
 ## 0.31.1
 
 ### Patch Changes
