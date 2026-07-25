@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/solver-z3",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "type": "module",
   "description": "Optional Node.js Z3 WebAssembly adapter and allowlisted workflow fixture for CAVE formal reasoning.",
   "keywords": [

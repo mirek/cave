@@ -1,5 +1,11 @@
 # cave-language
 
+## 0.31.0
+
+### Minor Changes
+
+- Align the VS Code extension with the CAVE 0.31.0 release identity.
+
 ## 0.30.0
 
 ### Minor Changes

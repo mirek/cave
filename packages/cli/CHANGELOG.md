@@ -1,5 +1,21 @@
 # @cavelang/cli
 
+## 0.31.0
+
+### Minor Changes
+
+- c9f5adc: Add version-matched CAVE usage guidance through the read-only `cave_help` MCP tool and publish a portable Agent Skill for CAVE workflows.
+
+### Patch Changes
+
+- @cavelang/core@0.31.0
+- @cavelang/parser@0.31.0
+- @cavelang/canonical@0.31.0
+- @cavelang/store@0.31.0
+- @cavelang/query@0.31.0
+- @cavelang/fusion@0.31.0
+- @cavelang/highlight@0.31.0
+
 ## 0.30.0
 
 ### Minor Changes
