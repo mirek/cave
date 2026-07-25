@@ -81,6 +81,23 @@ test('the MCP reference follows the static and generated tool registries', () =>
   assert.match(rows.get('act_<name>')!, /current action declaration's parameter schema/)
 })
 
+test('install and Agent Skill guidance stay aligned with the self-describing MCP surface', () => {
+  const overview = read(new URL('../../../README.md', import.meta.url))
+  const skill = read(new URL('../../../skills/cave/SKILL.md', import.meta.url))
+  const usageReference = read(new URL('../../../skills/cave/references/usage.md', import.meta.url))
+
+  for (const document of [overview, skill]) {
+    assert.match(document, /pnpm i -g @cavelang\/cli/)
+    assert.match(document, /copilot mcp add cave -- cave mcp --db "\$HOME\/cave\.db"/)
+  }
+  assert.match(overview, /pnpm up --latest -g @cavelang\/cli/)
+  assert.match(skill, /Call `cave_help`/)
+  for (const tool of tools) {
+    assert.ok(usageReference.includes(`\`${tool.name}\``),
+      `installable skill usage reference omits ${tool.name}`)
+  }
+})
+
 test('command references state read-only and hook security boundaries', () => {
   const cli = read(new URL('../README.md', import.meta.url))
   const mcp = read(new URL('../../mcp/README.md', import.meta.url))

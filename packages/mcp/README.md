@@ -20,13 +20,16 @@ Claude Desktop, …) can read and write a CAVE knowledge database directly.
 }
 ```
 
-The server's `instructions` carry the spec §22 compact card, so a
-connected model knows how to write CAVE claims without further prompting.
+The server's `instructions` carry the spec §22 compact card, and `cave_help`
+serves longer version-matched workflow guidance on demand. This keeps the
+server self-describing even when a client does not place initialization
+instructions in the model's initial context.
 
 ## Tools
 
 | Tool | Parameters | Purpose |
 |---|---|---|
+| `cave_help` | optional `topic` (`overview`, `write`, `find`, `revise`, `safety`) | version-matched operating guidance; reads no user data |
 | `cave_add` | `text`, `strict` | append CAVE text (extraction output); lenient, `strict` opt-in |
 | `cave_query` | `pattern`, `all`, `aliases`, `asOf`, `at`, `resolve`, `limit`, `cursor` | Bounded CAVE-Q pages (§12): `?x USES jwt`, `WHERE conf >= 0.7`, `EXTENDS+`, inverse verbs; `aliases` (§13.6), `asOf` (§12.3), `at` valid time (§32.4), and `resolve` (§26 winners only) opt-ins. `limit` defaults to 100 (maximum 1,000); a `next cursor:` line continues the frozen first-page snapshot through `cursor`. |
 | `cave_fuse` | one of `pattern`, `about`, `text`; optional `aliases`, `asOf` | Bayesian fusion of numeric estimates (§10.1) — named computation over a CAVE-Q `pattern`, an entity's current claims (`about`), or literal `text` |

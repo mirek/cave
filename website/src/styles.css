@@ -189,6 +189,7 @@ a { color: inherit; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
 .install-command { border: 0; background: none; color: hsl(var(--muted-foreground)); font: 13px/1 var(--font-mono); padding: 10px 0; cursor: pointer; }
 .install-command span { color: hsl(var(--foreground)); margin-right: 8px; }
+.install-command code { white-space: pre-line; text-align: left; line-height: 1.6; }
 .install-command b { font-size: 10px; text-transform: uppercase; color: hsl(var(--muted-foreground)); border: 1px solid hsl(var(--border)); border-radius: 4px; margin-left: 14px; padding: 3px 6px; }
 .hero-console { overflow: hidden; }
 .console-bar { min-height: 48px; border-bottom: 1px solid hsl(var(--border)); display: flex; justify-content: space-between; align-items: center; padding: 0 18px; background: hsl(var(--muted)); }

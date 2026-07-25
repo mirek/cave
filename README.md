@@ -25,7 +25,13 @@ Properties: **atomic** (one claim per line), **append-only** (belief evolves by 
 
 ```sh
 pnpm i -g @cavelang/cli
-cave help
+copilot mcp add cave -- cave mcp --db "$HOME/cave.db"
+```
+
+To update:
+
+```sh
+pnpm up --latest -g @cavelang/cli
 ```
 
 The supported Node.js lines are 22 (22.18.0 or newer) and 24; Node.js 24 Active
@@ -189,13 +195,11 @@ Timeless claims (most knowledge) always match; time-scoped claims filter by cove
 
 ### Use CAVE with GitHub Copilot CLI
 
-CAVE can run as a local [MCP server for GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers), giving Copilot tools to record, search, and query your knowledge. From the directory where you want to keep the database, register the server once:
+CAVE runs as a local [MCP server for GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers), giving Copilot tools to record, search, and query your knowledge. The two commands in [Install](#install) register one user-level database at `~/cave.db`.
 
-```sh
-$ copilot mcp add cave -- cave mcp --db "$PWD/knowledge.db" \
-    --permissions read,evaluate,record
-$ copilot mcp get cave
-```
+The server supplies a compact writing card during MCP initialization and a
+`cave_help` tool with version-matched usage guidance. Ask Copilot naturally;
+it can call the help topic before choosing how to read or write:
 
 Start Copilot and allow calls to the `cave` MCP server without approving each one:
 
@@ -216,6 +220,20 @@ Search CAVE for what we know about checkout errors. Summarize disagreements
 between sources without discarding either claim.
 ```
 
+An optional portable [CAVE Agent Skill](skills/cave/SKILL.md) adds workflow
+guidance before the MCP server is connected and works across Copilot, Codex,
+Claude Code, and other Agent Skills hosts. Preview it, then install it at user
+scope:
+
+```sh
+gh skill preview mirek/cave cave
+gh skill install mirek/cave cave --agent github-copilot --scope user
+```
+
+The skill is supplementary: the MCP server remains self-describing, so the
+two install commands above are sufficient. Installed skills update with
+`gh skill update cave`.
+
 For a one-off prompt, use Copilot's programmatic mode with the same scoped
 permission:
 
@@ -224,8 +242,8 @@ $ copilot -p "Ask CAVE what we know about api/gateway" --allow-tool=cave
 ```
 
 Omit `--allow-tool=cave` to approve MCP calls individually. Add `--read-only`
-to the `cave mcp` command instead of `--permissions read,evaluate,record` when
-Copilot should only inspect the store.
+to the registered `cave mcp` command when Copilot should only inspect the
+store.
 
 CAVE can also drive Copilot CLI as the extractor for a set of documents. It
 creates a temporary MCP configuration for the correct staged database, sends

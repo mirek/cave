@@ -321,9 +321,9 @@ shell template. Action hooks run only after the database transaction commits.
   headless agent writes through MCP or returns CAVE text. Source digests are
   recorded only after a successful batch.
 - **`@cavelang/mcp`** is a tools-only stdio JSON-RPC server. Static tools expose
-  core reads and writes; current action declarations generate `act_<name>`
-  tools dynamically. Tool allowlists and read-only mode form the permission
-  boundary.
+  version-matched operating guidance plus core reads and writes; current action
+  declarations generate `act_<name>` tools dynamically. Tool allowlists and
+  read-only mode form the permission boundary.
 - **`@cavelang/sync`** unions stores by immutable row ID. Database sync copies
   rows and side tables verbatim; annotated text sync replays the same IDs
   through the canonical pipeline. Contradictions coexist and are resolved on

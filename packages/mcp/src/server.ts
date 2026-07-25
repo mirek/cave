@@ -90,6 +90,7 @@ export const instructionsFor = (served: readonly Tool[], options: { actions?: bo
   const has = (name: string): boolean => served.some(tool => tool.name === name)
   const explore = ['cave_about', 'cave_neighbors'].filter(has)
   const clauses = [
+    ...has('cave_help') ? ['consult cave_help for version-matched usage guidance when needed'] : [],
     ...has('cave_add') ?
       [`extract knowledge with one claim per line via cave_add${has('cave_lint') ? ' (validate with cave_lint first)' : ''}`] :
       has('cave_lint') ? ['validate CAVE text with cave_lint'] : [],
