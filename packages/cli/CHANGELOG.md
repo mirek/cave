@@ -1,5 +1,17 @@
 # @cavelang/cli
 
+## 0.31.1
+
+### Patch Changes
+
+- @cavelang/highlight@0.31.1
+- @cavelang/core@0.31.1
+- @cavelang/parser@0.31.1
+- @cavelang/canonical@0.31.1
+- @cavelang/store@0.31.1
+- @cavelang/query@0.31.1
+- @cavelang/fusion@0.31.1
+
 ## 0.31.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @cavelang/tree-sitter-cave
 
+## 0.31.1
+
+### Patch Changes
+
+- 4b4ab15: Regenerate the checked-in parser and Wasm artifacts whenever the release version changes.
+
 ## 0.31.0
 
 ## 0.30.0

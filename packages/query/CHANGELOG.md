@@ -1,5 +1,14 @@
 # @cavelang/query
 
+## 0.31.1
+
+### Patch Changes
+
+- @cavelang/core@0.31.1
+- @cavelang/parser@0.31.1
+- @cavelang/canonical@0.31.1
+- @cavelang/store@0.31.1
+
 ## 0.31.0
 
 ### Patch Changes
