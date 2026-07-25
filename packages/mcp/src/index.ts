@@ -23,8 +23,6 @@ export {
   protocolVersion, protocolVersions, serverInfo, specCard
 } from './server.ts'
 export type { ServerOptions } from './server.ts'
-export { guideFor, guideTopics } from './guide.ts'
-export type { GuideTopic } from './guide.ts'
 export { runMcp } from './main.ts'
 export {
   actionTools, actToolName, actToolPrefix, allowsActions, permissions,
