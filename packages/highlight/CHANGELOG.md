@@ -1,5 +1,12 @@
 # @cavelang/highlight
 
+## 0.31.1
+
+### Patch Changes
+
+- Updated dependencies [4b4ab15]
+  - @cavelang/tree-sitter-cave@0.31.1
+
 ## 0.31.0
 
 ### Patch Changes
