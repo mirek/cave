@@ -2,11 +2,6 @@
 
 A small, line-oriented language for persisting knowledge as composable, atomic claims. Easy for humans and LLMs to write, easy to diff, stored in SQLite, formal enough to query as an information graph.
 
-For the package boundaries, runtime flows, storage model, and architectural
-invariants, see [ARCHITECTURE.md](ARCHITECTURE.md).
-The supported npm artifacts and migration from former implementation-package
-names are listed in [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md).
-
 The core idea:
 
 ```cave
@@ -26,23 +21,20 @@ server CAUSE crash @ 80%
 
 Properties: **atomic** (one claim per line), **append-only** (belief evolves by appending, never mutating — history is preserved), **queryable** (CAVE-Q patterns or plain SQL), and **inverse-aware** (`CONTAINS REVERSE PART-OF` makes one stored fact readable from both ends).
 
-## Quick start
+## Install
 
 ```sh
-pnpm install       # puts the `cave` CLI on the workspace path
+pnpm i -g @cavelang/cli
+cave help
 ```
 
-Outside the workspace, install `@cavelang/cli`. Its documented feature
-subpaths (for example `@cavelang/cli/rules`) expose programmatic workflow APIs
-without requiring each internal module to publish independently.
+The supported Node.js lines are 22 (22.18.0 or newer) and 24; Node.js 24 Active
+LTS is recommended and tested at 24.18.0. The supported CI platforms are Ubuntu
+24.04, macOS 15, and Windows Server 2022. The installation exposes the `cave`
+command globally. CAVE stores knowledge in a local SQLite database; `--db` is
+optional and defaults to `$CAVE_DB`, or `cave.db` in the current directory.
 
-The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
-24.18.0 Active LTS is the recommended production runtime. CAVE supports Linux,
-macOS, and Windows. CI
-proves the platform-specific process, filesystem, SQLite, grammar, and package
-paths on Ubuntu 24.04, macOS 15, and Windows Server 2022 respectively. Browser
-support is a separate WASM-backed runtime described in
-[ARCHITECTURE.md](ARCHITECTURE.md#runtime-variants).
+## Quick start
 
 Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
 
@@ -74,20 +66,20 @@ helena/father IS war-1920-veteran @ 60% ; family lore, no papers
 piotr/branch IS related-family @src:dna-test @ 88%
 ```
 
-Lint it, then load it into a SQLite store:
+Save that block as `notes.cave`, lint it, then load it into a SQLite store:
 
 ```
-$ pnpm exec cave parse examples/family-history/notes.cave
+$ cave parse notes.cave
 ok: 1 comment, 6 blank, 13 claim
 
-$ pnpm exec cave add --db family.db examples/family-history/notes.cave
+$ cave add --db family.db notes.cave
 added 13 claim(s), 0 edge(s)
 ```
 
 **Ask for something nobody wrote down.** Every stored fact is a single hop; the ancestor chain is nowhere stated. The transitive pattern derives it:
 
 ```
-$ pnpm exec cave query --db family.db '?a PARENT-OF+ me'
+$ cave query --db family.db '?a PARENT-OF+ me'
 ?a = anna
 ?a = helena
 ?a = helena/father
@@ -98,7 +90,7 @@ $ pnpm exec cave query --db family.db '?a PARENT-OF+ me'
 And because the file declared `PARENT-OF REVERSE CHILD-OF`, the *same stored rows* answer the opposite direction — Helena's descendants, no extra rows, one shared belief history per fact:
 
 ```
-$ pnpm exec cave query --db family.db '?d CHILD-OF+ helena'
+$ cave query --db family.db '?d CHILD-OF+ helena'
 ?d = anna
 ?d = jan
 ?d = maria
@@ -108,24 +100,24 @@ $ pnpm exec cave query --db family.db '?d CHILD-OF+ helena'
 **Ask what you actually believe.** The disputed birth year is two coexisting claims, each with its own source and confidence — and queries filter on it:
 
 ```
-$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y'
+$ cave query --db family.db 'jan HAS birth-year: ?y'
 ?y = 1932
 ?y = 1931
 
-$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
+$ cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
 ?y = 1932
 ```
 
 **Update belief by appending, never editing.** The birth certificate turns up in an archive: append the new evidence and downgrade grandma's version (context is part of a claim's identity, so the downgrade names the same `@src:`). Nothing is deleted:
 
 ```
-$ echo 'jan HAS birth-year: 1931 @src:birth-certificate @ 95%' | pnpm exec cave add --db family.db
+$ echo 'jan HAS birth-year: 1931 @src:birth-certificate @ 95%' | cave add --db family.db
 added 1 claim(s), 0 edge(s)
 
-$ echo 'jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one' | pnpm exec cave add --db family.db
+$ echo 'jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one' | cave add --db family.db
 added 1 claim(s), 0 edge(s)
 
-$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
+$ cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
 ?y = 1931
 ```
 
@@ -142,12 +134,12 @@ expire all affected databases, exports, backups, and snapshots (spec §9.6).
 **Or let the store pick a winner.** The three sources still coexist — one fact, three voices. `cave resolve` shows the contest as the resolution policy (spec §26) ranks it — precedence class, reliability-weighted confidence, then recency — and `--resolve` on any query matches only the winners:
 
 ```
-$ pnpm exec cave resolve --db family.db
+$ cave resolve --db family.db
 jan HAS birth-year: 1931 @src:birth-certificate @ 95% ; class 2, effective 95%
   over jan HAS birth-year: 1931 @src:cousin @ 40% ; class 2, effective 40%
   over jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one ; class 2, effective 5%
 
-$ pnpm exec cave query --db family.db 'jan HAS birth-year: ?y' --resolve
+$ cave query --db family.db 'jan HAS birth-year: ?y' --resolve
 ?y = 1931
 ```
 
@@ -183,24 +175,76 @@ history (spec §13.2.2).
 ```
 $ printf '%s\n' 'jan WORKS-AT textile-mill @1950..1974' \
     'jan WORKS-AT railways @1975..' \
-    'mill/wage IS 200 -> 900 PLN/mo @1950..1974' | pnpm exec cave add --db family.db
+    'mill/wage IS 200 -> 900 PLN/mo @1950..1974' | cave add --db family.db
 added 3 claim(s), 0 edge(s)
 
-$ pnpm exec cave query --db family.db 'jan WORKS-AT ?where' --at 1960
+$ cave query --db family.db 'jan WORKS-AT ?where' --at 1960
 ?where = textile-mill
 
-$ pnpm exec cave query --db family.db 'mill/wage IS' --at 1962
+$ cave query --db family.db 'mill/wage IS' --at 1962
 mill/wage IS 200 -> 900 PLN/mo @1950..1974 ; at 1962: 550 PLN/mo
 ```
 
 Timeless claims (most knowledge) always match; time-scoped claims filter by coverage; trajectories evaluate at the instant. And because `--at` (valid time) composes with `--as-of` (belief time), "what did we believe last year about 1962?" is one query — bitemporal questions fall out of two orthogonal flags. See spec §32.
+
+### Use CAVE with GitHub Copilot CLI
+
+CAVE can run as a local [MCP server for GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers), giving Copilot tools to record, search, and query your knowledge. From the directory where you want to keep the database, register the server once:
+
+```sh
+$ copilot mcp add cave -- cave mcp --db "$PWD/knowledge.db" \
+    --permissions read,evaluate,record
+$ copilot mcp get cave
+```
+
+Start Copilot and allow calls to the `cave` MCP server without approving each one:
+
+```sh
+$ copilot --allow-tool=cave
+```
+
+Then ask naturally, while being explicit when CAVE should be the memory or source of truth:
+
+```text
+Use CAVE to record that api/gateway USES redis-cache with 90% confidence,
+based on the architecture review.
+
+Ask CAVE what depends on redis-cache, directly or transitively, and show the
+supporting claims.
+
+Search CAVE for what we know about checkout errors. Summarize disagreements
+between sources without discarding either claim.
+```
+
+For a one-off prompt, use Copilot's programmatic mode with the same scoped
+permission:
+
+```sh
+$ copilot -p "Ask CAVE what we know about api/gateway" --allow-tool=cave
+```
+
+Omit `--allow-tool=cave` to approve MCP calls individually. Add `--read-only`
+to the `cave mcp` command instead of `--permissions read,evaluate,record` when
+Copilot should only inspect the store.
+
+CAVE can also drive Copilot CLI as the extractor for a set of documents. It
+creates a temporary MCP configuration for the correct staged database, sends
+Copilot the extraction prompt, validates the result, and commits atomically:
+
+```sh
+$ cave ingest 'docs/**/*.md' --db knowledge.db \
+    --agent 'copilot -p "$(cat {prompt-file})" --additional-mcp-config="$(cat {mcp-config})" --allow-tool=cave'
+```
+
+`{prompt-file}` and `{mcp-config}` are CAVE placeholders; leave them exactly as
+shown. Content already ingested is skipped by digest on later runs.
 
 ### Let an LLM write the claims — `cave ingest`
 
 The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) or web pages (URLs are fetched and readability-extracted) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
 
 ```
-$ pnpm exec cave ingest --db lore.db examples/family-history/notes.md \
+$ cave ingest --db lore.db examples/family-history/notes.md \
     --instructions examples/family-history/instructions.md \
     --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
 ingest (strict): 1 source(s) matched, 0 skipped (unchanged), 1 batch(es), applied
@@ -219,7 +263,7 @@ timeout or cancellation. Programmatic direct commands use executable/argument
 arrays without shell interpolation.
 
 ```
-$ pnpm exec cave query --db lore.db '?a PARENT-OF+ me'
+$ cave query --db lore.db '?a PARENT-OF+ me'
 ?a = anna
 ?a = helena
 ?a = helena/father
@@ -244,12 +288,12 @@ GRANDPARENT-OF REVERSE GRANDCHILD-OF
 ```
 
 ```
-$ pnpm exec cave derive --db family.db examples/family-history/rules.cave
+$ cave derive --db family.db examples/family-history/rules.cave
 declared 1 rule(s), +2 prelude claim(s)
 rule/ecf351a4f3e7: 4 solution(s), +4 appended, 0 updated, 0 retracted, 0 unchanged ; two parent hops
 derived: +4 appended, 0 updated, 0 retracted, 0 unchanged (2 pass(es))
 
-$ pnpm exec cave query --db family.db 'me GRANDCHILD-OF ?g'
+$ cave query --db family.db 'me GRANDCHILD-OF ?g'
 ?g = maria
 ```
 
@@ -280,7 +324,7 @@ action/record-birth HAS action: `?parent, ?child, ?parent PARENT-OF me => ?paren
 ```
 
 ```
-$ pnpm exec cave act --db family.db record-birth parent=anna child=little-jan
+$ cave act --db family.db record-birth parent=anna child=little-jan
 executed action/record-birth: +1 appended, 0 updated, 0 unchanged (1 solution(s))
   appended: anna PARENT-OF little-jan
 ```
@@ -303,7 +347,7 @@ template after commit, carrying the decision to the outside world
 CSV/JSON/SQLite records deserve exact, repeatable, token-free conversion. `cave connect` maps them through an ordinary CAVE document whose `?field` variables stand for record fields — same input, same claims, every time:
 
 ```
-$ pnpm exec cave connect people.csv --map people.map.cave --db k.db --key id
+$ cave connect people.csv --map people.map.cave --db k.db --key id
 connect: 2 record(s): 2 mapped, 0 skipped (unchanged); +10 claim(s)
 ```
 
@@ -314,7 +358,7 @@ Re-runs skip unchanged rows by per-record digest, changed rows retract the claim
 Is a new ingestion prompt, model or instruction set better or worse? `cave eval` makes that falsifiable: fixtures are plain files — a source, its expected extraction (`.golden.cave`), and optional CAVE-Q expectations the built store must answer — and any agent runs against them N times in fresh throwaway stores. Here the "agent" is a `sed` that renames `maria`, simulating the naming drift real extractions suffer:
 
 ```
-$ pnpm exec cave eval examples/eval --stdout \
+$ cave eval examples/eval --stdout \
     --agent 'sed "s/maria/grandma-maria/g" family-history.golden.cave'
 eval: 1 case(s), 1 run(s) each
 examples/eval/family-history: 13 golden claim(s), 5 query(ies), source family-history.md
@@ -335,7 +379,7 @@ Scoring is by claim key (actor stamps ignored, spec §9.5; inverse-direction wri
 The eval above *measures* drift; in a live store you want it *found*. Suppose later notes recorded claims about `grandma-maria` and a new baby, `little-jan`, into the family database. Discovery proposes same-entity candidates (spec §27):
 
 ```
-$ pnpm exec cave suggest-alias --db family.db
+$ cave suggest-alias --db family.db
 grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-maria
 little-jan ALIAS jan #suggested @ 35% ; segments of jan within little-jan
 ```
@@ -344,13 +388,13 @@ One is right, one is wrong — little-jan is named *after* his great-grandfather
 
 ```
 $ printf 'grandma-maria ALIAS maria ; confirmed\nlittle-jan ALIAS NOT jan ; named after him\n' \
-    | pnpm exec cave add --db family.db
+    | cave add --db family.db
 added 2 claim(s), 0 edge(s)
 
-$ pnpm exec cave suggest-alias --db family.db
+$ cave suggest-alias --db family.db
 no alias suggestions
 
-$ pnpm exec cave query --db family.db '?d CHILD-OF+ grandma-maria' --aliases
+$ cave query --db family.db '?d CHILD-OF+ grandma-maria' --aliases
 ?d = anna
 ?d = little-jan
 ?d = me
@@ -363,7 +407,7 @@ Candidates are scored by explainable signals — case/separator drift, segment c
 Querying answers the question you know to ask; reconstruction pulls in everything *related* — starting from a symptom, walking forward and inverse edges best-first, collecting claims as it goes (spec §18):
 
 ```
-$ pnpm exec cave reconstruct --db incident.db checkout/errors --trace
+$ cave reconstruct --db incident.db checkout/errors --trace
 ; 1. checkout/errors @ 1.00 +3 claim(s)
 ; 2. rollback @ 0.80 +0 claim(s)
 ; 3. redis-cache/failover @ 0.68 +1 claim(s)
@@ -382,18 +426,18 @@ By default a deterministic heuristic picks each expansion. With `--agent 'claude
 Knowledge accumulates on more than one machine. The data model pre-solved the merge: rows are immutable appends under global UUIDv7 identity, contradictions legally coexist (spec §9.4) and resolve at read time (§26) — so `cave sync` merges by row identity, and can never conflict (spec §28):
 
 ```
-$ pnpm exec cave sync --db main.db laptop.db
+$ cave sync --db main.db laptop.db
 merged 42 claim(s), 17 edge(s)
 record: store/laptop SYNCED-INTO store/main ; +42 claim(s), +17 edge(s)
 
-$ pnpm exec cave sync --db main.db laptop.db
+$ cave sync --db main.db laptop.db
 merged 0 claim(s), 0 edge(s), 42 already present
 ```
 
 Present rows skip, re-runs merge nothing, two stores syncing each other converge — and the merge itself is a claim (stamped `@src:sync`) whose belief series is the sync log. Local appends after a merge always outsort merged history, whatever the origin machine's clock read (the §28.2 receive rule). Plain text crosses air gaps the same way: `cave export --tx` precedes every claim line with a `;@` transaction annotation — an ordinary comment to every other reader — and `cave sync` replays it under the recorded identity:
 
 ```
-$ pnpm exec cave export --db laptop.db --tx --max-sensitivity restricted | cave sync --db main.db - --as laptop
+$ cave export --db laptop.db --tx --max-sensitivity restricted | cave sync --db main.db - --as laptop
 ```
 
 And because the annotated export is a complete replica, **the store can
@@ -416,7 +460,7 @@ automation/page-on-spike HAS automation: `?svc IS service, ?svc HAS error-rate: 
 ```
 
 ```
-$ pnpm exec cave automate --db ops.db --hooks hooks.json --agent 'claude -p'
+$ cave automate --db ops.db --hooks hooks.json --agent 'claude -p'
 watching (poll every 2s, ctrl-c to stop)
 automation/page-on-spike: fired 1 solution(s) ; page and investigate error-rate spikes
   ?svc = checkout  ?r = 0.09
@@ -433,7 +477,7 @@ An automation is armed the moment it is declared — earlier rows are state, not
 Everything above serves programs. `cave serve` is for the person (spec §30): one static, self-contained HTML page over the store — no build step, no framework, no external resource, offline-friendly, and strictly read-only (GET only, localhost by default):
 
 ```
-$ pnpm exec cave serve --db family.db
+$ cave serve --db family.db
 serving family.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)
 ```
 
@@ -462,7 +506,7 @@ Jan was born in `cave-q: jan HAS birth-year: ?y` in `cave-q: jan HAS birthplace:
 ````
 
 ```
-$ pnpm exec cave report --db family.db brief.md --resolve --max-sensitivity internal
+$ cave report --db family.db brief.md --resolve --max-sensitivity internal
 Jan was born in 1931[^c1] in Kraków[^c2].
 
 ## The ancestor line
@@ -479,7 +523,7 @@ Jan was born in 1931[^c1] in Kraków[^c2].
 
 The birth year traces to the birth certificate, not to Grandma — three sources still coexist in the store, and the citation shows exactly which one the sentence stands on. When a claim carries a §9.8 source span, the footnote appends the decoded `source#Lx-Ly` location (as a link for HTTP(S)); the JSON APIs expose the same structured reference. An inline splice must be deterministic: when several sources contest a fact it reports *ambiguous* and exits nonzero, and `--resolve` (the spec §26 policy) is the fix. `--as-of` renders the report as belief stood at a past moment, and the template stays under version control while the store evolves. See [`@cavelang/view`](packages/view) and spec §31.
 
-From here: `cave mcp --db family.db` serves the store to any MCP client, and `pnpm exec cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
+From here: `cave mcp --db family.db` serves the store to any MCP client, and `cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
 
 ### Optional formal reasoning
 
@@ -530,7 +574,7 @@ pnpm clean             # remove generated output from every workspace
 pnpm test             # all packages, bottom-up
 pnpm build             # typecheck + emit (`pnpm typecheck` is an alias)
 pnpm bench:performance # deterministic representative regression budgets
-pnpm exec cave demo   # cave-loop multi-hop recovery demo (§18)
+pnpm exec cave demo    # cave-loop multi-hop recovery demo (§18)
 ```
 
 The performance gate covers canonical-text import/export, contested-belief
@@ -544,7 +588,11 @@ with the recorded
 generous absolute thresholds to catch material regressions without treating
 runner noise as a failure.
 
-Implementation lives in a pnpm TypeScript monorepo — see [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map (including the solver-neutral `solver`, typed `scenario` bindings, optional `solver-z3` adapter, and the ordinary CAVE language, data, behavior, integration, and presentation packages), toolchain, and cross-package design decisions.
+Implementation lives in a pnpm TypeScript monorepo — see
+[IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map and toolchain,
+[ARCHITECTURE.md](ARCHITECTURE.md) for runtime flows and invariants, and
+[PACKAGE_SURFACES.md](PACKAGE_SURFACES.md) for the supported npm entry points
+and migration from former implementation-package names.
 
 ## The specification
 

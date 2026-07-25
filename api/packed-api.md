@@ -3426,9 +3426,7 @@ export declare const allowsActions: (scope?: Scope) => boolean;
 Kind: value.
 
 ```ts
-export declare const createServer: (store: Store, options?: ServerOptions) => {
-    handle: (message: unknown) => undefined | Reply;
-};
+export declare const createServer: (store: Store, options?: ServerOptions) => Server;
 ```
 
 ### `instructions`
@@ -3475,7 +3473,15 @@ export declare const permissions: readonly [
 Kind: value.
 
 ```ts
-export declare const protocolVersion = "2025-06-18";
+export declare const protocolVersion = "2025-11-25";
+```
+
+### `protocolVersions`
+
+Kind: value.
+
+```ts
+export declare const protocolVersions: string[];
 ```
 
 ### `runMcp`
@@ -3562,7 +3568,9 @@ export type Tool = {
     readonly name: string;
     readonly description: string;
     readonly permission: Permission;
-    readonly inputSchema: object;
+    readonly inputSchema: McpTool['inputSchema'] & {
+        readonly properties: NonNullable<McpTool['inputSchema']['properties']>;
+    };
     readonly run: (store: Store, args: Record<string, unknown>, context: ToolContext) => string;
 };
 ```
@@ -9647,10 +9655,10 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/loop/reconstruct.d.ts` — `b105d88232728cb02c0acd21c5727e380e4a211b74bc77649f9c85589ada31ce`
 - `@cavelang/cli/dist/internal/loop/sqlite.d.ts` — `7f6cbf331eac3e8095f9deaaf0e239293a2f6beb34ad03d6540d263ac501f728`
 - `@cavelang/cli/dist/internal/loop/store.d.ts` — `0fbc7f47a361e53f5c5c6d3c45647b8f3c3a3e6a38d2e7f5fc3c09f9bcfb14cd`
-- `@cavelang/cli/dist/internal/mcp/index.d.ts` — `a1297dcfe437614bd5decfd172e6d5df879c5e1cdfcbf38345b9bf766f19585c`
+- `@cavelang/cli/dist/internal/mcp/index.d.ts` — `e7fee31ace36c6fe7d07ba183ea32929d2451b17db50cc0c30613d55193e80a6`
 - `@cavelang/cli/dist/internal/mcp/main.d.ts` — `8f4fb42c8b452636e18e3ac515f1c20d7e73fb5b15d15a6e9aafe8f5d7be44e4`
-- `@cavelang/cli/dist/internal/mcp/server.d.ts` — `812e989cc2aa97b055ebd620ac9afbf30c454e33830378cea2ad5359a17d5d09`
-- `@cavelang/cli/dist/internal/mcp/tools.d.ts` — `ac0b0749d1b385664ff937ecf1a0dea45bb585dd9dea557bd33ecce60b8711b3`
+- `@cavelang/cli/dist/internal/mcp/server.d.ts` — `3511232a34d9ffbc2441a4867fe2b2350aba31f3eafc8a34eab94d95d4a41367`
+- `@cavelang/cli/dist/internal/mcp/tools.d.ts` — `7c0a5ca32f0b7e34c35ebe06f16ca4514416fe3eb1e50201c70c0e1838a0e6a0`
 - `@cavelang/cli/dist/internal/rules/declare.d.ts` — `4ebe2d87b9a1d9b68dbf2f31c38209e44c72c0799784146c5b672161ba5a4bd5`
 - `@cavelang/cli/dist/internal/rules/engine.d.ts` — `6fa09461bb604d31e5ef00c6f0d934587fa3f9b64998fb37deb8c844f57e52fc`
 - `@cavelang/cli/dist/internal/rules/index.d.ts` — `550f8ea95eb2a5fa4538513bba50b435a7cf22a75c016d0d827582d2cd75da0f`

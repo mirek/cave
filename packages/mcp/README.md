@@ -104,27 +104,26 @@ them accordingly (e.g. auto-approve).
 ## Actor provenance
 
 `cave_add` stamps `@src:agent/<client-name>` on appended claims that carry
-no `@src:` context (spec §9.5), naming the client from the `initialize`
-handshake (`@src:agent` before one arrives; a written `@src:` always
-wins). `--src <context>` replaces the stamp — useful for pipelines, e.g.
-`--src pipeline/nightly` — and `--no-src` disables stamping.
+no `@src:` context (spec §9.5), naming the client from the legacy `initialize`
+handshake or modern per-request envelope (`@src:agent` without either; a
+written `@src:` always wins). `--src <context>` replaces the stamp — useful
+for pipelines, e.g. `--src pipeline/nightly` — and `--no-src` disables
+stamping.
 
 ## Protocol
 
-Newline-delimited JSON-RPC 2.0 on stdio, implementing the tools-only MCP
-slice: `initialize` (currently protocol revision `2025-06-18`),
-`notifications/initialized`, `ping`, `tools/list`, `tools/call`. Tool
-failures return `isError` results; protocol violations return JSON-RPC
-errors. Unsupported MCP revisions fail initialization with `-32602` instead
-of being echoed. JSON-RPC batches execute in order, omit notification
-responses, and return `-32600` for empty batches or malformed requests;
-invalid JSON returns `-32700`. Stdout is protocol-only; the startup banner
-goes to stderr.
+The server uses the official
+[`@modelcontextprotocol/server` v2 SDK](https://github.com/modelcontextprotocol/typescript-sdk).
+Its `serveStdio` entry owns protocol detection and serves both the modern
+`2026-07-28` era and initialize-based 2025/2024 clients; legacy fallback stays
+enabled. The SDK also owns framing, lifecycle, version negotiation, request
+validation, ping, and JSON-RPC errors. CAVE supplies the scoped `tools/list`
+and `tools/call` handlers, including dynamic action tools and actor provenance.
 
-Hand-rolled rather than an SDK dependency: the surface is ~150 lines, the
-dispatcher is a pure function (tested without processes), and
-`@prelude/jsonrpc` targets WebSocket-style transports with numeric-only
-ids while MCP ids may be strings.
+Tool failures return `isError` results so the model can correct a call. Stdout
+is protocol-only; the startup banner goes to stderr. `createServer` returns the
+SDK's low-level `Server` for programmatic embedding, while CAVE's tool surface
+remains separately testable without a transport.
 
 ## Tests
 
@@ -132,5 +131,6 @@ ids while MCP ids may be strings.
 pnpm --filter @cavelang/mcp test
 ```
 
-Pure-dispatcher tests for every tool and protocol path, plus an end-to-end
-test that spawns `cave mcp` and speaks NDJSON over stdio.
+Transport-free tests cover every CAVE tool and permission path. End-to-end
+tests exercise the SDK's modern discovery, current Copilot initialization,
+legacy initialization, and tool calls over stdio.

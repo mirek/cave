@@ -55,6 +55,7 @@
     "@cavelang/parser": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/rules": "workspace:*",
-    "@cavelang/store": "workspace:*"
+    "@cavelang/store": "workspace:*",
+    "@modelcontextprotocol/server": "2.0.0-beta.5"
   }
 }

@@ -18,7 +18,10 @@
  * permission boundary.
  */
 
-export { agentSource, createServer, serve, instructions, instructionsFor, protocolVersion, serverInfo, specCard } from './server.ts'
+export {
+  agentSource, createServer, serve, instructions, instructionsFor,
+  protocolVersion, protocolVersions, serverInfo, specCard
+} from './server.ts'
 export type { ServerOptions } from './server.ts'
 export { runMcp } from './main.ts'
 export {
