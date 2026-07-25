@@ -358,6 +358,9 @@ test('the VS Code extension is packed, versioned, and published through a scoped
 
   const sync = readFileSync(join(root, 'scripts/sync-versions.mjs'), 'utf8')
   assert.match(sync, /editors\/vscode\/package\.json/)
+  const rootManifest = parse<Manifest>(join(root, 'package.json'))
+  assert.match(rootManifest.scripts?.['version-packages'] ?? '',
+    /sync-versions\.mjs && node scripts\/grammar-toolchain\.mjs build/)
   const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.match(ci, /\n  vscode:\n[\s\S]*pnpm --filter cave-language package[\s\S]*actions\/upload-artifact@[0-9a-f]{40}/)
   assert.match(ci, /needs:\n      - suite\n      - runtime\n      - browser\n      - smoke\n      - vscode/)
