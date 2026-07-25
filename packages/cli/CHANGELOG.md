@@ -1,5 +1,26 @@
 # @cavelang/cli
 
+## 0.30.0
+
+### Minor Changes
+
+- 3ebe3e4: Serve CAVE through the official MCP TypeScript SDK v2 with modern protocol support and legacy fallback for GitHub Copilot CLI and older clients.
+
+### Patch Changes
+
+- 075a804: Run agents, hooks, and direct commands through one portable, output-bounded process-tree boundary.
+- dbe8ad3: Define and continuously test the exact Node and operating-system support contract.
+- Updated dependencies [afce4f3]
+- Updated dependencies [6035063]
+- Updated dependencies [26b23cf]
+  - @cavelang/core@0.30.0
+  - @cavelang/canonical@0.30.0
+  - @cavelang/fusion@0.30.0
+  - @cavelang/parser@0.30.0
+  - @cavelang/query@0.30.0
+  - @cavelang/store@0.30.0
+  - @cavelang/highlight@0.30.0
+
 ## 0.29.1
 
 ### Patch Changes
