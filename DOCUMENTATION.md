@@ -42,6 +42,7 @@ in the repository.
 | System design | `ARCHITECTURE.md`, `IMPLEMENTATION.md` | Boundaries, flows, package map, toolchain, and implementation decisions. |
 | Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md` | Required repository and PR workflow. |
 | Normative specification skills | `.claude/skills/cave-design/SKILL.md`, `.claude/skills/cave-writing/SKILL.md`, `.claude/skills/cave-extraction/SKILL.md`, `.claude/skills/cave-storage-query/SKILL.md` | Numbered CAVE specification sections. |
+| Installable Agent Skill | `skills/cave/SKILL.md`, `skills/cave/references/usage.md`, `skills/cave/agents/openai.yaml` | Portable task guidance for CAVE users; defer to the connected server's version-matched `cave_help` tool. |
 | Supporting skills | `.claude/skills/typst/SKILL.md`, `.claude/skills/verify/SKILL.md` | Book production and end-to-end verification guidance. |
 | Book source | `book/README.md`, `book/cave.typ`, `book/style.typ`, `book/parts/*.typ` | Continuous system guide and its build instructions. |
 | Book artifact | `website/public/cave-book.pdf` | Generated PDF; must change with its Typst source. |

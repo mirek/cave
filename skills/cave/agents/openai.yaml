@@ -1,0 +1,4 @@
+interface:
+  display_name: "CAVE"
+  short_description: "Use CAVE as durable agent memory"
+  default_prompt: "Use $cave to record and query this project knowledge with the connected CAVE tools."

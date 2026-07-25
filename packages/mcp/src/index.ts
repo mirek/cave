@@ -6,7 +6,7 @@
  * { "command": "cave", "args": ["mcp", "--db", "knowledge.db"] }
  * ```
  *
- * Tools: cave_add, cave_query, cave_fuse, cave_search, cave_about,
+ * Tools: cave_help, cave_add, cave_query, cave_fuse, cave_search, cave_about,
  * cave_neighbors, cave_reconstruct, cave_derive, cave_export, cave_lint —
  * plus one generated `act_<name>` tool per action declared in the store
  * (spec §25.5), the governed write vocabulary. `cave_fuse` and
@@ -23,6 +23,8 @@ export {
   protocolVersion, protocolVersions, serverInfo, specCard
 } from './server.ts'
 export type { ServerOptions } from './server.ts'
+export { guideFor, guideTopics } from './guide.ts'
+export type { GuideTopic } from './guide.ts'
 export { runMcp } from './main.ts'
 export {
   actionTools, actToolName, actToolPrefix, allowsActions, permissions,

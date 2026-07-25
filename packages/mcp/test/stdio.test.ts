@@ -58,6 +58,8 @@ test('cave mcp serves Copilot current initialize-era fallback over stdio', async
     assert.equal((initialized['result'] as Record<string, unknown>)['protocolVersion'], '2025-11-25')
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`)
 
+    const helped = await rpc('tools/call', { name: 'cave_help', arguments: { topic: 'find' } })
+    assert.match(text(helped), /cave_about/)
     const added = await rpc('tools/call', { name: 'cave_add', arguments: { text: 'auth USES jwt @ 90%' } })
     assert.match(text(added), /added 1 claim/)
     const queried = await rpc('tools/call', { name: 'cave_query', arguments: { pattern: '?x USES jwt' } })

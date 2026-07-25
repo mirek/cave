@@ -113,7 +113,7 @@ test('tools/list exposes the full engine surface with schemas', () => {
   }[]
   assert.deepEqual(
     listed.map(tool => tool.name),
-    ['cave_add', 'cave_query', 'cave_fuse', 'cave_search', 'cave_about', 'cave_neighbors',
+    ['cave_help', 'cave_add', 'cave_query', 'cave_fuse', 'cave_search', 'cave_about', 'cave_neighbors',
       'cave_reconstruct', 'cave_derive', 'cave_export', 'cave_lint']
   )
   for (const tool of listed) {
@@ -152,7 +152,7 @@ test('read-only scope drops cave_add and cave_derive from list, call and instruc
 
 test('permission scopes separate reads, ephemeral evaluation and durable recording', () => {
   assert.deepEqual(scopedTools({ permissions: ['read'] }).map(tool => tool.name), [
-    'cave_query', 'cave_search', 'cave_about', 'cave_neighbors', 'cave_export'
+    'cave_help', 'cave_query', 'cave_search', 'cave_about', 'cave_neighbors', 'cave_export'
   ])
   assert.deepEqual(scopedTools({ permissions: ['evaluate'] }).map(tool => tool.name), [
     'cave_fuse', 'cave_reconstruct', 'cave_lint'
@@ -195,6 +195,7 @@ test('instructionsFor mentions only served tools and covers the full surface', (
   assert.match(instructions, /cave_reconstruct/)
   assert.match(instructions, /cave_fuse/, 'the full surface advertises named computation')
   assert.match(instructions, /cave_derive/)
+  assert.match(instructions, /cave_help/)
   assert.match(instructions, /act_<name>/, 'the default surface serves action tools (spec §25.5)')
   const queryOnly = instructionsFor(scopedTools({ tools: ['cave_query'] }))
   assert.match(queryOnly, /cave_query patterns/)
@@ -211,6 +212,24 @@ test('instructionsFor mentions only served tools and covers the full surface', (
   // The full surface keeps the add guidance and stays silent on read-only.
   assert.match(instructions, /stamped with your agent source/)
   assert.doesNotMatch(instructions, /read-only/)
+})
+
+test('cave_help supplies version-matched guidance without reading or writing the store', () => {
+  const store = open()
+  store.ingest('private/thing HAS token: "do-not-return"')
+  const server = createServer(store, { tools: ['cave_help'] })
+  const overview = contentText(call(server, 54, 'cave_help', {}))
+  assert.match(overview, /durable, local agent memory/)
+  assert.match(overview, /write, find, revise, safety/)
+  assert.doesNotMatch(overview, /do-not-return/)
+  const revise = contentText(call(server, 55, 'cave_help', { topic: 'revise' }))
+  assert.match(revise, /append-only/)
+  assert.match(revise, /@ 0%/)
+  assert.equal(store.currentBeliefs().length, 1)
+  const invalid = call(server, 56, 'cave_help', { topic: 'unknown' })
+  assert.equal(invalid.result?.['isError'], true)
+  assert.match(contentText(invalid), /topic must be one of/)
+  store.close()
 })
 
 test('cave_add → cave_query round trip through the protocol', () => {

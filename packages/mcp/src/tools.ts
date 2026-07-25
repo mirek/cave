@@ -4,6 +4,7 @@
  *
  * | Tool | Purpose |
  * |---|---|
+ * | `cave_help` | version-matched usage guidance for agents |
  * | `cave_add` | append CAVE text (extraction output) to the store |
  * | `cave_query` | run a CAVE-Q pattern (spec §12) |
  * | `cave_fuse` | Bayesian fusion of numeric estimates (§10.1) — named computation |
@@ -34,6 +35,7 @@ import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
 import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
 import type { Tool as McpTool } from '@modelcontextprotocol/server'
+import { guideFor, guideTopics, type GuideTopic } from './guide.ts'
 
 /** Per-connection state the server threads into tool calls. */
 export type ToolContext = {
@@ -185,6 +187,29 @@ const selectFuseClaims = (store: Store, args: Record<string, unknown>): Claim.t[
 }
 
 export const tools: readonly Tool[] = [
+  {
+    name: 'cave_help',
+    description: 'Version-matched CAVE usage guidance for agents. Call before the first CAVE task ' +
+      'or when choosing how to write, find, revise, or safely handle knowledge. This reads no user data.',
+    permission: 'read',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        topic: {
+          type: 'string',
+          enum: [...guideTopics],
+          description: 'guide topic (default: overview)'
+        }
+      }
+    },
+    run: (_store, args) => {
+      const topic = args['topic'] ?? 'overview'
+      if (typeof topic !== 'string' || !(guideTopics as readonly string[]).includes(topic)) {
+        throw new Error(`topic must be one of ${guideTopics.join(', ')}`)
+      }
+      return guideFor(topic as GuideTopic)
+    }
+  },
   {
     name: 'cave_add',
     description: 'Append CAVE claims to the knowledge database. Input is CAVE text ' +
