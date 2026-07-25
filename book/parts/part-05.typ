@@ -26,7 +26,7 @@ A successful merge can append a SYNCED-INTO claim naming origin and target label
 
 Transaction annotations are full-line comments of the form ;\@ <uuidv7> immediately above a claim. cave export --tx emits them and cave sync replays them with original identity. Plain import ignores the annotations and performs an ordinary replay.
 
-The recommended Git workflow commits the annotated text export, not the SQLite file. A branch rebuilds a private store by syncing the export with --no-record, performs normal appends, re-exports, and reviews the textual diff. Text conflicts are resolved by syncing both exports into a fresh store and exporting the union, which can be configured as a merge driver.
+The recommended Git workflow commits the annotated text export, not the SQLite file. A branch rebuilds a private store by syncing the export with --no-record, performs normal appends, re-exports, and reviews new transaction annotations as the semantic additions. Terse prefix factoring and lineage grouping may also reshape physical lines without mutating row identity. Text conflicts are resolved by syncing both exports into a fresh store and exporting the union, which can be configured as a merge driver.
 
 
 = Automations and the Closed Loop

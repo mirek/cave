@@ -1604,10 +1604,10 @@ export const exportCommand = (argv: readonly string[]): Output => {
       return ok(text)
     }
     writeFileSync(values.out, text)
-    // Root claims only: indented qualifier/grouping lines are part of their
-    // parent claim, and §28.4 annotations parse as comments.
+    // Root claims only: shorthand prefixes and §28.4 annotations are not
+    // claims, while qualifier/grouping leaves have a materialized parent.
     const claims = parseDocument(text).lines
-      .filter(line => line.kind === 'claim' && line.depth === 0).length
+      .filter(line => line.kind === 'claim' && line.parent === undefined).length
     return ok(`exported ${claims} claim(s) to ${values.out}\n`)
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)

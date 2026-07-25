@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { txOfLine } from '@cavelang/canonical'
 import { Uuidv7 } from '@cavelang/core'
 import { open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
@@ -475,11 +476,20 @@ test('the branching convention: checkout, work, review diff, union merge, landin
     assert.equal(checkout.record, undefined)
     assert.equal(rowCount(work), 2, 'a checkout is not a merge event')
 
-    // Work appends outsort the seed (§28.2), so the review diff is the appended
-    // claims: the committed text is a prefix of the branch's re-export.
+    // Work appends outsort the seed (§28.2). Terse canonical emission may
+    // refactor a shared prefix, so identity annotations — not physical-line
+    // prefix equality — define the pure-addition review.
     work.ingest('api HAS owner: platform-team', { source: 'cli' })
     const reviewed = work.exportText({ tx: true })
-    assert.ok(reviewed.startsWith(committed), 'review reads as pure additions')
+    const txsOf = (text: string): Set<string> =>
+      new Set(text.split('\n').flatMap(line => {
+        const tx = txOfLine(line)
+        return tx === undefined ? [] : [tx]
+      }))
+    const committedTxs = txsOf(committed)
+    const reviewedTxs = txsOf(reviewed)
+    assert.ok([...committedTxs].every(tx => reviewedTxs.has(tx)), 'review keeps every committed row')
+    assert.equal(reviewedTxs.size, committedTxs.size + 1, 'review adds exactly the branch row')
 
     // Main advanced meanwhile — a git-level collision at the file's end. The
     // merge-driver move: union both texts in a fresh store and re-export.
@@ -489,9 +499,9 @@ test('the branching convention: checkout, work, review diff, union merge, landin
     syncText(union, reviewed, { record: false })
     syncText(union, theirs, { record: false })
     const merged = union.exportText({ tx: true })
-    const lines = new Set(merged.split('\n'))
-    for (const line of [...reviewed.split('\n'), ...theirs.split('\n')]) {
-      assert.ok(lines.has(line), `union keeps every reviewed line: ${line}`)
+    const mergedTxs = txsOf(merged)
+    for (const tx of [...txsOf(reviewed), ...txsOf(theirs)]) {
+      assert.ok(mergedTxs.has(tx), `union keeps every reviewed row: ${tx}`)
     }
     union.close()
 

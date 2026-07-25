@@ -579,13 +579,16 @@ OpenAI HAS projected-loss: 14B USD/yr +/- 3B USD/yr @2026 @ 70%
 
 Complex facts decompose into multiple claims. Indented lines attach to the nearest less-indented claim above them (the **parent**). Indentation attaches; it does not nest arbitrarily deep.
 
-There are exactly **three kinds** of indented line, distinguished by what the line starts with:
+There are exactly **three kinds of materialized indented line**, distinguished by what the completed logical line starts with:
 
 | Indented line starts with | Kind | Semantics |
 |---|---|---|
 | Qualifier verb (`WHEN`, `UNLESS`, `VIA`, `BECAUSE`) | **Qualifier** | Edge from parent claim to a condition/mechanism/evidence claim (§8.2) |
 | Bare relational verb (primary or inverse) | **Continuation** | New sibling claim inheriting an endpoint from the parent (§8.3) |
 | Full triple (`subject VERB object …`) | **Grouped claim** | Independent claim, contextually grouped with the parent (§8.4) |
+
+An incomplete line may instead be a **prefix header** (§8.5). A prefix header
+does not materialize a claim and therefore is not a fourth claim kind.
 
 An indented two-token `VERB VERB` line is a continuation: the first token is
 its verb and the second is its object. A grouped full claim requires a third
@@ -664,6 +667,53 @@ build PRECEDES deploy
 
 with the second claim grouped under the first.
 
+### 8.5 Recursive prefix shorthand
+
+An incomplete physical line with indented content prefixes every child. The
+canonical two-space indentation means “repeat the incomplete parent tokens,
+then append this child”:
+
+```cave
+foo HAS
+  a: A
+  b: B
+```
+
+desugars to:
+
+```cave
+foo HAS a: A
+foo HAS b: B
+```
+
+Prefixes compose recursively:
+
+```cave
+foo HAS
+  a:
+    A
+    B
+  b: C
+```
+
+Only an **incomplete** accumulated line can be a prefix header. As soon as an
+accumulated line is a complete claim, its indented children use the existing
+qualifier, continuation, or grouped-claim semantics from §8.1–§8.4. This
+boundary keeps all existing CAVE text backward-compatible.
+
+Blank lines and full-line comments are transparent while a prefix is open. A
+trailing `; comment` on a prefix header is documentary source text only: it is
+not repeated or persisted on the leaf claims. A comment on a completed leaf
+remains that claim's persisted comment. Each leaf keeps its physical source
+line in the syntax tree; persisted `raw_line` is the expanded, self-contained
+logical claim.
+
+Canonical emitters factor two or more adjacent sibling claims through their
+shared incomplete token prefixes. Factoring is recursive, stops before a
+prefix would itself become a complete claim, and uses two spaces per emitted
+level. Qualifier and grouping edges attach to the nearest materialized claim,
+not to the non-materialized prefix headers.
+
 ---
 
 ## 11. Classification: Two Lanes, and Topics
@@ -725,7 +775,8 @@ file          = { line } ;
 line          = blank
               | comment_line
               | claim_line
-              | indented_line ;
+              | indented_line
+              | prefix_line ;
 
 comment_line  = ";" text ;
 
@@ -734,6 +785,12 @@ claim_line    = subject space verb [space "NOT"] space payload metadata [comment
 indented_line = indent ( qualifier_clause
                        | continuation_clause
                        | claim_line ) ;
+
+(* Context-sensitive §8.5 rule: the accumulated fragment must be incomplete,
+   have indented content, and every materialized descendant must complete one
+   of the line forms above. Prefix comments are not inherited. *)
+prefix_line   = [ indent ] fragment [comment] ;
+fragment      = text ;                                  (* one or more tokens *)
 
 qualifier_clause    = qualifier_verb space qualifier_payload metadata [comment] ;
 qualifier_verb      = "WHEN" | "UNLESS" | "VIA" | "BECAUSE" ;
@@ -788,6 +845,10 @@ parsers accept the normative lexical form consistently.
 ```cave
 subject VERB [NOT] object                [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
 subject HAS attribute: value [+/- delta [(Nσ)]] [@context...] [#tag[:value]...] [@ N%] [!] [; comment]
+
+subject HAS                              ; incomplete prefix, no claim
+  attribute: value                      ; → subject HAS attribute: value
+  other: value                          ; → subject HAS other: value
 
 VERB REVERSE INVERSE-VERB                ; declare inverse; left side is primary
 OLD-VERB RENAMED-TO NEW-VERB             ; deprecate OLD; stable storage remains OLD

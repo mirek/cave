@@ -23,6 +23,73 @@ test('emitters MUST produce the colon attribute form (spec §3.4)', () => {
   assert.equal(emit(result), 'OpenAI HAS revenue: 20B USD/yr\n')
 })
 
+test('emit factors adjacent claims through recursive incomplete prefixes (spec §8.5)', () => {
+  const result = canonicalizeText([
+    'foo HAS a: A ; first',
+    'foo HAS a: B',
+    'foo HAS b: C',
+    'bar HAS c: D'
+  ].join('\n'), standardRegistry)
+  assert.equal(
+    emit(result),
+    [
+      'foo HAS',
+      '  a:',
+      '    A ; first',
+      '    B',
+      '  b: C',
+      'bar HAS c: D',
+      ''
+    ].join('\n')
+  )
+  const again = canonicalizeText(emit(result), standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.deepEqual(
+    again.claims.map(entry => Key.of(entry.claim)),
+    result.claims.map(entry => Key.of(entry.claim))
+  )
+})
+
+test('emit factors qualifier siblings without changing their parent edges (spec §8.5)', () => {
+  const result = canonicalizeText([
+    'server CAUSE crash',
+    '  WHEN high-load',
+    '  WHEN cache-miss'
+  ].join('\n'), standardRegistry)
+  const text = emit(result)
+  assert.equal(text, 'server CAUSE crash\n  WHEN\n    high-load\n    cache-miss\n')
+  const again = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.deepEqual(again.edges, result.edges)
+})
+
+test('factoring stops before a prefix becomes a complete claim', () => {
+  const result = canonicalizeText([
+    'foo HAS revenue: 20B USD/yr @2025',
+    'foo HAS revenue: 20B USD/mo @2026'
+  ].join('\n'), standardRegistry)
+  assert.equal(
+    emit(result),
+    'foo HAS revenue:\n  20B USD/yr @2025\n  20B USD/mo @2026\n'
+  )
+})
+
+test('transaction annotations stay directly above factored claim leaves', () => {
+  const result = canonicalizeText('foo HAS a: A\nfoo HAS b: B', standardRegistry)
+  const text = emit(result, { annotate: index => `;@ tx-${index}` })
+  assert.equal(
+    text,
+    'foo HAS\n  ;@ tx-0\n  a: A\n  ;@ tx-1\n  b: B\n'
+  )
+  const lines = text.trimEnd().split('\n')
+  const again = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.deepEqual(
+    again.claims.map(entry => lines[entry.line - 2]!.trim()),
+    [';@ tx-0', ';@ tx-1']
+  )
+})
+
 test('emit is stable — second pass equals first', () => {
   const { first, second } = roundTrip([
     'auth/middleware HAS bug: token-expiry #security #topic:auth-hardening',

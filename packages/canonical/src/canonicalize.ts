@@ -221,7 +221,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
   document.lines.forEach((line, lineIndex) => {
     switch (line.kind) {
       case 'claim': {
-        const { claim, writtenSubject } = buildClaim(line.claim, line.raw, line.line)
+        const { claim, writtenSubject } = buildClaim(line.claim, line.expanded ?? line.raw, line.line)
         const index = append(claim, line.line, writtenSubject, lineIndex)
         if (line.parent !== undefined) {
           const parent = byLine.get(line.parent)
@@ -239,7 +239,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
           return
         }
         const full: Ast.Full = { subject: parent.writtenSubject, ...line.body }
-        const { claim, writtenSubject } = buildClaim(full, line.raw, line.line)
+        const { claim, writtenSubject } = buildClaim(full, line.expanded ?? line.raw, line.line)
         append(claim, line.line, writtenSubject, lineIndex)
         // §8.3: each continuation is an ordinary independent claim, so an
         // in-band declaration works here exactly as on a full line (§5.4).
@@ -253,7 +253,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
           return
         }
         const full = conditionOf(line.payload, line.qualifier === 'UNLESS')
-        const { claim, writtenSubject } = buildClaim(full, line.raw, line.line)
+        const { claim, writtenSubject } = buildClaim(full, line.expanded ?? line.raw, line.line)
         const index = append(claim, line.line, writtenSubject, lineIndex)
         edges.push({ parent: parent.index, role: roleOf[line.qualifier], child: index })
         return

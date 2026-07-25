@@ -59,7 +59,9 @@ let exported = ''
 measure('export', () => {
   exported = sourceStore.exportText({ maxSensitivity: 'restricted' })
   const lines = exported.trim().split('\n').length
-  if (lines !== groups * 3) throw new Error(`export benchmark: expected ${groups * 3} lines, got ${lines}`)
+  // Canonical export factors each three-claim group through one shared prefix header.
+  const expectedLines = groups * 4
+  if (lines !== expectedLines) throw new Error(`export benchmark: expected ${expectedLines} lines, got ${lines}`)
   return { lines }
 })
 

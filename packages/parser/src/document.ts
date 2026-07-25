@@ -2,9 +2,9 @@
  * Document parser (spec §8, §16).
  *
  * Splits input into physical lines, measures indentation, classifies each
- * line (blank / comment / claim / continuation / qualifier), and resolves
- * each indented line's parent — the nearest less-indented structural line
- * above (spec §8).
+ * line (blank / comment / prefix / claim / continuation / qualifier), and
+ * resolves each materialized line's parent — the nearest less-indented
+ * materialized claim above (spec §8).
  *
  * Classification of an indented line follows spec §8's table, decided by
  * what the line starts with:
@@ -12,6 +12,11 @@
  * - qualifier verb (`WHEN`/`UNLESS`/`VIA`/`BECAUSE`) → qualifier
  * - bare relational verb → continuation
  * - full triple → grouped claim
+ *
+ * An incomplete line with indented content is a shorthand prefix (§8.5).
+ * Its tokens are prepended to every child; nested incomplete prefixes
+ * compose recursively. Complete lines never become prefixes, preserving the
+ * three existing indentation meanings above.
  *
  * One ambiguity needs a tiebreak: `API NEEDS auth` starts with a token that
  * is lexically verb-shaped. A two-token `VERB VERB` line is a continuation:
@@ -72,7 +77,32 @@ const classify = (tokens: readonly Token.t[], depth: number): Classified | { err
   return 'claim'
 }
 
-type Frame = { index: number, depth: number }
+type Prefix = {
+  readonly tokens: readonly Token.t[]
+  readonly head: string
+  readonly semanticDepth: number
+  readonly parent?: number
+}
+
+type Frame = {
+  readonly index: number
+  readonly depth: number
+  readonly prefix?: Prefix
+}
+
+const hasIndentedContent = (rawLines: readonly string[], at: number, depth: number): boolean => {
+  for (let next = at + 1; next < rawLines.length; next += 1) {
+    const info = indentOf(rawLines[next]!)
+    if (info.rest === '' || info.rest.startsWith(';')) {
+      continue
+    }
+    return info.depth > depth
+  }
+  return false
+}
+
+const logicalRaw = (head: string, comment?: string): string =>
+  comment === undefined ? head : `${head} ; ${comment}`
 
 /**
  * Parses a CAVE document. Never throws; problems surface as diagnostics and
@@ -100,26 +130,55 @@ export const parseDocument = (input: string): Ast.Document => {
       lines.push({ kind: 'comment', line: lineNo, raw, text: rest.slice(1).trim() })
       return
     }
-    const { head, comment } = Token.splitComment(rest)
-    const tokens = Token.tokenize(head)
-    if (tokens.length === 0) {
-      lines.push({ kind: 'comment', line: lineNo, raw, text: comment ?? '' })
-      return
-    }
-    const kind = classify(tokens, depth)
-    if (typeof kind === 'object') {
-      problem(lineNo, raw, kind.error)
-      lines.push({ kind: 'invalid', line: lineNo, raw, message: kind.error })
+    const split = Token.splitComment(rest)
+    const ownHead = split.head.trim()
+    const ownTokens = Token.tokenize(ownHead)
+    if (ownTokens.length === 0) {
+      lines.push({ kind: 'comment', line: lineNo, raw, text: split.comment ?? '' })
       return
     }
     while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
       stack.pop()
     }
-    const parent = stack[stack.length - 1]?.index
+    const frame = stack[stack.length - 1]
+    const inherited = frame?.prefix
+    const tokens = inherited === undefined ?
+      ownTokens :
+      [...inherited.tokens, ...ownTokens]
+    const head = inherited === undefined ?
+      ownHead :
+      `${inherited.head} ${ownHead}`
+    const semanticDepth = inherited?.semanticDepth ?? depth
+    const parent = inherited === undefined ? frame?.index : inherited.parent
+    const expanded = inherited === undefined ? undefined : logicalRaw(head, split.comment)
+    const asPrefix = (message: string): boolean => {
+      if (!hasIndentedContent(rawLines, at, depth)) {
+        problem(lineNo, raw, message)
+        lines.push({ kind: 'invalid', line: lineNo, raw, message })
+        return false
+      }
+      const index = lines.length
+      const prefix: Prefix = { tokens, head, semanticDepth, ...parent === undefined ? {} : { parent } }
+      lines.push({
+        kind: 'prefix',
+        line: lineNo,
+        raw,
+        depth,
+        expanded: head,
+        ...parent === undefined ? {} : { parent },
+        ...split.comment === undefined ? {} : { comment: split.comment }
+      })
+      stack.push({ index, depth, prefix })
+      return true
+    }
+    const kind = classify(tokens, semanticDepth)
+    if (typeof kind === 'object') {
+      asPrefix(kind.error)
+      return
+    }
     if (parent === undefined && kind !== 'claim') {
       const message = `${kind} line has no parent claim above (spec §8)`
-      problem(lineNo, raw, message)
-      lines.push({ kind: 'invalid', line: lineNo, raw, message })
+      asPrefix(message)
       return
     }
     const index = lines.length
@@ -132,41 +191,63 @@ export const parseDocument = (input: string): Ast.Document => {
     }
     switch (kind) {
       case 'claim': {
-        const result = Line.parseClaim(tokens, comment)
+        const result = Line.parseClaim(tokens, split.comment)
         if (!result.ok) {
-          problem(lineNo, raw, result.message)
-          lines.push({ kind: 'invalid', line: lineNo, raw, message: result.message })
+          asPrefix(result.message)
           return
         }
         push(
-          { kind: 'claim', line: lineNo, raw, depth, ...parent !== undefined ? { parent } : {}, claim: result.value },
+          {
+            kind: 'claim',
+            line: lineNo,
+            raw,
+            depth,
+            ...expanded === undefined ? {} : { expanded },
+            ...parent !== undefined ? { parent } : {},
+            claim: result.value
+          },
           result.problems
         )
         return
       }
       case 'continuation': {
-        const result = Line.parseBody(tokens, comment)
+        const result = Line.parseBody(tokens, split.comment)
         if (!result.ok) {
-          problem(lineNo, raw, result.message)
-          lines.push({ kind: 'invalid', line: lineNo, raw, message: result.message })
+          asPrefix(result.message)
           return
         }
         push(
-          { kind: 'continuation', line: lineNo, raw, depth, parent: parent!, body: result.value },
+          {
+            kind: 'continuation',
+            line: lineNo,
+            raw,
+            depth,
+            parent: parent!,
+            ...expanded === undefined ? {} : { expanded },
+            body: result.value
+          },
           result.problems
         )
         return
       }
       case 'qualifier': {
         const qualifier = (tokens[0] as { text: string }).text as Verb.Qualifier
-        const result = Line.parseQualifierPayload(tokens.slice(1), comment)
+        const result = Line.parseQualifierPayload(tokens.slice(1), split.comment)
         if (!result.ok) {
-          problem(lineNo, raw, result.message)
-          lines.push({ kind: 'invalid', line: lineNo, raw, message: result.message })
+          asPrefix(result.message)
           return
         }
         push(
-          { kind: 'qualifier', line: lineNo, raw, depth, parent: parent!, qualifier, payload: result.value },
+          {
+            kind: 'qualifier',
+            line: lineNo,
+            raw,
+            depth,
+            parent: parent!,
+            ...expanded === undefined ? {} : { expanded },
+            qualifier,
+            payload: result.value
+          },
           result.problems
         )
         return

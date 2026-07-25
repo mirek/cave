@@ -55,6 +55,83 @@ test('continuation block (spec §8.3)', () => {
   }
 })
 
+test('incomplete headers prefix each indented child (spec §8.5)', () => {
+  const doc = parseDocument([
+    'foo HAS',
+    '  a: A',
+    '  b: B'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  assert.deepEqual(doc.lines.map(line => line.kind), ['prefix', 'claim', 'claim'])
+  const prefix = doc.lines[0]!
+  const a = doc.lines[1]!
+  const b = doc.lines[2]!
+  assert.equal(prefix.kind, 'prefix')
+  if (prefix.kind === 'prefix') {
+    assert.equal(prefix.expanded, 'foo HAS')
+    assert.equal(prefix.parent, undefined)
+  }
+  if (a!.kind === 'claim' && b!.kind === 'claim') {
+    assert.equal(a.raw, '  a: A', 'physical source stays available')
+    assert.equal(a.expanded, 'foo HAS a: A')
+    assert.equal(b.expanded, 'foo HAS b: B')
+    assert.equal(a.parent, undefined)
+    assert.equal(b.parent, undefined)
+  } else {
+    assert.fail('expected expanded claim leaves')
+  }
+})
+
+test('prefix shorthand composes recursively through comments and blank lines (spec §8.5)', () => {
+  const doc = parseDocument([
+    'foo ; branch note is not inherited',
+    '  ; transparent comment',
+    '',
+    '  HAS',
+    '    a:',
+    '      A ; first leaf',
+    '      B',
+    '    b: C'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  assert.deepEqual(
+    doc.lines.map(line => line.kind),
+    ['prefix', 'comment', 'blank', 'prefix', 'prefix', 'claim', 'claim', 'claim']
+  )
+  const claims = doc.lines.filter(line => line.kind === 'claim')
+  assert.deepEqual(claims.map(line => line.expanded), [
+    'foo HAS a: A ; first leaf',
+    'foo HAS a: B',
+    'foo HAS b: C'
+  ])
+  const firstPrefix = doc.lines[0]!
+  assert.equal(firstPrefix.kind, 'prefix')
+  if (firstPrefix.kind === 'prefix') {
+    assert.equal(firstPrefix.comment, 'branch note is not inherited')
+  }
+})
+
+test('a prefix without an indented completion remains invalid', () => {
+  const doc = parseDocument('foo HAS')
+  assert.deepEqual(doc.lines.map(line => line.kind), ['invalid'])
+  assert.match(doc.diagnostics[0]!.message, /missing object/)
+})
+
+test('shorthand leaves keep the enclosing materialized parent', () => {
+  const doc = parseDocument([
+    'parent CAUSE effect',
+    '  foo HAS',
+    '    a: A',
+    '    b: B'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  const leaves = doc.lines.filter(
+    (line): line is Extract<Ast.Line, { kind: 'claim' }> =>
+      line.kind === 'claim' && line.line > 1
+  )
+  assert.deepEqual(leaves.map(line => line.parent), [0, 0])
+})
+
 test('grouped full claims stay independent (spec §8.4)', () => {
   const doc = parseDocument('deploy VIA github-actions\n  build PRECEDES deploy')
   assert.deepEqual(doc.lines.map(line => line.kind), ['claim', 'claim'])
