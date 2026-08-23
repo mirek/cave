@@ -1,5 +1,12 @@
 # @cavelang/core
 
+## 0.32.2
+
+### Patch Changes
+
+- a7397de: Update the release-automation guard test for the chained VS Code Marketplace publish job.
+- a1f05bc: Publish the VS Code extension to Marketplace automatically after every npm release, listed as "CAVE Language".
+
 ## 0.32.1
 
 ### Patch Changes
