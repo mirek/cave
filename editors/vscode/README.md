@@ -42,3 +42,10 @@ extension** from the default branch and enter the version without the `v`.
 The workflow checks out that exact tag, validates its release identity and
 lockstep manifest, builds and inspects the VSIX, then publishes it. Duplicate
 versions are treated as a successful no-op so a failed workflow can be rerun.
+
+The `VSCE_PAT` is an Azure DevOps personal access token created at
+`https://dev.azure.com/<org>/_usersSettings/tokens` with organization scope
+*All accessible organizations* and the single scope *Marketplace → Manage*.
+Azure DevOps retires all-organization tokens on 1 December 2026; set the
+expiry no later than that date and migrate the workflow to the Entra-based
+authentication `vsce` supports (`--azure-credential`) before then.
