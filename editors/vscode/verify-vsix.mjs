@@ -62,7 +62,7 @@ export const verifyVsix = async (path, expectedVersion) => {
   }
 
   const manifest = JSON.parse(entries.get('extension/package.json').content.toString('utf8'))
-  if (manifest.name !== 'cave-language' || manifest.publisher !== 'cavelang') {
+  if (manifest.name !== 'cave-language' || manifest.publisher !== 'MirekRusin') {
     throw new Error(`${basename(path)} has unexpected extension identity`)
   }
   if (manifest.version !== expectedVersion) {

@@ -6,7 +6,7 @@
   "description": "CAVE language support — syntax highlighting driven by the @cavelang/tree-sitter-cave grammar via semantic tokens.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
-  "publisher": "cavelang",
+  "publisher": "MirekRusin",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirek/cave.git",
