@@ -298,7 +298,9 @@ test('release automation validates identity before npm and matches the supported
   const registry = publishWorkflow.indexOf('registry-url: https://registry.npmjs.org')
   assert.ok(preflight >= 0 && preflight < registry, 'release identity must be checked before npm registry setup')
   assert.deepEqual([...publishWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
-    ['24.18.0', '24.18.0'])
+    ['24.18.0', '24.18.0', '24.18.0'])
+  assert.match(publishWorkflow, /vscode:\n    needs: \[preflight, release\]/)
+  assert.match(publishWorkflow, /if: needs\.preflight\.outputs\.mode == 'publish'/)
 
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
