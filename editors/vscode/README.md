@@ -23,7 +23,7 @@ For development: `pnpm build`, then F5 (Run Extension) from this directory.
 
 ## Version and release policy
 
-The extension is a released Marketplace product under publisher `cavelang`.
+The extension is a released Marketplace product under publisher `MirekRusin`.
 Its version follows the repository's lockstep CAVE version: the automated
 version-packages PR updates this private manifest after Changesets has updated
 the public packages. Never edit the version by hand. A repository release may
@@ -36,7 +36,7 @@ release log; there is deliberately no second extension changelog to maintain
 or reconcile.
 
 To publish an existing release, configure the `vscode-marketplace` GitHub
-environment with a `VSCE_PAT` secret authorized only for the `cavelang`
+environment with a `VSCE_PAT` secret authorized only for the `MirekRusin`
 publisher, plus any desired reviewer protection. Dispatch **Publish VS Code
 extension** from the default branch and enter the version without the `v`.
 The workflow checks out that exact tag, validates its release identity and
