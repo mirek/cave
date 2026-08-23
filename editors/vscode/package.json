@@ -1,6 +1,6 @@
 {
   "name": "cave-language",
-  "displayName": "CAVE",
+  "displayName": "CAVE Language",
   "version": "0.32.1",
   "private": true,
   "description": "CAVE language support — syntax highlighting driven by the @cavelang/tree-sitter-cave grammar via semantic tokens.",

@@ -40,6 +40,8 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -50,11 +52,14 @@ jobs:
           node-version: 24.18.0
 
       - name: Validate version-PR or publish readiness
+        id: mode
         run: |
           if git ls-files '.changeset/*.md' | grep -v '^\.changeset/README\.md$' | grep -q .; then
             node scripts/release-validate.mjs --mode=version-pr
+            echo "mode=version-pr" >> "$GITHUB_OUTPUT"
           else
             node scripts/release-validate.mjs --mode=publish
+            echo "mode=publish" >> "$GITHUB_OUTPUT"
           fi
 
   release:
@@ -98,3 +103,42 @@ jobs:
           createGithubReleases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Marketplace publication of the VS Code extension follows every npm
+  # release automatically. The v<version> tag is pushed with GITHUB_TOKEN,
+  # which never triggers tag workflows, so this runs as a chained job instead.
+  # `--skip-duplicate` makes reruns and unchanged extensions a no-op; the
+  # workflow_dispatch in vscode.yml remains for republishing an older tag.
+  vscode:
+    needs: [preflight, release]
+    if: needs.preflight.outputs.mode == 'publish'
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate tag and lockstep release identity
+        run: node scripts/release-validate.mjs --mode=publish
+
+      - name: Package and validate the VSIX
+        run: pnpm --filter cave-language package
+
+      - name: Publish the validated VSIX to Marketplace
+        working-directory: editors/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: pnpm exec vsce publish --packagePath cave-language-*.vsix --skip-duplicate

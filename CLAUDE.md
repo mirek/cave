@@ -26,8 +26,10 @@ manifest, VS Code extension manifest, and `tree-sitter.json` to it — the
 private website manifest deliberately stays put). **Never edit a `version`
 field by hand** — versions only move in the automated release PR. The VS Code
 extension is not in the npm fixed group; it receives the resulting version
-only after Changesets finishes, then publishes separately from an existing
-`v<version>` tag through `.github/workflows/vscode.yml`.
+only after Changesets finishes, then publishes to Marketplace from the
+`vscode` job of `.github/workflows/publish.yml` after every npm release
+(`.github/workflows/vscode.yml` republishes an existing `v<version>` tag
+manually).
 
 **Every change adds a changeset instead of a version bump** — package
 source, docs, these instructions, or the spec skills in `.claude/skills/`.

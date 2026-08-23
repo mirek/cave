@@ -26,22 +26,24 @@ For development: `pnpm build`, then F5 (Run Extension) from this directory.
 The extension is a released Marketplace product under publisher `MirekRusin`.
 Its version follows the repository's lockstep CAVE version: the automated
 version-packages PR updates this private manifest after Changesets has updated
-the public packages. Never edit the version by hand. A repository release may
-omit a Marketplace publication when the extension did not change; versions do
-not need to be contiguous in Marketplace.
+the public packages. Never edit the version by hand. Every repository release
+publishes the extension to Marketplace (listed as **CAVE Language**, id
+`MirekRusin.cave-language`) from the `vscode` job of
+`.github/workflows/publish.yml`, which runs after the npm publish.
 
 Extension-facing changes use the same PR changeset as the rest of the
 repository. Those changesets and the linked `v<version>` Git history are the
 release log; there is deliberately no second extension changelog to maintain
 or reconcile.
 
-To publish an existing release, configure the `vscode-marketplace` GitHub
-environment with a `VSCE_PAT` secret authorized only for the `MirekRusin`
-publisher, plus any desired reviewer protection. Dispatch **Publish VS Code
-extension** from the default branch and enter the version without the `v`.
-The workflow checks out that exact tag, validates its release identity and
-lockstep manifest, builds and inspects the VSIX, then publishes it. Duplicate
-versions are treated as a successful no-op so a failed workflow can be rerun.
+Both publication paths use the `vscode-marketplace` GitHub environment, which
+holds a `VSCE_PAT` secret authorized only for the `MirekRusin` publisher plus
+any desired reviewer protection. To republish an older release manually,
+dispatch **Publish VS Code extension** (`.github/workflows/vscode.yml`) from
+the default branch and enter the version without the `v`. Either path checks
+out the exact tagged release, validates its release identity and lockstep
+manifest, builds and inspects the VSIX, then publishes it. Duplicate versions
+are treated as a successful no-op so a failed workflow can be rerun.
 
 The `VSCE_PAT` is an Azure DevOps personal access token created at
 `https://dev.azure.com/<org>/_usersSettings/tokens` with organization scope
