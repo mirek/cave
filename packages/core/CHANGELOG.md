@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.32.1
+
+### Patch Changes
+
+- af53c4c: Publish the VS Code extension under the `MirekRusin` Marketplace publisher.
+
 ## 0.32.0
 
 ## 0.31.1
