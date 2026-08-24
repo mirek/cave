@@ -52,7 +52,7 @@
     "web-tree-sitter": "^0.26.11"
   },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "^1.134.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",
     "typescript": "^5.8.0",
