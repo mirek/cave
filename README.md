@@ -572,9 +572,12 @@ news/2026-08-14/export-rules
   AFFECTS theme/export-controls @src:news/2026-08-14-export-rules.md#L3-L7 #direction:up @ 60% ; draft rule only, 30-day consultation open, final shape uncertain
 ```
 
-(LLM output varies run to run; this is one real run. It is saved as
-[`news.cave`](examples/market/news.cave), so `cave add --db market.db
-news.cave` gets you to the same state without an agent.)
+(LLM output varies run to run; this is one real run. Its claims are saved
+as [`news.cave`](examples/market/news.cave): without an agent, `cave add
+--db market.db news.cave` records the same claims — but not the per-file
+digests `cave ingest` keeps, so in step 18 add
+[`news-2026-08-20.cave`](examples/market/news-2026-08-20.cave) the same way
+instead of running `cave ingest`.)
 
 ### 15. Rules with a sign
 
@@ -646,12 +649,14 @@ declared under a stable name — [`actions.cave`](examples/market/actions.cave):
 ```cave
 ; governed writes: the only ways a decision gets recorded
 action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` ; record a portfolio stance on a company
-action/flag-review HAS action: `?company, ?company HAS stance: overweight => ?company NEEDS review` ; an overweight name got bad news
+action/flag-review HAS action: `?company, ?news, ?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => ?company NEEDS review` ; an overweight name got bad news — both must be current belief
 ```
 
 Preconditions are checked against current belief; if they fail nothing is
-written. Over MCP every action becomes an `act_<name>` tool, so an agent gets
-a vocabulary of allowed writes instead of free-form appends:
+written — `flag-review` cannot be talked into a review by news that did not
+actually pressure the company down. Over MCP every action becomes an
+`act_<name>` tool, so an agent gets a vocabulary of allowed writes instead of
+free-form appends:
 
 ```
 $ cave act --db market.db --declare actions.cave
@@ -663,6 +668,9 @@ executed action/set-stance: +1 appended, 0 updated, 0 unchanged (1 solution(s))
 
 $ cave act --db market.db set-stance company=nobody stance=overweight
 cave act: precondition failed — no current belief satisfies "?company IS company"
+
+$ cave act --db market.db flag-review company=chipco news=news/2026-08-12/capex-guidance
+cave act: precondition failed — no current belief satisfies "?news PRESSURES ?company #direction:down"
 ```
 
 ### 18. The store reacts
@@ -671,15 +679,16 @@ An *automation* pairs a trigger pattern with steps and fires when new claims
 match — [`automations.cave`](examples/market/automations.cave):
 
 ```cave
-automation/review-bad-news HAS automation: `?n PRESSURES ?company #direction:down, ?company HAS stance: overweight => action/flag-review` ; overweight name under pressure -> ask for a review
+automation/review-bad-news HAS automation: `?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => action/flag-review` ; overweight name under pressure -> ask for a review
 ```
 
-Declaring it *arms* it: the bad news already in the store is state, not an
+The trigger's variables feed the action's same-named parameters. Declaring
+an automation *arms* it: the bad news already in the store is state, not an
 event, so the first cycle is quiet. Then the third article arrives —
 `cave ingest 'news/*.md' …` again skips the two it has read and records the
-new one (`news-2026-08-20.cave` holds that run's output) — and the next
-`--once` cycle fires the rules, sees the new pressure on an overweight name,
-and executes the action:
+new one (without an agent: `cave add --db market.db news-2026-08-20.cave`,
+that run's output) — and the next `--once` cycle fires the rules, sees the
+new pressure on an overweight name, and executes the action:
 
 ```
 $ cave automate --db market.db --declare automations.cave
@@ -698,21 +707,28 @@ done: +4 claim(s)
 
 $ cave automate --db market.db --once
 automation/review-bad-news: fired 1 solution(s) ; overweight name under pressure -> ask for a review
-  ?n = news/2026-08-20/licence-suspension  ?company = chipco
+  ?news = news/2026-08-20/licence-suspension  ?company = chipco
     action/flag-review: ok (+1 appended, 0 updated, 0 unchanged)
 settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracted
 ```
 
-The result explains itself all the way down — the review request, the stance
-it depends on, the action that recorded the stance:
+The result explains itself all the way down — the review request, the
+pressure and the stance it depends on, the rule and the sentence behind the
+pressure, the action that recorded the stance:
 
 ```
-$ cave export --db market.db | grep -A5 '^chipco NEEDS review'
+$ cave export --db market.db | grep -A12 '^chipco NEEDS review'
 chipco NEEDS review @src:action/flag-review
-  BECAUSE chipco HAS stance: overweight @src:action/set-stance
-    BECAUSE chipco IS company @src:cli ; designs AI accelerators
-    VIA action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` @src:cave-act ; record a portfolio stance on a company
-  VIA action/flag-review HAS action: `?company, ?company HAS stance: overweight => ?company NEEDS review` @src:cave-act ; an overweight name got bad news
+  BECAUSE
+    news/2026-08-20/licence-suspension PRESSURES chipco @src:rule/01455622519d #direction:down @ 59.5%
+      BECAUSE
+        news/2026-08-20/licence-suspension AFFECTS theme/export-controls @src:news/2026-08-20-licence-suspension.md#L3-L6 #direction:up @ 85% ; existing licences suspended with immediate effect, in-transit shipments exempt, no review timeline
+        theme/export-controls DRIVES chipco @src:cli #sign:-1 @ 70%
+      VIA rule/01455622519d HAS rule: `?n AFFECTS ?t #direction:up, ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:down` @src:cave-derive
+    chipco HAS stance: overweight @src:action/set-stance
+      BECAUSE chipco IS company @src:cli ; designs AI accelerators
+      VIA action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` @src:cave-act ; record a portfolio stance on a company
+  VIA action/flag-review HAS action: `?company, ?news, ?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => ?company NEEDS review` @src:cave-act ; an overweight name got bad news — both must be current belief
 ```
 
 Without `--once`, `cave automate` keeps watching the store; steps can also be

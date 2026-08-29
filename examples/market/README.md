@@ -13,8 +13,8 @@ and no `market.db` yet.
 | 14 | `news.cave` | what one real run recorded for the first two articles — `cave add` it instead of running an agent |
 | 15 | `rules.cave` | four sign rules deriving `PRESSURES #direction:…`, noisy-AND confidence, lineage |
 | 16 | — | valid time: a `300B -> 450B USD/yr @2025..2026` trajectory read with `--at` |
-| 17 | `actions.cave` | `cave act`: parameterized, precondition-checked writes |
-| 18 | `automations.cave`, `news-2026-08-20.cave` | `cave automate --once`: armed on declaration, fires on the third article, runs the action |
+| 17 | `actions.cave` | `cave act`: parameterized, precondition-checked writes — `flag-review` needs the bad news as evidence |
+| 18 | `automations.cave`, `news-2026-08-20.cave` | `cave automate --once`: armed on declaration, fires on the third article, runs the action with the news bound from the trigger |
 | 19 | `brief.md` | `cave report --at 2026-08`: the cited morning brief |
 
 The two `news*.cave` files are the checked-in output of the ingest runs shown
