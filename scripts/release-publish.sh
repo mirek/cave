@@ -54,8 +54,18 @@ npm_view() {
   local selector="$1"
   local field="$2"
   local retry_missing="${3:-false}"
-  local attempts="${CAVE_NPM_VIEW_ATTEMPTS:-4}"
-  local delay="${CAVE_NPM_VIEW_RETRY_DELAY_SECONDS:-2}"
+  local attempts delay
+  if [ "$retry_missing" = "true" ]; then
+    # A just-published version reaches npm's read endpoints with a replication
+    # lag that regularly exceeds the probe budget below (v0.32.3 needed more
+    # than the 14s it allowed), so the post-publish visibility wait gets
+    # minutes: 5s doubling to a 60s cap, about four minutes over 8 attempts.
+    attempts="${CAVE_NPM_VISIBILITY_ATTEMPTS:-8}"
+    delay="${CAVE_NPM_VISIBILITY_RETRY_DELAY_SECONDS:-5}"
+  else
+    attempts="${CAVE_NPM_VIEW_ATTEMPTS:-4}"
+    delay="${CAVE_NPM_VIEW_RETRY_DELAY_SECONDS:-2}"
+  fi
   local attempt output status error_file
   error_file="$(mktemp)"
 
@@ -74,7 +84,7 @@ npm_view() {
       fi
       echo "warning: ${selector} is not visible on npm yet (attempt ${attempt}/${attempts}); retrying in ${delay}s" >&2
       sleep "$delay"
-      delay=$((delay * 2))
+      delay=$(( delay * 2 > 60 ? 60 : delay * 2 ))
       continue
     fi
     if [ "$attempt" -eq "$attempts" ]; then
@@ -85,7 +95,7 @@ npm_view() {
     fi
     echo "warning: npm view ${selector} failed (attempt ${attempt}/${attempts}); retrying in ${delay}s" >&2
     sleep "$delay"
-    delay=$((delay * 2))
+    delay=$(( delay * 2 > 60 ? 60 : delay * 2 ))
   done
 }
 
