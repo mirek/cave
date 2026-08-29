@@ -19,6 +19,19 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
+      # The VS Code type surface must not exceed `engines.vscode` in
+      # editors/vscode/package.json, or `vsce package` refuses to build the
+      # extension. Raise both together when a newer editor API is needed.
+      - dependency-name: "@types/vscode"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+      # TypeScript 7 replaces the JavaScript compiler API that
+      # scripts/packed-contract.mjs uses for the packed type check; moving to
+      # it is a deliberate migration rather than a routine bump.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     groups:
       routine-compatible:
         applies-to: version-updates
