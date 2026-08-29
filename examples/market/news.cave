@@ -1,0 +1,17 @@
+; what `cave ingest news/*.md --stdout --embed --instructions instructions.md --agent 'claude -p'` recorded
+; for the first two articles (one real run, 2026-08-29) — `cave add` this file if you have no agent handy
+
+news/2026-08-12/capex-guidance
+  IS news @src:news/2026-08-12-capex-guidance.md#L1-L3
+  HAS
+    headline: "Three hyperscalers raise full-year AI capex guidance by 20%" @src:news/2026-08-12-capex-guidance.md#L1
+    date: 2026-08-12 @src:news/2026-08-12-capex-guidance.md#L3
+  AFFECTS
+    theme/ai-capex @src:news/2026-08-12-capex-guidance.md#L3-L7 #direction:up @ 90% ; three largest cloud providers lifted 2026 capex guidance ~20%; combined AI infra spend expected >450B USD
+    theme/datacenter-power @src:news/2026-08-12-capex-guidance.md#L7-L8 #direction:up @ 70% ; data-center power named a binding constraint on AI buildout
+news/2026-08-14/export-rules
+  IS news @src:news/2026-08-14-export-rules.md#L1-L3
+  HAS
+    headline: "Regulator drafts wider export licensing for advanced accelerators" @src:news/2026-08-14-export-rules.md#L1
+    date: 2026-08-14 @src:news/2026-08-14-export-rules.md#L3
+  AFFECTS theme/export-controls @src:news/2026-08-14-export-rules.md#L3-L7 #direction:up @ 60% ; draft rule only, 30-day consultation open, final shape uncertain

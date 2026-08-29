@@ -1,0 +1,14 @@
+; zoom in: the files inside the packages, and what imports what
+IMPORTS IS verb ; file X imports file Y
+IMPORTS REVERSE IMPORTED-BY
+
+web CONTAINS web/src/app.ts
+  CONTAINS web/src/checkout.ts
+ui CONTAINS ui/src/button.ts
+  CONTAINS ui/src/modal.ts
+core CONTAINS core/src/money.ts
+
+web/src/app.ts IMPORTS ui/src/modal.ts
+web/src/checkout.ts IMPORTS ui/src/button.ts
+  IMPORTS core/src/money.ts
+ui/src/button.ts IMPORTS core/src/money.ts

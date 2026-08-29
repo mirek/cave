@@ -1,0 +1,8 @@
+; what the same `cave ingest` run recorded once the third article arrived
+
+news/2026-08-20/licence-suspension
+  IS news @src:news/2026-08-20-licence-suspension.md#L1
+  HAS
+    headline: "Export licences for top-tier accelerators suspended pending review" @src:news/2026-08-20-licence-suspension.md#L1
+    date: 2026-08-20 @src:news/2026-08-20-licence-suspension.md#L3
+  AFFECTS theme/export-controls @src:news/2026-08-20-licence-suspension.md#L3-L6 #direction:up @ 85% ; existing licences suspended with immediate effect, in-transit shipments exempt, no review timeline

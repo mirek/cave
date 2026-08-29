@@ -1,0 +1,3 @@
+; what a well-described package looks like
+library EXPECTS owner
+app EXPECTS owner

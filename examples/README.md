@@ -1,18 +1,33 @@
 # Examples
 
-Each directory pairs a natural-language document with its hand extraction
-into CAVE, so every command below is copy-paste runnable from the repository
-root (after `pnpm install`). All outputs shown here and in the main README
-walkthrough were captured from actual runs.
+Each directory is a set of runnable fixtures with the commands that use them.
+All outputs shown here and in the [root README](../README.md) tutorials were
+captured from actual runs; `pnpm install` at the repository root puts `cave`
+on the path.
 
-## [`family-history/`](family-history)
+## [`monorepo/`](monorepo) — Tutorial I
 
-The main [README](../README.md#quick-start) walkthrough: notes from a
-birthday conversation become a queryable belief graph — transitive
-ancestor derivation, competing claims about a disputed birth year,
-append-only belief updates, rule-derived grandparenthood with lineage
-(`rules.cave`, spec §24), and LLM-driven ingestion of the raw prose
-(`instructions.md` steers the agent's domain modeling).
+The root README's first tutorial: a package graph built one idea per step —
+claims, inverse and transitive queries, attributes and tags, your own verbs,
+`cave connect` over a CSV, sources and confidence, a rule with lineage,
+`EXPECTS` shapes, and a cited report.
+
+## [`market/`](market) — Tutorial II
+
+The second tutorial: fictional companies and the themes that move them, news
+articles read by an LLM through `cave ingest`, sign-aware rules that derive
+per-company pressure, valid-time trajectories, governed actions, an
+automation that fires when bad news reaches an overweight name, and the
+morning brief.
+
+## [`family-history/`](family-history) — the full tour
+
+A natural-language document paired with its hand extraction
+into CAVE, then pushed through every surface the engine has: transitive ancestor derivation, competing claims about a
+disputed birth year, resolution, sensitivity and backups, valid time, MCP and
+Copilot, LLM ingestion, rules, actions, connect, evals, alias discovery,
+reconstruction, sync, automations, `cave serve`, cited reports, and the
+optional solver — [`family-history/README.md`](family-history/README.md).
 
 ## [`eval/`](eval)
 
@@ -33,8 +48,8 @@ examples/eval --stdout --agent 'cat family-history.golden.cave'` — the
 
 ## [`loop-eval/`](loop-eval)
 
-The incident knowledge as a *reconstruction* fixture (spec §18,
-spec §18): `postmortem.loop.cave` seeds the loop at the symptom
+The incident knowledge as a *reconstruction* fixture (spec §18):
+`postmortem.loop.cave` seeds the loop at the symptom
 (`loop SEEDS checkout/errors`, plus a query and a step budget),
 `postmortem.golden.cave` is what a good reconstruction collects — the
 causal chain and the fix, not the unrelated billing thread — and the

@@ -1,0 +1,3 @@
+; governed writes: the only ways a decision gets recorded
+action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` ; record a portfolio stance on a company
+action/flag-review HAS action: `?company, ?news, ?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => ?company NEEDS review` ; an overweight name got bad news — both must be current belief
