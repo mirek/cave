@@ -3200,7 +3200,7 @@ TS_PUBLIC const TSLanguage *tree_sitter_cave(void) {
     .metadata = {
       .major_version = 0,
       .minor_version = 32,
-      .patch_version = 2,
+      .patch_version = 3,
     },
   };
   return &language;
