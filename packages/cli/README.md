@@ -3,11 +3,11 @@
 The `cave` command — the whole stack behind one binary. Runs directly from
 TypeScript sources in the workspace; npm releases contain emitted JavaScript.
 
-The supported Node.js lines are 22 and 24: 22.18.0 is the exact minimum, and
-24.18.0 Active LTS is recommended. Linux, macOS, and Windows are supported; CI
-represents them with Ubuntu 24.04, macOS 15, and Windows Server 2022 and
-exercises the CLI's native, filesystem, process, and built-package paths on
-each.
+The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
+24.18.0 Active LTS is recommended, and 26.4.0 Current is also tested. Linux,
+macOS, and Windows are supported; CI represents them with Ubuntu 24.04, macOS
+15, and Windows Server 2022 and exercises the CLI's native, filesystem,
+process, and built-package paths on each.
 
 ```
 $ echo 'auth USES jwt @ 90%' | pnpm exec cave parse

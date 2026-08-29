@@ -9690,7 +9690,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/src/cli.d.ts` — `4dbb0421197949b2eb65becb3ca084a37fc80f1d79f7a51429bcc6322965fff9`
 - `@cavelang/cli/dist/src/commands.d.ts` — `21d1b50e2c8a37779074685739d2673345832e9d1edaca5fd62329154fc06e84`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
-- `@cavelang/cli/dist/src/doctor.d.ts` — `ce120fe52c47080a7e708a071cdcf3e327cb9237905cc15961a057fc332813de`
+- `@cavelang/cli/dist/src/doctor.d.ts` — `ee5d939ff3bd8b93c9f63488a19d6def879df9dc4df764e9722db5bf6ba9aedf`
 - `@cavelang/cli/dist/src/index.d.ts` — `8deb77b9e5c04554a1fc6b3b4794b0b62220397cd1f9ff019cc4f1efa438688c`
 - `@cavelang/core/dist/src/claim.d.ts` — `aaf35bf598486be9edfeef5ff4ef4f4b6196d18789e80df8d859e332f8308db1`
 - `@cavelang/core/dist/src/confidence.d.ts` — `d67ec940afbe75fc4028dc825e4d720f8f3ec38eb1d9d5a28f842c555f213694`

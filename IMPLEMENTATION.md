@@ -52,12 +52,13 @@ packages the same grammar WASM and highlight query as a VSCode extension
 
 ## Toolchain
 
-- **Runtime support is explicit.** The supported Node.js lines are 22 and 24:
-  22.18.0 is the exact minimum and 24.18.0 Active LTS is recommended. Ubuntu
-  24.04, macOS 15, and Windows Server 2022 are the CI representatives for the
-  supported Linux, macOS, and Windows families. The full suite stays on the
-  recommended Linux runtime; a focused matrix covers the minimum plus
-  platform-specific process, filesystem, native grammar, SQLite, and
+- **Runtime support is explicit.** The supported Node.js lines are 22, 24, and
+  26: 22.18.0 is the exact minimum, 24.18.0 Active LTS is recommended, and
+  26.4.0 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
+  are the CI representatives for the supported Linux, macOS, and Windows
+  families. The full suite stays on the recommended Linux runtime; a focused
+  matrix covers the minimum, Node 26, and platform-specific process,
+  filesystem, native grammar, SQLite, and
   consolidated-package behavior.
 - **Tool versions and generated output are deterministic.** `make bootstrap`
   reads the exact pnpm version from the root `packageManager` field, preferring

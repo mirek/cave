@@ -86,9 +86,10 @@ jobs:
       - name: Verify the default website excludes optional solver assets
         run: node scripts/verify-website-bundle.mjs
 
-  # Exercise the exact minimum runtime and every supported OS without
-  # multiplying the complete source and website suite. These tests own the
-  # platform-sensitive native, path, process-tree, and package-layout paths.
+  # Exercise the exact minimum runtime, the supported Current line, and every
+  # supported OS without multiplying the complete source and website suite.
+  # These tests own the platform-sensitive native, path, process-tree, and
+  # package-layout paths.
   runtime:
     name: Runtime (${{ matrix.name }})
     strategy:
@@ -104,6 +105,9 @@ jobs:
           - name: node-24.18.0 / windows-2022
             os: windows-2022
             node: 24.18.0
+          - name: node-26.4.0 / ubuntu-24.04
+            os: ubuntu-24.04
+            node: 26.4.0
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:

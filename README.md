@@ -38,11 +38,12 @@ returns to. To update later:
 pnpm up --latest -g @cavelang/cli
 ```
 
-The supported Node.js lines are 22 (22.18.0 or newer) and 24; Node.js 24 Active
-LTS is recommended and tested at 24.18.0. The supported CI platforms are Ubuntu
-24.04, macOS 15, and Windows Server 2022. CAVE stores knowledge in a local
-SQLite database; `--db` is optional everywhere and defaults to `$CAVE_DB`, or
-`cave.db` in the current directory.
+The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
+24.18.0 Active LTS is the recommended production runtime, and 26.4.0 Current is
+also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
+Server 2022. CAVE stores knowledge in a local SQLite database; `--db` is
+optional everywhere and defaults to `$CAVE_DB`, or `cave.db` in the current
+directory.
 
 ## Tutorial I — a monorepo, one claim at a time
 

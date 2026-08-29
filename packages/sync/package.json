@@ -12,7 +12,7 @@
     "directory": "packages/sync"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0"
+    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
   },
   "exports": {
     ".": "./src/index.ts"

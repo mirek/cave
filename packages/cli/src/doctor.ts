@@ -53,6 +53,7 @@ export type DoctorOutput = {
 }
 
 const requiredNode = '22.18.0'
+const supportedNodeRange = '^22.18.0 || ^24.0.0 || ^26.0.0'
 
 const versionParts = (value: string): readonly [number, number, number] | undefined => {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(value)
@@ -74,6 +75,12 @@ const atLeast = (actual: string, required: string): boolean => {
   return true
 }
 
+export const isSupportedNodeVersion = (value: string): boolean => {
+  const major = versionParts(value)?.[0]
+  if (major === 22) return atLeast(value, requiredNode)
+  return major === 24 || major === 26
+}
+
 const check = (
   id: string,
   status: DoctorStatus,
@@ -82,10 +89,10 @@ const check = (
 ): DoctorCheck => ({ id, status, summary, ...remediation === undefined ? {} : { remediation } })
 
 const nodeCheck = (): DoctorCheck =>
-  atLeast(process.versions.node, requiredNode) ?
-    check('runtime.node', 'pass', `Node ${process.versions.node} satisfies >=${requiredNode}`) :
+  isSupportedNodeVersion(process.versions.node) ?
+    check('runtime.node', 'pass', `Node ${process.versions.node} satisfies ${supportedNodeRange}`) :
     check('runtime.node', 'fail', `Node ${process.versions.node} is unsupported`,
-      `Install Node ${requiredNode} or newer and rerun cave doctor.`)
+      `Install Node ${requiredNode}+, Node 24, or Node 26 and rerun cave doctor.`)
 
 const sqliteCheck = (): DoctorCheck => {
   let db: SqliteDatabase | undefined
