@@ -1,5 +1,25 @@
 # @cavelang/cli
 
+## 0.32.3
+
+### Patch Changes
+
+- 2a92792: Move `@modelcontextprotocol/server` from 2.0.0-beta.5 to the stable 2.0.0 release and bump `typst-community/setup-typst` to 5.3.
+
+  CI's changeset job and `scripts/release-validate.mjs` now reject a changeset that names only packages outside the fixed release group (for example a private workspace such as `@cavelang/mcp`), since such a changeset would version that package without advancing the release; the changeset instructions say so explicitly.
+
+- 4a7cf30: `cave doctor` no longer certifies nightly or release-candidate Node builds (for example `26.0.0-nightly…` or `24.0.0-rc.1`) as supported: only stable releases on the 22.18+, 24, and 26 lines pass the runtime check.
+- Updated dependencies [658d9fb]
+- Updated dependencies [7c1950a]
+- Updated dependencies [9c28743]
+  - @cavelang/parser@0.32.3
+  - @cavelang/core@0.32.3
+  - @cavelang/canonical@0.32.3
+  - @cavelang/query@0.32.3
+  - @cavelang/fusion@0.32.3
+  - @cavelang/store@0.32.3
+  - @cavelang/highlight@0.32.3
+
 ## 0.32.2
 
 ### Patch Changes

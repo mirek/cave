@@ -1,5 +1,17 @@
 # @cavelang/scenario
 
+## 0.32.3
+
+### Patch Changes
+
+- Updated dependencies [7c1950a]
+- Updated dependencies [9c28743]
+  - @cavelang/core@0.32.3
+  - @cavelang/canonical@0.32.3
+  - @cavelang/query@0.32.3
+  - @cavelang/store@0.32.3
+  - @cavelang/solver@0.32.3
+
 ## 0.32.2
 
 ### Patch Changes

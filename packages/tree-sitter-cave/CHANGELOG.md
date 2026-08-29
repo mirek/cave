@@ -1,5 +1,7 @@
 # @cavelang/tree-sitter-cave
 
+## 0.32.3
+
 ## 0.32.2
 
 ## 0.32.1

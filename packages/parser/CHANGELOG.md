@@ -1,5 +1,14 @@
 # @cavelang/parser
 
+## 0.32.3
+
+### Patch Changes
+
+- 658d9fb: Bump `@prelude/parser` to 8.0.1, `web-tree-sitter` to 0.26.13, `esbuild` to 0.28.2, website `sql.js`, `@playwright/test`, and `@vitejs/plugin-react`, and `typst-community/setup-typst` to 5.2.0; defer the coupled Changesets v3 / changesets/action v2 majors to a recorded migration TODO and stop dependabot from re-proposing them.
+- Updated dependencies [7c1950a]
+- Updated dependencies [9c28743]
+  - @cavelang/core@0.32.3
+
 ## 0.32.2
 
 ### Patch Changes
