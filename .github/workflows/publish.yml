@@ -94,7 +94,7 @@ jobs:
       # builds and tests before anything ships. If branch protection ever
       # requires checks on that PR, give this step a PAT or GitHub App
       # token instead.
-      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
+      - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v1
         with:
           version: pnpm run version-packages
           publish: pnpm run release:publish
