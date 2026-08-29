@@ -53,6 +53,6 @@
   },
   "dependencies": {
     "@cavelang/core": "workspace:*",
-    "@prelude/parser": "^7.1.0"
+    "@prelude/parser": "^8.0.1"
   }
 }
