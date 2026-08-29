@@ -166,6 +166,28 @@ test('version-PR preflight preserves a recovery path for a new package with vers
     }
   })
 
+  await t.test('rejects changesets that name only packages outside the fixed group', () => {
+    const { root, cleanup } = fixture()
+    try {
+      mkdirSync(join(root, 'packages/internal'), { recursive: true })
+      writeFileSync(join(root, 'packages/internal/package.json'), `${JSON.stringify({
+        name: '@fixture/internal',
+        version: '1.2.3',
+        private: true
+      }, null, 2)}\n`)
+      writeChangeset(root, 'internal-only', "---\n'@fixture/internal': patch\n---\n\nInternal-only change.\n")
+      git(root, 'add', '.')
+      git(root, 'commit', '-m', 'add private-only changeset')
+      git(root, 'push', 'origin', 'main')
+
+      const result = validate(root, 'version-pr')
+      assert.equal(result.status, 1)
+      assert.match(result.stderr, /names only packages outside the fixed release group \(@fixture\/internal\)/)
+    } finally {
+      cleanup()
+    }
+  })
+
   await t.test('accepts documentation-only changesets with empty frontmatter', () => {
     const { root, cleanup } = fixture()
     try {

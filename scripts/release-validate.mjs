@@ -123,9 +123,17 @@ try {
     fail('.changeset/config.json has incompatible release settings')
   }
 
+  // A changeset that names only packages outside the fixed group (private
+  // workspaces such as the MCP server) would version those packages without
+  // advancing the release identity, leaving a version PR that cannot publish.
+  const fixedGroup = new Set(config.fixed[0])
   for (const path of pending) {
-    for (const release of parseChangeset(path)) {
+    const releases = parseChangeset(path)
+    for (const release of releases) {
       if (!packageByName.has(release.name)) fail(`${path} names unknown package ${release.name}`)
+    }
+    if (releases.length > 0 && !releases.some(release => fixedGroup.has(release.name))) {
+      fail(`${path} names only packages outside the fixed release group (${releases.map(release => release.name).join(', ')}); name a fixed-group package so the release version advances`)
     }
   }
 

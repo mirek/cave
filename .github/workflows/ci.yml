@@ -44,6 +44,18 @@ jobs:
           fi
           echo "changesets added:"
           echo "$added"
+          # A changeset that names only packages outside the fixed release
+          # group (private workspaces such as @cavelang/mcp) would not advance
+          # the release; scripts/release-validate.mjs enforces the same rule.
+          fixed="$(node -e "console.log(JSON.parse(require('fs').readFileSync('.changeset/config.json', 'utf8')).fixed[0].join('\n'))")"
+          for file in $added; do
+            names="$(awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { exit } inside' "$file" \
+              | sed -nE "s/^[\"']([^\"']+)[\"']: *(major|minor|patch)\$/\1/p")"
+            if [ -n "$names" ] && ! printf '%s\n' "$names" | grep -qxF -f <(printf '%s\n' "$fixed"); then
+              echo "::error::$file names only packages outside the fixed release group; name a public @cavelang package (see CLAUDE.md)."
+              exit 1
+            fi
+          done
 
   suite:
     runs-on: ubuntu-24.04

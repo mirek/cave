@@ -11,9 +11,11 @@ uniquely named files never conflict between concurrent PRs. Format:
 One-line summary of the change.
 ```
 
-Name any one package you touched (for spec/docs-wide changes use
-`@cavelang/core`); all `@cavelang/*` packages are a changesets `fixed`
-group, so every release bumps them together in lockstep.
+Name one public `@cavelang/*` package from the `fixed` group — one you
+touched, or `@cavelang/core` for spec/docs-wide changes; every release bumps
+the whole group together in lockstep. Private workspaces such as
+`@cavelang/mcp` sit outside the group, so a changeset naming only them would
+not advance the release; CI and `scripts/release-validate.mjs` reject it.
 
 - `patch` — fixes, docs, instruction/skill wording that doesn't change
   semantics
