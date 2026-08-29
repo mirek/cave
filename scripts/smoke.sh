@@ -81,7 +81,7 @@ const report = require('$tmp/solver.json')
 if (report.schema !== 'cave.solver/workflow@1') throw new Error('unexpected solver workflow schema')
 if (report.explanation?.outcome?.status !== 'satisfied') throw new Error('packed Z3 workflow did not solve')
 const backend = report.explanation?.run?.backend
-if (backend?.name !== 'z3-wasm' || !/^Z3 4\\.16\\./.test(backend.version)) {
+if (backend?.name !== 'z3-wasm' || !/^Z3 5\\.1\\./.test(backend.version)) {
   throw new Error('packed workflow omitted the pinned Z3 backend version')
 }
 "

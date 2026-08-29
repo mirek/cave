@@ -17,7 +17,7 @@ const real = (value: Model.Rational): Model.Expression => ({ kind: 'literal', so
 test('initializes one lazy process runtime', async () => {
   const runtime = await runtimePromise
   assert.strictEqual(await create(), runtime)
-  assert.match(runtime.backend.version, /4\.16\.0/)
+  assert.match(runtime.backend.version, /5\.1\.0/)
   assert.ok(runtime.initializationMs > 0)
 })
 
