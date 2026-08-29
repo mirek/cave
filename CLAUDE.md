@@ -44,8 +44,11 @@ conflict between concurrent PRs):
 One-line summary of the change.
 ```
 
-Name any one package you touched (for spec/docs-wide changes use
-`@cavelang/core`); the fixed group bumps every package together.
+Name one public `@cavelang/*` package from the fixed group — one you touched,
+or `@cavelang/core` for spec/docs-wide changes; the fixed group bumps every
+package together. Private workspaces such as `@cavelang/mcp` and
+`@cavelang/website` sit outside the group, so a changeset naming only them
+would not advance the release; CI and `scripts/release-validate.mjs` reject it.
 
 - patch (0.x.Y) — fixes, docs, instruction/skill wording that doesn't
   change semantics

@@ -28,7 +28,7 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install Typst 0.15.0
-        uses: typst-community/setup-typst@40d32bb6ccb235bd7f5164cb47cfd40a5ea3a314 # v5
+        uses: typst-community/setup-typst@9107b8dd77d7a7fd6c5faebbb507cac28069042e # v5
         with:
           typst-version: 0.15.0
 
