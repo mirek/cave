@@ -41,6 +41,9 @@ test('doctor accepts exactly the supported Node release lines', () => {
   for (const version of ['22.17.9', '23.0.0', '25.9.0', '27.0.0', 'invalid']) {
     assert.equal(isSupportedNodeVersion(version), false, `${version} should be unsupported`)
   }
+  for (const version of ['26.0.0-nightly20260829abcdef01', '24.0.0-rc.1', '22.18.0-pre', 'v24.18.0', '24.18']) {
+    assert.equal(isSupportedNodeVersion(version), false, `${version} is not a stable supported release`)
+  }
 })
 
 test('every workflow job has an explicit timeout and Node workflows use the recommended LTS', () => {
