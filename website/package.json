@@ -22,7 +22,7 @@
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "sql.js": "^1.14.1",
+    "sql.js": "^1.14.2",
     "web-tree-sitter": "^0.26.11"
   },
   "devDependencies": {
