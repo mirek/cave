@@ -1,0 +1,8 @@
+; news moves a theme; a theme moves a company; so news moves the company — with the sign applied
+PRESSURES IS verb ; news X pushes company Y up or down, through a theme
+PRESSURES REVERSE PRESSURED-BY
+
+?n AFFECTS ?t #direction:up,   ?t DRIVES ?c #sign:+1 => ?n PRESSURES ?c #direction:up
+?n AFFECTS ?t #direction:up,   ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:down
+?n AFFECTS ?t #direction:down, ?t DRIVES ?c #sign:+1 => ?n PRESSURES ?c #direction:down
+?n AFFECTS ?t #direction:down, ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:up

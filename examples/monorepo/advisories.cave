@@ -1,0 +1,7 @@
+; a security advisory against a package reaches everything that uses it, directly or not
+AFFECTS IS verb ; advisory X affects package Y
+AFFECTS REVERSE AFFECTED-BY
+EXPOSED-TO IS verb ; package X is exposed to advisory Y through its dependencies
+EXPOSED-TO REVERSE EXPOSES
+
+?adv AFFECTS ?dep, ?pkg USES+ ?dep => ?pkg EXPOSED-TO ?adv ; exposure travels up the dependency chain

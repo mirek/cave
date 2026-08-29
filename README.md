@@ -1,25 +1,27 @@
 # CAVE — Compressed Atomic Verb Expressions
 
-A small, line-oriented language for persisting knowledge as composable, atomic claims. Easy for humans and LLMs to write, easy to diff, stored in SQLite, formal enough to query as an information graph.
-
-The core idea:
-
-```cave
-subject VERB object
-```
-
-Everything else is optional metadata on that claim:
+CAVE is a small plain-text language for writing down what you know, one
+claim per line, plus a command-line tool that stores those claims in SQLite
+and lets you ask questions across them.
 
 ```cave
-auth/middleware HAS bug: token-expiry #security
-`<=` FIX token-expiry @auth.ts:42
-server IS NOT compromised @ 90%
-OpenAI HAS revenue: ~20B USD/yr +/- 2B USD/yr @2026-Q1 @ 90%
-server CAUSE crash @ 80%
-  WHEN load > ~1000 req/s
+web USES ui
+core HAS version: 1.4.0
+core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
 ```
 
-Properties: **atomic** (one claim per line), **append-only** (belief evolves by appending, never mutating — history is preserved), **queryable** (CAVE-Q patterns or plain SQL), and **inverse-aware** (`CONTAINS REVERSE PART-OF` makes one stored fact readable from both ends).
+A claim is `subject VERB object`. Everything after that — a source, a
+confidence, a comment — is optional. Claims are only ever appended, never
+edited, so the store remembers how a belief changed; queries can walk chains
+of claims, read relations backwards, filter by confidence, and answer as of an
+earlier date. Rules derive new claims from old ones, LLM agents and structured
+files can write claims for you, and reports cite the exact claim behind every
+sentence.
+
+This README is a tutorial. It builds one example a step at a time — first a
+monorepo, then a market watchlist — adding one idea per step, and every
+command's output is from an actual run. The reference material lives in the
+[package docs](#where-next) and the [specification](#the-specification).
 
 ## Install
 
@@ -28,7 +30,9 @@ pnpm i -g @cavelang/cli
 copilot mcp add cave -- cave mcp --db "$HOME/cave.db"
 ```
 
-To update:
+The first line installs the `cave` command; the second (optional) registers it
+as an MCP server for GitHub Copilot CLI, which [step 12](#12-look-at-it-talk-to-it)
+returns to. To update later:
 
 ```sh
 pnpm up --latest -g @cavelang/cli
@@ -36,561 +40,751 @@ pnpm up --latest -g @cavelang/cli
 
 The supported Node.js lines are 22 (22.18.0 or newer) and 24; Node.js 24 Active
 LTS is recommended and tested at 24.18.0. The supported CI platforms are Ubuntu
-24.04, macOS 15, and Windows Server 2022. The installation exposes the `cave`
-command globally. CAVE stores knowledge in a local SQLite database; `--db` is
-optional and defaults to `$CAVE_DB`, or `cave.db` in the current directory.
+24.04, macOS 15, and Windows Server 2022. CAVE stores knowledge in a local
+SQLite database; `--db` is optional everywhere and defaults to `$CAVE_DB`, or
+`cave.db` in the current directory.
 
-## Quick start
+## Tutorial I — a monorepo, one claim at a time
 
-Take a note you'd write anyway — [`examples/family-history/notes.md`](examples/family-history/notes.md):
+The files for this part are in [`examples/monorepo/`](examples/monorepo); the
+commands below assume you are inside that directory (`cd examples/monorepo`)
+and start with no database.
 
-> Talked family history with Grandma Maria today. Her father Jan was born in Kraków — she says 1932, but her cousin has always insisted it was 1931. Jan's mother Helena ran a bakery on Long Street until the war. Family lore says Helena's father — my great-great-grandfather — fought in the 1920 war; Maria is only fairly sure it's true (60%, say), nobody has papers.
->
-> Maria's daughter is my mum, Anna. Oh, and last spring's DNA test finally settled it: the "cousin Piotr" branch really is related — 88% match.
+### 1. One claim
 
-The same knowledge as CAVE — one atomic claim per line ([`examples/family-history/notes.cave`](examples/family-history/notes.cave)):
+A claim is three tokens: a subject, an UPPERCASE verb, and an object.
 
 ```cave
-; Grandma Maria's 90th birthday — family history notes, caved 2026-07-04
-
-PARENT-OF IS verb ; X is a parent of Y
-PARENT-OF REVERSE CHILD-OF
-
-helena/father PARENT-OF helena
-helena PARENT-OF jan
-jan PARENT-OF maria
-maria PARENT-OF anna
-anna PARENT-OF me
-
-jan HAS birthplace: Kraków @src:maria
-jan HAS birth-year: 1932 @src:maria @ 70%
-jan HAS birth-year: 1931 @src:cousin @ 40%
-
-helena HAS occupation: baker @loc:long-street
-helena/father IS war-1920-veteran @ 60% ; family lore, no papers
-
-piotr/branch IS related-family @src:dna-test @ 88%
+web USES ui
 ```
 
-Save that block as `notes.cave`, lint it, then load it into a SQLite store:
+Names are lowercase; `/` scopes them (`web/src/app.ts`, `team/platform`). The
+verb `USES` is one of a small standard set (`IS`, `HAS`, `USES`, `NEEDS`,
+`CONTAINS`, `CAUSE`, `FIX`, …); you will define your own in step 6.
+`cave parse` lints without storing anything:
 
 ```
-$ cave parse notes.cave
-ok: 1 comment, 6 blank, 13 claim
-
-$ cave add --db family.db notes.cave
-added 13 claim(s), 0 edge(s)
+$ echo 'web USES ui' | cave parse
+ok: 1 claim, 1 blank
 ```
 
-**Ask for something nobody wrote down.** Every stored fact is a single hop; the ancestor chain is nowhere stated. The transitive pattern derives it:
+### 2. A few claims, in a store
 
-```
-$ cave query --db family.db '?a PARENT-OF+ me'
-?a = anna
-?a = helena
-?a = helena/father
-?a = jan
-?a = maria
-```
-
-And because the file declared `PARENT-OF REVERSE CHILD-OF`, the *same stored rows* answer the opposite direction — Helena's descendants, no extra rows, one shared belief history per fact:
-
-```
-$ cave query --db family.db '?d CHILD-OF+ helena'
-?d = anna
-?d = jan
-?d = maria
-?d = me
-```
-
-**Ask what you actually believe.** The disputed birth year is two coexisting claims, each with its own source and confidence — and queries filter on it:
-
-```
-$ cave query --db family.db 'jan HAS birth-year: ?y'
-?y = 1932
-?y = 1931
-
-$ cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
-?y = 1932
-```
-
-**Update belief by appending, never editing.** The birth certificate turns up in an archive: append the new evidence and downgrade grandma's version (context is part of a claim's identity, so the downgrade names the same `@src:`). Nothing is deleted:
-
-```
-$ echo 'jan HAS birth-year: 1931 @src:birth-certificate @ 95%' | cave add --db family.db
-added 1 claim(s), 0 edge(s)
-
-$ echo 'jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one' | cave add --db family.db
-added 1 claim(s), 0 edge(s)
-
-$ cave query --db family.db 'jan HAS birth-year: ?y' 'WHERE conf >= 0.6'
-?y = 1931
-```
-
-That permanence includes mistakes and sensitive text. Retraction and
-`--current` queries change what is believed; they do not erase earlier rows,
-`raw_line`, metadata, exact exports, synced copies, or backups. CAVE deliberately
-has no claim-level redact/forget command because it cannot guarantee erasure
-across SQLite remnants, FTS, peers, snapshots, and storage devices. Do not
-ingest credentials or data requiring selective deletion. After accidental
-secret ingestion, rotate the secret, stop sync, inventory every copy, rebuild
-from reviewed safe input, verify the replacement, and explicitly destroy or
-expire all affected databases, exports, backups, and snapshots (spec §9.6).
-
-**Or let the store pick a winner.** The three sources still coexist — one fact, three voices. `cave resolve` shows the contest as the resolution policy (spec §26) ranks it — precedence class, reliability-weighted confidence, then recency — and `--resolve` on any query matches only the winners:
-
-```
-$ cave resolve --db family.db
-jan HAS birth-year: 1931 @src:birth-certificate @ 95% ; class 2, effective 95%
-  over jan HAS birth-year: 1931 @src:cousin @ 40% ; class 2, effective 40%
-  over jan HAS birth-year: 1932 @src:maria @ 5% ; grandma was off by one ; class 2, effective 5%
-
-$ cave query --db family.db 'jan HAS birth-year: ?y' --resolve
-?y = 1931
-```
-
-The policy is itself knowledge — `source/maria HAS reliability: 60%` discounts a source in-band — and a built-in precedence ladder makes a human correction (`@src:cli`) outrank a machine ingest re-run, whatever landed last.
-
-Under the compact context syntax, the store keeps actor, physical source,
-lifecycle run, and domain as separate indexed provenance dimensions. This
-lets a source citation such as `@src:inventory` coexist with engine ownership:
-connect, rules, actions, and automations retract or ignore their own output by
-the run dimension, not by trusting an authored context string. Existing CAVE
-text, claim keys, context filters, exports, and old databases remain compatible
-(spec §9.5.1).
-
-The 70% row is still there: `cave export --db family.db` replays the belief
-history allowed by its sensitivity ceiling as canonical text, and `--current`
-emits just today's allowed beliefs. Claims may be labelled
-`#sensitivity:public`, `internal`, `confidential`, or `restricted`; unlabeled
-claims and publication surfaces default to `internal`, while malformed labels
-fail closed as `restricted`. Use `--max-sensitivity restricted` for complete
-portable history or a replica. This text is the interchange format (`cave
-import` replays it with fresh transaction ids), but neither `--current` nor sensitivity
-filtering erases permanent history (§9.6–§9.7).
-
-For an exact point-in-time backup, use `cave backup --db family.db --out
-family.snapshot.db`. It snapshots the live SQLite store safely under WAL,
-verifies integrity/schema/foreign keys, records SHA-256, and publishes
-atomically. `cave restore family.snapshot.db --db restored.db --sha256 <hex>`
-preserves row identities, transaction order, provenance, lineage, and full
-history (spec §13.2.2).
-
-**Time is an axis of the world, not just of the store.** Transaction time — when the store learned something — is reconstructable with `--as-of`. Claims can also say *when in the world* they hold (spec §32): a date-like context scopes a claim to a period or range, and a trajectory value (`A -> B`) interpolates linearly across its range:
-
-```
-$ printf '%s\n' 'jan WORKS-AT textile-mill @1950..1974' \
-    'jan WORKS-AT railways @1975..' \
-    'mill/wage IS 200 -> 900 PLN/mo @1950..1974' | cave add --db family.db
-added 3 claim(s), 0 edge(s)
-
-$ cave query --db family.db 'jan WORKS-AT ?where' --at 1960
-?where = textile-mill
-
-$ cave query --db family.db 'mill/wage IS' --at 1962
-mill/wage IS 200 -> 900 PLN/mo @1950..1974 ; at 1962: 550 PLN/mo
-```
-
-Timeless claims (most knowledge) always match; time-scoped claims filter by coverage; trajectories evaluate at the instant. And because `--at` (valid time) composes with `--as-of` (belief time), "what did we believe last year about 1962?" is one query — bitemporal questions fall out of two orthogonal flags. See spec §32.
-
-### Use CAVE with GitHub Copilot CLI
-
-CAVE runs as a local [MCP server for GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers), giving Copilot tools to record, search, and query your knowledge. The two commands in [Install](#install) register one user-level database at `~/cave.db`.
-
-The server supplies a compact writing card during MCP initialization and a
-`cave_help` tool with version-matched usage guidance. Ask Copilot naturally;
-it can call the help topic before choosing how to read or write:
-
-Start Copilot and allow calls to the `cave` MCP server without approving each one:
-
-```sh
-$ copilot --allow-tool=cave
-```
-
-Then ask naturally, while being explicit when CAVE should be the memory or source of truth:
-
-```text
-Use CAVE to record that api/gateway USES redis-cache with 90% confidence,
-based on the architecture review.
-
-Ask CAVE what depends on redis-cache, directly or transitively, and show the
-supporting claims.
-
-Search CAVE for what we know about checkout errors. Summarize disagreements
-between sources without discarding either claim.
-```
-
-An optional portable [CAVE Agent Skill](skills/cave/SKILL.md) adds workflow
-guidance before the MCP server is connected and works across Copilot, Codex,
-Claude Code, and other Agent Skills hosts. Preview it, then install it at user
-scope:
-
-```sh
-gh skill preview mirek/cave cave
-gh skill install mirek/cave cave --agent github-copilot --scope user
-```
-
-The skill is supplementary: the MCP server remains self-describing, so the
-two install commands above are sufficient. Installed skills update with
-`gh skill update cave`.
-
-For a one-off prompt, use Copilot's programmatic mode with the same scoped
-permission:
-
-```sh
-$ copilot -p "Ask CAVE what we know about api/gateway" --allow-tool=cave
-```
-
-Omit `--allow-tool=cave` to approve MCP calls individually. Add `--read-only`
-to the registered `cave mcp` command when Copilot should only inspect the
-store.
-
-CAVE can also drive Copilot CLI as the extractor for a set of documents. It
-creates a temporary MCP configuration for the correct staged database, sends
-Copilot the extraction prompt, validates the result, and commits atomically:
-
-```sh
-$ cave ingest 'docs/**/*.md' --db knowledge.db \
-    --agent 'copilot -p "$(cat {prompt-file})" --additional-mcp-config="$(cat {mcp-config})" --allow-tool=cave'
-```
-
-`{prompt-file}` and `{mcp-config}` are CAVE placeholders; leave them exactly as
-shown. Content already ingested is skipped by digest on later runs.
-
-### Let an LLM write the claims — `cave ingest`
-
-The extraction above was done by hand to show the language. `cave ingest` automates it: point it at files (globs supported) or web pages (URLs are fetched and readability-extracted) plus any headless agent — Claude Code, Copilot CLI, or your own SDK script — and the agent reads them and records claims through the engine's MCP tools:
-
-```
-$ cave ingest --db lore.db examples/family-history/notes.md \
-    --instructions examples/family-history/instructions.md \
-    --agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"'
-ingest (strict): 1 source(s) matched, 0 skipped (unchanged), 1 batch(es), applied
-batch 1/1 (1 file(s)): +14 claim(s)
-  agent: done: 14 claims added
-source accepted: examples/family-history/notes.md — batch 1; done: 14 claims added
-done: +14 claim(s)
-```
-
-The `--instructions` markdown steers domain modeling (here: "model parenthood as `PARENT-OF` relations"), and already-ingested files are skipped by content digest, so re-runs are incremental. Ingestion is atomic by default: all batches use an isolated stage and nothing reaches the requested database if a fetch, agent, or extraction fails. `--lenient` explicitly keeps valid partial progress, continues later paid-agent calls, exits 1 on any rejection, and reports every source (`--json` for the machine-readable manifest); rejected sources keep no digest and retry next time. Embedded source text is line-numbered for the extractor: claims can point back to the exact sentence with `@src:notes.md#L10-L12` (reserved characters in the source are percent-escaped, spec §9.8). The machine-built database answers the same transitive query:
-
-Agent and hook strings are intentional shell templates: CAVE uses `/bin/sh`
-on POSIX and PowerShell 7 (`pwsh`) on Windows, quotes placeholder values for that
-shell, bounds both output streams, and terminates the whole process tree on a
-timeout or cancellation. Programmatic direct commands use executable/argument
-arrays without shell interpolation.
-
-```
-$ cave query --db lore.db '?a PARENT-OF+ me'
-?a = anna
-?a = helena
-?a = helena/father
-?a = jan
-?a = maria
-```
-
-(LLM output naturally varies run to run; the report above is one actual run. See [`@cavelang/ingest`](packages/ingest) for URL ingestion, batching, hybrid knowledge context, `--stdout` mode, and SDK drivers.)
-
-### Rules derive what nobody wrote — `cave derive`
-
-The transitive query above *asks* for the ancestor chain; a rule can
-*conclude* new claims and record them, with lineage. Rules are one-line
-`premises => conclusion` implications (spec §24) whose premises are
-ordinary CAVE-Q patterns — [`examples/family-history/rules.cave`](examples/family-history/rules.cave):
+Five packages and what they use — [`packages.cave`](examples/monorepo/packages.cave):
 
 ```cave
-GRANDPARENT-OF IS verb ; X is a grandparent of Y
-GRANDPARENT-OF REVERSE GRANDCHILD-OF
-
-?a PARENT-OF ?b, ?b PARENT-OF ?c => ?a GRANDPARENT-OF ?c ; two parent hops
+; a small monorepo: which package uses which
+web USES ui
+web USES api-client
+ui USES core
+api-client USES core
+docs USES ui
 ```
 
-```
-$ cave derive --db family.db examples/family-history/rules.cave
-declared 1 rule(s), +2 prelude claim(s)
-rule/ecf351a4f3e7: 4 solution(s), +4 appended, 0 updated, 0 retracted, 0 unchanged ; two parent hops
-derived: +4 appended, 0 updated, 0 retracted, 0 unchanged (2 pass(es))
+`;` starts a comment. `cave add` stores the file; `cave query` asks a
+question, where `?p` is a variable that binds to whatever fits:
 
-$ cave query --db family.db 'me GRANDCHILD-OF ?g'
-?g = maria
+```
+$ cave add --db repo.db packages.cave
+added 5 claim(s), 0 edge(s)
+
+$ cave query --db repo.db 'web USES ?p'
+?p = ui
+?p = api-client
+
+$ cave query --db repo.db '?p USES core'
+?p = ui
+?p = api-client
 ```
 
-Every derived claim records *why it is believed* — `BECAUSE` edges to the
-exact premise rows and a `VIA` edge to the rule, visible in the export:
+### 3. Read it backwards
+
+The standard relation verbs come with inverses (`USES` ↔ `USED-BY`,
+`CONTAINS` ↔ `PART-OF`, `CAUSE` ↔ `CAUSED-BY`, …). The inverse is not a
+second copy of the fact: it reads the *same stored rows* from the other end.
+
+```
+$ cave query --db repo.db 'ui USED-BY ?p'
+?p = web
+?p = docs
+```
+
+### 4. Follow the chain
+
+Nobody wrote `web USES core`, but `web` uses `ui` which uses `core`. `VERB+`
+follows a relation for as many hops as it takes — so "what breaks if `core`
+changes?" is one query:
+
+```
+$ cave query --db repo.db '?p USES+ core'
+?p = api-client
+?p = docs
+?p = ui
+?p = web
+
+$ cave query --db repo.db 'docs USES+ ?p'
+?p = core
+?p = ui
+```
+
+### 5. Attributes, types, tags
+
+`IS` gives a thing a type; `HAS name: value` gives it an attribute; `#tag`
+labels a claim. An incomplete line followed by indented lines is shorthand
+for repeating the prefix — [`details.cave`](examples/monorepo/details.cave):
 
 ```cave
-jan GRANDPARENT-OF anna @src:rule/ecf351a4f3e7
-  BECAUSE jan PARENT-OF maria @src:cli
-  BECAUSE maria PARENT-OF anna @src:cli
-  VIA rule/ecf351a4f3e7 HAS rule: `?a PARENT-OF ?b, ?b PARENT-OF ?c => ?a GRANDPARENT-OF ?c` @src:cave-derive
+; what kind of thing each package is, and who owns it
+web IS app
+docs IS app
+ui IS library #public
+core IS library #public
+api-client IS library
+
+core HAS
+  version: 1.4.0
+  owner: team/platform
+ui HAS owner: team/design
+web HAS owner: team/growth
+docs HAS owner: team/design
 ```
 
-Confidence composes (premises at 80% and 90% conclude at 72%, noisy-AND),
-re-runs are idempotent and skip rules nothing new could affect, and when a
-premise is later retracted the conclusions it supported are retracted with
-it — `cave derive` again to propagate. See [`@cavelang/rules`](packages/rules).
+Patterns can mention types, tags, and attribute values:
 
-### Decisions execute as governed writes — `cave act`
+```
+$ cave add --db repo.db details.cave
+added 10 claim(s), 0 edge(s)
 
-Rules conclude on their own; **actions** put the write in the caller's
-hands, governed (spec §25). An action is the same one-line shape with
-parameters — bare `?name` segments the caller supplies — declared in-band
-under a stable name:
+$ cave query --db repo.db '?p IS library #public'
+?p = ui
+?p = core
+
+$ cave query --db repo.db '?p HAS owner: team/design'
+?p = ui
+?p = docs
+
+$ cave query --db repo.db 'core HAS version: ?v'
+?v = 1.4.0
+```
+
+### 6. Zoom into files, with a verb of your own
+
+Packages contain files, and files import files. `CONTAINS` is standard;
+`IMPORTS` is not, so [`files.cave`](examples/monorepo/files.cave) declares it
+— in the same file, as two ordinary claims — together with its inverse. An
+indented line that starts with a verb is a *continuation*: it inherits the
+subject of the line above.
 
 ```cave
-action/record-birth HAS action: `?parent, ?child, ?parent PARENT-OF me => ?parent PARENT-OF ?child` ; record a birth in the family tree
+; zoom in: the files inside the packages, and what imports what
+IMPORTS IS verb ; file X imports file Y
+IMPORTS REVERSE IMPORTED-BY
+
+web CONTAINS web/src/app.ts
+  CONTAINS web/src/checkout.ts
+ui CONTAINS ui/src/button.ts
+  CONTAINS ui/src/modal.ts
+core CONTAINS core/src/money.ts
+
+web/src/app.ts IMPORTS ui/src/modal.ts
+web/src/checkout.ts IMPORTS ui/src/button.ts
+  IMPORTS core/src/money.ts
+ui/src/button.ts IMPORTS core/src/money.ts
 ```
 
-```
-$ cave act --db family.db record-birth parent=anna child=little-jan
-executed action/record-birth: +1 appended, 0 updated, 0 unchanged (1 solution(s))
-  appended: anna PARENT-OF little-jan
-```
-
-Executing validates the parameters, checks every precondition against
-current belief (no match → nothing is appended), then appends the effects
-atomically — stamped `@src:action/<name>`, linked `BECAUSE` to the
-precondition rows and `VIA` to the declaration, idempotent on re-run, and
-gated on the store's `EXPECTS` shapes by default (§20.3's mechanism at its
-second enforcement point). `cave mcp` serves every declared action as a
-generated `act_<name>` tool, so agents get a governed write vocabulary
-instead of freeform appends — and a declared hook name
-(`HAS hook: notify`) can fire an out-of-band, config-declared shell
-template after commit, carrying the decision to the outside world
-(the claim names the hook; the command never lives in the store). See
-[`@cavelang/act`](packages/act).
-
-### Structured data needs no LLM — `cave connect`
-
-CSV/JSON/SQLite records deserve exact, repeatable, token-free conversion. `cave connect` maps them through an ordinary CAVE document whose `?field` variables stand for record fields — same input, same claims, every time:
+The new verb queries exactly like a built-in one, inverse and transitive
+included — "which files would a change to `money.ts` reach?":
 
 ```
-$ cave connect people.csv --map people.map.cave --db k.db --key id
-connect: 2 record(s): 2 mapped, 0 skipped (unchanged); +10 claim(s)
+$ cave add --db repo.db files.cave
+added 11 claim(s), 0 edge(s)
+
+$ cave query --db repo.db '?f PART-OF web'
+?f = web/src/app.ts
+?f = web/src/checkout.ts
+
+$ cave query --db repo.db 'core/src/money.ts IMPORTED-BY+ ?f'
+?f = ui/src/button.ts
+?f = web/src/checkout.ts
 ```
 
-Re-runs skip unchanged rows by per-record digest, changed rows retract the claims they no longer yield, `--watch` tails a file continuously, and `--query '?who WORKS-AT acme'` answers a CAVE-Q pattern over the union of store and source without persisting anything. Every mapped row keeps its physical source identity; CSV/TSV and JSONL claims also carry exact source line ranges alongside the stable record lifecycle stamp. See [`@cavelang/connect`](packages/connect) and spec §9.8, §23.
+### 7. Stop typing — connect structured data
 
-### Extraction quality is a number — `cave eval`
+Real dependency lists come from a script, not a keyboard. `cave connect` maps
+CSV/JSON/SQLite records through a *template*: an ordinary CAVE file whose
+`?variables` are column names. Two packages were just added to the repo —
+[`deps.csv`](examples/monorepo/deps.csv) and
+[`deps.map.cave`](examples/monorepo/deps.map.cave):
 
-Is a new ingestion prompt, model or instruction set better or worse? `cave eval` makes that falsifiable: fixtures are plain files — a source, its expected extraction (`.golden.cave`), and optional CAVE-Q expectations the built store must answer — and any agent runs against them N times in fresh throwaway stores. Here the "agent" is a `sed` that renames `maria`, simulating the naming drift real extractions suffer:
-
-```
-$ cave eval examples/eval --stdout \
-    --agent 'sed "s/maria/grandma-maria/g" family-history.golden.cave'
-eval: 1 case(s), 1 run(s) each
-examples/eval/family-history: 13 golden claim(s), 5 query(ies), source family-history.md
-  run 1/1: 13 claim(s) — 9 matched; P 69% R 69% F1 69%; queries 3/5
-    miss: maria PARENT-OF anna
-    extra: grandma-maria PARENT-OF anna
-    ...
-    query failed: ?a PARENT-OF+ me
-      missing ?a = maria
-      unexpected ?a = grandma-maria
-suite: P 69% R 69% F1 69%; queries 60%
+```csv
+package,uses
+billing,core
+billing,api-client
+cli,core
+cli,billing
 ```
 
-Scoring is by claim key (actor stamps ignored, spec §9.5; inverse-direction writes match for free) plus value tolerance; misses, extras and failed query bindings are diagnosed per run, an optional `--judge` agent pairs naming drift into a parallel judged F1, and `--min 90%` turns the suite into a CI gate. Point a real agent at it the same way as `cave ingest` — `--agent 'claude -p --mcp-config {mcp-config} --allowedTools "mcp__cave__*"' --runs 3`. See [`@cavelang/eval`](packages/eval).
-
-### Naming drift is discoverable — `cave suggest-alias`
-
-The eval above *measures* drift; in a live store you want it *found*. Suppose later notes recorded claims about `grandma-maria` and a new baby, `little-jan`, into the family database. Discovery proposes same-entity candidates (spec §27):
-
-```
-$ cave suggest-alias --db family.db
-grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-maria
-little-jan ALIAS jan #suggested @ 35% ; segments of jan within little-jan
+```cave
+; one CSV row = one dependency edge; ?package and ?uses are the column names
+?package USES ?uses
 ```
 
-One is right, one is wrong — little-jan is named *after* his great-grandfather. Suggestions are questions, not merges: 30–50% confidence puts them in `cave check`'s review band, and both review moves are ordinary appends. A pair with any recorded `ALIAS` history — merged, rejected or unmerged — is never suggested again, so the decision sticks and the confirmed link immediately powers alias-closure reads:
+Same input, same claims, every time — and a second run does nothing, because
+each row is remembered by digest:
 
 ```
-$ printf 'grandma-maria ALIAS maria ; confirmed\nlittle-jan ALIAS NOT jan ; named after him\n' \
-    | cave add --db family.db
+$ cave connect deps.csv --map deps.map.cave --db repo.db
+connect: 4 record(s): 4 mapped, 0 skipped (unchanged); +4 claim(s)
+
+$ cave connect deps.csv --map deps.map.cave --db repo.db
+connect: 4 record(s): 0 mapped, 4 skipped (unchanged); +0 claim(s)
+  note: prelude unchanged, skipped
+
+$ cave query --db repo.db '?p USES+ core'
+?p = api-client
+?p = billing
+?p = cli
+?p = docs
+?p = ui
+?p = web
+```
+
+Now change the row `billing,api-client` to `billing,ui` in `deps.csv` and run
+it again with `--prune`. The edge that disappeared from the source is
+retracted, the new one added — and `--all` shows that the retracted edge is
+still in the history, not deleted:
+
+```
+$ cave connect deps.csv --map deps.map.cave --db repo.db --prune
+connect: 4 record(s): 1 mapped, 3 skipped (unchanged); +1 claim(s), 1 retracted, 1 record(s) pruned
+  note: prelude unchanged, skipped
+
+$ cave query --db repo.db 'billing USES ?p'
+?p = core
+?p = ui
+
+$ cave query --db repo.db 'billing USES ?p' --all
+?p = core
+?p = api-client
+?p = ui
+?p = api-client
+```
+
+(`--watch` keeps a file connected continuously; `--query` answers a pattern
+over the union of store and file without storing anything. See
+[`@cavelang/connect`](packages/connect).)
+
+### 8. Say how sure you are, and why
+
+So far every claim was certain and anonymous. Two more pieces of metadata:
+`@src:name` says where a claim came from and `@ N%` how much you believe it.
+Two sources disagree about who maintains `core`:
+
+```
+$ printf '%s\n' 'core HAS maintainer: alice @src:codeowners' \
+    'core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"' \
+    | cave add --db repo.db
 added 2 claim(s), 0 edge(s)
 
-$ cave suggest-alias --db family.db
-no alias suggestions
+$ cave query --db repo.db 'core HAS maintainer: ?m'
+?m = alice
+?m = bob
 
-$ cave query --db family.db '?d CHILD-OF+ grandma-maria' --aliases
-?d = anna
-?d = little-jan
-?d = me
+$ cave query --db repo.db 'core HAS maintainer: ?m' 'WHERE conf >= 0.8'
+?m = alice
 ```
 
-Candidates are scored by explainable signals — case/separator drift, segment containment, prefixes, typos, shared rare attribute values, with shared relations as a booster; the evidence rides in the comment. An optional `--agent 'claude -p'` judge filters candidates against each side's claims before anyone sees them, and `--write` appends the suggestions (stamped `@src:suggest/alias`) instead of printing. See [`@cavelang/shape`](packages/shape).
-
-### Memory is reconstructed, not retrieved — `cave reconstruct`
-
-Querying answers the question you know to ask; reconstruction pulls in everything *related* — starting from a symptom, walking forward and inverse edges best-first, collecting claims as it goes (spec §18):
-
-```
-$ cave reconstruct --db incident.db checkout/errors --trace
-; 1. checkout/errors @ 1.00 +3 claim(s)
-; 2. rollback @ 0.80 +0 claim(s)
-; 3. redis-cache/failover @ 0.68 +1 claim(s)
-; 4. config-push @ 0.46 +0 claim(s)
-; 5. cdn @ 0.24 +0 claim(s)
-cdn CAUSE checkout/errors @src:cli @ 30% ; first suspicion
-redis-cache/failover CAUSE checkout/errors @src:cli @ 85%
-rollback FIX checkout/errors @src:cli
-config-push CAUSE redis-cache/failover @src:cli @ 85%
-```
-
-By default a deterministic heuristic picks each expansion. With `--agent 'claude -p' --query 'what caused the checkout errors?'` an LLM makes the select/stop decision instead — one prompt per step showing the claims collected so far and the scored frontier (spec §18). The heuristic is the *baseline*: reconstruction eval fixtures (`<stem>.loop.cave`, see [`examples/loop-eval`](examples/loop-eval)) score both policies with the same claim-key F1, so "does the model beat the heuristic" is two `cave eval` runs. See [`@cavelang/loop`](packages/loop).
-
-### Two stores become one — `cave sync`
-
-Knowledge accumulates on more than one machine. The data model pre-solved the merge: rows are immutable appends under global UUIDv7 identity, contradictions legally coexist (spec §9.4) and resolve at read time (§26) — so `cave sync` merges by row identity, and can never conflict (spec §28):
+Both claims coexist — a contradiction is two claims with different sources,
+not an error. When alice leaves, you do not edit anything: you append the
+same claim at `0%`, which retracts it. The history keeps all three lines, and
+`cave export` prints them in order:
 
 ```
-$ cave sync --db main.db laptop.db
-merged 42 claim(s), 17 edge(s)
-record: store/laptop SYNCED-INTO store/main ; +42 claim(s), +17 edge(s)
+$ echo 'core HAS maintainer: alice @src:codeowners @ 0% ; alice left in July' | cave add --db repo.db
+added 1 claim(s), 0 edge(s)
 
-$ cave sync --db main.db laptop.db
-merged 0 claim(s), 0 edge(s), 42 already present
+$ cave query --db repo.db 'core HAS maintainer: ?m'
+?m = bob
+
+$ cave export --db repo.db | grep -A3 'core HAS maintainer'
+core HAS maintainer:
+  alice @src:codeowners
+  bob @src:standup @ 60% ; "I think bob took over core"
+  alice @src:codeowners @ 0% ; alice left in July
 ```
 
-Present rows skip, re-runs merge nothing, two stores syncing each other converge — and the merge itself is a claim (stamped `@src:sync`) whose belief series is the sync log. Local appends after a merge always outsort merged history, whatever the origin machine's clock read (the §28.2 receive rule). Plain text crosses air gaps the same way: `cave export --tx` precedes every claim line with a `;@` transaction annotation — an ordinary comment to every other reader — and `cave sync` replays it under the recorded identity:
+Because nothing is ever overwritten, `cave query … --as-of 2026-07-01` answers
+as the store stood on that date, and `cave resolve` ranks contested facts
+(source reliability, confidence, recency) so `--resolve` returns one winner
+per fact. Note that permanence includes mistakes: there is no claim-level
+delete, so do not ingest secrets (spec §9.6).
 
-```
-$ cave export --db laptop.db --tx --max-sensitivity restricted | cave sync --db main.db - --as laptop
-```
+### 9. Rules conclude what nobody wrote
 
-And because the annotated export is a complete replica, **the store can
-live under git** (spec §28.6): commit the `--tx` export, rebuild a
-working store from it on any checkout (`cave sync --db work.db
-knowledge.cave --no-record`), and a pull request's diff *is* the
-appended claim identities plus deterministic prefix/lineage refactoring —
-review new `;@` annotations as the semantic additions. Text-level conflicts
-dissolve by re-exporting the union (a one-stanza git merge driver, see
-[`@cavelang/sync`](packages/sync)); knowledge-level conflicts don't
-exist. Landing an approved branch is one more `cave sync`.
-
-See [`@cavelang/sync`](packages/sync) and spec §28.
-
-### The store reacts — `cave automate`
-
-Everything so far waits to be invoked. Automations close the loop (spec §29): an in-band declaration pairs a trigger pattern with steps, and new claims matching the trigger fire them — a governed action, an out-of-band hook, or an agent prompt whose CAVE reply is recorded:
+Step 4 *asked* which packages reach `core`. A rule can *conclude* it and
+record the conclusion, with a reason attached. A rule is a line of the form
+`premises => conclusion`, where each premise is a query pattern —
+[`advisories.cave`](examples/monorepo/advisories.cave):
 
 ```cave
-automation/page-on-spike HAS automation: `?svc IS service, ?svc HAS error-rate: ?r, ?r > 0.05 => action/open-incident, hook/page, "investigate the spike on ?svc"` ; page and investigate error-rate spikes
+; a security advisory against a package reaches everything that uses it, directly or not
+AFFECTS IS verb ; advisory X affects package Y
+AFFECTS REVERSE AFFECTED-BY
+EXPOSED-TO IS verb ; package X is exposed to advisory Y through its dependencies
+EXPOSED-TO REVERSE EXPOSES
+
+?adv AFFECTS ?dep, ?pkg USES+ ?dep => ?pkg EXPOSED-TO ?adv ; exposure travels up the dependency chain
 ```
 
-```
-$ cave automate --db ops.db --hooks hooks.json --agent 'claude -p'
-watching (poll every 2s, ctrl-c to stop)
-automation/page-on-spike: fired 1 solution(s) ; page and investigate error-rate spikes
-  ?svc = checkout  ?r = 0.09
-    action/open-incident: ok (+1 appended, 0 updated, 0 unchanged)
-    hook/page: ok
-    "investigate the spike on ?svc": ok (+2 claim(s))
-settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracted
-```
-
-An automation is armed the moment it is declared — earlier rows are state, not events — and never wakes itself; rules (`cave derive`) fire incrementally in every cycle, so derived conclusions trigger automations and one automation's action effects trigger the next. Chains converge because every write path is idempotent, and firing records an in-band watermark *before* any step runs, so a re-run never re-notifies the world. `--once` makes it a cron job; with `cave connect --watch` feeding the other end, sense → model → conclude → act → record runs unattended on one machine. See [`@cavelang/automate`](packages/automate) and spec §29.
-
-### Look at it — `cave serve`
-
-Everything above serves programs. `cave serve` is for the person (spec §30): one static, self-contained HTML page over the store — no build step, no framework, no external resource, offline-friendly, and strictly read-only (GET only, localhost by default):
+An advisory arrives against `core`; `cave derive` loads the rules and fires
+them:
 
 ```
-$ cave serve --db family.db
-serving family.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)
+$ echo 'cve-2026-0042 AFFECTS core @ 90% ; reported against core 1.4.0' | cave add --db repo.db
+added 1 claim(s), 0 edge(s)
+
+$ cave derive --db repo.db advisories.cave
+declared 1 rule(s), +4 prelude claim(s)
+rule/35e6066ad7f7: 6 solution(s), +6 appended, 0 updated, 0 retracted, 0 unchanged ; exposure travels up the dependency chain
+derived: +6 appended, 0 updated, 0 retracted, 0 unchanged (2 pass(es))
+
+$ cave query --db repo.db '?p EXPOSED-TO cve-2026-0042'
+?p = api-client
+?p = billing
+?p = cli
+?p = docs
+?p = ui
+?p = web
 ```
 
-The dashboard renders the spec §20 health report — coverage tiles, then the frontier: shape violations, review candidates, stale beliefs, alias disagreements. Every entity links to its 360 (types, facts, both relation directions with declared inverses annotated, topics, the alias closure on a toggle, raw activity underneath); every claim links to its belief history — the append-only series as a timeline with confidence bars — and, where lineage edges exist, to the `BECAUSE`/`VIA` tree answering *why is this believed* and *what depends on it*. Full-text search, counts, aliases, history and lineage all obey the same sensitivity ceiling; raise it explicitly with `--max-sensitivity`. Every request reads the live store, so a running `cave automate` loop's visible appends show on the next refresh. See [`@cavelang/view`](packages/view) and spec §9.7, §30.
+Every derived claim carries its confidence (90%, inherited from the
+advisory) and its *lineage*: `BECAUSE` points at the premises, `VIA` at the
+rule. Running `derive` again changes nothing, and if the advisory is later
+retracted the conclusions go with it.
 
-Applications can derive a typed boundary without replacing CAVE text or CAVE-Q:
-`cave generate --db family.db --out cave-client.ts` turns current `EXPECTS`
-claims into deterministic TypeScript interfaces and inverse-aware store
-readers. The generated module embeds format version 1, its normalized schema,
-and a SHA-256; ambiguous expectations fail rather than weakening types (spec
-§20.4).
+```
+$ cave export --db repo.db | grep -A3 'billing EXPOSED-TO'
+billing EXPOSED-TO cve-2026-0042 @src:rule/35e6066ad7f7 @ 90%
+  BECAUSE cve-2026-0042 AFFECTS core @src:cli @ 90% ; reported against core 1.4.0
+  VIA rule/35e6066ad7f7 HAS rule: `?adv AFFECTS ?dep, ?pkg USES+ ?dep => ?pkg EXPOSED-TO ?adv` @src:cave-derive ; exposure travels up the dependency chain
 
-### Ship a document that cites its claims — `cave report`
+$ cave derive --db repo.db
+rule/35e6066ad7f7: unchanged premises, skipped ; exposure travels up the dependency chain
+derived: +0 appended, 0 updated, 0 retracted, 0 unchanged (1 pass(es))
+```
 
-Query output is for you; a *deliverable* is for someone else — and it should say where every fact came from. `cave report` renders a markdown template against the store (spec §31): fenced `cave-q` blocks repeat a fragment per solution, inline `` `cave-q: …` `` splices drop a single value into prose, and every rendered fact carries a footnote citing the claim behind it — canonical line, date, claim key:
+### 10. Say what a good record looks like
+
+Schema is also just claims. `EXPECTS` says what every instance of a type
+should carry — [`shapes.cave`](examples/monorepo/shapes.cave):
+
+```cave
+; what a well-described package looks like
+library EXPECTS owner
+app EXPECTS owner
+```
+
+`cave check` is the health report: which expectations are unmet, which
+beliefs sit in the 30–70% "someone should look at this" band, and how much of
+the store is typed. It exits 1 while a violation remains — and adding the
+missing owner fixes it:
+
+```
+$ cave add --db repo.db shapes.cave
+added 2 claim(s), 0 edge(s)
+
+$ cave check --db repo.db
+shape: 2 expectation(s), 5 instance(s), 4/5 satisfied
+violations (1):
+  api-client missing attribute owner (api-client IS library; library EXPECTS owner)
+review candidates (1, conf 0.3-0.7):
+  core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
+coverage: 58 row(s), 55 fact(s) — 52 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
+
+$ echo 'api-client HAS owner: team/platform' | cave add --db repo.db
+added 1 claim(s), 0 edge(s)
+
+$ cave check --db repo.db
+shape: 2 expectation(s), 5 instance(s), 5/5 satisfied
+review candidates (1, conf 0.3-0.7):
+  core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
+coverage: 59 row(s), 56 fact(s) — 53 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
+```
+
+(`cave add --check` refuses an append that would introduce a new violation.)
+
+### 11. Ship a document that cites its claims
+
+A query answers you; a report is for someone else, and it should say where
+each fact came from. `cave report` renders a markdown template: an inline
+`` `cave-q: …` `` splices one value into prose, and a fenced `cave-q` block
+repeats a fragment per match — [`brief.md`](examples/monorepo/brief.md):
 
 ````markdown
-Jan was born in `cave-q: jan HAS birth-year: ?y` in `cave-q: jan HAS birthplace: ?where`.
+# Dependency brief
 
-## The ancestor line
+`core` is at version `cave-q: core HAS version: ?v`, owned by `cave-q: core HAS owner: ?team`.
+
+## Packages exposed to cve-2026-0042
 
 ```cave-q
-?a PARENT-OF+ me
-- ?a is an ancestor
+?pkg EXPOSED-TO cve-2026-0042
+- ?pkg
 ```
 ````
 
+Every rendered fact gets a footnote with the claim behind it:
+
 ```
-$ cave report --db family.db brief.md --resolve --max-sensitivity internal
-Jan was born in 1931[^c1] in Kraków[^c2].
+$ cave report --db repo.db brief.md
+# Dependency brief
 
-## The ancestor line
+`core` is at version 1.4.0[^c1], owned by team/platform[^c2].
 
-- anna is an ancestor
-- helena is an ancestor
-- helena/father is an ancestor
-- jan is an ancestor
-- maria is an ancestor
+## Packages exposed to cve-2026-0042
 
-[^c1]: `jan HAS birth-year: 1931 @src:birth-certificate @ 95%` — 2026-07-10, claim key `["e:jan","HAS",0,"a:birth-year",["src:birth-certificate"]]`
-[^c2]: `jan HAS birthplace: Kraków @src:maria` — 2026-07-10, claim key `["e:jan","HAS",0,"a:birthplace",["src:maria"]]`
-```
+- api-client [^c3]
+- billing [^c4]
+- cli [^c5]
+- docs [^c6]
+- ui [^c7]
+- web [^c8]
 
-The birth year traces to the birth certificate, not to Grandma — three sources still coexist in the store, and the citation shows exactly which one the sentence stands on. When a claim carries a §9.8 source span, the footnote appends the decoded `source#Lx-Ly` location (as a link for HTTP(S)); the JSON APIs expose the same structured reference. An inline splice must be deterministic: when several sources contest a fact it reports *ambiguous* and exits nonzero, and `--resolve` (the spec §26 policy) is the fix. `--as-of` renders the report as belief stood at a past moment, and the template stays under version control while the store evolves. See [`@cavelang/view`](packages/view) and spec §31.
-
-From here: `cave mcp --db family.db` serves the store to any MCP client, and `cave help` lists everything. More worked examples — including a production-incident postmortem with confidence-filtered root-cause queries — live in [`examples/`](examples).
-
-### Optional formal reasoning
-
-[`@cavelang/solver`](packages/solver) adds bounded feasibility, optimization,
-counterexample, and sensitivity workflows over typed scenario snapshots. The
-operations preserve distinct `satisfied`, `optimal`, `unsatisfied`, and
-`unknown` results, record their model/snapshot scope, and use deterministic
-tie-breaking rather than accepting arbitrary backend assignments.
-
-Z3 remains an opt-in Node.js dependency. Its package includes one allowlisted
-architecture fixture for exercising the workflow boundary without accepting
-raw solver programs:
-
-```sh
-cave-solver-workflow architecture optimization --team-size 10 --deployment-frequency 6
-cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
+[^c1]: `core HAS version: 1.4.0 @src:cli` — 2026-08-29, claim key `["e:core","HAS",0,"a:version",["src:cli"]]`
+[^c2]: `core HAS owner: team/platform @src:cli` — 2026-08-29, claim key `["e:core","HAS",0,"a:owner",["src:cli"]]`
+[^c3]: `api-client EXPOSED-TO cve-2026-0042 @src:rule/35e6066ad7f7 @ 90%` — 2026-08-29, claim key `["e:api-client","EXPOSED-TO",0,"r:e:cve-2026-0042",["src:rule/35e6066ad7f7"]]`
+…
 ```
 
-Solver output is not a write. `@cavelang/scenario` exposes an explicit,
-atomic, idempotent `Record` transition for immutable result artifacts, then
-keeps recommendations, human decisions, action audit records, and external
-effect audit records in separate versioned namespaces. Replay reports model or
-solver-version drift without evaluating again. Passing proposed parameters to
-`actProposal` still rechecks the current action declaration and preconditions
-before the governed action engine can append anything. See the
-[`solver`](packages/solver), [`solver-z3`](packages/solver-z3), and
-[`scenario`](packages/scenario) and [`act`](packages/act) package references
-for the exact APIs.
+### 12. Look at it, talk to it
 
-### Syntax highlighting
+`cave serve` puts a read-only web page over the store — search, one page per
+entity with both relation directions, the belief history of every claim, and
+the `BECAUSE`/`VIA` tree behind derived ones:
 
-One tree-sitter grammar ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives every surface: `cave highlight` (and `cave export` on a terminal) colors CAVE text with the grammar's own `highlights.scm`, the [VSCode extension](editors/vscode) replays the same query as semantic tokens, and tree-sitter-native editors (Neovim, Helix, Zed) can point at the grammar directly.
+```
+$ cave serve --db repo.db
+serving repo.db at http://127.0.0.1:2283/ (sensitivity <= internal, read-only, ctrl-c to stop)
+```
 
-## What's left
+`cave mcp` serves the same store to any MCP client, so an agent can record,
+search and query it. The [install](#install) line registered one for GitHub
+Copilot CLI at `~/cave.db`; `copilot --allow-tool=cave` then answers prompts
+like:
 
-The roadmap is complete — every numbered item shipped, and the knowledge loop
-(sense, model, conclude, act, trust, distribute) runs on one machine. There are
-currently no active backlog items; [TODO.md](TODO.md) is the queue and
-[PROJECT-BOUNDARIES.md](PROJECT-BOUNDARIES.md) records deliberately excluded
-extensions and their reopening criteria. [BUGS.md](BUGS.md) separately indexes
-suspected defects with self-contained repro notes under [`bugs/`](bugs/).
+```text
+Use CAVE to record that billing USES payments-gateway, 80% confidence,
+based on today's design review.
+
+Ask CAVE what is transitively exposed to cve-2026-0042 and show the claims.
+```
+
+And `cave ingest 'docs/**/*.md' --db repo.db --agent 'claude -p --mcp-config
+{mcp-config} --allowedTools "mcp__cave__*"'` points an agent at your own
+documents and lets it write the claims — which is where part II starts.
+
+## Tutorial II — a market watchlist
+
+Part I hand-wrote most claims and asked structural questions. This part
+models a world that changes daily, lets an LLM do the reading, and closes
+the loop with decisions and automation. Files are in
+[`examples/market/`](examples/market) (`cd examples/market`, fresh database).
+The companies are fictional.
+
+### 13. Model the world
+
+Companies, the *themes* that move them, and who supplies whom. Confidence
+does double duty here: on `DRIVES` it is the exposure weight, and a
+`#sign:-1` tag says the theme going up is bad for that company —
+[`ontology.cave`](examples/market/ontology.cave):
+
+```cave
+; the world model: companies, the themes that move them, and who supplies whom
+DRIVES IS verb ; theme X moves company or theme Y; confidence = how much of Y's fortune X explains
+DRIVES REVERSE DRIVEN-BY
+SUPPLIES IS verb ; company X sells a critical input to company Y
+SUPPLIES REVERSE SOURCES-FROM
+
+chipco IS company ; designs AI accelerators
+fabco IS company ; leading-edge foundry
+cloudco IS company ; hyperscaler buying the accelerators
+powerco IS company ; data-center power and cooling
+
+theme/ai-capex IS theme ; how much hyperscalers spend on AI infrastructure
+theme/export-controls IS theme ; restrictions on selling advanced chips abroad
+theme/datacenter-power IS theme ; power and cooling as the bottleneck
+
+theme/ai-capex DRIVES chipco @ 90% #sign:+1
+theme/ai-capex DRIVES fabco @ 70% #sign:+1
+theme/ai-capex DRIVES powerco @ 80% #sign:+1
+theme/ai-capex DRIVES cloudco @ 50% #sign:-1 ; capex is a cost for the spender
+theme/export-controls DRIVES chipco @ 70% #sign:-1
+theme/ai-capex DRIVES theme/datacenter-power @ 80% #sign:+1
+
+fabco SUPPLIES chipco @ 95%
+chipco SUPPLIES cloudco @ 80%
+powerco SUPPLIES cloudco @ 50%
+```
+
+```
+$ cave add --db market.db ontology.cave
+added 20 claim(s), 0 edge(s)
+
+$ cave query --db market.db 'chipco DRIVEN-BY ?t #sign:-1'
+?t = theme/export-controls
+
+$ cave query --db market.db '?s SUPPLIES+ cloudco'
+?s = chipco
+?s = fabco
+?s = powerco
+```
+
+### 14. Let an LLM read the news
+
+[`news/`](examples/market/news) holds short articles. `cave ingest` hands
+them to any headless agent — here Claude Code, with
+[`instructions.md`](examples/market/instructions.md) telling it to record
+each article as a `news/<date>/<slug>` entity that `AFFECTS` one of the
+declared themes, `#direction:up` or `down`, with its confidence. `--stdout`
+means the agent just prints CAVE; `cave` lints it and stores it, and
+remembers each file by digest so re-runs only read what changed:
+
+```
+$ cave ingest news/2026-08-12-capex-guidance.md news/2026-08-14-export-rules.md \
+    --db market.db --stdout --embed --instructions instructions.md --agent 'claude -p'
+ingest (strict): 2 source(s) matched, 0 skipped (unchanged), 1 batch(es), applied
+batch 1/1 (2 file(s)): +9 claim(s)
+source accepted: news/2026-08-12-capex-guidance.md — batch 1
+source accepted: news/2026-08-14-export-rules.md — batch 1
+done: +9 claim(s)
+```
+
+What the model wrote — note the `@src:file#L3-L7` spans pointing at the exact
+sentences, and the hedged 60% on a draft rule:
+
+```
+$ cave export --db market.db | grep -A6 '^news/2026-08-14'
+news/2026-08-14/export-rules
+  IS news @src:news/2026-08-14-export-rules.md#L1-L3
+  HAS
+    headline: "Regulator drafts wider export licensing for advanced accelerators" @src:news/2026-08-14-export-rules.md#L1
+    date: 2026-08-14 @src:news/2026-08-14-export-rules.md#L3
+  AFFECTS theme/export-controls @src:news/2026-08-14-export-rules.md#L3-L7 #direction:up @ 60% ; draft rule only, 30-day consultation open, final shape uncertain
+```
+
+(LLM output varies run to run; this is one real run. It is saved as
+[`news.cave`](examples/market/news.cave), so `cave add --db market.db
+news.cave` gets you to the same state without an agent.)
+
+### 15. Rules with a sign
+
+News moves a theme; a theme moves a company; so news moves the company — up
+if the signs agree, down if they don't. Four rules, one per case; the tags in
+the premises are filters and the tag in the conclusion is recorded —
+[`rules.cave`](examples/market/rules.cave):
+
+```cave
+PRESSURES IS verb ; news X pushes company Y up or down, through a theme
+PRESSURES REVERSE PRESSURED-BY
+
+?n AFFECTS ?t #direction:up,   ?t DRIVES ?c #sign:+1 => ?n PRESSURES ?c #direction:up
+?n AFFECTS ?t #direction:up,   ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:down
+?n AFFECTS ?t #direction:down, ?t DRIVES ?c #sign:+1 => ?n PRESSURES ?c #direction:down
+?n AFFECTS ?t #direction:down, ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:up
+```
+
+```
+$ cave derive --db market.db rules.cave
+declared 4 rule(s), +2 prelude claim(s)
+rule/190b9b9b17da: 4 solution(s), +4 appended, 0 updated, 0 retracted, 0 unchanged
+rule/01455622519d: 2 solution(s), +2 appended, 0 updated, 0 retracted, 0 unchanged
+rule/5b285a4156f6: 0 solution(s), +0 appended, 0 updated, 0 retracted, 0 unchanged
+rule/4ebbeff28dc5: 0 solution(s), +0 appended, 0 updated, 0 retracted, 0 unchanged
+derived: +6 appended, 0 updated, 0 retracted, 0 unchanged (2 pass(es))
+
+$ cave query --db market.db '?n PRESSURES ?c #direction:down'
+?n = news/2026-08-12/capex-guidance  ?c = cloudco
+?n = news/2026-08-14/export-rules  ?c = chipco
+```
+
+The derived confidence is the product of the premises' (60% × 70% = 42%), and
+the lineage says which sentence and which exposure it rests on:
+
+```
+$ cave export --db market.db | grep -A4 '^news/2026-08-14/export-rules PRESSURES chipco'
+news/2026-08-14/export-rules PRESSURES chipco @src:rule/01455622519d #direction:down @ 42%
+  BECAUSE
+    news/2026-08-14/export-rules AFFECTS theme/export-controls @src:news/2026-08-14-export-rules.md#L3-L7 #direction:up @ 60% ; draft rule only, 30-day consultation open, final shape uncertain
+    theme/export-controls DRIVES chipco @src:cli #sign:-1 @ 70%
+  VIA rule/01455622519d HAS rule: `?n AFFECTS ?t #direction:up, ?t DRIVES ?c #sign:-1 => ?n PRESSURES ?c #direction:down` @src:cave-derive
+```
+
+### 16. Time is part of the value
+
+Step 8's `--as-of` is about when the *store* learned something. A claim can
+also say when in the *world* it holds: a date-like context scopes it, and a
+`A -> B` value moves linearly across that range. `--at` reads the value at an
+instant:
+
+```
+$ echo 'theme/ai-capex HAS spend: 300B -> 450B USD/yr @2025..2026' | cave add --db market.db
+added 1 claim(s), 0 edge(s)
+
+$ cave query --db market.db 'theme/ai-capex HAS spend: ?v' --at 2025-07
+?v = 374.4B USD/yr
+
+$ cave query --db market.db 'theme/ai-capex HAS spend: ?v' --at 2026-08
+?v = 450B USD/yr
+```
+
+### 17. Decisions are governed writes
+
+A rule fires on its own; an *action* runs when someone calls it. It is the
+same `premises => conclusion` shape with parameters (`?company`, `?stance`),
+declared under a stable name — [`actions.cave`](examples/market/actions.cave):
+
+```cave
+; governed writes: the only ways a decision gets recorded
+action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` ; record a portfolio stance on a company
+action/flag-review HAS action: `?company, ?company HAS stance: overweight => ?company NEEDS review` ; an overweight name got bad news
+```
+
+Preconditions are checked against current belief; if they fail nothing is
+written. Over MCP every action becomes an `act_<name>` tool, so an agent gets
+a vocabulary of allowed writes instead of free-form appends:
+
+```
+$ cave act --db market.db --declare actions.cave
+declared 2 action(s)
+
+$ cave act --db market.db set-stance company=chipco stance=overweight
+executed action/set-stance: +1 appended, 0 updated, 0 unchanged (1 solution(s))
+  appended: chipco HAS stance: overweight
+
+$ cave act --db market.db set-stance company=nobody stance=overweight
+cave act: precondition failed — no current belief satisfies "?company IS company"
+```
+
+### 18. The store reacts
+
+An *automation* pairs a trigger pattern with steps and fires when new claims
+match — [`automations.cave`](examples/market/automations.cave):
+
+```cave
+automation/review-bad-news HAS automation: `?n PRESSURES ?company #direction:down, ?company HAS stance: overweight => action/flag-review` ; overweight name under pressure -> ask for a review
+```
+
+Declaring it *arms* it: the bad news already in the store is state, not an
+event, so the first cycle is quiet. Then the third article arrives —
+`cave ingest 'news/*.md' …` again skips the two it has read and records the
+new one (`news-2026-08-20.cave` holds that run's output) — and the next
+`--once` cycle fires the rules, sees the new pressure on an overweight name,
+and executes the action:
+
+```
+$ cave automate --db market.db --declare automations.cave
+declared 1 automation(s)
+
+$ cave automate --db market.db --once
+settled: 0 firing(s) over 1 pass(es); derived +0 appended, 0 updated, 0 retracted
+
+$ cave ingest 'news/*.md' --db market.db --stdout --embed --instructions instructions.md --agent 'claude -p'
+ingest (strict): 3 source(s) matched, 2 skipped (unchanged), 1 batch(es), applied
+batch 1/1 (1 file(s)): +4 claim(s)
+source skipped: news/2026-08-12-capex-guidance.md
+source skipped: news/2026-08-14-export-rules.md
+source accepted: news/2026-08-20-licence-suspension.md — batch 1
+done: +4 claim(s)
+
+$ cave automate --db market.db --once
+automation/review-bad-news: fired 1 solution(s) ; overweight name under pressure -> ask for a review
+  ?n = news/2026-08-20/licence-suspension  ?company = chipco
+    action/flag-review: ok (+1 appended, 0 updated, 0 unchanged)
+settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracted
+```
+
+The result explains itself all the way down — the review request, the stance
+it depends on, the action that recorded the stance:
+
+```
+$ cave export --db market.db | grep -A5 '^chipco NEEDS review'
+chipco NEEDS review @src:action/flag-review
+  BECAUSE chipco HAS stance: overweight @src:action/set-stance
+    BECAUSE chipco IS company @src:cli ; designs AI accelerators
+    VIA action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` @src:cave-act ; record a portfolio stance on a company
+  VIA action/flag-review HAS action: `?company, ?company HAS stance: overweight => ?company NEEDS review` @src:cave-act ; an overweight name got bad news
+```
+
+Without `--once`, `cave automate` keeps watching the store; steps can also be
+a `hook/<name>` shell command from a config file or a quoted prompt an agent
+answers in CAVE. With `cave connect --watch` on the other end, sense → model
+→ conclude → act → record runs unattended.
+
+### 19. The morning brief
+
+Everything above collapses into one cited page —
+[`brief.md`](examples/market/brief.md):
+
+```
+$ cave report --db market.db brief.md --at 2026-08
+# Morning brief
+
+AI capex is running at 450B USD/yr[^c1] this year.
+
+## Names under pressure
+
+- **cloudco** — down, on news/2026-08-12/capex-guidance [^c2]
+- **chipco** — down, on news/2026-08-14/export-rules [^c3]
+- **chipco** — down, on news/2026-08-20/licence-suspension [^c4]
+
+## Needs a decision
+
+- chipco [^c5]
+
+[^c1]: `theme/ai-capex HAS spend: 300B -> 450B USD/yr @2025..2026 @src:cli` — 2026-08-29, claim key `["e:theme/ai-capex","HAS",0,"a:spend",["2025..2026","src:cli"]]`
+[^c2]: `news/2026-08-12/capex-guidance PRESSURES cloudco @src:rule/01455622519d #direction:down @ 45%` — 2026-08-29, claim key `["e:news/2026-08-12/capex-guidance","PRESSURES",0,"r:e:cloudco",["src:rule/01455622519d"]]`
+…
+```
+
+Each bullet traces to a derived claim, which traces to a sentence in an
+article and an exposure you wrote by hand. `--as-of` renders the same brief
+as belief stood on an earlier day.
+
+## Where next
+
+- **The full tour** — [`examples/family-history/`](examples/family-history)
+  pushes one set of notes through *every* surface: sensitivity ceilings and
+  backups, extraction evals (`cave eval`), alias discovery, memory
+  reconstruction, store sync and git-hosted stores, the read surface, and the
+  optional formal solver.
+- **Examples index** — [`examples/`](examples) lists every runnable fixture,
+  including a production-incident postmortem.
+- **Package reference** — one README per package: [`cli`](packages/cli)
+  (every command and flag), [`query`](packages/query) (CAVE-Q),
+  [`store`](packages/store), [`rules`](packages/rules), [`act`](packages/act),
+  [`automate`](packages/automate), [`connect`](packages/connect),
+  [`ingest`](packages/ingest), [`shape`](packages/shape),
+  [`view`](packages/view), [`sync`](packages/sync), [`eval`](packages/eval),
+  [`loop`](packages/loop), [`mcp`](packages/mcp).
+- **Agents** — the [MCP server](packages/mcp) is self-describing (a writing
+  card at initialization plus a `cave_help` tool); the portable
+  [CAVE Agent Skill](skills/cave/SKILL.md) adds workflow guidance for Copilot,
+  Codex, Claude Code and other hosts (`gh skill install mirek/cave cave
+  --agent github-copilot --scope user`).
+- **Editors** — one tree-sitter grammar
+  ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives
+  `cave highlight`, the [VS Code extension](editors/vscode), and
+  tree-sitter-native editors.
+- **The book and the playground** — the website hosts a continuous system
+  guide as PDF and a browser playground that runs the real parser, store and
+  query engine on SQLite WebAssembly.
 
 ## Development
 
 ```sh
 make bootstrap         # install with the exact pnpm version declared by the repo
 pnpm clean             # remove generated output from every workspace
-pnpm test             # all packages, bottom-up
+pnpm test              # all packages, bottom-up
 pnpm build             # typecheck + emit (`pnpm typecheck` is an alias)
 pnpm bench:performance # deterministic representative regression budgets
 pnpm exec cave demo    # cave-loop multi-hop recovery demo (§18)
@@ -598,20 +792,17 @@ pnpm exec cave demo    # cave-loop multi-hop recovery demo (§18)
 
 The performance gate covers canonical-text import/export, contested-belief
 resolution, large shape checks, bounded query pages, seeded transitive queries,
-and small/5,000-row sensitivity-scoped views. The view workloads record cold
-and warm latency plus cached claims, edges, and bytes, and verify that explicit
-`restricted` reads allocate no projection. The gate emits a versioned JSON
-report with fixture/store sizes and SQLite plan evidence, then compares timings
-with the recorded
-[`performance-baseline.json`](benchmarks/performance-baseline.json). CI uses
-generous absolute thresholds to catch material regressions without treating
-runner noise as a failure.
+and small/5,000-row sensitivity-scoped views, comparing timings with the
+recorded [`performance-baseline.json`](benchmarks/performance-baseline.json).
 
 Implementation lives in a pnpm TypeScript monorepo — see
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map and toolchain,
 [ARCHITECTURE.md](ARCHITECTURE.md) for runtime flows and invariants, and
 [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md) for the supported npm entry points
-and migration from former implementation-package names.
+and migration from former implementation-package names. The roadmap is
+complete; [TODO.md](TODO.md) is the queue,
+[PROJECT-BOUNDARIES.md](PROJECT-BOUNDARIES.md) records deliberately excluded
+extensions, and [BUGS.md](BUGS.md) indexes suspected defects.
 
 ## The specification
 

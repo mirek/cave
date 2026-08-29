@@ -1,0 +1,13 @@
+; what kind of thing each package is, and who owns it
+web IS app
+docs IS app
+ui IS library #public
+core IS library #public
+api-client IS library
+
+core HAS
+  version: 1.4.0
+  owner: team/platform
+ui HAS owner: team/design
+web HAS owner: team/growth
+docs HAS owner: team/design

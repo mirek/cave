@@ -1,0 +1,2 @@
+; one CSV row = one dependency edge; ?package and ?uses are the column names
+?package USES ?uses

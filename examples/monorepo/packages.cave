@@ -1,0 +1,6 @@
+; a small monorepo: which package uses which
+web USES ui
+web USES api-client
+ui USES core
+api-client USES core
+docs USES ui

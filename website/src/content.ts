@@ -1,4 +1,6 @@
 import readme from '../../README.md?raw'
+import tour from '../../examples/family-history/README.md?raw'
+import examples from '../../examples/README.md?raw'
 import architecture from '../../ARCHITECTURE.md?raw'
 import implementation from '../../IMPLEMENTATION.md?raw'
 import documentation from '../../DOCUMENTATION.md?raw'
@@ -37,7 +39,9 @@ export type Doc = {
 }
 
 export const docs: readonly Doc[] = [
-  { slug: 'overview', label: 'Overview & language', group: 'Learn', markdown: readme, source: 'README.md' },
+  { slug: 'overview', label: 'Tutorial', group: 'Learn', markdown: readme, source: 'README.md' },
+  { slug: 'tour', label: 'The full tour', group: 'Learn', markdown: tour, source: 'examples/family-history/README.md' },
+  { slug: 'examples', label: 'Examples', group: 'Learn', markdown: examples, source: 'examples/README.md' },
   { slug: 'architecture', label: 'Architecture', group: 'Learn', markdown: architecture, source: 'ARCHITECTURE.md' },
   { slug: 'implementation', label: 'Implementation', group: 'Learn', markdown: implementation, source: 'IMPLEMENTATION.md' },
   { slug: 'cli', label: 'Command line', group: 'Reference', markdown: cli, source: 'packages/cli/README.md' },

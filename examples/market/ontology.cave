@@ -1,0 +1,25 @@
+; the world model: companies, the themes that move them, and who supplies whom
+DRIVES IS verb ; theme X moves company or theme Y; confidence = how much of Y's fortune X explains
+DRIVES REVERSE DRIVEN-BY
+SUPPLIES IS verb ; company X sells a critical input to company Y
+SUPPLIES REVERSE SOURCES-FROM
+
+chipco IS company ; designs AI accelerators
+fabco IS company ; leading-edge foundry
+cloudco IS company ; hyperscaler buying the accelerators
+powerco IS company ; data-center power and cooling
+
+theme/ai-capex IS theme ; how much hyperscalers spend on AI infrastructure
+theme/export-controls IS theme ; restrictions on selling advanced chips abroad
+theme/datacenter-power IS theme ; power and cooling as the bottleneck
+
+theme/ai-capex DRIVES chipco @ 90% #sign:+1
+theme/ai-capex DRIVES fabco @ 70% #sign:+1
+theme/ai-capex DRIVES powerco @ 80% #sign:+1
+theme/ai-capex DRIVES cloudco @ 50% #sign:-1 ; capex is a cost for the spender
+theme/export-controls DRIVES chipco @ 70% #sign:-1
+theme/ai-capex DRIVES theme/datacenter-power @ 80% #sign:+1
+
+fabco SUPPLIES chipco @ 95%
+chipco SUPPLIES cloudco @ 80%
+powerco SUPPLIES cloudco @ 50%

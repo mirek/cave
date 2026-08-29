@@ -37,7 +37,7 @@ in the repository.
 
 | Surface | Files | Purpose |
 |---|---|---|
-| Entry points | `README.md`, `DOCUMENTATION.md` | User overview, specification index, and this maintenance map. |
+| Entry points | `README.md`, `DOCUMENTATION.md` | Step-by-step tutorial (backed by `examples/monorepo/` and `examples/market/`), specification index, and this maintenance map. |
 | Project references | `PROJECT-BOUNDARIES.md`, `RETIRED-ROADMAP.md`, `DEPENDENCY-MAINTENANCE.md` | Permanent non-goals, historical roadmap resolution, and dependency triage policy. |
 | System design | `ARCHITECTURE.md`, `IMPLEMENTATION.md` | Boundaries, flows, package map, toolchain, and implementation decisions. |
 | Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md` | Required repository and PR workflow. |
@@ -50,7 +50,7 @@ in the repository.
 | Package history | `packages/*/CHANGELOG.md` | Generated historical release record. |
 | Website | `website/README.md`, `website/src/content.ts`, `website/src/pages/Home.tsx`, `website/src/App.tsx` | Site instructions and user-facing documentation/navigation copy. Most docs pages import repository Markdown directly. |
 | Editor | `editors/vscode/README.md` | VS Code extension usage and development. |
-| Examples | `examples/**/*.md` | Runnable fixture explanations and agent/extraction instructions. |
+| Examples | `examples/**/*.md` | Runnable fixture explanations, the full family-history tour, and agent/extraction instructions; tutorial outputs in the root README must match the fixtures. |
 | Backlog and defects | `TODO.md`, `todo/**/*.md`, `BUGS.md`, `bugs/**/*.md` | Active work and known bugs. Completed or rejected TODOs and fixed bugs are removed; lasting rejection rationale moves to project boundaries. |
 | Project/legal | `Authors.md`, `License.md`, `editors/vscode/License.md`, `packages/*/License.md` | Authorship and license records. |
 | Release metadata | `.changeset/README.md`, `.changeset/*.md` | Changeset instructions and immutable pending release notes. |
