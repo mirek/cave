@@ -75,7 +75,13 @@ const atLeast = (actual: string, required: string): boolean => {
   return true
 }
 
+// Only stable releases are supported: a nightly or release-candidate build such
+// as `26.0.0-nightly20260829` or `24.0.0-rc.1` carries the numeric prefix of a
+// supported line but satisfies neither the engine range nor the CI matrix.
+const stableVersion = /^\d+\.\d+\.\d+$/
+
 export const isSupportedNodeVersion = (value: string): boolean => {
+  if (!stableVersion.test(value)) return false
   const major = versionParts(value)?.[0]
   if (major === 22) return atLeast(value, requiredNode)
   return major === 24 || major === 26
