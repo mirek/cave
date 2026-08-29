@@ -322,8 +322,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@prelude/parser':
-        specifier: ^7.1.0
-        version: 7.1.0
+        specifier: ^8.0.1
+        version: 8.0.1
 
   packages/query:
     dependencies:
@@ -499,7 +499,7 @@ importers:
         version: 1.4.11
       '@vitejs/plugin-react':
         specifier: ^6.0.4
-        version: 6.1.1(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1))
+        version: 6.1.0(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1))
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
@@ -829,11 +829,13 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@prelude/parser@7.1.0':
-    resolution: {integrity: sha512-rY+tf+NfOfh0hR5UIHMrSspZyA+7aa6UpeWkIfpobjdUEUo1SW8OQ11OAp8zfpj/bn+qnMZ2+MRMSRBu82m1bQ==}
+  '@prelude/parser@8.0.1':
+    resolution: {integrity: sha512-NhhY7MV7Ht6IzHLb0N92ECz170r0otKPen1ITFXSss05qa9tK2Uh12Dt5jW/BIXerhmsRaVd0L5LFdsGll6q9g==}
+    engines: {node: '>=22'}
 
-  '@prelude/radix-trie@0.1.1':
-    resolution: {integrity: sha512-4S4nG4sqOO4jDeGnBhDi8um48yMLKrQxdV/Js4RYpKAubZ4jgm2HyKuAWH/RXee8LkdBJwlCgZB/hf0PnwUM0A==}
+  '@prelude/radix-trie@1.0.1':
+    resolution: {integrity: sha512-9CSD+FUyK5J3AdX7eKwwlGSPqJKfovyhcQS7bTrikaEI2IfrREVM6xVxQvb7Zcx/gaY6s9boggrbrvubKuvZ2g==}
+    engines: {node: '>=22'}
 
   '@rolldown/binding-android-arm-eabi@1.2.6':
     resolution: {integrity: sha512-b+jTcARdTiFLI6jB4a5XjTm0RWd6KcRfQj/I2356fxUZemiho9zQLxo0RtCuMDAyKcLo6cEltkgbQp6d1+sjjQ==}
@@ -1061,8 +1063,8 @@ packages:
   '@ungap/structured-clone@1.3.2':
     resolution: {integrity: sha512-5jsZFwgR5rTdKwidH9Qmat75RKwqfpKlWWB1frDkljN127mwqBu8K0PYo7/hFpF03IEJpfVPpCQDY/eDx3iHvA==}
 
-  '@vitejs/plugin-react@6.1.1':
-    resolution: {integrity: sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==}
+  '@vitejs/plugin-react@6.1.0':
+    resolution: {integrity: sha512-qd2BzUBehkov86WFhg0JkEFEYyCLG9uPCe6qWTY/kRlss9OvJrOF2UbIWT7p+8IzZHkEu0DNGHc4HSv+JdDLsw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
@@ -3106,11 +3108,11 @@ snapshots:
     dependencies:
       playwright: 1.61.1
 
-  '@prelude/parser@7.1.0':
+  '@prelude/parser@8.0.1':
     dependencies:
-      '@prelude/radix-trie': 0.1.1
+      '@prelude/radix-trie': 1.0.1
 
-  '@prelude/radix-trie@0.1.1': {}
+  '@prelude/radix-trie@1.0.1': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.6':
     optional: true
@@ -3329,7 +3331,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.2': {}
 
-  '@vitejs/plugin-react@6.1.1(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1))':
+  '@vitejs/plugin-react@6.1.0(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.2.2(@types/node@22.20.1)(esbuild@0.28.1)
