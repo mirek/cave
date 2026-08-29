@@ -32,6 +32,12 @@ updates:
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
+      # Changesets v3 renames `changeset tag`, stops versioning private
+      # packages by default, and pairs with changesets/action v2; see
+      # todo/changesets-v3-migration.md for the deliberate migration.
+      - dependency-name: "@changesets/cli"
+        update-types:
+          - "version-update:semver-major"
     groups:
       routine-compatible:
         applies-to: version-updates
@@ -67,6 +73,13 @@ updates:
       - mirek
     commit-message:
       prefix: "chore(actions)"
+    ignore:
+      # changesets/action v2 requires Changesets CLI v3 and renames every
+      # input; it moves together with the CLI migration recorded in
+      # todo/changesets-v3-migration.md.
+      - dependency-name: "changesets/action"
+        update-types:
+          - "version-update:semver-major"
     groups:
       routine-compatible:
         applies-to: version-updates
