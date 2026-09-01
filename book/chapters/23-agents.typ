@@ -61,13 +61,18 @@ $ printf '%s\n' \
     '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
     '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"cave_query","arguments":{"pattern":"?who SUPPLIES lot/huila-26"}}}' \
-    | cave mcp --db roastery.db 2>/dev/null \
-    | jq -c 'if .id == 2 then [.result.tools[].name] elif .id == 3 then .result.content[0].text else empty end'
-["cave_help","cave_add","cave_query","cave_fuse","cave_search","cave_about","cave_neighbors","cave_reconstruct","cave_derive","cave_export","cave_lint"]
-"?who = la-cima  ; la-cima SUPPLIES lot/huila-26"
+    | cave mcp --db roastery.db 2>/dev/null > replies.jsonl
+
+$ grep -o '"name":"cave_[a-z_]*"' replies.jsonl | tr '\n' ' '
+"name":"cave_help" "name":"cave_add" "name":"cave_query" "name":"cave_fuse" "name":"cave_search" "name":"cave_about" "name":"cave_neighbors" "name":"cave_reconstruct" "name":"cave_derive" "name":"cave_export" "name":"cave_lint" 
+
+$ grep -o '"text":"[^"]*"' replies.jsonl
+"text":"?who = la-cima  ; la-cima SUPPLIES lot/huila-26"
 ```
 
-The server exits when its input closes. Tool failures come back as
+One JSON reply per request lands in the file: the handshake, the tool list
+with every tool's schema, and the query result as CAVE text. The server
+exits when its input closes. Tool failures come back as
 `isError` results so the model can correct a call, and the startup banner
 goes to standard error because standard output is protocol only.
 

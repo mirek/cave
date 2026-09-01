@@ -149,17 +149,22 @@ next: <token>
 ```
 
 `--json` emits a versioned `cave.query-page` object whose matches carry
-the bindings and the full claim record. It is the form to use from a
-program:
+the bindings and the full claim record, including its canonical line, id,
+transaction, and claim key. It is the form to use from a program:
 
 ```sh
-$ cave query --db roastery.db '?who SUPPLIES lot/huila-26' --json | jq '.matches[0] | {bindings, canonical: .claim.canonical}'
+$ cave query --db roastery.db '?who SUPPLIES lot/huila-26' --json | head -n 11
 {
-  "bindings": {
-    "who": "la-cima"
-  },
-  "canonical": "la-cima SUPPLIES lot/huila-26 @src:cli"
-}
+  "format": "cave.query-page",
+  "version": 1,
+  "snapshot": "<uuid>",
+  "matches": [
+    {
+      "format": "cave.query-match",
+      "version": 1,
+      "bindings": {
+        "who": "la-cima"
+      },
 ```
 
 == SQL, when you need it
