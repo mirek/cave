@@ -102,8 +102,8 @@ Changes to the system are expected to preserve these:
 2. Never update or delete belief rows.
 3. Treat row ids as global identities that sync preserves with their
    transaction order, side tables, raw text, keys, and edges.
-4. Filter publication structurally, after resolving current belief, from
-   visible rows only.
+4. Filter publication structurally, from visible rows only; a current-only
+   export resolves current belief before applying the ceiling.
 5. Format source spans in one place.
 6. Keep generated clients derived and reproducible.
 7. Keep provenance dimensions separate from identity-bearing contexts.

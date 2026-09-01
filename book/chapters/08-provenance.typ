@@ -119,6 +119,7 @@ $ echo 'la-cima HAS contract-price: 7.10 USD/kg #sensitivity:confidential' | cav
 added 1 claim(s), 0 edge(s)
 
 $ cave export --db roastery.db | grep contract-price
+[exit 1]
 
 $ cave export --db roastery.db --max-sensitivity confidential | grep contract-price
 la-cima HAS contract-price: 7.10 USD/kg @src:cli #sensitivity:confidential

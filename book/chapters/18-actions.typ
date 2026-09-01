@@ -88,6 +88,7 @@ executed action/reorder: +0 appended, 0 updated, 2 unchanged (1 solution(s))
 
 $ cave act --db roastery.db reorder lot=lot/santa-ana-26
 cave act: precondition failed — no current belief satisfies "?lot NEEDS reorder"
+[exit 1]
 ```
 
 Execution follows a fixed sequence. The current declaration is resolved and

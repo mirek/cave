@@ -12,7 +12,9 @@
 // - A ```sh raw block is a session. Lines starting with `$ ` are commands
 //   (a trailing `\` continues the command on the next line); the lines that
 //   follow, up to the next command, are the recorded output. Commands run in
-//   order, in one scratch directory per chapter, with `cave` on the path.
+//   order, in one scratch directory per chapter, with `cave` on the path. A
+//   command that exits with a nonzero status has `[exit N]` as the last line
+//   of its recorded output, so exit statuses are both shown and checked.
 // - Recorded output may use `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`,
 //   `<path>`, `<token>`, and `<any>` as placeholders, and a line consisting of
 //   `…` (or `...`) for "any lines here".
@@ -151,7 +153,6 @@ const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** @param {string} expected @param {string} actual */
 export const matches = (expected, actual) => {
   const trimmed = actual.replace(/\n+$/, '')
-  if (expected === trimmed) return true
   return expectedPattern(expected).test(trimmed + '\n')
 }
 
@@ -185,7 +186,8 @@ const run = (command, cwd, bin) => {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (result.error !== undefined) throw result.error
-  return (result.stdout ?? '') + (result.stderr ?? '')
+  const status = result.status ?? `signal ${result.signal}`
+  return (result.stdout ?? '') + (result.stderr ?? '') + (status === 0 ? '' : `[exit ${status}]\n`)
 }
 
 /** @param {string} body @param {string} bin */

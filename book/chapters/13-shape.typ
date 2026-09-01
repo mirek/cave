@@ -70,6 +70,7 @@ violations (3):
   lot/tolima-26 missing attribute score (lot/tolima-26 IS lot; lot EXPECTS score)
   lot/tolima-26 missing relation SUPPLIED-BY (lot/tolima-26 IS lot; lot EXPECTS SUPPLIED-BY #cardinality:one)
 coverage: 39 row(s), 39 fact(s) — 39 current, 0 retracted, 0 negated; avg conf 100%, 0 low (< 0.3); 17 entities, 10 typed
+[exit 1]
 ```
 
 The command exits with status 1 while a violation remains, so it works as a
@@ -93,6 +94,7 @@ rejected: 3 new violation(s), nothing added (spec §20.3)
   lot/tolima-27 missing attribute price (lot/tolima-27 IS lot; lot EXPECTS price #unit:USD/kg)
   lot/tolima-27 missing attribute score (lot/tolima-27 IS lot; lot EXPECTS score)
   lot/tolima-27 missing relation SUPPLIED-BY (lot/tolima-27 IS lot; lot EXPECTS SUPPLIED-BY #cardinality:one)
+[exit 1]
 ```
 
 Pre-existing violations never block: the gate compares, it does not demand a

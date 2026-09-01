@@ -171,6 +171,7 @@ pre-commit check for hand-written files.
 $ printf 'la-cima SUPPLIES\n' | cave parse
 1 invalid, 1 blank
 line 1: missing object after SUPPLIES (the minimum line is "entity VERB object", spec §2.2)
+[exit 1]
 ```
 
 `cave add` is lenient by default: valid lines land, problems go to standard

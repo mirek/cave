@@ -39,7 +39,9 @@ The conventions the runner reads from `chapters/*.typ`:
 - A ```` ```sh ```` raw block is a *session*. Lines starting with `$ ` are
   commands (a trailing `\` continues a command on the next line); the lines
   after a command, up to the next `$ `, are its recorded output, compared
-  after trailing blank lines are trimmed. Commands run in order in one
+  after trailing blank lines are trimmed; a command that exits with a
+  nonzero status has `[exit N]` as the last line of its output, so exit
+  statuses are shown to the reader and checked by the runner. Commands run in order in one
   scratch directory per chapter, so a chapter is self-contained and chapters
   are independent. Each command runs under `sh -c` with `cave` on the path,
   `CAVE_DB` and `CAVE_HOOKS` unset, `NO_COLOR=1`, and `TZ=UTC`; standard
