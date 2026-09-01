@@ -88,9 +88,10 @@ and `--json` emits a versioned report.
 == Signals, exit codes, and errors
 
 Every command exits 0 on success and 1 on a user-level problem, with the
-problem on standard error in one line; a command-line usage error, such as
-an unknown command or an unknown option, exits 2, and an unknown command
-also prints the usage text. Commands that report violations or
+problem on standard error in one line; a usage error at the command level,
+such as an unknown command or an unexpected positional argument, exits 2
+and prints the usage text, while an unknown option is an ordinary problem
+with status 1. Commands that report violations or
 step failures, such as `cave check`, `cave eval --min`, `cave report`, and
 `cave automate --once`, use the exit code to carry that result so they
 compose with shell pipelines and CI. Interrupting a long-running command
