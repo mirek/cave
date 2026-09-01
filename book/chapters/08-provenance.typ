@@ -127,8 +127,11 @@ la-cima HAS contract-price: 7.10 USD/kg @src:cli #sensitivity:confidential
 The publication surfaces, `cave export`, `cave serve`, and `cave report`,
 default to an `internal` ceiling and must be told explicitly to go higher.
 Filtering is structural: counts, search, history, and lineage are computed
-from visible rows only, and current belief is resolved *before* filtering,
-so a hidden newer row never revives an older public one. Local queries and
+from visible rows only, and an edge is emitted only when both endpoints are
+visible. For a current-only export, current belief is resolved over the
+complete history first and the selected row is then filtered, so a hidden
+newer row never revives an older public belief there; the served page and
+reports query a store already narrowed to the ceiling. Local queries and
 the general MCP tools are not narrowed; when their output will be published,
 route it through a scoped surface. Labels are routing metadata, not
 encryption or access control.
