@@ -83,10 +83,15 @@ package, usable without a server.
 
 // no-test
 ```sh
+$ cave add --db roastery.db roastery.cave
 $ cave serve --db roastery.db --port 0 > serve.log 2>&1 &
+$ until grep -q 'http://' serve.log; do sleep 0.2; done
 $ url=$(grep -o 'http://[^ ]*/' serve.log | head -1)
 $ curl -s "${url}api/entity?name=lot/huila-26" | jq '.types'
 ```
+
+The server prints its address only once it is listening, so the loop waits
+for the log line before reading the URL.
 
 The view is deliberately not an MCP tool. Agents read through the query and
 neighbourhood tools; the page is for the human outside the loop.

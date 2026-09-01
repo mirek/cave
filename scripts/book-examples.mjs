@@ -125,10 +125,13 @@ const placeholders = {
   '<any>': '[^\\n]*',
 }
 
+// The recorded output as a regular expression over the actual output plus a
+// trailing newline: every recorded line must end exactly where the actual
+// line ends, and a `…` line stands for any number of whole lines.
 /** @param {string} expected */
 const expectedPattern = (expected) => {
   const parts = expected.split('\n').map(line => {
-    if (line === '…' || line === '...') return '(?:[^\\n]*\\n?)*?'
+    if (line === '…' || line === '...') return '(?:[^\\n]*\\n)*?'
     let out = ''
     const re = /<date>|<time>|<uuid>|<hex>|<n>|<path>|<token>|<any>/g
     let last = 0
@@ -137,7 +140,7 @@ const expectedPattern = (expected) => {
       last = match.index + match[0].length
     }
     out += escape(line.slice(last))
-    return out + '\\n?'
+    return out + '\\n'
   })
   return new RegExp('^' + parts.join('') + '$')
 }
