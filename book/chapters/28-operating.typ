@@ -94,9 +94,10 @@ step failures, such as `cave check`, `cave eval --min`, `cave report`, and
 compose with shell pipelines and CI. Interrupting a long-running command
 with `SIGINT` or `SIGTERM` closes servers, watchers, and stores before the
 process exits with the conventional signal code. `CAVE_DEBUG=1` adds the
-stack trace to unexpected errors. `--db` defaults to `$CAVE_DB`, then to
-`cave.db` in the current directory; `$CAVE_HOOKS` supplies a default hook
-configuration.
+stack trace to unexpected errors. For commands that open a store, `--db`
+defaults to `$CAVE_DB`, then to `cave.db` in the current directory, except
+`cave restore`, which always requires an explicit destination; `$CAVE_HOOKS`
+supplies a default hook configuration.
 
 #recap[Commit the annotated export, keep a prelude, stamp sources, prefer
 actions, gate with `cave check` and `cave eval`, resolve only on purpose,
