@@ -88,21 +88,25 @@ $ cave serve --db roastery.db --port 0 > serve.log 2>&1 &
 $ pid=$!
 $ tries=50
 $ until grep -q 'http://' serve.log; do \
-    kill -0 "$pid" 2>/dev/null && [ $((tries -= 1)) -gt 0 ] || { cat serve.log; break; }; \
-    sleep 0.2; done
+    kill -0 "$pid" 2>/dev/null && [ $((tries -= 1)) -gt 0 ] || break; sleep 0.2; done
 $ url=$(grep -o 'http://[^ ]*/' serve.log | head -1)
+$ [ -n "$url" ] || { cat serve.log; kill "$pid" 2>/dev/null; false; }
 $ curl -s "${url}api/entity?name=lot/huila-26" | jq '.types'
-$ kill "$pid"; wait "$pid" 2>/dev/null
+$ kill "$pid"; wait "$pid" 2>/dev/null || true
 ```
 
 The server prints its address only once it is listening, so the loop waits
-for the log line before reading the URL. It also gives up, printing the log,
-when the server process has exited or ten seconds have passed, so a store
-that cannot be opened shows its error instead of hanging the session. The
-last line stops the server again: `cave serve` runs until told otherwise, and
-every `--port 0` start picks a fresh port, so a forgotten server is an orphan
-holding the database open. In a script, `trap 'kill "$pid"' EXIT` right after
-the start does the same on every exit path.
+for the log line, and stops waiting when the server process has exited or
+ten seconds have passed. The guard that follows then fails the step: it
+prints the log, stops the server if it is still alive, and returns a nonzero
+status, so a store that cannot be opened shows its error and a script under
+`set -e` stops there instead of calling `curl` with no host. The last line
+stops the server again (`wait` reports the killed server's signal status,
+which `|| true` discards so that `set -e` does not mistake it for a
+failure): `cave serve` runs until told otherwise, and every `--port 0` start
+picks a fresh port, so a forgotten server is an orphan holding the database
+open. In a script, `trap 'kill "$pid"' EXIT` right after the start does the
+same on every exit path.
 
 The view is deliberately not an MCP tool. Agents read through the query and
 neighbourhood tools; the page is for the human outside the loop.
