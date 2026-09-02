@@ -72,9 +72,11 @@ one version, in lockstep, through automated changesets.
 Every command enters one awaited dispatcher, whether its implementation is
 synchronous, asynchronous, or a long-running server. `SIGINT` and `SIGTERM`
 become one abort signal; HTTP servers, protocol readers, watchers, timers,
-and stores close before the conventional signal exit code is returned. User
-errors are one line and stack-free by default; `CAVE_DEBUG=1` keeps the
-diagnostic stack.
+and stores close before the conventional signal exit code is returned. A
+simple user error is one stack-free line on standard error; a command that
+reports findings, such as parse diagnostics or a rejected shape gate,
+prints its structured report instead (Chapter 28). `CAVE_DEBUG=1` keeps the
+diagnostic stack for unexpected errors.
 
 Local integrations cross one process boundary too. Direct commands are
 executable-and-arguments arrays with no shell interpolation. Agent and hook
