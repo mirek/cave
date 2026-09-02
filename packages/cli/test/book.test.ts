@@ -36,7 +36,8 @@ test('recorded output matches line by line, with placeholders standing for real 
 test('the cave wrapper survives shell metacharacters in the node and checkout paths', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-book-wrapper-'))
   try {
-    const odd = join(dir, "it's $HOME `x` \\ dir")
+    // No backslash: Node's module loader rejects one in an entry path.
+    const odd = join(dir, "it's $HOME `x` dir")
     mkdirSync(odd)
     const entry = join(odd, 'main.mjs')
     writeFileSync(entry, 'console.log(`ok ${process.argv.slice(2).join(",")}`)\n')
