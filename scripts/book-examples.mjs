@@ -118,24 +118,33 @@ const parseSession = (lines, from, to) => {
 // ---------------------------------------------------------------------------
 // Matching recorded output
 
+// A character that does not begin a placeholder's literal spelling: the
+// wildcards below are built from it, so an unexpanded `<path>` or `<any>`
+// leaking out of the CLI never satisfies the placeholder that stands for
+// the real value.
+const notPlaceholder = '(?!<(?:date|time|uuid|hex|n|path|token|any)>)'
+const nonSpace = `(?:${notPlaceholder}\\S)+`
+const rest = `(?:${notPlaceholder}[^\\n])*`
+
 const placeholders = {
   '<date>': '\\d{4}-\\d{2}-\\d{2}',
   '<time>': '\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z',
   '<uuid>': '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
   '<hex>': '[0-9a-f]+',
   '<n>': '-?\\d+(?:\\.\\d+)?',
-  '<path>': '\\S+',
-  '<token>': '\\S+',
-  '<any>': '[^\\n]*',
+  '<path>': nonSpace,
+  '<token>': nonSpace,
+  '<any>': rest,
 }
 
 // The recorded output as a regular expression over the actual output plus a
 // trailing newline: every recorded line must end exactly where the actual
-// line ends, and a `…` line stands for any number of whole lines.
+// line ends, and a `…` line stands for any number of whole lines (none of
+// which may contain a literal placeholder either).
 /** @param {string} expected */
 const expectedPattern = (expected) => {
   const parts = expected.split('\n').map(line => {
-    if (line === '…' || line === '...') return '(?:[^\\n]*\\n)*?'
+    if (line === '…' || line === '...') return `(?:${rest}\\n)*?`
     let out = ''
     const re = /<date>|<time>|<uuid>|<hex>|<n>|<path>|<token>|<any>/g
     let last = 0

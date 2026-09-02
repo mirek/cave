@@ -93,12 +93,17 @@ and `action` may execute governed effects. `--permissions` serves only the
 named classes, `--tools` only the named tools, and `--read-only` is the
 shorthand that keeps read and evaluate. Scopes compose by intersection, and
 a scope that names an unknown tool, or serves nothing, fails at startup
-before the database is opened:
+before the database is opened. The one thing startup cannot check is an
+`act_<name>` tool: those exist only while the action is declared, and are
+read from the store on every listing, so the third scope below serves an
+empty list until Chapter 18's declaration has been loaded, and a misspelt
+action name is an empty list rather than an error.
 
 // no-test
 ```sh
 $ cave mcp --db roastery.db --read-only
 $ cave mcp --db roastery.db --permissions read,evaluate
+$ cave act --db roastery.db --declare actions.cave
 $ cave mcp --db roastery.db --permissions action --tools act_reorder
 $ cave mcp --db roastery.db --tools cave_query,cave_about,cave_search
 ```

@@ -100,7 +100,11 @@ Tools outside the scope are absent from `tools/list` and
 indistinguishable from nonexistent in `tools/call`; the server
 `instructions` mention only served tools, and a surface with no writing
 tool declares itself read-only. A scope that names an unknown tool, or
-serves nothing, fails at startup — before the database is opened. Read and
+serves nothing, fails at startup — before the database is opened. The
+exception is `act_<name>`: generated action tools exist only while the
+action is declared and are read from the store on every `tools/list`, so a
+scope naming one starts, serving an empty list until the action is declared
+(a misspelt action name is an empty list, not a startup error). Read and
 evaluation tools carry the MCP `readOnlyHint` annotation, so clients can treat
 them accordingly (e.g. auto-approve).
 
