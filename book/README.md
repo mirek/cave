@@ -54,8 +54,9 @@ The conventions the runner reads from `chapters/*.typ`:
   print English messages under any locale); standard output and standard
   error are both captured.
 - Recorded output may contain placeholders for values that legitimately
-  vary: `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`, `<path>`, `<token>`,
-  and `<any>` (the rest of a line). A line consisting of `…` or `...` matches
+  vary: `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`, `<path>` (which may
+  contain spaces, since the scratch directory lives under `TMPDIR`),
+  `<token>` (which may not), and `<any>` (the rest of a line). A line consisting of `…` or `...` matches
   any number of lines.
 - `#file("name")` on the line immediately before a raw block writes that
   block to `name` in the chapter's scratch directory before later sessions

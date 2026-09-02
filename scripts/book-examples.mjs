@@ -18,8 +18,9 @@
 //   `[exit N]` as the last line of its recorded output, so exit statuses are
 //   both shown and checked.
 // - Recorded output may use `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`,
-//   `<path>`, `<token>`, and `<any>` as placeholders, and a line consisting of
-//   `…` (or `...`) for "any lines here".
+//   `<path>` (which may contain spaces), `<token>` (which may not), and
+//   `<any>` as placeholders, and a line consisting of `…` (or `...`) for
+//   "any lines here".
 // - `#file("name")` on the line before a raw block writes that block to the
 //   named file before the sessions that follow it run. When
 //   book/fixtures/<name> exists, the block must be identical to it — the
@@ -126,6 +127,9 @@ const parseSession = (lines, from, to) => {
 const notPlaceholder = '(?!<(?:date|time|uuid|hex|n|path|token|any)>)'
 const nonSpace = `(?:${notPlaceholder}\\S)+`
 const rest = `(?:${notPlaceholder}[^\\n])*`
+// A path may contain spaces: the scratch directory lives under the system
+// temporary directory, which the reader's TMPDIR may place anywhere.
+const path = `(?:${notPlaceholder}[^\\n])+`
 
 const placeholders = {
   '<date>': '\\d{4}-\\d{2}-\\d{2}',
@@ -133,7 +137,7 @@ const placeholders = {
   '<uuid>': '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
   '<hex>': '[0-9a-f]+',
   '<n>': '-?\\d+(?:\\.\\d+)?',
-  '<path>': nonSpace,
+  '<path>': path,
   '<token>': nonSpace,
   '<any>': rest,
 }
