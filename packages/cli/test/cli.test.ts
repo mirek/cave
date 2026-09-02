@@ -347,6 +347,8 @@ test('every command answers --help with usage; cave help <command> matches', () 
   }
   assert.match(cave(['query', '--help']).out, /Examples:/)
   assert.match(cave(['q', '-h']).out, /cave query/)
+  assert.match(cave(['help', 'help']).out, /cave help <command>/)
+  assert.equal(cave(['help', '--help']).out, cave(['help', 'help']).out)
   const unknown = cave(['help', 'frobnicate'])
   assert.equal(unknown.code, 2)
   assert.match(unknown.err, /unknown command/)

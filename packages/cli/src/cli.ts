@@ -712,7 +712,19 @@ topic → fix over a small in-memory store.`,
   version: `cave version — print the cave version
 
 Usage:
-  cave version`
+  cave version`,
+
+  help: `cave help — the overview, or one command's options and examples
+
+Usage:
+  cave help
+  cave help <command>
+
+Every command answers --help with the same text as cave help <command>.
+
+Examples:
+  cave help query
+  cave help serve`
 }
 
 const readStdin = (): string => {
