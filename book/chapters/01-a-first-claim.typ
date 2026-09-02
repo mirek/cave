@@ -80,8 +80,8 @@ you. Part VI is for the curious and the operators.
 
 Every session with a `$` prompt in this book was run against the real tool,
 and a test keeps it that way for all but the few that need a language model,
-a browser, or a long-running server. When the output changes, the book
-changes with it.
+a browser, a long-running server, or the optional Z3 solver package. When
+the output changes, the book changes with it.
 
 #recap[A claim is `subject VERB object`. `cave parse` lints, `cave add`
 appends to a SQLite store, and `cave query` asks with `?variables`. Nothing is

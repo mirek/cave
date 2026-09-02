@@ -88,11 +88,11 @@ its output is what the tool printed; when a command exits with a nonzero
 status, the session shows it as a final `[exit N]` line, and a pipeline counts
 as failed when its `cave` stage fails (the sessions run with `pipefail` set).
 A test replays every such session and fails when the recorded output or exit
-status drifts; the few sessions that need a language model, a browser, or a
-long-running server are marked in the source and are not replayed. Files
-shown with a filename caption are the exact files the sessions use;
-`book/fixtures/` in the repository holds the shared ones, so you can copy that
-directory and follow along.
+status drifts; the few sessions that need a language model, a browser, a
+long-running server, or the optional Z3 solver package are marked in the
+source and are not replayed. Files shown with a filename caption are the
+exact files the sessions use; `book/fixtures/` in the repository holds the
+shared ones, so you can copy that directory and follow along.
 
 *Where the rules live.* The normative specification is split across four
 skill files in the repository's `.claude/skills/` directory, with numbered

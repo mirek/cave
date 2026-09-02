@@ -105,14 +105,30 @@ grown from it merges back without duplication.
 Because the annotated export is a complete replica, the text can be the
 store. Commit `knowledge.cave`, never the SQLite file, regenerated before
 every commit and never edited by hand. A branch is a git branch plus a
-private store file, rebuilt from the text as plumbing:
+private store file, rebuilt from the text as plumbing. Take the laptop as
+the live store and open a branch that adds a supplier:
 
-// no-test
+#file("suppliers.cave")
+```cave
+finca-elena IS supplier ; met at the Bogotá fair
+finca-elena SUPPLIES lot/tolima-26
+```
+
 ```sh
-$ git switch -c reorg-suppliers
+$ cave export --db laptop.db --tx --max-sensitivity restricted --out knowledge.cave
+exported 37 claim(s) to knowledge.cave
+
+$ git init -q && git switch -c reorg-suppliers
+Switched to a new branch 'reorg-suppliers'
+
 $ cave sync --db work.db knowledge.cave --no-record
+merged 37 claim(s), 0 edge(s)
+
 $ cave add --db work.db suppliers.cave
+added 2 claim(s), 0 edge(s)
+
 $ cave export --db work.db --tx --max-sensitivity restricted --out knowledge.cave
+exported 39 claim(s) to knowledge.cave
 ```
 
 The pull-request diff is the appended claims: review new `;@` ids as the
@@ -120,20 +136,32 @@ semantic additions, and treat a changed physical line around an existing
 id as presentation, since canonical output may factor an old and a new row
 through a shared prefix. A knowledge merge can never conflict; a *text*
 merge can, when two branches append at the end of the file. Never
-hand-merge the export. Rebuild it as the union the two texts already are:
+hand-merge the export. Rebuild it as the union the two texts already are.
+Suppose the live store moved on while the branch was open, so its export
+is the other side of the conflict:
 
-// no-test
 ```sh
-$ t=$(mktemp -d)
-$ cave sync --db $t/m.db ours.cave --no-record
-$ cave sync --db $t/m.db theirs.cave --no-record
-$ cave export --db $t/m.db --tx --max-sensitivity restricted --out knowledge.cave
+$ echo 'cafe/north HAS manager: "Kim"' | cave add --db laptop.db
+added 1 claim(s), 0 edge(s)
+
+$ cave export --db laptop.db --tx --max-sensitivity restricted --out theirs.cave
+exported 38 claim(s) to theirs.cave
+
+$ cave sync --db merge.db knowledge.cave --no-record
+merged 39 claim(s), 0 edge(s)
+
+$ cave sync --db merge.db theirs.cave --no-record
+merged 1 claim(s), 0 edge(s), 37 already present
+
+$ cave export --db merge.db --tx --max-sensitivity restricted --out knowledge.cave
+exported 40 claim(s) to knowledge.cave
 ```
 
-Git can run that as a merge driver for `*.cave` files; the ancestor is
-unused because union by identity needs no three-way merge. Landing the
-branch is one more sync into the live store, and this one is a real merge
-event, so let it record. Refreshing a stale branch is the same move pointed
+Git can run that as a merge driver for `*.cave` files, with the branch's
+text and the other side's as the two inputs; the ancestor is unused because
+union by identity needs no three-way merge. Landing the branch is one more
+sync into the live store, and this one is a real merge event, so let it
+record. Refreshing a stale branch is the same move pointed
 the other way, as a checkout.
 
 Costs, stated plainly: a branch is a full copy of the store, with no shared

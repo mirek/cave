@@ -25,7 +25,8 @@
 //   book/fixtures/<name> exists, the block must be identical to it — the
 //   fixtures directory is the copy readers can `cd` into.
 // - A `// no-test` comment on the line before a ```sh block excludes it (used
-//   for commands that need an LLM agent, a browser, or a long-running server).
+//   for commands that need an LLM agent, a browser, a long-running server,
+//   or the optional Z3 solver package).
 // - Every other ```cave block must lint clean under `cave parse`, as must
 //   every `.cave` file block except eval query fixtures (`*.queries.cave`).
 

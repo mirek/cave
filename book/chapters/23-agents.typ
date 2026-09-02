@@ -97,7 +97,15 @@ before the database is opened. The one thing startup cannot check is an
 `act_<name>` tool: those exist only while the action is declared, and are
 read from the store on every listing, so the third scope below serves an
 empty list until Chapter 18's declaration has been loaded, and a misspelt
-action name is an empty list rather than an error.
+action name is an empty list rather than an error. The declaration is
+Chapter 18's:
+
+#file("actions.cave")
+```cave
+; governed writes: the only way an order gets recorded
+action/reorder HAS action: `?lot, ?lot NEEDS reorder, ?lot SUPPLIED-BY ?supplier => ?lot HAS order: 30kg, ?supplier NEEDS contact` ; order 30 kg of a lot that ran low
+action/reorder/lot IS param ; the lot to reorder
+```
 
 // no-test
 ```sh

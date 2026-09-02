@@ -8,7 +8,7 @@ import { matches } from '../../../scripts/book-examples.mjs'
 // Every `$`-prompt session and every CAVE listing in the book is replayed
 // against the real CLI by scripts/book-examples.mjs (see book/README.md for
 // the conventions), except sessions marked `// no-test`, which need a model,
-// a browser, or a long-running server. A drifted output fails here; refresh
+// a browser, a long-running server, or the optional Z3 solver package. A drifted output fails here; refresh
 // the recorded output with `node scripts/book-examples.mjs --update`.
 const script = fileURLToPath(new URL('../../../scripts/book-examples.mjs', import.meta.url))
 

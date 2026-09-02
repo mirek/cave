@@ -65,8 +65,9 @@ workflow comments aligned when their behavior changes.
 `packages/cli/test/book.test.ts` replays every `$`-prompt session and lints
 every CAVE listing in `book/chapters/*.typ` against the real CLI through
 `scripts/book-examples.mjs`, except the sessions marked `// no-test` (those
-that need a language model, a browser, or a long-running server), which must
-be re-run by hand when the commands they show change; recorded output that
+that need a language model, a browser, a long-running server, or the
+optional Z3 solver package), which must be re-run by hand when the commands
+they show change; recorded output that
 drifts fails `pnpm test` and is refreshed with
 `node scripts/book-examples.mjs --update` (conventions in `book/README.md`).
 

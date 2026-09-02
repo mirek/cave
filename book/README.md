@@ -27,9 +27,9 @@ Every `$`-prompt session and every CAVE listing in the book is replayed
 against the real `cave` CLI by `scripts/book-examples.mjs`, and
 `packages/cli/test/book.test.ts` runs it as part of `pnpm test`, so recorded
 output cannot drift from the shipped tool. The exception is a session marked
-`// no-test` (one that needs a language model, a browser, or a long-running
-server): it is skipped, so re-run it by hand whenever the commands it shows
-change.
+`// no-test` (one that needs a language model, a browser, a long-running
+server, or the optional Z3 solver package): it is skipped, so re-run it by
+hand whenever the commands it shows change.
 
 ```sh
 node scripts/book-examples.mjs            # check every chapter (exit 1 on drift)
@@ -64,8 +64,9 @@ The conventions the runner reads from `chapters/*.typ`:
   file blocks must lint under `cave parse`, except eval query fixtures
   (`*.queries.cave`).
 - A `// no-test` comment on the line before a ```` ```sh ```` block excludes
-  it. Use it only for commands that need a language model, a browser, or a
-  long-running server; everything else should be replayed.
+  it. Use it only for commands that need a language model, a browser, a
+  long-running server, or the optional Z3 solver package
+  (`cave-solver-workflow`); everything else should be replayed.
 - Every other ```` ```cave ```` block is linted with `cave parse`. Use
   ```` ```text ```` for grammar skeletons and other non-CAVE listings.
 - A raw block that itself contains triple-backtick fences (a Markdown report
