@@ -175,11 +175,18 @@ export const matches = (expected, actual) => {
 // ---------------------------------------------------------------------------
 // Running
 
+/** A string as one POSIX shell word, whatever characters it contains. */
+const shellQuote = (text) => `'${text.replaceAll("'", "'\\''")}'`
+
+/** The `cave` wrapper script: `node` running the CLI's entry point. */
+export const wrapperScript = (node, entry) =>
+  `#!/bin/sh\nexec ${shellQuote(node)} --disable-warning=ExperimentalWarning ${shellQuote(entry)} "$@"\n`
+
 const makeBin = (dir) => {
   const bin = join(dir, 'bin')
   mkdirSync(bin)
   const wrapper = join(bin, 'cave')
-  writeFileSync(wrapper, `#!/bin/sh\nexec "${process.execPath}" --disable-warning=ExperimentalWarning "${main}" "$@"\n`)
+  writeFileSync(wrapper, wrapperScript(process.execPath, main))
   chmodSync(wrapper, 0o755)
   return bin
 }

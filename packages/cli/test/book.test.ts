@@ -2,8 +2,11 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 // @ts-expect-error the replay script is plain JavaScript
-import { matches } from '../../../scripts/book-examples.mjs'
+import { matches, wrapperScript } from '../../../scripts/book-examples.mjs'
 
 // Every `$`-prompt session and every CAVE listing in the book is replayed
 // against the real CLI by scripts/book-examples.mjs (see book/README.md for
@@ -28,6 +31,24 @@ test('recorded output matches line by line, with placeholders standing for real 
   }
   assert.ok(!matches('<n>', '<n>'))
   assert.ok(!matches('a\n…\nz', 'a\ncave doctor <any>\nz'), 'a … line does not hide a literal placeholder')
+})
+
+test('the cave wrapper survives shell metacharacters in the node and checkout paths', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-book-wrapper-'))
+  try {
+    const odd = join(dir, "it's $HOME `x` \\ dir")
+    mkdirSync(odd)
+    const entry = join(odd, 'main.mjs')
+    writeFileSync(entry, 'console.log(`ok ${process.argv.slice(2).join(",")}`)\n')
+    const wrapper = join(dir, 'cave')
+    writeFileSync(wrapper, wrapperScript(process.execPath, entry))
+    chmodSync(wrapper, 0o755)
+    const result = spawnSync('sh', ['-c', `"$0" a 'b c'`, wrapper], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout, 'ok a,b c\n')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('the book\'s runnable examples match the shipped CLI', { skip: process.platform === 'win32' && 'book sessions are POSIX sh' }, () => {
