@@ -89,11 +89,14 @@ and `--json` emits a versioned report.
 
 Every command exits 0 on success and 1 on a user-level problem. A simple
 failure, such as a missing file or a malformed line, puts the problem on
-standard error in one line; a usage error at the command level, such as an
-unknown command or an unexpected positional argument, exits 2 with the
-problem on standard error, and an unknown command also prints the usage
-overview, while an unknown option is an ordinary problem with status 1.
-Commands that report violations or step failures, such as `cave check`,
+standard error in one line. Status 2 is reserved for the dispatcher's own
+usage errors: an unknown command or help topic, which also prints the usage
+overview, and a stray argument to a command that takes none (`doctor`,
+`demo`, `version`, `help`). Every other argument problem is an ordinary
+status-1 problem, including an unknown option, a missing pattern for `cave
+query`, and a stray argument to a delegated command such as `cave serve`,
+which prints its own usage text alongside the message. Commands that
+report violations or step failures, such as `cave check`,
 `cave eval --min`, `cave report`, and `cave automate --once`, use the exit
 code to carry that result so they compose with shell pipelines and CI, and
 their findings are the report itself rather than a one-line error: `cave
