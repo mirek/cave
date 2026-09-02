@@ -33,7 +33,7 @@ test('recorded output matches line by line, with placeholders standing for real 
   assert.ok(!matches('a\n…\nz', 'a\ncave doctor <any>\nz'), 'a … line does not hide a literal placeholder')
 })
 
-test('the cave wrapper survives shell metacharacters in the node and checkout paths', () => {
+test('the cave wrapper survives shell metacharacters in the node and checkout paths', { skip: process.platform === 'win32' && 'the wrapper is a POSIX sh script' }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-book-wrapper-'))
   try {
     // No backslash: Node's module loader rejects one in an entry path.
