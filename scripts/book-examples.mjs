@@ -182,9 +182,13 @@ const makeBin = (dir) => {
 
 /** @param {string} bin */
 const sessionEnv = (bin) => {
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ''}`, NO_COLOR: '1', TZ: 'UTC' }
+  // `LC_ALL=C` pins the messages of tools the sessions call besides `cave`
+  // (git, sed, curl) to English, so recordings match under any locale.
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ''}`, NO_COLOR: '1', TZ: 'UTC', LC_ALL: 'C' }
   delete env.CAVE_DB
   delete env.CAVE_HOOKS
+  delete env.LANG
+  delete env.LANGUAGE
   return env
 }
 

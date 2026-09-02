@@ -49,8 +49,10 @@ The conventions the runner reads from `chapters/*.typ`:
   are independent. Each command runs under `sh -c` (or `bash -c` where `sh`
   lacks the option) with `set -o pipefail`, so a `cave` stage that fails
   inside a `| sed` or `| grep` pipeline still records its `[exit N]`; `cave`
-  is on the path, `CAVE_DB` and `CAVE_HOOKS` are unset, `NO_COLOR=1`, and
-  `TZ=UTC`; standard output and standard error are both captured.
+  is on the path, `CAVE_DB` and `CAVE_HOOKS` are unset, `NO_COLOR=1`,
+  `TZ=UTC`, and `LC_ALL=C` (so git and the other tools a session calls
+  print English messages under any locale); standard output and standard
+  error are both captured.
 - Recorded output may contain placeholders for values that legitimately
   vary: `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`, `<path>`, `<token>`,
   and `<any>` (the rest of a line). A line consisting of `…` or `...` matches
