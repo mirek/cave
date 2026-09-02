@@ -52,7 +52,9 @@ The conventions the runner reads from `chapters/*.typ`:
   is on the path, `CAVE_DB` and `CAVE_HOOKS` are unset, `NO_COLOR=1`,
   `TZ=UTC`, and `LC_ALL=C` (so git and the other tools a session calls
   print English messages under any locale); standard output and standard
-  error are both captured.
+  error are both captured and shown interleaved, as a terminal shows them.
+  Which stream a message belongs on is a CLI contract, not a book
+  convention, and `packages/cli/test/cli.test.ts` checks it directly.
 - Recorded output may contain placeholders for values that legitimately
   vary: `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`, `<path>` (which may
   contain spaces, since the scratch directory lives under `TMPDIR`),

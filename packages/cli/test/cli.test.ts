@@ -354,6 +354,39 @@ test('every command answers --help with usage; cave help <command> matches', () 
   assert.match(unknown.err, /unknown command/)
 })
 
+test('output channels are as the book documents: failures and rejections on stderr, reports on stdout', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const malformed = join(dir, 'malformed.cave')
+    writeFileSync(malformed, 'la-cima SUPPLIES\n')
+    const parsed = cave(['parse', malformed])
+    assert.equal(parsed.code, 1)
+    assert.match(parsed.err, /line 1: missing object/)
+    assert.doesNotMatch(parsed.out, /missing object/)
+
+    const simple = cave(['query', 'x IS y', '--db', db, '--as-of', 'yesterday'])
+    assert.equal(simple.code, 1)
+    assert.equal(simple.out, '')
+    assert.equal(simple.err.trimEnd().split('\n').length, 1, 'a simple failure is one line on stderr')
+
+    const shape = join(dir, 'shape.cave')
+    writeFileSync(shape, 'lot EXPECTS price\nlot/tolima-27 IS lot\n')
+    assert.equal(cave(['add', shape, '--db', db]).code, 0)
+    const gated = join(dir, 'gated.cave')
+    writeFileSync(gated, 'lot/tolima-28 IS lot\n')
+    const rejected = cave(['add', gated, '--db', db, '--check'])
+    assert.equal(rejected.code, 1)
+    assert.equal(rejected.out, '')
+    assert.match(rejected.err, /^rejected: 1 new violation\(s\)/)
+    assert.match(rejected.err, /\n  lot\/tolima-28 missing attribute price/, 'one line per violation on stderr')
+
+    const report = cave(['check', '--db', db])
+    assert.equal(report.code, 1)
+    assert.equal(report.err, '')
+    assert.match(report.out, /missing attribute price/, 'check prints its report on stdout')
+  })
+})
+
 test('version, demo, and help reject surplus positional arguments with status 2', () => {
   for (const argv of [['version', 'extra'], ['--version', 'extra'], ['demo', 'extra'], ['help', 'query', 'extra']]) {
     const result = cave(argv)
