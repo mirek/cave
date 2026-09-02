@@ -438,7 +438,7 @@ CREATE INDEX idx_cave_tag_key ON cave_tag (key, value);
 
 CREATE TABLE cave_edge (
   parent_id TEXT NOT NULL,
-  role      TEXT NOT NULL,             -- WHEN, UNLESS, VIA, BECAUSE, QUALIFIES
+  role      TEXT NOT NULL,             -- WHEN, VIA, BECAUSE, QUALIFIES (UNLESS is a WHEN edge to a negated child)
   child_id  TEXT NOT NULL,
   FOREIGN KEY (parent_id) REFERENCES cave_claim(id),
   FOREIGN KEY (child_id)  REFERENCES cave_claim(id)

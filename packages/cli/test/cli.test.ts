@@ -354,6 +354,17 @@ test('every command answers --help with usage; cave help <command> matches', () 
   assert.match(unknown.err, /unknown command/)
 })
 
+test('version, demo, and help reject surplus positional arguments with status 2', () => {
+  for (const argv of [['version', 'extra'], ['--version', 'extra'], ['demo', 'extra'], ['help', 'query', 'extra']]) {
+    const result = cave(argv)
+    assert.equal(result.code, 2, argv.join(' '))
+    assert.match(result.err, /unexpected positional arguments/, argv.join(' '))
+    assert.equal(result.out, '')
+  }
+  assert.equal(cave(['help', 'query']).code, 0)
+  assert.throws(() => cave(['version', '--json']), /Unknown option/)
+})
+
 test('--db defaults to $CAVE_DB, then cave.db in the cwd', () => {
   withDir(dir => {
     const file = join(dir, 'k.cave')

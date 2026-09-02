@@ -22,7 +22,7 @@ cave_claim(id, tx, subject, verb, negated,
 cave_context(claim_id, context)
 cave_provenance(claim_id, dimension, value)     -- actor, source, run, domain
 cave_tag(claim_id, key, value)                  -- value NULL for a flat tag
-cave_edge(parent_id, role, child_id)            -- WHEN, UNLESS, VIA, BECAUSE
+cave_edge(parent_id, role, child_id)            -- WHEN, VIA, BECAUSE, QUALIFIES
 cave_fts(claim_id, subject, verb, object, attribute, value_text, comment, raw_line)
 ```
 
@@ -31,7 +31,10 @@ millisecond and sorts chronologically. `subject`, `verb`, and `object` are
 stored in the canonical primary direction; `raw_line` keeps the text
 exactly as written, inverse spelling and all. `value_num` and `value_unit`
 hold the parsed number and normalized unit when the value is numeric, with
-the original in `value_text`; a trajectory keeps `value_num` empty. Indexes
+the original in `value_text`; a trajectory keeps `value_num` empty. An
+edge's role is the qualifier that produced it, with two normalizations: an
+`UNLESS` line is stored as a `WHEN` edge to a negated child, and a full
+claim grouped under another line links to it with `QUALIFIES`. Indexes
 cover the claim key with transaction, subject, verb, object, attribute,
 confidence, each context, each tag key and value, and each edge end.
 
