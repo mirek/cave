@@ -102,6 +102,7 @@ $ cave report --db roastery.db brief.md 2>&1 | sed -n '3,4p;/^template line/p'
 The Huila lot is priced at 7.80 USD/kg[^c1] and
 scored *(ambiguous: 2 matches)*.
 template line 4: ambiguous inline splice "lot/huila-26 HAS score: ?s": 2 matches — several series contest the fact; --resolve picks the §26 winner
+[exit 1]
 
 $ cave report --db roastery.db brief.md --resolve | sed -n '3,4p'
 The Huila lot is priced at 7.80 USD/kg[^c1] and

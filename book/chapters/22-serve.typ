@@ -85,13 +85,19 @@ package, usable without a server.
 ```sh
 $ cave add --db roastery.db roastery.cave
 $ cave serve --db roastery.db --port 0 > serve.log 2>&1 &
+$ pid=$!
 $ until grep -q 'http://' serve.log; do sleep 0.2; done
 $ url=$(grep -o 'http://[^ ]*/' serve.log | head -1)
 $ curl -s "${url}api/entity?name=lot/huila-26" | jq '.types'
+$ kill "$pid"; wait "$pid" 2>/dev/null
 ```
 
 The server prints its address only once it is listening, so the loop waits
-for the log line before reading the URL.
+for the log line before reading the URL, and the last line stops the server
+again: `cave serve` runs until told otherwise, and every `--port 0` start
+picks a fresh port, so a forgotten server is an orphan holding the database
+open. In a script, `trap 'kill "$pid"' EXIT` right after the start does the
+same on every exit path.
 
 The view is deliberately not an MCP tool. Agents read through the query and
 neighbourhood tools; the page is for the human outside the loop.

@@ -43,9 +43,11 @@ The conventions the runner reads from `chapters/*.typ`:
   nonzero status has `[exit N]` as the last line of its output, so exit
   statuses are shown to the reader and checked by the runner. Commands run in order in one
   scratch directory per chapter, so a chapter is self-contained and chapters
-  are independent. Each command runs under `sh -c` with `cave` on the path,
-  `CAVE_DB` and `CAVE_HOOKS` unset, `NO_COLOR=1`, and `TZ=UTC`; standard
-  output and standard error are both captured.
+  are independent. Each command runs under `sh -c` (or `bash -c` where `sh`
+  lacks the option) with `set -o pipefail`, so a `cave` stage that fails
+  inside a `| sed` or `| grep` pipeline still records its `[exit N]`; `cave`
+  is on the path, `CAVE_DB` and `CAVE_HOOKS` are unset, `NO_COLOR=1`, and
+  `TZ=UTC`; standard output and standard error are both captured.
 - Recorded output may contain placeholders for values that legitimately
   vary: `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`, `<path>`, `<token>`,
   and `<any>` (the rest of a line). A line consisting of `…` or `...` matches

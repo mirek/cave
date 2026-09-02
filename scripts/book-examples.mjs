@@ -12,9 +12,11 @@
 // - A ```sh raw block is a session. Lines starting with `$ ` are commands
 //   (a trailing `\` continues the command on the next line); the lines that
 //   follow, up to the next command, are the recorded output. Commands run in
-//   order, in one scratch directory per chapter, with `cave` on the path. A
-//   command that exits with a nonzero status has `[exit N]` as the last line
-//   of its recorded output, so exit statuses are both shown and checked.
+//   order, in one scratch directory per chapter, with `cave` on the path and
+//   `pipefail` set, so a `cave` stage that fails inside a pipeline still
+//   fails the command. A command that exits with a nonzero status has
+//   `[exit N]` as the last line of its recorded output, so exit statuses are
+//   both shown and checked.
 // - Recorded output may use `<date>`, `<time>`, `<uuid>`, `<hex>`, `<n>`,
 //   `<path>`, `<token>`, and `<any>` as placeholders, and a line consisting of
 //   `…` (or `...`) for "any lines here".
@@ -176,9 +178,20 @@ const sessionEnv = (bin) => {
   return env
 }
 
+// Sessions run under `pipefail` so that `cave … | sed …` reports the status
+// of the `cave` stage, not of the filter. POSIX sh gained the option in 2024
+// and not every `sh` has it yet, so fall back to bash where it hasn't.
+let shell = null
+const sessionShell = () => {
+  if (shell !== null) return shell
+  shell = ['sh', 'bash'].find(name => spawnSync(name, ['-c', 'set -o pipefail'], { stdio: 'ignore' }).status === 0)
+  if (shell === undefined) throw new Error('book sessions need a shell that supports `set -o pipefail` (sh or bash)')
+  return shell
+}
+
 /** @param {string} command @param {string} cwd @param {string} bin */
 const run = (command, cwd, bin) => {
-  const result = spawnSync('sh', ['-c', command], {
+  const result = spawnSync(sessionShell(), ['-c', `set -o pipefail\n${command}`], {
     cwd,
     encoding: 'utf8',
     timeout: 120_000,
