@@ -103,6 +103,9 @@ test('binary: serve routes through main and answers over HTTP (spec §30.3)', as
   const db = join(dir, 'k.db')
   assert.match(run(['serve', '--help']).stdout, /browse a CAVE store/)
   assert.match(run(['help', 'serve']).stdout, /browse a CAVE store/)
+  const surplus = run(['help', 'serve', 'extra'])
+  assert.equal(surplus.status, 2)
+  assert.match(surplus.stderr, /unexpected positional arguments/)
   assert.equal(run(['serve', '--db', db, '--port', 'nope']).status, 1)
   assert.equal(run(['add', '--db', db], 'api IS hot\n').status, 0)
 
