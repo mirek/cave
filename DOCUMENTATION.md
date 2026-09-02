@@ -44,7 +44,7 @@ in the repository.
 | Normative specification skills | `.claude/skills/cave-design/SKILL.md`, `.claude/skills/cave-writing/SKILL.md`, `.claude/skills/cave-extraction/SKILL.md`, `.claude/skills/cave-storage-query/SKILL.md` | Numbered CAVE specification sections. |
 | Installable Agent Skill | `skills/cave/SKILL.md`, `skills/cave/references/usage.md`, `skills/cave/agents/openai.yaml` | Portable task guidance for CAVE users; defer to the connected server's version-matched `cave_help` tool. |
 | Supporting skills | `.claude/skills/typst/SKILL.md`, `.claude/skills/verify/SKILL.md` | Book production and end-to-end verification guidance. |
-| Book source | `book/README.md`, `book/cave.typ`, `book/style.typ`, `book/parts/*.typ` | Continuous system guide and its build instructions. |
+| Book source | `book/README.md`, `book/cave.typ`, `book/style.typ`, `book/chapters/*.typ`, `book/fixtures/*` | The book: one chapter per file, the shared fixtures its sessions load, and the build and example-test instructions. |
 | Book artifact | `website/public/cave-book.pdf` | Generated PDF; must change with its Typst source. |
 | Package reference | `packages/*/README.md`, `packages/solver/MINIZINC-EVALUATION.md`, `packages/solver/HIGHS-EVALUATION.md`, `packages/solver-z3/BENCHMARK.md` | Public package contracts, examples, solver measurements, and backend decisions. |
 | Package history | `packages/*/CHANGELOG.md` | Generated historical release record. |
@@ -61,6 +61,15 @@ particular, keep command usage strings in `packages/*/src/main.ts` and
 workflow comments aligned when their behavior changes.
 
 ## Automated projection checks
+
+`packages/cli/test/book.test.ts` replays every `$`-prompt session and lints
+every CAVE listing in `book/chapters/*.typ` against the real CLI through
+`scripts/book-examples.mjs`, except the sessions marked `// no-test` (those
+that need a language model, a browser, a long-running server, or the
+optional Z3 solver package), which must be re-run by hand when the commands
+they show change; recorded output that
+drifts fails `pnpm test` and is refreshed with
+`node scripts/book-examples.mjs --update` (conventions in `book/README.md`).
 
 `packages/cli/test/documentation.test.ts` keeps the mechanical copies small
 and reviewable. It checks command and MCP tables against their registries,
@@ -81,7 +90,7 @@ the authoritative registry and its human explanation in one PR; ordinary
 | A CLI command, flag, or output | CLI help, CLI README, root walkthroughs, book field guide, website copy |
 | An MCP tool, scope, or security rule | MCP help/README, storage-query skill when normative, architecture, book |
 | Website or playground behavior | website README and user-facing source copy; imported Markdown remains authoritative |
-| Book content | Typst source, checked-in PDF, book README when the build contract changes |
+| Book content | Typst source, recorded session output (`node scripts/book-examples.mjs --update`), fixtures, checked-in PDF, book README when the build or test contract changes |
 | A TODO becomes implemented | delete its backlog file and index entry; preserve lasting rationale in the relevant live document or changelog |
 | A bug becomes fixed | delete its bug file and `BUGS.md` index entry; keep the regression test as the durable record |
 | A version is released | version automation only; derived website/book displays update automatically |

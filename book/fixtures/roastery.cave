@@ -1,0 +1,43 @@
+; the roastery: what we buy, what we roast, who we sell to
+
+SUPPLIES IS verb ; supplier X sells us green coffee lot Y
+SUPPLIES REVERSE SUPPLIED-BY
+STOCKS IS verb ; cafe X keeps coffee Y on its menu
+STOCKS REVERSE STOCKED-BY
+
+kaffa-coop IS supplier
+la-cima IS supplier
+kaffa-coop HAS country: ethiopia
+la-cima HAS country: colombia
+
+lot/yirgacheffe-26 IS lot
+lot/huila-26 IS lot
+lot/santa-ana-26 IS lot
+kaffa-coop SUPPLIES lot/yirgacheffe-26
+la-cima SUPPLIES lot/huila-26
+la-cima SUPPLIES lot/santa-ana-26
+
+lot/yirgacheffe-26 HAS
+  process: washed
+  price: 9.40 USD/kg
+  score: 87 @src:cupping/june
+lot/huila-26 HAS
+  process: natural
+  price: 7.80 USD/kg
+  score: 84 @src:cupping/june
+lot/santa-ana-26 HAS
+  process: washed
+  price: 8.10 USD/kg
+  score: 85 @src:cupping/june ; clean, but nothing remarkable
+
+coffee/morning-blend IS coffee
+coffee/morning-blend USES lot/huila-26
+coffee/morning-blend USES lot/santa-ana-26
+coffee/yirgacheffe IS coffee
+coffee/yirgacheffe USES lot/yirgacheffe-26
+
+cafe/north IS cafe
+cafe/harbour IS cafe
+cafe/north STOCKS coffee/morning-blend
+cafe/north STOCKS coffee/yirgacheffe
+cafe/harbour STOCKS coffee/morning-blend

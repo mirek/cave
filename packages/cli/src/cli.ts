@@ -712,7 +712,19 @@ topic → fix over a small in-memory store.`,
   version: `cave version — print the cave version
 
 Usage:
-  cave version`
+  cave version`,
+
+  help: `cave help — the overview, or one command's options and examples
+
+Usage:
+  cave help
+  cave help <command>
+
+Every command answers --help with the same text as cave help <command>.
+
+Examples:
+  cave help query
+  cave help serve`
 }
 
 const readStdin = (): string => {
@@ -1732,15 +1744,36 @@ export const reconstructCommand = async (
   }
 }
 
-export const demoCommand = (): Output =>
-  ok(`${Demo.run().lines.join('\n')}\n`)
+/**
+ * Positional arguments of a command that declares no options: an unknown
+ * option throws, which the dispatcher reports as an ordinary problem
+ * (status 1).
+ */
+const positionalsOf = (argv: readonly string[]): readonly string[] =>
+  parseArgs({ args: [...argv], options: {}, allowPositionals: true }).positionals
 
-export const versionCommand = (): Output =>
-  ok(`${Version.current()}\n`)
+/** The usage error (status 2) for more positionals than a command takes. */
+const surplusPositionals = (command: string, positionals: readonly string[], max: number): Output | undefined =>
+  positionals.length > max ? fail(`cave ${command}: unexpected positional arguments\n`, 2) : undefined
+
+export const demoCommand = (argv: readonly string[] = []): Output => {
+  const problem = surplusPositionals('demo', positionalsOf(argv), 0)
+  if (problem !== undefined) return problem
+  return ok(`${Demo.run().lines.join('\n')}\n`)
+}
+
+export const versionCommand = (argv: readonly string[] = []): Output => {
+  const problem = surplusPositionals('version', positionalsOf(argv), 0)
+  if (problem !== undefined) return problem
+  return ok(`${Version.current()}\n`)
+}
 
 /** `cave help [command]` — the overview, or one command's help text. */
 export const helpCommand = (argv: readonly string[]): Output => {
-  const [topic] = argv
+  const positionals = positionalsOf(argv)
+  const problem = surplusPositionals('help', positionals, 1)
+  if (problem !== undefined) return problem
+  const [topic] = positionals
   if (topic === undefined) {
     return ok(`${usage}\n`)
   }
@@ -1795,11 +1828,11 @@ export const cave = (argv: readonly string[]): Output => {
     case 'doctor':
       return doctorCommand(rest)
     case 'demo':
-      return demoCommand()
+      return demoCommand(rest)
     case 'version':
     case '--version':
     case '-v':
-      return versionCommand()
+      return versionCommand(rest)
     case 'help':
       return helpCommand(rest)
     case undefined:

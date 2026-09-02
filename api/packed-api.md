@@ -643,7 +643,7 @@ export type CommandRuntime = {
 Kind: value.
 
 ```ts
-export declare const demoCommand: () => Output;
+export declare const demoCommand: (argv?: readonly string[]) => Output;
 ```
 
 ### `deriveCommand`
@@ -888,7 +888,7 @@ export declare const usage = "cave \u2014 Compressed Atomic Verb Expressions\n\n
 Kind: value.
 
 ```ts
-export declare const versionCommand: () => Output;
+export declare const versionCommand: (argv?: readonly string[]) => Output;
 ```
 
 ## `@cavelang/cli/act`
@@ -9687,7 +9687,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `4dbb0421197949b2eb65becb3ca084a37fc80f1d79f7a51429bcc6322965fff9`
+- `@cavelang/cli/dist/src/cli.d.ts` — `167ce4f2427561a0a51db47e3d13f28cfff7a5f4530b61a5f45c04501e2450be`
 - `@cavelang/cli/dist/src/commands.d.ts` — `21d1b50e2c8a37779074685739d2673345832e9d1edaca5fd62329154fc06e84`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
 - `@cavelang/cli/dist/src/doctor.d.ts` — `ee5d939ff3bd8b93c9f63488a19d6def879df9dc4df764e9722db5bf6ba9aedf`

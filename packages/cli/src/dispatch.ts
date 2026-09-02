@@ -22,8 +22,10 @@ const processRuntime = (): CommandRuntime => ({
 
 const delegatedHelp = new Set<string>(delegatedCommandNames)
 
+// Exactly `help <delegated command>` becomes `<command> --help`; anything
+// longer stays with `cave help`, which rejects the surplus as a usage error.
 const normalizedArgs = (raw: readonly string[]): readonly string[] =>
-  raw[0] === 'help' && raw[1] !== undefined && delegatedHelp.has(raw[1]) ? [raw[1], '--help'] : raw
+  raw.length === 2 && raw[0] === 'help' && delegatedHelp.has(raw[1]!) ? [raw[1]!, '--help'] : raw
 
 const write = (runtime: CommandRuntime, output: Output): number => {
   if (output.out !== '') runtime.stdout.write(output.out)

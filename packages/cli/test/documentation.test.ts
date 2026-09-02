@@ -59,7 +59,7 @@ test('the CLI reference follows the shipped command registry', () => {
   }
 
   const locallyDocumented = commandRegistry
-    .filter(command => !('delegated' in command) && command.name !== 'help')
+    .filter(command => !('delegated' in command))
     .map(command => command.name)
     .sort()
   assert.deepEqual(Object.keys(commandHelp).sort(), locallyDocumented)

@@ -792,9 +792,13 @@ as belief stood on an earlier day.
   ([`packages/tree-sitter-cave`](packages/tree-sitter-cave)) drives
   `cave highlight`, the [VS Code extension](editors/vscode), and
   tree-sitter-native editors.
-- **The book and the playground** — the website hosts a continuous system
-  guide as PDF and a browser playground that runs the real parser, store and
-  query engine on SQLite WebAssembly.
+- **The book and the playground** — the website hosts the CAVE book as PDF
+  (a 31-chapter course on one running example, every runnable session
+  replayed against the real CLI by `pnpm test`, the few that need a model, a
+  browser, a long-running server, or the optional Z3 solver marked and
+  skipped; source in [`book/`](book)) and a
+  browser playground that runs the real parser, store and query engine on
+  SQLite WebAssembly.
 
 ## Development
 
