@@ -26,7 +26,10 @@ whenever its source changes.
 Every `$`-prompt session and every CAVE listing in the book is replayed
 against the real `cave` CLI by `scripts/book-examples.mjs`, and
 `packages/cli/test/book.test.ts` runs it as part of `pnpm test`, so recorded
-output cannot drift from the shipped tool.
+output cannot drift from the shipped tool. The exception is a session marked
+`// no-test` (one that needs a language model, a browser, or a long-running
+server): it is skipped, so re-run it by hand whenever the commands it shows
+change.
 
 ```sh
 node scripts/book-examples.mjs            # check every chapter (exit 1 on drift)
