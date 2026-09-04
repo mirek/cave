@@ -29,7 +29,7 @@ import { parseDocument } from '@cavelang/parser'
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { defaultLimit as defaultQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
+import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
 import { estimateOf, fuse } from '@cavelang/fusion'
 import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
@@ -363,11 +363,16 @@ export const tools: readonly Tool[] = [
       properties: {
         query: { type: 'string' },
         raw: { type: 'boolean', description: 'treat query as FTS5 MATCH syntax' },
-        limit: { type: 'integer', minimum: 1, maximum: 1000, default: defaultQueryLimit, description: `matches to return (default ${defaultQueryLimit})` }
+        limit: { type: 'integer', minimum: 1, maximum: maxQueryLimit, default: defaultQueryLimit, description: `matches to return (default ${defaultQueryLimit}, maximum ${maxQueryLimit})` }
       }
     },
     run: (store, args) => {
       const limit = args['limit'] === undefined ? defaultQueryLimit : integer(args['limit'], 'limit')
+      // The schema advertises the range, but a client may skip validation:
+      // enforce it here as the query page does for its own limit.
+      if (limit < 1 || limit > maxQueryLimit) {
+        throw new Error(`limit must be an integer from 1 to ${maxQueryLimit}`)
+      }
       const found = store.search(text(args['query'], 'query'), { raw: args['raw'] === true, limit: limit + 1 })
       const lines = found.slice(0, limit).map(row => row.raw_line)
       if (lines.length === 0) return 'no matches'

@@ -396,6 +396,11 @@ test('cave_about, cave_neighbors and cave_search read the graph', () => {
     contentText(call(server, 12, 'cave_search', { query: 'sharedterm', limit: 1 })),
     'search-b USES sharedterm\nmore matches beyond 1; raise limit',
     'limit caps newest-first and announces the remainder')
+  for (const limit of [0, 1001, 2.5]) {
+    const outOfRange = call(server, 13, 'cave_search', { query: 'sharedterm', limit })
+    assert.equal(outOfRange.result?.['isError'], true, `limit ${limit} is rejected without schema validation`)
+    assert.match(contentText(outOfRange), /limit must be an integer/)
+  }
   store.close()
 })
 
