@@ -28,7 +28,16 @@ $ cave query --db roastery.db '?lot HAS process: ?how'
 
 A variable can stand in subject, object, or value position. The attribute
 name is not a variable slot; ask for a specific attribute. Two or more
-variables bind together, one line per solution.
+variables bind together, one line per solution. When the matched claim
+carries a comment, the binding line ends with it after `;`, so the note an
+author left next to a claim travels with the answer:
+
+```sh
+$ cave query --db roastery.db '?lot HAS score: ?s'
+?lot = lot/yirgacheffe-26  ?s = 87
+?lot = lot/huila-26  ?s = 84
+?lot = lot/santa-ana-26  ?s = 85  ; clean, but nothing remarkable
+```
 
 A pattern with no variables asks whether the claim holds, and prints the
 matching rows as they were written. An underscore is an anonymous wildcard
@@ -49,7 +58,7 @@ claim; `NOT` matches only explicitly negated claims:
 $ cave query --db roastery.db '?lot HAS score: ?s @src:cupping/june'
 ?lot = lot/yirgacheffe-26  ?s = 87
 ?lot = lot/huila-26  ?s = 84
-?lot = lot/santa-ana-26  ?s = 85
+?lot = lot/santa-ana-26  ?s = 85  ; clean, but nothing remarkable
 ```
 
 There is no negation-as-failure. "Lots that have no score" is not a pattern;
@@ -68,7 +77,7 @@ $ cave query --db roastery.db '?lot HAS price: ?p' 'WHERE value <= 8.10 USD/kg'
 $ cave query --db roastery.db '?lot HAS score: ?s' 'WHERE conf >= 0.9'
 ?lot = lot/yirgacheffe-26  ?s = 87
 ?lot = lot/huila-26  ?s = 84
-?lot = lot/santa-ana-26  ?s = 85
+?lot = lot/santa-ana-26  ?s = 85  ; clean, but nothing remarkable
 ```
 
 `WHERE tx <= 2026-08-01` restricts by when a row was recorded; a date means
@@ -166,6 +175,42 @@ $ cave query --db roastery.db '?who SUPPLIES lot/huila-26' --json | head -n 11
         "who": "la-cima"
       },
 ```
+
+== Words, not patterns
+
+A pattern needs a name to start from. When all you remember is wording, a
+phrase from a comment, a value, a tag, `cave search` runs the store's
+full-text index (SQLite FTS5, built into Node.js) over every claim: subject,
+verb, object, attribute name, value text, comment, and the line as written,
+so tags, contexts, and inverse spellings match too. The terms are one
+literal phrase, and matches print newest first as raw lines, comments
+included:
+
+```sh
+$ cave search --db roastery.db 'nothing remarkable'
+lot/santa-ana-26 HAS score: 85 @src:cupping/june ; clean, but nothing remarkable
+
+$ cave search --db roastery.db washed
+lot/santa-ana-26 HAS process: washed
+lot/yirgacheffe-26 HAS process: washed
+```
+
+`--raw` passes FTS5 `MATCH` syntax through: `AND`, `OR`, `NOT`, `NEAR`,
+`prefix*`, and column filters such as `comment:heap`. Words split on
+punctuation, so `heap-dump` and "heap dump" are the same phrase, and
+`auth/middleware` matches `auth middleware`:
+
+```sh
+$ cave search --db roastery.db --raw 'cupping NOT remarkable'
+lot/huila-26 HAS score: 84 @src:cupping/june
+lot/yirgacheffe-26 HAS score: 87 @src:cupping/june
+```
+
+Search reads the whole history, superseded and retracted rows included,
+because the index exists to find the wording, not to judge it; once it has
+named the entity, a query answers what is currently believed. `--limit`
+caps the matches (a hundred by default) and `--json` returns the full
+claim records.
 
 == SQL, when you need it
 

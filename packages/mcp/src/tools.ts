@@ -29,7 +29,7 @@ import { parseDocument } from '@cavelang/parser'
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { defaultLimit as defaultQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
+import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
 import { estimateOf, fuse } from '@cavelang/fusion'
 import { derive } from '@cavelang/rules'
 import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
@@ -350,21 +350,35 @@ export const tools: readonly Tool[] = [
   },
   {
     name: 'cave_search',
-    description: 'Full-text search over subjects, objects, values, comments and raw lines. ' +
-      'The query is a literal phrase by default; set raw for FTS5 MATCH syntax (AND/OR/NEAR).',
+    description: 'FTS5 full-text search over subjects, verbs, objects, attribute names, values, ' +
+      'comments and raw lines (tags and contexts included). Use it when the stored wording or ' +
+      'entity spelling is unknown. The query is a literal phrase by default; set raw for FTS5 ' +
+      'MATCH syntax (AND/OR/NOT, NEAR, prefix*, column filters such as comment:heap). Newest ' +
+      'first, one raw line per match with its comment; superseded rows stay searchable, so ' +
+      'confirm currency with cave_query or cave_about.',
     permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['query'],
       properties: {
         query: { type: 'string' },
-        raw: { type: 'boolean', description: 'treat query as FTS5 MATCH syntax' }
+        raw: { type: 'boolean', description: 'treat query as FTS5 MATCH syntax' },
+        limit: { type: 'integer', minimum: 1, maximum: maxQueryLimit, default: defaultQueryLimit, description: `matches to return (default ${defaultQueryLimit}, maximum ${maxQueryLimit})` }
       }
     },
-    run: (store, args) =>
-      store.search(text(args['query'], 'query'), { raw: args['raw'] === true })
-        .map(row => row.raw_line)
-        .join('\n') || 'no matches'
+    run: (store, args) => {
+      const limit = args['limit'] === undefined ? defaultQueryLimit : integer(args['limit'], 'limit')
+      // The schema advertises the range, but a client may skip validation:
+      // enforce it here as the query page does for its own limit.
+      if (limit < 1 || limit > maxQueryLimit) {
+        throw new Error(`limit must be an integer from 1 to ${maxQueryLimit}`)
+      }
+      const found = store.search(text(args['query'], 'query'), { raw: args['raw'] === true, limit: limit + 1 })
+      const lines = found.slice(0, limit).map(row => row.raw_line)
+      if (lines.length === 0) return 'no matches'
+      if (found.length > limit) lines.push(`more matches beyond ${limit}; raise limit`)
+      return lines.join('\n')
+    }
   },
   {
     name: 'cave_about',

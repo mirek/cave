@@ -43,7 +43,7 @@ $ cave query --db roastery.db '?lot HAS price: ?p' 'WHERE value < 9 USD/kg'
 
 $ cave query --db roastery.db '?lot HAS score: ?s' 'WHERE value >= 85'
 ?lot = lot/yirgacheffe-26  ?s = 87
-?lot = lot/santa-ana-26  ?s = 85
+?lot = lot/santa-ana-26  ?s = 85  ; clean, but nothing remarkable
 ```
 
 Comparisons require compatible units: a filter in `USD/kg` never matches a

@@ -9,6 +9,7 @@
  * - `cave highlight [file]` — ANSI syntax colors (async)
  * - `cave add [--db <path>] [file…]` — ingest into a store (`--strict`, `--check`)
  * - `cave query [--db <path>] '<pattern>'` — CAVE-Q (`--json`, `--all`, `--aliases`, `--as-of`, `--resolve`)
+ * - `cave search [--db <path>] <terms..>` — FTS5 full-text search over claims and comments (`--raw`, `--limit`, `--json`)
  * - `cave resolve [--db <path>]` — contested facts under the §26 policy (`--aliases`, `--policy`, `--json`)
  * - `cave derive [--db <path>] [rules.cave…]` — fire rules (`--dry-run`, `--full`, `--list`, `--retract`)
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
@@ -42,7 +43,7 @@ import { parseDocument } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { defaultLimit as defaultQueryLimit, page as caveQueryPage } from '@cavelang/query'
+import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
   generateClient, suggestAliases, writeSuggestions
@@ -115,6 +116,7 @@ Usage:
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
   cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]
+  cave search [--db <path>] <terms..>      full-text search over claims and comments (FTS5) [--raw] [--limit <n>] [--json]
   cave resolve [--db <path>]               contested facts + winners (spec §26) [--aliases] [--policy] [--json]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
   cave act [--db <path>] <name> [p=v...]   execute an action (spec §25) [--dry-run] [--no-check] [--hooks <file>]
@@ -278,7 +280,9 @@ Options:
 
 Patterns are claim triples with ?variables and optional metadata filters
 (spec §12). A second positional starting with WHERE filters on conf,
-value or tx.
+value or tx. A binding line carries the matched claim's comment
+(?x = value  ; comment), so evidence written next to a claim travels
+with the answer; fully bound patterns print the raw line, comment included.
 
 Examples:
   cave query '?x USES jwt'
@@ -291,6 +295,39 @@ Examples:
   cave query --db k.db 'alice WORKS-AT ?org' --at 2021
   cave query --db k.db 'service HAS owner: ?who' --resolve
   cave query --db k.db '?x ?verb ?y @production' --json`,
+
+  search: `cave search — full-text search over claims and comments (spec §13.2)
+
+Usage:
+  cave search [--db <path>] <terms...> [--raw] [--limit <n>] [--json] [--no-prelude]
+
+Options:
+  ${dbHelp}
+  --raw          treat the terms as FTS5 MATCH syntax: AND / OR / NOT,
+                 NEAR(a b), prefix* and column filters such as
+                 comment:heap or subject:auth
+  --limit <n>    matches to print (default ${defaultQueryLimit}, maximum ${maxQueryLimit})
+  --json         emit a versioned cave.search/v1 JSON object whose matches
+                 are cave.claim/v1 records
+  --no-prelude   open the store without the standard verb registry
+
+Searches the SQLite FTS5 index the store maintains over every claim:
+subject, verb, object, attribute name, value text, comment, and the raw
+line as written (so tags, contexts, and inverse spellings match too).
+Terms are one literal phrase by default — safe for hyphenated names such
+as token-expiry, which raw FTS5 syntax would read as a column filter.
+Tokens split on punctuation, so heap-dump also matches "heap dump" and
+auth/middleware matches auth middleware. Results are newest first, one
+raw line each, comments included; retracted and superseded rows stay
+searchable (spec §9.6), so pair a hit with cave query or cave export
+--current when currency matters.
+
+Examples:
+  cave search 'heap dump'
+  cave search --db k.db token-expiry
+  cave search --db k.db --raw 'comment:heap AND subject:auth'
+  cave search --db k.db --raw 'jwt OR oauth*' --limit 20
+  cave search --db k.db 'rotated weekly' --json`,
 
   resolve: `cave resolve — contested facts and their winners (spec §26)
 
@@ -920,7 +957,12 @@ export const queryCommand = (argv: readonly string[]): Output => {
         .join('  ')
       // A fully bound pattern has no bindings to print; transitive matches
       // additionally carry no row — confirm with the pattern itself.
-      const line = bindings !== '' ? bindings : match.claim?.claim.raw ?? pattern.split('\n')[0]!
+      // Bindings carry the matched claim's comment so the evidence written
+      // next to a claim travels with the answer; raw lines already do.
+      const comment = match.claim?.claim.comment
+      const line = bindings !== '' ?
+        `${bindings}${comment === undefined ? '' : `  ; ${comment}`}` :
+        match.claim?.claim.raw ?? pattern.split('\n')[0]!
       // An interpolated trajectory shows its value at the anchor
       // (spec §32.4) — bindings already carry it in the value slot.
       return match.at !== undefined && bindings === '' ?
@@ -928,6 +970,66 @@ export const queryCommand = (argv: readonly string[]): Output => {
         line
     })
     return ok(`${lines.join('\n')}\n${result.next === undefined ? '' : `next: ${result.next}\n`}`)
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+export const searchFormat = 'cave.search' as const
+export const searchVersion = 1 as const
+
+/**
+ * `cave search` — the store's FTS5 index (spec §13.2) from the shell:
+ * one literal phrase by default, raw MATCH syntax on request, newest
+ * matches first. Lines print as written, so comments come along.
+ */
+export const searchCommand = (argv: readonly string[]): Output => {
+  const { values, positionals } = parseArgs({
+    args: [...argv],
+    options: {
+      db: { type: 'string' },
+      raw: { type: 'boolean' },
+      limit: { type: 'string' },
+      json: { type: 'boolean' },
+      'no-prelude': { type: 'boolean' }
+    },
+    allowPositionals: true
+  })
+  const query = positionals.join(' ').trim()
+  if (query === '') {
+    return fail('cave search: search terms are required\n')
+  }
+  const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
+  if (!Number.isInteger(limit) || limit < 1 || limit > maxQueryLimit) {
+    return fail(`cave search: --limit must be an integer from 1 to ${maxQueryLimit}\n`)
+  }
+  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  try {
+    const raw = values.raw === true
+    const found = store.search(query, { raw, limit: limit + 1 })
+    const matches = found.slice(0, limit)
+    const truncated = found.length > limit
+    if (values.json === true) {
+      return ok(`${JSON.stringify({
+        format: searchFormat,
+        version: searchVersion,
+        query,
+        raw,
+        limit,
+        truncated,
+        matches: matches.map(row => store.recordOf(row))
+      }, undefined, 2)}\n`)
+    }
+    if (matches.length === 0) {
+      return ok('no matches\n')
+    }
+    const lines = matches.map(row => row.raw_line)
+    if (truncated) {
+      lines.push(`more matches beyond ${limit}; raise --limit`)
+    }
+    return ok(`${lines.join('\n')}\n`)
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {
@@ -1805,6 +1907,8 @@ export const cave = (argv: readonly string[]): Output => {
       return importCommand(rest)
     case 'query':
       return queryCommand(rest)
+    case 'search':
+      return searchCommand(rest)
     case 'resolve':
       return resolveCommand(rest)
     case 'derive':

@@ -621,6 +621,24 @@ SELECT * FROM cave_claim WHERE attribute = 'weekly-users' AND value_num > 100000
 SELECT * FROM cave_claim WHERE comment LIKE '%heap dump%';
 ```
 
+Full-text search goes through the `cave_fts` virtual table (§13.2), which
+indexes every row's subject, verb, object, attribute name, value text,
+comment, and raw line — so tags, contexts, and inverse spellings are
+searchable through the line as written. Implementations MUST index
+comments; the CLI (`cave search`) and MCP (`cave_search`) surfaces treat the
+terms as one literal phrase by default and expose raw FTS5 `MATCH` syntax
+as an opt-in, print matches newest first as raw lines (comments included),
+and never hide superseded or retracted rows (§9.6):
+
+```sql
+SELECT c.* FROM cave_claim c JOIN cave_fts f ON c.id = f.claim_id
+WHERE cave_fts MATCH '"heap dump"' ORDER BY c.tx DESC;
+```
+
+Query surfaces SHOULD print a matched claim's comment next to its bindings
+(`?x = value  ; comment`): the comment is the evidence an author left for
+the reader, and a reasoning agent needs it in the same output as the answer.
+
 ### 13.6 Alias closure
 
 `ALIAS` (§5.2) asserts that two names denote one entity. Query engines

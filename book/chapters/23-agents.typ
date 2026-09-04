@@ -36,7 +36,7 @@ connected server's help for exact syntax.
   [`cave_query`], [A bounded CAVE-Q page with `all`, `aliases`, `asOf`, `at`, `resolve`, `limit`, `cursor`.],
   [`cave_about`], [Current claims about one entity, both directions.],
   [`cave_neighbors`], [Named forward and inverse edges, for walking the graph by hand.],
-  [`cave_search`], [Full-text search over claims, values, and comments.],
+  [`cave_search`], [Full-text search over claims, values, tags, and comments; `raw`, `limit`.],
   [`cave_reconstruct`], [The reconstruction loop from seed cues (Chapter 20).],
   [`cave_fuse`], [Precision-weighted fusion of numeric estimates of one quantity (Chapter 5).],
   [`cave_lint`], [Validate CAVE text without storing it.],

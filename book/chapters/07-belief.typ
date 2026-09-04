@@ -19,11 +19,11 @@ $ echo 'lot/huila-26 HAS price: 8.20 USD/kg ; la-cima raised it in August' | cav
 added 1 claim(s), 0 edge(s)
 
 $ cave query --db roastery.db 'lot/huila-26 HAS price: ?p'
-?p = 8.20 USD/kg
+?p = 8.20 USD/kg  ; la-cima raised it in August
 
 $ cave query --db roastery.db 'lot/huila-26 HAS price: ?p' --all
 ?p = 7.80 USD/kg
-?p = 8.20 USD/kg
+?p = 8.20 USD/kg  ; la-cima raised it in August
 ```
 
 The query answers with the new price, and `--all` shows that the old one is
@@ -70,7 +70,7 @@ $ cave query --db roastery.db 'la-cima SUPPLIES ?lot'
 $ cave query --db roastery.db 'la-cima SUPPLIES ?lot' --all
 ?lot = lot/huila-26
 ?lot = lot/santa-ana-26
-?lot = lot/santa-ana-26
+?lot = lot/santa-ana-26  ; sold out before we committed
 ```
 
 The retracted fact disappears from ordinary reads and stays in the history.

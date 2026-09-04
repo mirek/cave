@@ -397,6 +397,15 @@ export declare const commandRegistry: readonly [
         ];
     },
     {
+        readonly name: "search";
+        readonly importantOptions: readonly [
+            "--raw",
+            "--limit",
+            "--json",
+            "--no-prelude"
+        ];
+    },
+    {
         readonly name: "resolve";
         readonly importantOptions: readonly [
             "--aliases",
@@ -857,6 +866,14 @@ Kind: value.
 export declare const runCli: (argv: readonly string[], runtime?: CommandRuntime) => Promise<number>;
 ```
 
+### `searchCommand`
+
+Kind: value.
+
+```ts
+export declare const searchCommand: (argv: readonly string[]) => Output;
+```
+
 ### `suggestAliasCommand`
 
 Kind: value.
@@ -880,7 +897,7 @@ export declare const syncCommand: (argv: readonly string[]) => Output;
 Kind: value.
 
 ```ts
-export declare const usage = "cave \u2014 Compressed Atomic Verb Expressions\n\nUsage:\n  cave parse [file...] [--json]            lint CAVE text (stdin when no file)\n  cave highlight [file...]                 print CAVE text with ANSI syntax colors\n  cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]\n  cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)\n  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]\n  cave resolve [--db <path>]               contested facts + winners (spec \u00A726) [--aliases] [--policy] [--json]\n  cave derive [--db <path>] [rules.cave..] declare + fire rules (spec \u00A724) [--dry-run] [--full] [--list] [--retract <rule>]\n  cave act [--db <path>] <name> [p=v...]   execute an action (spec \u00A725) [--dry-run] [--no-check] [--hooks <file>]\n  cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them\n  cave automate [--db <path>]              event-driven loop (spec \u00A729): new claims fire rules/actions/hooks/agent prompts [--once]\n  cave check [--db <path>]                 knowledge health report (spec \u00A720) [--stale <days>] [--json]\n  cave backup [--db <path>] --out <file>   exact verified SQLite snapshot [--force]\n  cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]\n  cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]\n  cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec \u00A727) [--min <s>] [--agent] [--write]\n  cave sync [--db <path>] <source>         merge another store by row identity (spec \u00A728) [--dry-run] [--as] [--into]\n  cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]\n  cave serve [--db <path>]                 browse a filtered store (spec \u00A730) [--max-sensitivity <level>]\n  cave report [--db <path>] [template...]  render filtered cited markdown (spec \u00A731) [--max-sensitivity <level>]\n  cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]\n  cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages\n  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals\n  cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec \u00A723)\n  cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec \u00A718) [--agent] [--query] [--trace]\n  cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]\n  cave demo                                run the cave-loop reconstruction demo\n  cave version                             print the cave version\n  cave help [command]                      this text, or one command's options and examples\n\nEvery command answers --help. --db defaults to $CAVE_DB, or cave.db in\nthe current directory. The spec lives in the .claude/skills/ directory at\nthe repository root (section index in README.md).";
+export declare const usage = "cave \u2014 Compressed Atomic Verb Expressions\n\nUsage:\n  cave parse [file...] [--json]            lint CAVE text (stdin when no file)\n  cave highlight [file...]                 print CAVE text with ANSI syntax colors\n  cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]\n  cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)\n  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]\n  cave search [--db <path>] <terms..>      full-text search over claims and comments (FTS5) [--raw] [--limit <n>] [--json]\n  cave resolve [--db <path>]               contested facts + winners (spec \u00A726) [--aliases] [--policy] [--json]\n  cave derive [--db <path>] [rules.cave..] declare + fire rules (spec \u00A724) [--dry-run] [--full] [--list] [--retract <rule>]\n  cave act [--db <path>] <name> [p=v...]   execute an action (spec \u00A725) [--dry-run] [--no-check] [--hooks <file>]\n  cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them\n  cave automate [--db <path>]              event-driven loop (spec \u00A729): new claims fire rules/actions/hooks/agent prompts [--once]\n  cave check [--db <path>]                 knowledge health report (spec \u00A720) [--stale <days>] [--json]\n  cave backup [--db <path>] --out <file>   exact verified SQLite snapshot [--force]\n  cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]\n  cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]\n  cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec \u00A727) [--min <s>] [--agent] [--write]\n  cave sync [--db <path>] <source>         merge another store by row identity (spec \u00A728) [--dry-run] [--as] [--into]\n  cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]\n  cave serve [--db <path>]                 browse a filtered store (spec \u00A730) [--max-sensitivity <level>]\n  cave report [--db <path>] [template...]  render filtered cited markdown (spec \u00A731) [--max-sensitivity <level>]\n  cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]\n  cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages\n  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals\n  cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec \u00A723)\n  cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec \u00A718) [--agent] [--query] [--trace]\n  cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]\n  cave demo                                run the cave-loop reconstruction demo\n  cave version                             print the cave version\n  cave help [command]                      this text, or one command's options and examples\n\nEvery command answers --help. --db defaults to $CAVE_DB, or cave.db in\nthe current directory. The spec lives in the .claude/skills/ directory at\nthe repository root (section index in README.md).";
 ```
 
 ### `versionCommand`
@@ -9687,11 +9704,11 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `167ce4f2427561a0a51db47e3d13f28cfff7a5f4530b61a5f45c04501e2450be`
-- `@cavelang/cli/dist/src/commands.d.ts` — `21d1b50e2c8a37779074685739d2673345832e9d1edaca5fd62329154fc06e84`
+- `@cavelang/cli/dist/src/cli.d.ts` — `d996e1f0633b628ec5f382873c4f6fe2ba784e7f847337e13e583f383c180387`
+- `@cavelang/cli/dist/src/commands.d.ts` — `1b285e187db8f48372ef811cb7544a941af3b33ac11f8846af66401956c9ae7f`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
 - `@cavelang/cli/dist/src/doctor.d.ts` — `ee5d939ff3bd8b93c9f63488a19d6def879df9dc4df764e9722db5bf6ba9aedf`
-- `@cavelang/cli/dist/src/index.d.ts` — `8deb77b9e5c04554a1fc6b3b4794b0b62220397cd1f9ff019cc4f1efa438688c`
+- `@cavelang/cli/dist/src/index.d.ts` — `dd1e705241ac91930170c8a511c2788b0440c729716edf34f876558991a580ea`
 - `@cavelang/core/dist/src/claim.d.ts` — `aaf35bf598486be9edfeef5ff4ef4f4b6196d18789e80df8d859e332f8308db1`
 - `@cavelang/core/dist/src/confidence.d.ts` — `d67ec940afbe75fc4028dc825e4d720f8f3ec38eb1d9d5a28f842c555f213694`
 - `@cavelang/core/dist/src/context.d.ts` — `57c44c0613aebb617c1f81c0d067ed4c33488a32564856cad0f05c9371961507`

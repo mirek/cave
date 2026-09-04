@@ -17,6 +17,7 @@ territory.
   [`cave add`], [Append authored claims; `--strict`, `--check` (shape gate), `--no-src`.], [2, 13],
   [`cave import`], [Replay exported text without provenance stamping.], [7, 8],
   [`cave query`], [Run a CAVE-Q pattern; `--all`, `--aliases`, `--as-of`, `--at`, `--resolve`, `--limit`, `--cursor`, `--json`.], [9],
+  [`cave search`], [FTS5 full-text search over claims and comments; `--raw`, `--limit`, `--json`.], [9],
   [`cave resolve`], [List contested facts with ranked candidates; `--policy` shows the effective policy.], [11],
   [`cave derive`], [Declare and fire rules; `--dry-run`, `--full`, `--list`, `--retract`.], [17],
   [`cave act`], [Execute, `--declare`, `--list`, or `--retract` actions; `--hooks`, `--dry-run`, `--no-check`.], [18],
