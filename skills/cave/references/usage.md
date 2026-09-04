@@ -28,7 +28,7 @@ subject HAS attribute: value [+/- delta] [@context...] [#tag[:value]...] [@ N%] 
 | Validate without storing | `cave_lint` | `{ "text": "api USES redis @ 90%" }` |
 | Append knowledge | `cave_add` | `{ "text": "api USES redis @ 90%" }` |
 | Match a graph/value pattern | `cave_query` | `{ "pattern": "?service USES redis" }` |
-| Discover unknown wording | `cave_search` | `{ "query": "checkout errors" }` |
+| Discover unknown wording (comments, values, tags included) | `cave_search` | `{ "query": "checkout errors", "limit": 20 }` |
 | Inspect a known entity | `cave_about` | `{ "entity": "api/gateway" }` |
 | Walk one graph hop | `cave_neighbors` | `{ "entity": "redis" }` |
 | Recover multi-hop context | `cave_reconstruct` | `{ "seeds": ["checkout/errors"] }` |

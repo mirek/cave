@@ -50,7 +50,7 @@ added 3 claim(s), 0 edge(s)
 
 $ cave query --db roastery.db 'kaffa-coop SUPPLIES ?lot' --at 2026-08
 ?lot = lot/yirgacheffe-26
-?lot = lot/guji-26
+?lot = lot/guji-26  ; a one-off, this season only
 
 $ cave query --db roastery.db 'kaffa-coop SUPPLIES ?lot' --at 2026-02
 ?lot = lot/yirgacheffe-26
@@ -84,11 +84,11 @@ added 1 claim(s), 0 edge(s)
 
 $ cave query --db roastery.db 'lot/huila-26 HAS price: ?p' --at 2026-07
 ?p = 7.80 USD/kg
-?p = 8.197 USD/kg
+?p = 8.197 USD/kg  ; la-cima indexed the contract
 
 $ cave query --db roastery.db 'lot/huila-26 HAS price: ?p' --at 2027-06
 ?p = 7.80 USD/kg
-?p = 8.6 USD/kg
+?p = 8.6 USD/kg  ; la-cima indexed the contract
 ```
 
 The first binding is the timeless price from the roastery file, which always

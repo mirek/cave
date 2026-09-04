@@ -140,11 +140,11 @@ $ printf '%s\n' \
 added 2 claim(s), 0 edge(s)
 
 $ cave query --db roastery.db 'coffee/morning-blend HAS defect: ?d'
-?d = flat
-?d = sour
+?d = flat  ; two complaints this week
+?d = sour  ; one vague remark
 
 $ cave query --db roastery.db 'coffee/morning-blend HAS defect: ?d' 'WHERE conf >= 0.5'
-?d = flat
+?d = flat  ; two complaints this week
 ```
 
 A context in the pattern narrows it the same way a tag does:

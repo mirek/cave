@@ -388,7 +388,14 @@ test('cave_about, cave_neighbors and cave_search read the graph', () => {
   assert.match(contentText(call(server, 8, 'cave_about', { entity: 'packages/api' })), /monorepo CONTAINS packages\/api/)
   const neighbors = contentText(call(server, 9, 'cave_neighbors', { entity: 'packages/api' }))
   assert.equal(neighbors, 'packages/api PART-OF monorepo')
-  assert.match(contentText(call(server, 10, 'cave_search', { query: 'json web tokens' })), /auth USES jwt/)
+  const search = contentText(call(server, 10, 'cave_search', { query: 'json web tokens' }))
+  assert.equal(search, 'auth USES jwt ; json web tokens', 'search lines carry their comments')
+  assert.equal(contentText(call(server, 11, 'cave_search', { query: 'packages' })), 'monorepo CONTAINS packages/api', 'entity segments are searchable')
+  store.ingest('search-a USES sharedterm\nsearch-b USES sharedterm')
+  assert.equal(
+    contentText(call(server, 12, 'cave_search', { query: 'sharedterm', limit: 1 })),
+    'search-b USES sharedterm\nmore matches beyond 1; raise limit',
+    'limit caps newest-first and announces the remainder')
   store.close()
 })
 

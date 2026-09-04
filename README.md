@@ -289,11 +289,20 @@ added 2 claim(s), 0 edge(s)
 
 $ cave query --db repo.db 'core HAS maintainer: ?m'
 ?m = alice
-?m = bob
+?m = bob  ; "I think bob took over core"
 
 $ cave query --db repo.db 'core HAS maintainer: ?m' 'WHERE conf >= 0.8'
 ?m = alice
+
+$ cave search --db repo.db 'took over'
+core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
 ```
+
+A binding line carries the claim's comment, so the evidence written next to
+a claim travels with the answer. Comments are indexed, too: `cave search` is
+an FTS5 full-text search over every claim's words — subjects, verbs, objects,
+attribute names, values, tags, contexts, and comments — for when you know the
+wording but not the entity.
 
 Both claims coexist — a contradiction is two claims with different sources,
 not an error. When alice leaves, you do not edit anything: you append the
@@ -305,7 +314,7 @@ $ echo 'core HAS maintainer: alice @src:codeowners @ 0% ; alice left in July' | 
 added 1 claim(s), 0 edge(s)
 
 $ cave query --db repo.db 'core HAS maintainer: ?m'
-?m = bob
+?m = bob  ; "I think bob took over core"
 
 $ cave export --db repo.db | grep -A3 'core HAS maintainer'
 core HAS maintainer:

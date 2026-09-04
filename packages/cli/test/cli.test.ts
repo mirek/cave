@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open, Schema } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -234,6 +234,77 @@ test('resolve lists contested facts winner-first, and the effective policy (spec
     const empty = join(dir, 'empty.db')
     open(empty).close()
     assert.equal(resolveCommand(['--db', empty]).out, 'no contested facts\n')
+  })
+})
+
+test('query bindings carry the matched claim comment; raw lines already do', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'auth USES jwt ; json web tokens rotated weekly',
+      'billing USES jwt',
+      'api HAS owner: alice #security ; confirmed by heap-dump review'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+    const users = queryCommand(['?x USES jwt', '--db', db])
+    assert.equal(users.out, '?x = auth  ; json web tokens rotated weekly\n?x = billing\n')
+    const owner = queryCommand(['api HAS owner: ?who', '--db', db])
+    assert.equal(owner.out, '?who = alice  ; confirmed by heap-dump review\n')
+    const bound = queryCommand(['auth USES jwt', '--db', db])
+    assert.equal(bound.out, 'auth USES jwt ; json web tokens rotated weekly\n')
+    const json = JSON.parse(queryCommand(['?x USES jwt', '--db', db, '--json']).out)
+    assert.equal(json.matches[0].claim.claim.comment, 'json web tokens rotated weekly')
+  })
+})
+
+test('search: FTS5 over comments, attribute names, values, tags, contexts and inverse spellings', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      'auth USES jwt ; json web tokens rotated weekly',
+      'api HAS owner: alice #security:high ; owner confirmed by heap-dump review',
+      'cache IS warm @production',
+      'jwt USED-BY billing'
+    ].join('\n'))
+    addCommand([file, '--db', db])
+    const lines = (argv: string[]): string[] => {
+      const result = searchCommand([...argv, '--db', db])
+      assert.equal(result.code, 0, result.err)
+      return result.out.trimEnd().split('\n')
+    }
+    assert.deepEqual(lines(['heap dump']), ['api HAS owner: alice #security:high ; owner confirmed by heap-dump review'], 'comment, tokenized across the hyphen')
+    assert.deepEqual(lines(['rotated', 'weekly']), ['auth USES jwt ; json web tokens rotated weekly'], 'positionals join into one phrase')
+    assert.deepEqual(lines(['owner']), ['api HAS owner: alice #security:high ; owner confirmed by heap-dump review'], 'attribute name')
+    assert.deepEqual(lines(['alice']), ['api HAS owner: alice #security:high ; owner confirmed by heap-dump review'], 'attribute value')
+    assert.deepEqual(lines(['security']), ['api HAS owner: alice #security:high ; owner confirmed by heap-dump review'], 'tag via the raw line')
+    assert.deepEqual(lines(['production']), ['cache IS warm @production'], 'context via the raw line')
+    assert.deepEqual(lines(['billing']), ['jwt USED-BY billing'], 'canonical subject of an inverse-spelled line')
+    assert.deepEqual(lines(['jwt']), ['jwt USED-BY billing', 'auth USES jwt ; json web tokens rotated weekly'], 'newest first, comments included')
+    assert.deepEqual(lines(['token-expiry']), ['no matches'], 'hyphenated terms are literal phrases, not column filters')
+    assert.deepEqual(lines(['--raw', 'comment:heap AND subject:api']), ['api HAS owner: alice #security:high ; owner confirmed by heap-dump review'], 'raw MATCH syntax')
+    assert.deepEqual(lines(['jwt', '--limit', '1']), ['jwt USED-BY billing', 'more matches beyond 1; raise --limit'])
+
+    const json = JSON.parse(searchCommand(['rotated weekly', '--db', db, '--json']).out)
+    assert.equal(json.format, 'cave.search')
+    assert.equal(json.version, 1)
+    assert.equal(json.query, 'rotated weekly')
+    assert.equal(json.raw, false)
+    assert.equal(json.truncated, false)
+    assert.equal(json.matches.length, 1)
+    assert.equal(json.matches[0].format, 'cave.claim')
+    assert.equal(json.matches[0].claim.comment, 'json web tokens rotated weekly')
+    assert.equal(JSON.parse(searchCommand(['jwt', '--db', db, '--json', '--limit', '1']).out).truncated, true)
+
+    const missing = searchCommand(['--db', db])
+    assert.equal(missing.code, 1)
+    assert.match(missing.err, /search terms are required/)
+    const badLimit = searchCommand(['jwt', '--db', db, '--limit', '0'])
+    assert.equal(badLimit.code, 1)
+    assert.match(badLimit.err, /--limit must be an integer from 1 to 1000/)
+    assert.match(cave(['search', '--help']).out, /FTS5 MATCH syntax/)
+    assert.match(cave(['help', 'search']).out, /cave search/)
   })
 })
 

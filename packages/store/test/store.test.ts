@@ -130,6 +130,28 @@ test('comment search via SQL LIKE and FTS (spec §13.5)', () => {
   store.close()
 })
 
+test('search covers subjects, verbs, objects, attribute names, values, comments, tags, contexts and inverse spellings (spec §13.2)', () => {
+  const store = open()
+  store.ingest([
+    'api HAS owner: alice #security:high @production ; owner confirmed by heap-dump review',
+    'jwt USED-BY billing'
+  ].join('\n'))
+  const hits = (query: string): string[] => store.search(query).map(row => row.raw_line)
+  const owner = 'api HAS owner: alice #security:high @production ; owner confirmed by heap-dump review'
+  assert.deepEqual(hits('api'), [owner], 'subject')
+  assert.deepEqual(hits('owner'), [owner], 'attribute name')
+  assert.deepEqual(hits('alice'), [owner], 'attribute value')
+  assert.deepEqual(hits('security'), [owner], 'tag key, through the raw line')
+  assert.deepEqual(hits('high'), [owner], 'tag value, through the raw line')
+  assert.deepEqual(hits('production'), [owner], 'context, through the raw line')
+  assert.deepEqual(hits('heap-dump review'), [owner], 'comment, punctuation-tokenized')
+  assert.deepEqual(hits('billing'), ['jwt USED-BY billing'], 'canonical subject of an inverse spelling')
+  assert.deepEqual(hits('USES'), ['jwt USED-BY billing'], 'canonical verb')
+  assert.deepEqual(hits('USED-BY'), ['jwt USED-BY billing'], 'verb as written')
+  assert.deepEqual(hits('nothing-here'), [])
+  store.close()
+})
+
 test('search limit caps rows inside the query, newest matches first (spec §13.5)', () => {
   const store = open()
   for (const n of [1, 2, 3, 4, 5]) {
