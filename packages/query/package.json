@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/query",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "type": "module",
   "description": "CAVE-Q — graph-pattern queries with variables, lifecycle and inverse verbs, transitive hops, and filters.",
   "keywords": [
