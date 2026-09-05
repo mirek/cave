@@ -1,5 +1,13 @@
 # @cavelang/core
 
+## 0.33.0
+
+### Patch Changes
+
+- cdf4ed9: The storage schema's `cave_edge` role comment lists the roles that are actually stored, `WHEN`, `VIA`, `BECAUSE`, and `QUALIFIES`; an `UNLESS` qualifier is persisted as a `WHEN` edge to a negated child.
+- 1320911: Describe CAVE by what it does in the README, website, book, CLI help, and MCP guide instead of leading with the SQLite storage backend; the storage engine remains a documented implementation detail behind the store adapter.
+- 0adc7d2: The release script now waits up to about four minutes (8 attempts, 5s doubling to a 60s cap) for a just-published package to become visible on npm before tagging, instead of the 14s probe budget that failed the v0.32.3 run after every package had in fact published. Pre-publish registry probes keep their short budget.
+
 ## 0.32.3
 
 ### Patch Changes

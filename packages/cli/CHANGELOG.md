@@ -1,5 +1,27 @@
 # @cavelang/cli
 
+## 0.33.0
+
+### Minor Changes
+
+- cdf4ed9: Rewrite the book as a 31-chapter course on one running example (a coffee roastery), and replay every runnable session in it against the real CLI (sessions that need a language model, a browser, a long-running server, or the optional Z3 solver package are marked `// no-test` and skipped): `scripts/book-examples.mjs` extracts `$`-prompt sessions and `#file` listings from `book/chapters/*.typ`, runs them in a scratch directory, and compares recorded output; `packages/cli/test/book.test.ts` runs it under `pnpm test`, and `--update` refreshes recorded output.
+- 2ba7ab6: Add `cave search`, an FTS5 full-text search from the shell over the store's index (subject, verb, object, attribute name, value text, comment, and the raw line, so tags, contexts, and inverse spellings match too): one literal phrase by default, `--raw` for FTS5 MATCH syntax, `--limit` (default 100) with a trailing cap notice, and `--json` emitting a `cave.search/v1` object of `cave.claim/v1` records. `cave query` binding lines now end with the matched claim's comment (`?x = value  ; comment`) so the evidence written next to a claim reaches the reader. The `cave_search` MCP tool gains `limit` (default 100) and describes the indexed columns.
+
+### Patch Changes
+
+- cdf4ed9: `cave help --help` and `cave help help` print the help command's own usage instead of exiting 2 with an unknown-command error, so every command in the reference, `help` included, answers `--help`. `cave version`, `cave demo`, and `cave help` now reject surplus positional arguments with status 2, as `cave doctor` already did, instead of ignoring them; delegated commands such as `cave serve` keep reporting argument errors with status 1.
+- Updated dependencies [cdf4ed9]
+- Updated dependencies [1320911]
+- Updated dependencies [857aa3c]
+- Updated dependencies [0adc7d2]
+  - @cavelang/core@0.33.0
+  - @cavelang/parser@0.33.0
+  - @cavelang/canonical@0.33.0
+  - @cavelang/fusion@0.33.0
+  - @cavelang/query@0.33.0
+  - @cavelang/store@0.33.0
+  - @cavelang/highlight@0.33.0
+
 ## 0.32.3
 
 ### Patch Changes
