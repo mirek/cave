@@ -211,3 +211,61 @@ test('discover can skip what the store already followed', async () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a followed .cave source may re-declare a source: the current declaration runs, whichever order names sort in', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'old.cave'), 'answer IS old\n')
+    writeFileSync(join(dir, 'new.cave'), 'answer IS new\n')
+    // `a` sorts before `b`: the re-declaration lands before b runs.
+    writeFileSync(join(dir, 'a.cave'), 'source/b HAS path: new.cave\n')
+    // `z` sorts after `b`: b runs with the old path first, then runs again.
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.cave\n')
+    for (const redeclarer of ['a', 'z']) {
+      const root = join(dir, `${redeclarer}-root.cave`)
+      writeFileSync(root, `source/b HAS path: old.cave\nsource/${redeclarer} HAS path: ${redeclarer}.cave\n`)
+      const store = openAt(root, { intent: 'read', assemble })
+      try {
+        const answers = store.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'answer').map(row => row.object)
+        assert.deepEqual(answers, ['new'], `re-declared through ${redeclarer}: only the current declaration's claims are current`)
+      } finally {
+        store.close()
+      }
+    }
+  })
+})
+
+test('discover applies nested re-declarations and treats record-only sources as followed', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'old.cave'), 'answer IS old\n')
+    writeFileSync(join(dir, 'new.cave'), 'answer IS new\n')
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.cave\n')
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'people.map.cave'), peopleMap)
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/b HAS path: old.cave\nsource/z HAS path: z.cave\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id')
+      const ready = await Declared.discover(store, db)
+      assert.deepEqual(ready.map(entry => [entry.declared.name, entry.declared.path]), [['b', 'new.cave'], ['people', 'people.csv'], ['z', 'z.cave']], 'declared order, b re-prepared in place with the nested path')
+      Declared.run(store, Declared.prepareSync({ name: 'people', path: 'people.csv', map: 'people.map.cave', key: 'id' }, dir))
+      assert.equal(Declared.followed(store, 'people'), true, 'record digests count — the mapping has no prelude')
+      assert.equal(Declared.followed(store, 'b'), false)
+      const left = await Declared.discover(store, db, { skipFollowed: true })
+      assert.deepEqual(left.map(entry => entry.declared.name), ['b', 'z'])
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a nested source name is refused: it would collide with a record key', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'x.cave'), 'x IS y\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/team/admin HAS path: x.cave\n')
+    assert.throws(() => openAt(root, { intent: 'read', assemble }), /source\/team\/admin \(x\.cave\): source names are one path segment — source\/team\/admin would collide with record "admin" of source\/team/)
+  })
+})

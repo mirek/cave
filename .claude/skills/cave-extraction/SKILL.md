@@ -285,7 +285,10 @@ source/people HAS reliability: 80%       ; §26.3, on the same entity
 source/verbs HAS path: verbs.cave        ; a .cave file needs no map
 ```
 
-A source is declared by a current positive `path`; the other attributes
+A source's name is **one path segment**: `source/team/admin` would also be
+record `admin` of source `team`, whose digest entity and stamp it would
+share, so a nested name is refused. A source is declared by a current
+positive `path`; the other attributes
 mirror the options one-to-one — `map`, `key`, `format`, `delimiter`,
 `table`, `sql`, `records` — and are read from the same entity's current
 beliefs. A `.cave` path (or `format: cave`) is a **mapping-free source**:
@@ -297,7 +300,13 @@ the text file's; the working directory for `:memory:`), never the working
 directory: a store and its sources travel together.
 
 A `.cave` source that becomes empty still says something — nothing — and
-every claim it owned retracts.
+every claim it owned retracts. A followed `.cave` source may declare
+sources the store does not, or re-declare ones it does — a newer path or
+mapping; the declarations are re-read after every followed source, the
+current declaration is what runs, and a source whose declaration changed
+runs again (its earlier claims retracted by the ordinary diff), until
+nothing changes. An overlay or dry run applies the same rule to what it
+discovers, so a preview agrees with the pass.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under
@@ -336,8 +345,10 @@ lifecycle run is the stamp.
   them, a `.cave` URL included.
 - `cave query --sources` overlays the store's declared sources inside a
   transaction that rolls back (§23.3), loading them first, URLs included.
-  A text store followed its local sources on open, so only what assembly
-  could not follow — URL sources and what they declare — is loaded. The
+  A text store followed its local sources on open — a source counts as
+  followed when its prelude or any of its records carries a digest — so
+  only what assembly could not follow, URL sources and what they declare,
+  is loaded. The
   overlay exists for one invocation, so the answer is whole: pages are
   followed inside the transaction and `--cursor` does not apply.
 - Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,

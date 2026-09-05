@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, hasDigest } from './run.ts'
+import { connect, declaredNaming, hasDigest, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -137,7 +137,36 @@ const sourceOptions = (declared: Declared, fetchImpl?: Source.FetchLike): Source
   ...fetchImpl === undefined ? {} : { fetchImpl }
 })
 
+/** The declaration's content, for change detection between passes of one run. */
+export const signature = (declared: Declared): string =>
+  JSON.stringify(attributes.map(attribute => declared[attribute] ?? null))
+
+/**
+ * @returns `true` when the store has followed the source at all: its
+ * prelude digest, or any current record digest under `source/<name>/`.
+ * A record-only mapping (no variable-free block) writes no prelude digest.
+ */
+export const followed = (store: Store, name: string): boolean => {
+  const naming = declaredNaming(name)
+  if (hasDigest(store, naming.unit())) {
+    return true
+  }
+  const latest = new Map<string, { conf: number, tx: string, subject: string }>()
+  for (const row of store.byContext(provenanceContext)) {
+    const seen = latest.get(row.claim_key)
+    if (seen === undefined || seen.tx < row.tx) {
+      latest.set(row.claim_key, row)
+    }
+  }
+  return [...latest.values()].some(row => row.conf > 0 && row.subject.startsWith(naming.recordPrefix))
+}
+
 const validate = (declared: Declared): void => {
+  if (declared.name.includes('/')) {
+    // `source/team/admin` is also record `admin` of source `team`: the
+    // digest entity and the stamp would collide (spec §23.4).
+    throw new Error(`source names are one path segment — source/${declared.name} would collide with record ${JSON.stringify(declared.name.split('/').slice(1).join('/'))} of source/${declared.name.split('/')[0]}`)
+  }
   if (declared.format !== undefined && declared.format !== 'cave' && !Source.formats.includes(declared.format as Source.Format)) {
     throw new Error(`unknown format ${JSON.stringify(declared.format)} — one of ${[...Source.formats, 'cave'].join(', ')}`)
   }
@@ -249,28 +278,37 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     known.clear()
     known.set(selected.name, selected)
   }
-  const done = new Set<string>()
-  const ready: Prepared[] = []
+  const done = new Map<string, string>()
+  const ready = new Map<string, Prepared>()
+  let steps = 0
+  // A followed .cave source may re-declare a source, its path or mapping
+  // included: the later declaration wins, exactly as it would once
+  // appended, so a source is (re)prepared until its declaration settles.
   for (;;) {
-    const pending = [...known.values()].filter(declared => !done.has(declared.name))
-    if (pending.length === 0) {
-      return ready
+    const next = [...known.values()].find(declared => done.get(declared.name) !== signature(declared))
+    if (next === undefined) {
+      return [...ready.values()]
     }
-    for (const declared of pending) {
-      done.add(declared.name)
-      if (options.skipFollowed === true && hasDigest(store, declaredNaming(declared.name).unit())) {
-        continue
-      }
-      const loaded = await prepare(declared, dir, options.fetchImpl)
-      ready.push(loaded)
-      if (loaded.cave) {
-        for (const nested of declaredIn(loaded.mapping.prelude)) {
-          if (!known.has(nested.name)) known.set(nested.name, nested)
-        }
+    if (++steps > fixedPointSteps) {
+      throw new Error(noFixedPoint)
+    }
+    done.set(next.name, signature(next))
+    if (options.skipFollowed === true && followed(store, next.name)) {
+      continue
+    }
+    const loaded = await prepare(next, dir, options.fetchImpl)
+    ready.set(next.name, loaded)
+    if (loaded.cave) {
+      for (const nested of declaredIn(loaded.mapping.prelude)) {
+        known.set(nested.name, nested)
       }
     }
   }
 }
+
+const fixedPointSteps = 1000
+
+const noFixedPoint = `declared sources keep re-declaring one another — no fixed point after ${fixedPointSteps} steps`
 
 export type RunOptions = {
   readonly force?: boolean
@@ -310,28 +348,35 @@ export type Assembled = {
  */
 export const assemble = (store: Store, root: string, options: { readonly force?: boolean } = {}): Assembled[] => {
   const dir = directoryOf(root)
-  const done = new Set<string>()
+  const done = new Map<string, string>()
   const self = root === ':memory:' || root === '' ? undefined : resolve(root)
   const assembled: Assembled[] = []
+  let steps = 0
+  // Declarations are re-read after every followed source: a .cave source
+  // may declare a source the root does not, or re-declare one the root
+  // does (a newer path, say) — the current declaration is what runs, and a
+  // source whose declaration changed runs again, its earlier claims
+  // retracted by the ordinary diff-on-change.
   for (;;) {
-    const pending = declaredSources(store).filter(declared => !done.has(declared.name))
-    if (pending.length === 0) {
+    const next = declaredSources(store).find(declared => done.get(declared.name) !== signature(declared))
+    if (next === undefined) {
       return assembled
     }
-    for (const declared of pending) {
-      done.add(declared.name)
-      if (Source.isUrl(declared.path) || resolvePath(declared.path, dir) === self) {
-        continue
+    if (++steps > fixedPointSteps) {
+      throw new LocateError(noFixedPoint)
+    }
+    done.set(next.name, signature(next))
+    if (Source.isUrl(next.path) || resolvePath(next.path, dir) === self) {
+      continue
+    }
+    try {
+      const report = run(store, prepareSync(next, dir), { force: options.force === true })
+      if (report.failures.length > 0) {
+        throw new Error(report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('\n'))
       }
-      try {
-        const report = run(store, prepareSync(declared, dir), { force: options.force === true })
-        if (report.failures.length > 0) {
-          throw new Error(report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('\n'))
-        }
-        assembled.push({ declared, report })
-      } catch (error) {
-        throw new LocateError(`${prefix}${declared.name} (${declared.path}): ${error instanceof Error ? error.message : String(error)}`)
-      }
+      assembled.push({ declared: next, report })
+    } catch (error) {
+      throw new LocateError(`${prefix}${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

@@ -401,31 +401,34 @@ const declaredPass = async (
 ): Promise<number> => {
   const dir = Declared.directoryOf(root)
   let failed = 0
-  const done = new Set<string>()
-  // `--name` selects one declaration and what it declares in turn; a
-  // followed .cave source may declare sources of its own, so keep going
-  // until nothing new is left, as `assemble` and `discover` do.
+  const done = new Map<string, string>()
+  // `--name` selects one declaration and what it declares in turn. The
+  // declarations are re-read after every source: a followed .cave source
+  // may declare new sources or re-declare existing ones, and the current
+  // declaration is what runs, until nothing changes — as `assemble` does.
   const allowed = values.name === undefined ? undefined : new Set(selectDeclared(store, values).map(declared => declared.name))
+  let steps = 0
   for (;;) {
-    const pending = Declared.declaredSources(store)
-      .filter(declared => !done.has(declared.name) && (allowed === undefined || allowed.has(declared.name)))
-    if (pending.length === 0) {
+    const next = Declared.declaredSources(store)
+      .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== Declared.signature(declared))
+    if (next === undefined) {
       return failed > 0 ? 1 : 0
     }
-    for (const declared of pending) {
-      done.add(declared.name)
-      try {
-        const ready = await Declared.prepare(declared, dir, context.fetchImpl)
-        if (ready.cave && allowed !== undefined) {
-          for (const nested of Declared.declaredIn(ready.mapping.prelude)) allowed.add(nested.name)
-        }
-        const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
-        io.stdout.write(`source/${declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
-        if (report.failures.length > 0) failed += 1
-      } catch (error) {
-        io.stderr.write(`source/${declared.name} (${declared.path}): ${error instanceof Error ? error.message : String(error)}\n`)
-        failed += 1
+    if (++steps > 1000) {
+      throw new Error('declared sources keep re-declaring one another — no fixed point after 1000 steps')
+    }
+    done.set(next.name, Declared.signature(next))
+    try {
+      const ready = await Declared.prepare(next, dir, context.fetchImpl)
+      if (ready.cave && allowed !== undefined) {
+        for (const nested of Declared.declaredIn(ready.mapping.prelude)) allowed.add(nested.name)
       }
+      const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
+      io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+      if (report.failures.length > 0) failed += 1
+    } catch (error) {
+      io.stderr.write(`source/${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}\n`)
+      failed += 1
     }
   }
 }

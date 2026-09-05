@@ -119,7 +119,10 @@ source/verbs HAS path: verbs.cave        ; a .cave file is its own template
 
 `path` declares the source; `map`, `key`, `format`, `delimiter`, `table`,
 `sql`, and `records` mirror the options; a `.cave` path needs no map and is
-a lifecycle unit (what it no longer says is retracted when it changes).
+a lifecycle unit (what it no longer says is retracted when it changes). A
+name is one path segment, so it cannot collide with a record key. A followed
+`.cave` source may declare or re-declare sources; declarations are re-read
+after every source and the current one runs, until nothing changes.
 Paths resolve against the store's directory. Declared sources stamp
 `@src:<name>/<key>` and keep digests under `source/<name>/<key>`
 (`declaredNaming`), so the stamp and the policy entity mirror each other.
