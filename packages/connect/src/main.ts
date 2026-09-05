@@ -401,38 +401,49 @@ const declaredPass = async (
 ): Promise<number> => {
   const dir = Declared.directoryOf(root)
   let failed = 0
-  const done = new Set<string>()
-  // `--name` selects one declaration and what it declares in turn; a
-  // followed .cave source may declare sources of its own, so keep going
-  // until nothing new is left, as `assemble` and `discover` do.
-  const allowed = values.name === undefined ? undefined : new Set(selectDeclared(store, values).map(declared => declared.name))
+  const done = new Map<string, string>()
+  // `--name` selects one declaration and what it declares in turn. The
+  // declarations are re-read after every source: a followed .cave source
+  // may declare new sources or re-declare existing ones, and the current
+  // declaration is what runs, until nothing changes — as `assemble` does.
+  // The selection starts as the named source and everything it already
+  // owns, so a parent that fails to load does not hide its descendants.
+  const allowed = values.name === undefined ? undefined :
+    new Set(Declared.closure(store, selectDeclared(store, values).map(declared => declared.name)).map(declared => declared.name))
+  const version = Declared.versionCounter()
   for (;;) {
-    const pending = Declared.declaredSources(store)
-      .filter(declared => !done.has(declared.name) && (allowed === undefined || allowed.has(declared.name)))
-    if (pending.length === 0) {
+    const next = Declared.declaredSources(store)
+      .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== Declared.signature(declared))
+    if (next === undefined) {
       return failed > 0 ? 1 : 0
     }
-    for (const declared of pending) {
-      done.add(declared.name)
-      try {
-        const ready = await Declared.prepare(declared, dir, context.fetchImpl)
-        if (ready.cave && allowed !== undefined) {
-          for (const nested of Declared.declaredIn(ready.mapping.prelude)) allowed.add(nested.name)
-        }
-        const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
-        io.stdout.write(`source/${declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
-        if (report.failures.length > 0) failed += 1
-      } catch (error) {
-        io.stderr.write(`source/${declared.name} (${declared.path}): ${error instanceof Error ? error.message : String(error)}\n`)
-        failed += 1
+    version(next.name)
+    done.set(next.name, Declared.signature(next))
+    try {
+      const ready = await Declared.prepare(next, dir, context.fetchImpl)
+      const before = Declared.signatures(Declared.declaredSources(store))
+      const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
+      if (allowed !== undefined) {
+        // The selection grows by whatever this source changed — added,
+        // re-declared, or retracted declarations alike — and by what it
+        // still owns, so an unchanged source keeps its descendants.
+        for (const name of Declared.changedNames(before, Declared.signatures(Declared.declaredSources(store)))) allowed.add(name)
+        for (const name of Declared.ownedDeclarations(store, next.name)) allowed.add(name)
       }
+      io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+      if (report.failures.length > 0) failed += 1
+    } catch (error) {
+      io.stderr.write(`source/${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}\n`)
+      failed += 1
     }
   }
 }
 
-const discoverOptions = (values: Values, context: RunContext): Declared.DiscoverOptions => ({
+const discoverOptions = (values: Values, context: RunContext, force = values.force === true): Declared.DiscoverOptions => ({
   ...values.name === undefined ? {} : { only: values.name },
-  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl }
+  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl },
+  force,
+  prune: values.prune === true
 })
 
 /** Previews every declared source, nested declarations included, without touching the store. */
@@ -465,29 +476,43 @@ const rollback = Symbol('cave-connect declared query rollback')
  * sources load first, URLs included, then append inside one transaction
  * that rolls back after the query.
  */
+const stale = Symbol('cave-connect declared query stale')
+
 const declaredQuery = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
-  const ready = await Declared.discover(store, root, discoverOptions(values, context))
-  let matches: undefined | readonly Match[]
-  let failed = 0
-  try {
-    store.transaction(() => {
-      for (const source of ready) {
-        const report = Declared.run(store, source, { force: true })
-        if (report.failures.length > 0) {
-          failed += 1
-          io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+  // The overlay applies every source (force), so discovery simulates that.
+  // The sequence was discovered on a snapshot; a writer may have changed
+  // the declarations since, so the replay checks and rediscovers if so.
+  for (let attempt = 0; attempt < Declared.overlayAttempts; attempt += 1) {
+    const { sequence, baseline } = await Declared.discovery(store, root, discoverOptions(values, context, true))
+    let matches: undefined | readonly Match[]
+    let failed = 0
+    try {
+      store.transaction(() => {
+        if (!Declared.sameDeclarations(baseline, Declared.declarationState(store))) {
+          throw stale
         }
+        for (const source of sequence) {
+          const report = Declared.run(store, source, { force: true, prune: values.prune === true })
+          if (report.failures.length > 0) {
+            failed += 1
+            io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+          }
+        }
+        matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
+        throw rollback
+      })
+    } catch (error) {
+      if (error === stale) {
+        continue
       }
-      matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
-      throw rollback
-    })
-  } catch (error) {
-    if (error !== rollback) {
-      throw error
+      if (error !== rollback) {
+        throw error
+      }
     }
+    printMatches(store, matches!, values.query!, values, io)
+    return failed > 0 ? 1 : 0
   }
-  printMatches(store, matches!, values.query!, values, io)
-  return failed > 0 ? 1 : 0
+  throw Declared.staleOverlay()
 }
 
 const declaredWatch = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
@@ -544,7 +569,10 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
   const refreshWatchers = (): void => {
     let declared: Declared.t[]
     try {
-      declared = selectDeclared(store, values)
+      // A named watch watches the selection and everything it owns.
+      declared = values.name === undefined ?
+        selectDeclared(store, values) :
+        Declared.closure(store, selectDeclared(store, values).map(source => source.name))
     } catch {
       return
     }
@@ -605,8 +633,8 @@ const runDeclared = async (values: Values, io: IO, context: RunContext): Promise
       }
     }
     if (values['dry-run'] === true || values.query !== undefined) {
-      // A text store already followed its sources on open; the overlay
-      // then finds every record unchanged and adds nothing.
+      // Discovery works on a private snapshot, so the dry run only reads;
+      // the overlay appends into the store's own rolled-back transaction.
       const store = openAt(db, { intent: values.query === undefined ? 'read' : 'scratch', assemble: Declared.assemble, ...registryOf(values) })
       try {
         return values.query === undefined ?

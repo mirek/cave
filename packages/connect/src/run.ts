@@ -19,6 +19,7 @@
 import { createHash } from 'node:crypto'
 import { Claim, Key, SourceSpan, Value } from '@cavelang/core'
 import type { LineSpan } from '@cavelang/core'
+import { QuerySql } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import type { Match, Options as QueryOptions } from '@cavelang/query'
@@ -33,16 +34,40 @@ export const digestOf = (content: string): string =>
   createHash('sha256').update(content).digest('hex').slice(0, 12)
 
 /**
- * Claim key of a unit's digest claim. The value is excluded from keys
- * (spec §9.2), so the key is stable while the digest evolves.
+ * Claim key of a bookkeeping claim — `subject HAS attribute: … @src:cave-connect`.
+ * The value is excluded from keys (spec §9.2), so the key is stable while
+ * the value evolves, and the context makes it the connector's own series:
+ * an authored claim with the same attribute is another series entirely.
  */
-const digestKey = (subject: string): string =>
+export const bookkeepingKey = (subject: string, attribute: string): string =>
   Key.of(Claim.of({
     subject: Claim.entity(subject),
     verb: 'HAS',
-    payload: Claim.attribute(digestAttribute, Value.parse('x')),
+    payload: Claim.attribute(attribute, Value.parse('x')),
     contexts: [provenanceContext]
   }))
+
+const digestKey = (subject: string): string =>
+  bookkeepingKey(subject, digestAttribute)
+
+/**
+ * The current row of every claim key whose subject starts with `under`,
+ * read with one indexed range query: the range goes into the grouped
+ * subquery too, so the latest-per-key aggregation runs over those rows
+ * alone, never the whole store.
+ */
+export const currentRowsUnder = (store: Store, under: string): Row.t[] => {
+  const end = `${under.slice(0, -1)}${String.fromCharCode(under.charCodeAt(under.length - 1) + 1)}`
+  return store.db.prepare(
+    `${QuerySql.current('(SELECT * FROM cave_claim WHERE subject >= ? AND subject < ?)')} WHERE c.subject >= ? AND c.subject < ? ORDER BY c.tx`
+  ).all(under, end, under, end) as unknown as Row.t[]
+}
+
+/** The current digest rows of a unit prefix — the connector's bookkeeping under `source/<name>/` or `connect/<name>/`. */
+export const currentDigestsUnder = (store: Store, under: string): Row.t[] =>
+  currentRowsUnder(store, under).filter(row =>
+    row.attribute === digestAttribute && row.negated === 0 && row.conf > 0 &&
+    store.toClaim(row).contexts.includes(provenanceContext))
 
 /** @returns `true` when the unit has been connected at all — a current digest claim of any value. */
 export const hasDigest = (store: Store, subject: string): boolean => {
@@ -200,6 +225,10 @@ const retractStale = (store: Store, run: string, keepIds: ReadonlySet<string>): 
   return stale.length
 }
 
+/** Retracts every current claim a lifecycle run owns — a unit whose declaration changed shape is retired whole. */
+export const retireRun = (store: Store, run: string): number =>
+  retractStale(store, run, new Set())
+
 /**
  * One connect pass: prelude (digest-skipped as a unit under
  * `connect/<name>`), then each record (digest-skipped under
@@ -319,16 +348,10 @@ export const connect = (
 
   if (options.prune === true) {
     const prefix = naming.recordPrefix
-    const latest = new Map<string, Row.t>()
-    for (const row of store.byContext(provenanceContext)) {
-      const current = latest.get(row.claim_key)
-      if (current === undefined || current.tx < row.tx) {
-        latest.set(row.claim_key, row)
-      }
-    }
-    for (const row of latest.values()) {
+    // The source's own record digests, by range — never the whole history.
+    for (const row of currentDigestsUnder(store, prefix)) {
       const key = row.subject.slice(prefix.length)
-      if (row.conf <= 0 || !row.subject.startsWith(prefix) || seen.has(key)) {
+      if (seen.has(key)) {
         continue
       }
       store.transaction(() => {

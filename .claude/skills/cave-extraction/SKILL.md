@@ -285,7 +285,10 @@ source/people HAS reliability: 80%       ; §26.3, on the same entity
 source/verbs HAS path: verbs.cave        ; a .cave file needs no map
 ```
 
-A source is declared by a current positive `path`; the other attributes
+A source's name is **one path segment**: `source/team/admin` would also be
+record `admin` of source `team`, whose digest entity and stamp it would
+share, so a nested name is refused. A source is declared by a current
+positive `path`; the other attributes
 mirror the options one-to-one — `map`, `key`, `format`, `delimiter`,
 `table`, `sql`, `records` — and are read from the same entity's current
 beliefs. A `.cave` path (or `format: cave`) is a **mapping-free source**:
@@ -297,7 +300,35 @@ the text file's; the working directory for `:memory:`), never the working
 directory: a store and its sources travel together.
 
 A `.cave` source that becomes empty still says something — nothing — and
-every claim it owned retracts.
+every claim it owned retracts. A followed `.cave` source may declare
+sources the store does not, or re-declare ones it does — a newer path, or
+just a new mapping or key, a delta over the current declaration; the
+declarations are re-read after every followed source, the
+current declaration is what runs, and a source whose declaration changed
+runs again (its earlier claims retracted by the ordinary diff), until
+nothing changes; a source re-declared more than twenty times in one pass
+is a cycle and fails. Every run records the digest of the declaration it
+ran under, and a source whose declaration changed since — another path,
+key, query, or record selector — prunes as it runs, retiring the records
+its previous version produced that the new one does not, and a `.cave`
+source that became a record source retires its former prelude whole; a
+source that carries digests but no recorded declaration counts as
+changed. When several belief series speak about one
+attribute — the root file and a followed source stamp differently — the
+newest current claim wins. A retraction inside a followed text retracts
+its own series only (§9.5): to remove a declaration the root made,
+restate it with the root's context, `source/b HAS path: old.csv @src:cli
+@ 0%`. An overlay or dry run discovers declarations by running the pass itself
+against a private snapshot of the store — each source runs once as it is
+discovered, the declarations are read from the copy as they then stand,
+and the copy is discarded — and it keeps the exact run sequence, a
+re-declared source appearing again later; the overlay then replays that
+sequence in the real store's rolled-back transaction, after checking
+that the declarations still match the snapshot's — a writer may have
+changed them while sources loaded — and rediscovering when they do not,
+three times before giving up. Nothing is simulated, so a preview agrees
+with the pass, the real database holds no lock while sources load, and a
+dry run only reads the store.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under
@@ -314,8 +345,9 @@ lifecycle run is the stamp.
 
 - `cave connect [--db <path>]` with no source runs one pass over every
   declared source, sources declared by a followed `.cave` source included,
-  until none is left; `--name <n>` selects one together with what it
-  declares in turn; `--force`, `--prune`,
+  until none is left; `--name <n>` selects one together with every
+  source it declares — the ones its run added, changed, or retracted,
+  and the ones it still owns; `--force`, `--prune`,
   `--dry-run`, `--watch` (every declared local file and mapping, the set
   refreshed after each pass) and `--query` (an overlay of all of them,
   §23.3) apply as for a single source. The overlay and the dry run load
@@ -336,8 +368,11 @@ lifecycle run is the stamp.
   them, a `.cave` URL included.
 - `cave query --sources` overlays the store's declared sources inside a
   transaction that rolls back (§23.3), loading them first, URLs included.
-  A text store followed its local sources on open, so only what assembly
-  could not follow — URL sources and what they declare — is loaded. The
+  A text store followed its local sources on open — every run records the
+  digest of the declaration it ran under on the source entity
+  (`source/<name> HAS connect-declaration: …`), and a source counts as
+  followed only under that same declaration — so only what assembly could
+  not follow, URL sources and what they declare, is loaded. The
   overlay exists for one invocation, so the answer is whole: pages are
   followed inside the transaction and `--cursor` does not apply.
 - Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,

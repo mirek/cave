@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { Writable } from 'node:stream'
@@ -399,6 +399,211 @@ test('--name follows what the selected source declares in turn, and nothing else
     assert.match(stdout.value, /^source\/verbs: .*\nsource\/people: 1 record\(s\): 1 mapped/)
     assert.doesNotMatch(stdout.value, /source\/other/)
   } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name follows a source whose mapping the selected source changes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/people HAS key: id\nsource/remap HAS path: remap.cave')
+    seed.close()
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--name', 'remap'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /^source\/remap: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    const store = open(db)
+    try {
+      const ann = store.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'ann').map(row => row.object)
+      assert.deepEqual(ann, ['staff'], 'the re-mapped source ran under the merged declaration')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name follows a source whose mapping the selected source retracts', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/people HAS key: id\nsource/remap HAS path: remap.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string, err: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value, err: stderr.value }
+    }
+    assert.equal((await pass(['--db', db])).code, 0)
+    const current = (): string[] => {
+      const store = open(db)
+      try {
+        return store.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'ann').map(row => row.object!).sort()
+      } finally {
+        store.close()
+      }
+    }
+    assert.deepEqual(current(), ['staff'], 'the followed source re-mapped people')
+    // remap now retracts its own map claim: people's effective mapping is the root's again.
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave @ 0%\n')
+    const only = await pass(['--db', db, '--name', 'remap'])
+    assert.equal(only.code, 0, only.err)
+    assert.match(only.out, /source\/remap: [\s\S]*source\/people: 1 record\(s\): 1 mapped.*1 retracted/, 'people runs again after remap retracted its map claim')
+    assert.deepEqual(current(), ['person'], 'people ran again under the root mapping once remap retracted its own')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name keeps an unchanged source\'s descendants: an edit to the child data is followed', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value }
+    }
+    assert.equal((await pass(['--db', db, '--name', 'parent'])).code, 0)
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const again = await pass(['--db', db, '--name', 'parent'])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /source\/people: 2 record\(s\): 1 mapped, 1 skipped/, 'parent is unchanged, yet the child it owns runs and picks up the edit')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name keeps the sources a CSV source declares through its records', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'child.cave'), 'child IS here\n')
+    // A variable is a whole token, so the record carries the full entity.
+    writeFileSync(join(dir, 'registry.csv'), 'entity,path\nsource/child,child.cave\n')
+    writeFileSync(join(dir, 'registry.map.cave'), '?entity HAS path: ?path\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/registry HAS path: registry.csv\nsource/registry HAS map: registry.map.cave\nsource/registry HAS key: entity')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value }
+    }
+    const first = await pass(['--db', db, '--name', 'registry'])
+    assert.equal(first.code, 0)
+    assert.match(first.out, /source\/child: /, 'the record-declared child runs on the first pass')
+    writeFileSync(join(dir, 'child.cave'), 'child IS changed\n')
+    const again = await pass(['--db', db, '--name', 'registry'])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /source\/registry: 1 record\(s\): 0 mapped, 1 skipped/, 'the parent record is unchanged')
+    assert.match(again.out, /source\/child: .*\+1 claim\(s\), 1 retracted/, 'yet the child it owns through that record runs and picks up the edit')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a named watch watches the files of the sources the selection owns', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const controller = new AbortController()
+  let running: Promise<number> | undefined
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    writeFileSync(join(dir, 'other.cave'), 'other IS thing\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave\nsource/other HAS path: other.cave')
+    seed.close()
+    const watchedFor: string[] = []
+    const stdout = new Capture()
+    running = runConnect(['--db', db, '--watch', '--name', 'parent'], {
+      stdout,
+      stderr: new Capture(),
+      signal: controller.signal,
+      watch: (path, _listener) => {
+        watchedFor.push(path)
+        return { close: () => {} }
+      },
+      schedule: () => ({}),
+      cancelScheduled: () => {}
+    })
+    await until(() => stdout.value.includes('watching'), 'watch setup')
+    assert.equal(watchedFor.length, 3, "parent.cave, then the owned child's file and mapping — never other.cave")
+  } finally {
+    controller.abort()
+    if (running !== undefined) await running
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name still runs a parent\'s recorded descendants when the parent itself fails to load', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string, err: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value, err: stderr.value }
+    }
+    assert.equal((await pass(['--db', db, '--name', 'parent'])).code, 0)
+    rmSync(join(dir, 'parent.cave'))
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const broken = await pass(['--db', db, '--name', 'parent'])
+    assert.equal(broken.code, 1, 'the missing parent is a failure')
+    assert.match(broken.err, /source\/parent \(parent\.cave\)/)
+    assert.match(broken.out, /source\/people: 2 record\(s\): 1 mapped/, 'its recorded descendant still runs')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a declared dry run only reads the store and works on a write-protected one', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const db = join(dir, 'k.db')
+  try {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS true\n')
+    const seed = open(db)
+    seed.ingest('source/facts HAS path: facts.cave')
+    seed.close()
+    chmodSync(db, 0o444)
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--dry-run'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /; === source\/facts \(facts\.cave\)[\s\S]*fact IS true/)
+  } finally {
+    chmodSync(db, 0o644)
     rmSync(dir, { recursive: true, force: true })
   }
 })

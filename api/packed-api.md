@@ -1715,6 +1715,14 @@ export declare const assemble: (store: Store, root: string, options?: {
 }) => Assembled[];
 ```
 
+### `bookkeepingKey`
+
+Kind: value.
+
+```ts
+export declare const bookkeepingKey: (subject: string, attribute: string) => string;
+```
+
 ### `connect`
 
 Kind: value.
@@ -1754,6 +1762,22 @@ export type RunContext = {
     readonly schedule?: ScheduleLike;
     readonly cancelScheduled?: (handle: unknown) => void;
 };
+```
+
+### `currentDigestsUnder`
+
+Kind: value.
+
+```ts
+export declare const currentDigestsUnder: (store: Store, under: string) => Row.t[];
+```
+
+### `currentRowsUnder`
+
+Kind: value.
+
+```ts
+export declare const currentRowsUnder: (store: Store, under: string) => Row.t[];
 ```
 
 ### `Declared`
@@ -1806,6 +1830,54 @@ export declare const attributes: readonly [
 ];
 ```
 
+#### `changedNames`
+
+Kind: value.
+
+```ts
+export declare const changedNames: (before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>) => string[];
+```
+
+#### `closure`
+
+Kind: value.
+
+```ts
+export declare const closure: (store: Store, names: readonly string[]) => Declared[];
+```
+
+#### `declarationAttribute`
+
+Kind: value.
+
+```ts
+export declare const declarationAttribute = "connect-declaration";
+```
+
+#### `declarationDigest`
+
+Kind: value.
+
+```ts
+export declare const declarationDigest: (declared: Declared) => string;
+```
+
+#### `declarationsIn`
+
+Kind: value.
+
+```ts
+export declare const declarationsIn: (text: string) => Delta[];
+```
+
+#### `declarationState`
+
+Kind: value.
+
+```ts
+export declare const declarationState: (store: Store) => Map<string, string>;
+```
+
 #### `Declared`
 
 Kind: type.
@@ -1840,6 +1912,25 @@ Kind: value.
 export declare const declaredSources: (store: Store) => Declared[];
 ```
 
+#### `Delta`
+
+Kind: type.
+
+```ts
+export type Delta = {
+    readonly name: string;
+    readonly fields: Partial<Record<Attribute, string>>;
+};
+```
+
+#### `deltasOf`
+
+Kind: value.
+
+```ts
+export declare const deltasOf: (store: Store) => Delta[];
+```
+
 #### `describe`
 
 Kind: value.
@@ -1861,7 +1952,7 @@ export declare const directoryOf: (root: string) => string;
 Kind: value.
 
 ```ts
-export declare const discover: (store: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
+export declare const discover: (origin: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
 ```
 
 #### `DiscoverOptions`
@@ -1872,8 +1963,37 @@ Kind: type.
 export type DiscoverOptions = {
     readonly fetchImpl?: Source.FetchLike;
     readonly only?: string;
+    readonly force?: boolean;
+    readonly prune?: boolean;
     readonly skipFollowed?: boolean;
 };
+```
+
+#### `discovery`
+
+Kind: value.
+
+```ts
+export declare const discovery: (origin: Store, root: string, options?: DiscoverOptions) => Promise<Discovery>;
+```
+
+#### `Discovery`
+
+Kind: type.
+
+```ts
+export type Discovery = {
+    readonly sequence: Prepared[];
+    readonly baseline: ReadonlyMap<string, string>;
+};
+```
+
+#### `followed`
+
+Kind: value.
+
+```ts
+export declare const followed: (store: Store, declared: Declared) => boolean;
 ```
 
 #### `isCave`
@@ -1882,6 +2002,38 @@ Kind: value.
 
 ```ts
 export declare const isCave: (declared: Declared) => boolean;
+```
+
+#### `merge`
+
+Kind: value.
+
+```ts
+export declare const merge: (known: undefined | Declared, delta: Delta) => undefined | Declared;
+```
+
+#### `overlayAttempts`
+
+Kind: value.
+
+```ts
+export declare const overlayAttempts = 3;
+```
+
+#### `ownedDeclarations`
+
+Kind: value.
+
+```ts
+export declare const ownedDeclarations: (store: Store, owner: string) => string[];
+```
+
+#### `ownership`
+
+Kind: value.
+
+```ts
+export declare const ownership: (store: Store) => Map<string, Set<string>>;
 ```
 
 #### `prefix`
@@ -1923,6 +2075,14 @@ Kind: value.
 export declare const prepareSync: (declared: Declared, dir: string) => Prepared;
 ```
 
+#### `recordedDeclaration`
+
+Kind: value.
+
+```ts
+export declare const recordedDeclaration: (store: Store, name: string) => undefined | string;
+```
+
 #### `resolvePath`
 
 Kind: value.
@@ -1950,12 +2110,52 @@ export type RunOptions = {
 };
 ```
 
+#### `sameDeclarations`
+
+Kind: value.
+
+```ts
+export declare const sameDeclarations: (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>) => boolean;
+```
+
+#### `signature`
+
+Kind: value.
+
+```ts
+export declare const signature: (declared: Declared) => string;
+```
+
+#### `signatures`
+
+Kind: value.
+
+```ts
+export declare const signatures: (declared: readonly Declared[]) => Map<string, string>;
+```
+
+#### `staleOverlay`
+
+Kind: value.
+
+```ts
+export declare const staleOverlay: () => Error;
+```
+
 #### `t`
 
 Kind: type.
 
 ```ts
 export type t = Declared;
+```
+
+#### `versionCounter`
+
+Kind: value.
+
+```ts
+export declare const versionCounter: () => (name: string) => void;
 ```
 
 ### `declaredNaming`
@@ -2064,6 +2264,14 @@ export type Report = {
     readonly failures: readonly Failure[];
     readonly notes: readonly string[];
 };
+```
+
+### `retireRun`
+
+Kind: value.
+
+```ts
+export declare const retireRun: (store: Store, run: string) => number;
 ```
 
 ### `runConnect`
@@ -10072,10 +10280,10 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `5b4d9fca7a500c0f73bcea79410c9ba2abb6d0fb02ee9ea6f75c43757e72acc6`
-- `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `e98ac9c0d12ba0ab27fa1b5914bd31e7ec4962503b289e204a50485b42244bc8`
+- `@cavelang/cli/dist/internal/connect/index.d.ts` — `a54395904b587a7c09318258378718693c473e632c7255b0ba90d69a2b873739`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
-- `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`
+- `@cavelang/cli/dist/internal/connect/run.d.ts` — `85249a81287ac394e0b61d6633c0f1b139e36c87aff8828f2e46b5f83c149fd4`
 - `@cavelang/cli/dist/internal/connect/source.d.ts` — `00a14e59ac74e4430ec554253576bdfccadd54055cfa5f46c512a950d752c157`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c2be1aa54a74d3509bafc01930d9953525a386b737c51e88a14ee9cf13e2dc41`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`

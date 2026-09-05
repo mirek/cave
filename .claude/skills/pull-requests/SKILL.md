@@ -20,6 +20,10 @@ description: How a change lands in this repo — branch, changeset, documentatio
   commit onto the branch. Fetch and fast-forward before pushing again.
   Runs triggered by that bot commit sit in `action_required`; approve them
   with `gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`.
+- The Windows runtime job occasionally fails the CLI backup/restore test
+  on a file lock (a closed SQLite file Windows still holds); when the same
+  test passed on the previous commit and backup code is untouched, rerun
+  the failed job (`gh run rerun <id> --failed`) rather than chase it.
 - Merging main into a branch conflicts on `website/public/cave-book.pdf`
   whenever both sides rebuilt it: take either side, CI regenerates it.
 - **A conflicting PR gets no CI at all.** GitHub creates no `pull_request`
@@ -37,8 +41,12 @@ Codex (`chatgpt-codex-connector[bot]`) reviews a PR when it opens and on
 `@codex review`. Its findings are real more often than not; the merge bar is
 green CI and no open finding.
 
-1. Read every finding: inline comments (`pulls/<n>/comments`) and the review
-   body (`pulls/<n>/reviews`) — a finding can live in either.
+1. Read every finding. The authoritative list is the PR's unresolved review
+   threads (the GraphQL query below): each Codex finding is one thread. A
+   finding can also sit only in a review body (`pulls/<n>/reviews`), so
+   read the latest review too. Never count findings by filtering REST
+   comments on a timestamp — four findings were missed and merged over
+   that way on #207.
 2. For each finding, either fix it with a test that covers the underlying
    risk, or, when the suggestion contradicts a deliberate design, reply on
    the thread with the rationale, a pointer to where that rationale is now
@@ -55,7 +63,8 @@ green CI and no open finding.
    ```
 
 4. Push, comment `@codex review`, and repeat until a review comes back
-   with no finding. Expect one or two new findings per round on touched
+   with no finding. Before merging, confirm the unresolved-thread count is
+   zero and the latest review body carries no finding badge. Expect one or two new findings per round on touched
    files; converge by fixing, not by arguing.
 5. Refresh `api/packed-api.md` (`UPDATE_PACKED_API=1 make smoke`) after any
    export-signature or usage-text change, or the smoke job fails.

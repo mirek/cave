@@ -1687,7 +1687,7 @@ test('doctor recognizes a CAVE text store and its declared sources', () => {
     writeFileSync(notes, 'acme IS company\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\n')
     const report = JSON.parse(doctorCommand(['--db', notes, '--json']).out)
     assert.equal(report.configuration.database.kind, 'text')
-    assert.equal(report.configuration.database.claims, 5, 'the root claim, the two declaration claims, the mapped record, and its digest')
+    assert.equal(report.configuration.database.claims, 6, 'the root claim, the two declaration claims, the mapped record, its digest, and the declaration the run recorded')
     assert.match(report.checks.find((entry: { id: string }) => entry.id === 'store.database').summary, /text store assembled in memory/)
     writeFileSync(notes, 'source/people HAS path: nope.csv\nsource/people HAS map: people.map.cave\n')
     const broken = JSON.parse(doctorCommand(['--db', notes, '--json']).out)
@@ -1736,6 +1736,35 @@ test('query --sources answers the overlay whole and fetches a text store\'s URL 
     const overlaid = await querySourcesCommand(['--db', notes, 'remote IS ?what', '--sources'], { fetchImpl })
     assert.equal(overlaid.out, '?what = thing\n', 'the overlay fetches what assembly could not follow')
     assert.deepEqual(fetched, ['https://example.test/remote.cave'], 'and only that — the local source was already followed')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('query --sources rediscovers when a writer changes the declarations while sources load', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    store.ingest('source/remote HAS path: https://example.test/a.cave')
+    store.close()
+    const fetched: string[] = []
+    let first = true
+    const fetchImpl = async (url: string): Promise<Response> => {
+      fetched.push(url)
+      if (first) {
+        first = false
+        // A writer moves the declaration while the first load is in flight.
+        const writer = open(db)
+        writer.ingest('source/remote HAS path: https://example.test/b.cave')
+        writer.close()
+      }
+      return new Response(url.endsWith('a.cave') ? 'answer IS a\n' : 'answer IS b\n', { status: 200 })
+    }
+    const result = await querySourcesCommand(['--db', db, 'answer IS ?x', '--sources'], { fetchImpl })
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.out, '?x = b\n', 'the overlay answers from the declaration current at replay')
+    assert.deepEqual(fetched, ['https://example.test/a.cave', 'https://example.test/b.cave'])
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
