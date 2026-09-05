@@ -494,3 +494,32 @@ test('--name keeps an unchanged source\'s descendants: an edit to the child data
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('--name keeps the sources a CSV source declares through its records', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'child.cave'), 'child IS here\n')
+    // A variable is a whole token, so the record carries the full entity.
+    writeFileSync(join(dir, 'registry.csv'), 'entity,path\nsource/child,child.cave\n')
+    writeFileSync(join(dir, 'registry.map.cave'), '?entity HAS path: ?path\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/registry HAS path: registry.csv\nsource/registry HAS map: registry.map.cave\nsource/registry HAS key: entity')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value }
+    }
+    const first = await pass(['--db', db, '--name', 'registry'])
+    assert.equal(first.code, 0)
+    assert.match(first.out, /source\/child: /, 'the record-declared child runs on the first pass')
+    writeFileSync(join(dir, 'child.cave'), 'child IS changed\n')
+    const again = await pass(['--db', db, '--name', 'registry'])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /source\/registry: 1 record\(s\): 0 mapped, 1 skipped.*\nsource\/child: .*\+1 claim\(s\), 1 retracted/, 'the parent record is unchanged, yet the child it owns through that record runs')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

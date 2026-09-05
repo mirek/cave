@@ -398,9 +398,15 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
  */
 export const ownedDeclarations = (store: Store, owner: string): string[] => {
   const names = new Set<string>()
-  for (const row of store.byProvenance('run', owner)) {
-    if (row.conf > 0 && row.negated === 0 && row.verb === 'HAS' && row.attribute !== null &&
-      row.subject.startsWith(prefix) && isAttribute(row.attribute) && store.currentBelief(row.claim_key)?.id === row.id) {
+  for (const row of store.currentBeliefs()) {
+    if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
+      !row.subject.startsWith(prefix) || !isAttribute(row.attribute)) {
+      continue
+    }
+    // The prelude runs as `<owner>`, a record as `<owner>/<key>`: a mapping
+    // that emits declarations per record owns them through its records.
+    const runs = store.provenanceOf(row)?.runs ?? []
+    if (runs.some(run => run === owner || run.startsWith(`${owner}/`))) {
       names.add(row.subject.slice(prefix.length))
     }
   }
