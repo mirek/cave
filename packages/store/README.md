@@ -77,7 +77,10 @@ stamp, so the claims are the ones importing the file would store. `intent:
 'read'` never touches the filesystem: SQLite opens read-only (a
 write-protected store serves), an older schema is reported with the command
 that migrates it instead of being migrated, and a missing path throws instead
-of creating a database. `intent: 'scratch'` is for dry runs that append inside
+of creating a database. The only files SQLite may still create are the `-wal`
+and `-shm` sidecars of a store an operator switched to WAL journaling, which
+readers and writers need to coordinate; an `immutable` open would avoid them
+only by risking stale reads under a concurrent writer. `intent: 'scratch'` is for dry runs that append inside
 a rolled-back transaction: writable, but it creates and migrates nothing
 either. `intent: 'write'` (the default) creates a missing SQLite store,
 migrates an older one, and throws on a text file with the materialization

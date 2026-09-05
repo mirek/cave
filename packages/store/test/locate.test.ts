@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -139,6 +139,37 @@ test('a read open is read-only and serves a write-protected store', () => {
       scratch.close()
     } finally {
       chmodSync(path, 0o644)
+    }
+  })
+})
+
+test('a read open serves a WAL-mode store without changing the database', () => {
+  withDir(dir => {
+    const path = join(dir, 'wal.db')
+    const writer = open(path)
+    writer.db.exec('PRAGMA journal_mode = WAL')
+    writer.ingest('a IS b')
+    writer.close()
+    for (const sidecar of ['-wal', '-shm']) {
+      rmSync(`${path}${sidecar}`, { force: true })
+    }
+    const before = readFileSync(path)
+    const reader = openAt(path, { intent: 'read' })
+    try {
+      assert.equal(reader.currentBeliefs().length, 1)
+      assert.equal((reader.db.prepare('PRAGMA journal_mode').get() as { journal_mode: string }).journal_mode, 'wal')
+    } finally {
+      reader.close()
+    }
+    assert.deepEqual(readFileSync(path), before, 'the database file is untouched')
+    // The WAL sidecars are the documented exception (spec §13.7): SQLite
+    // recreates the (empty) log and the index a read-only connection
+    // coordinates through; nothing else appears.
+    assert.deepEqual(
+      readdirSync(dir).filter(name => name.startsWith('wal.db') && !['wal.db', 'wal.db-wal', 'wal.db-shm'].includes(name)),
+      [], 'no other sidecar')
+    if (existsSync(`${path}-wal`)) {
+      assert.equal(readFileSync(`${path}-wal`).length, 0, 'the read wrote nothing to the log')
     }
   })
 })

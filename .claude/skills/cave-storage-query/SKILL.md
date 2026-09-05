@@ -717,7 +717,13 @@ only reads MUST NOT create or migrate a database: a missing path is an error
 naming the command that initializes one, never a fresh empty store that
 hides a typo, and an older schema is reported with the command that
 migrates it, never migrated in place; a read opens SQLite read-only, so a
-write-protected store serves. Only appending surfaces initialize a missing
+write-protected store serves. The WAL sidecars are the deliberate
+exception: a store an operator switched to WAL journaling needs its `-wal`
+and `-shm` files for readers and writers to coordinate, and SQLite recreates
+them when absent even on a read-only connection. A read MAY create those two
+files and nothing else, and it never changes the database file itself; an
+`immutable` open would avoid them only by risking stale or torn reads while
+a writer is active, so CAVE does not use one. Only appending surfaces initialize a missing
 SQLite store or migrate an older one. Mixed commands decide by what the
 invocation does: `--list` and `suggest-alias` without `--write` read, while
 a dry run (`derive`, `act`, `sync --dry-run`, `connect --query`) appends
