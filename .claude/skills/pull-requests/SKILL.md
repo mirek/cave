@@ -20,6 +20,10 @@ description: How a change lands in this repo — branch, changeset, documentatio
   commit onto the branch. Fetch and fast-forward before pushing again.
   Runs triggered by that bot commit sit in `action_required`; approve them
   with `gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`.
+- The Windows runtime job occasionally fails the CLI backup/restore test
+  on a file lock (a closed SQLite file Windows still holds); when the same
+  test passed on the previous commit and backup code is untouched, rerun
+  the failed job (`gh run rerun <id> --failed`) rather than chase it.
 - Merging main into a branch conflicts on `website/public/cave-book.pdf`
   whenever both sides rebuilt it: take either side, CI regenerates it.
 - **A conflicting PR gets no CI at all.** GitHub creates no `pull_request`

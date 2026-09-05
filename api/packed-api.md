@@ -1764,6 +1764,22 @@ export type RunContext = {
 };
 ```
 
+### `currentDigestsUnder`
+
+Kind: value.
+
+```ts
+export declare const currentDigestsUnder: (store: Store, under: string) => Row.t[];
+```
+
+### `currentRowsUnder`
+
+Kind: value.
+
+```ts
+export declare const currentRowsUnder: (store: Store, under: string) => Row.t[];
+```
+
 ### `Declared`
 
 Kind: value, namespace.
@@ -10265,9 +10281,9 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
 - `@cavelang/cli/dist/internal/connect/declared.d.ts` — `e98ac9c0d12ba0ab27fa1b5914bd31e7ec4962503b289e204a50485b42244bc8`
-- `@cavelang/cli/dist/internal/connect/index.d.ts` — `b41197c4e25caeec3f2cf4cb561adbcf2f5b05ff8b5f61e1649fd460f7ca39cc`
+- `@cavelang/cli/dist/internal/connect/index.d.ts` — `a54395904b587a7c09318258378718693c473e632c7255b0ba90d69a2b873739`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
-- `@cavelang/cli/dist/internal/connect/run.d.ts` — `4d8560c311276ce5d9b12f63a7bc5cfde2246d2b8696b50b44fee0e982ade671`
+- `@cavelang/cli/dist/internal/connect/run.d.ts` — `85249a81287ac394e0b61d6633c0f1b139e36c87aff8828f2e46b5f83c149fd4`
 - `@cavelang/cli/dist/internal/connect/source.d.ts` — `00a14e59ac74e4430ec554253576bdfccadd54055cfa5f46c512a950d752c157`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c2be1aa54a74d3509bafc01930d9953525a386b737c51e88a14ee9cf13e2dc41`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`

@@ -25,11 +25,11 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
-import { LocateError, QuerySql, open } from '@cavelang/store'
+import { LocateError, open } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { bookkeepingKey, connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext, retireRun } from './run.ts'
+import { bookkeepingKey, connect, currentDigestsUnder, currentRowsUnder, declaredNaming, digestOf, hasDigest, provenanceContext, retireRun } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -72,18 +72,7 @@ export type Delta = { readonly name: string, readonly fields: Partial<Record<Att
 const sourceRows = (store: Store): Row.t[] =>
   currentRowsUnder(store, prefix).filter(row => row.verb === 'HAS' && row.conf > 0 && row.negated === 0)
 
-/**
- * The current row of every claim key whose subject starts with `under`,
- * read with one indexed range query: the range goes into the grouped
- * subquery too, so the latest-per-key aggregation runs over those rows
- * alone, not the whole store.
- */
-const currentRowsUnder = (store: Store, under: string): Row.t[] => {
-  const end = `${under.slice(0, -1)}${String.fromCharCode(under.charCodeAt(under.length - 1) + 1)}`
-  return store.db.prepare(
-    `${QuerySql.current('(SELECT * FROM cave_claim WHERE subject >= ? AND subject < ?)')} WHERE c.subject >= ? AND c.subject < ? ORDER BY c.tx`
-  ).all(under, end, under, end) as unknown as Row.t[]
-}
+
 
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
@@ -531,10 +520,7 @@ export const recordedDeclaration = (store: Store, name: string): undefined | str
 /** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's — read by range, not by scanning history. */
 const hasAnyDigest = (store: Store, name: string): boolean => {
   const naming = declaredNaming(name)
-  return hasDigest(store, naming.unit()) ||
-    currentRowsUnder(store, naming.recordPrefix).some(row =>
-      row.attribute === digestAttribute && row.negated === 0 && row.conf > 0 &&
-      store.toClaim(row).contexts.includes(provenanceContext))
+  return hasDigest(store, naming.unit()) || currentDigestsUnder(store, naming.recordPrefix).length > 0
 }
 
 /**
