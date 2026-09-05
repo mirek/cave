@@ -897,7 +897,7 @@ export declare const syncCommand: (argv: readonly string[]) => Output;
 Kind: value.
 
 ```ts
-export declare const usage = "cave \u2014 Compressed Atomic Verb Expressions\n\nUsage:\n  cave parse [file...] [--json]            lint CAVE text (stdin when no file)\n  cave highlight [file...]                 print CAVE text with ANSI syntax colors\n  cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]\n  cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)\n  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]\n  cave search [--db <path>] <terms..>      full-text search over claims and comments (FTS5) [--raw] [--limit <n>] [--json]\n  cave resolve [--db <path>]               contested facts + winners (spec \u00A726) [--aliases] [--policy] [--json]\n  cave derive [--db <path>] [rules.cave..] declare + fire rules (spec \u00A724) [--dry-run] [--full] [--list] [--retract <rule>]\n  cave act [--db <path>] <name> [p=v...]   execute an action (spec \u00A725) [--dry-run] [--no-check] [--hooks <file>]\n  cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them\n  cave automate [--db <path>]              event-driven loop (spec \u00A729): new claims fire rules/actions/hooks/agent prompts [--once]\n  cave check [--db <path>]                 knowledge health report (spec \u00A720) [--stale <days>] [--json]\n  cave backup [--db <path>] --out <file>   exact verified store snapshot [--force]\n  cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]\n  cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]\n  cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec \u00A727) [--min <s>] [--agent] [--write]\n  cave sync [--db <path>] <source>         merge another store by row identity (spec \u00A728) [--dry-run] [--as] [--into]\n  cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]\n  cave serve [--db <path>]                 browse a filtered store (spec \u00A730) [--max-sensitivity <level>]\n  cave report [--db <path>] [template...]  render filtered cited markdown (spec \u00A731) [--max-sensitivity <level>]\n  cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]\n  cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages\n  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals\n  cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec \u00A723)\n  cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec \u00A718) [--agent] [--query] [--trace]\n  cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]\n  cave demo                                run the cave-loop reconstruction demo\n  cave version                             print the cave version\n  cave help [command]                      this text, or one command's options and examples\n\nEvery command answers --help. --db defaults to $CAVE_DB, or cave.db in\nthe current directory. The spec lives in the .claude/skills/ directory at\nthe repository root (section index in README.md).";
+export declare const usage = "cave \u2014 Compressed Atomic Verb Expressions\n\nUsage:\n  cave parse [file...] [--json]            lint CAVE text (stdin when no file)\n  cave highlight [file...]                 print CAVE text with ANSI syntax colors\n  cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]\n  cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)\n  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]\n  cave search [--db <path>] <terms..>      full-text search over claims and comments (FTS5) [--raw] [--limit <n>] [--json]\n  cave resolve [--db <path>]               contested facts + winners (spec \u00A726) [--aliases] [--policy] [--json]\n  cave derive [--db <path>] [rules.cave..] declare + fire rules (spec \u00A724) [--dry-run] [--full] [--list] [--retract <rule>]\n  cave act [--db <path>] <name> [p=v...]   execute an action (spec \u00A725) [--dry-run] [--no-check] [--hooks <file>]\n  cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them\n  cave automate [--db <path>]              event-driven loop (spec \u00A729): new claims fire rules/actions/hooks/agent prompts [--once]\n  cave check [--db <path>]                 knowledge health report (spec \u00A720) [--stale <days>] [--json]\n  cave backup [--db <path>] --out <file>   exact verified store snapshot [--force]\n  cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]\n  cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]\n  cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec \u00A727) [--min <s>] [--agent] [--write]\n  cave sync [--db <path>] <source>         merge another store by row identity (spec \u00A728) [--dry-run] [--as] [--into]\n  cave export [--db <path>] [--out <file>] emit filtered canonical CAVE text [--max-sensitivity <level>]\n  cave serve [--db <path>]                 browse a filtered store (spec \u00A730) [--max-sensitivity <level>]\n  cave report [--db <path>] [template...]  render filtered cited markdown (spec \u00A731) [--max-sensitivity <level>]\n  cave mcp [--db <path>]                   serve the engine as an MCP server on stdio [--no-prelude]\n  cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages\n  cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals\n  cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec \u00A723)\n  cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec \u00A718) [--agent] [--query] [--trace]\n  cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]\n  cave demo                                run the cave-loop reconstruction demo\n  cave version                             print the cave version\n  cave help [command]                      this text, or one command's options and examples\n\nEvery command answers --help. --db defaults to $CAVE_DB, or cave.db in\nthe current directory, and names a SQLite store or a CAVE text file: text\nreplays into an in-memory store for commands that only read (writes refuse\nit), and a read never creates a missing database. The spec lives in the .claude/skills/ directory at\nthe repository root (section index in README.md).";
 ```
 
 ### `versionCommand`
@@ -8541,12 +8541,72 @@ export type IngestResult = {
 };
 ```
 
+### `isStoreFile`
+
+Kind: value.
+
+```ts
+export declare const isStoreFile: (path: string) => boolean;
+```
+
+### `kindOf`
+
+Kind: value.
+
+```ts
+export declare const kindOf: (path: string) => Kind;
+```
+
+### `LocateError`
+
+Kind: value, type.
+
+```ts
+export declare class LocateError extends Error {
+    readonly name = "LocateError";
+}
+```
+
+### `LocateOptions`
+
+Kind: type.
+
+```ts
+export type LocateOptions = OpenOptions & {
+    readonly intent?: Intent;
+};
+```
+
 ### `open`
 
 Kind: value.
 
 ```ts
 export declare const open: (path?: string, options?: OpenOptions) => Store;
+```
+
+### `openAt`
+
+Kind: value.
+
+```ts
+export declare const openAt: (path: string, options?: LocateOptions) => Store;
+```
+
+### `OpenIntent`
+
+Kind: type.
+
+```ts
+export type Intent = 'read' | 'write';
+```
+
+### `openText`
+
+Kind: value.
+
+```ts
+export declare const openText: (path: string, options?: OpenOptions) => Store;
 ```
 
 ### `Provenance`
@@ -9163,6 +9223,14 @@ export type Store = BaseStore & {
 };
 ```
 
+### `StoreKind`
+
+Kind: type.
+
+```ts
+export type Kind = 'memory' | 'sqlite' | 'text' | 'missing';
+```
+
 ### `TraverseOptions`
 
 Kind: type.
@@ -9708,7 +9776,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/loop/sqlite.d.ts` — `7f6cbf331eac3e8095f9deaaf0e239293a2f6beb34ad03d6540d263ac501f728`
 - `@cavelang/cli/dist/internal/loop/store.d.ts` — `0fbc7f47a361e53f5c5c6d3c45647b8f3c3a3e6a38d2e7f5fc3c09f9bcfb14cd`
 - `@cavelang/cli/dist/internal/mcp/index.d.ts` — `e7fee31ace36c6fe7d07ba183ea32929d2451b17db50cc0c30613d55193e80a6`
-- `@cavelang/cli/dist/internal/mcp/main.d.ts` — `8f4fb42c8b452636e18e3ac515f1c20d7e73fb5b15d15a6e9aafe8f5d7be44e4`
+- `@cavelang/cli/dist/internal/mcp/main.d.ts` — `aaef0d5dedd267384935f762524177029353f35242437d0fc91cd657db9d2b02`
 - `@cavelang/cli/dist/internal/mcp/server.d.ts` — `3511232a34d9ffbc2441a4867fe2b2350aba31f3eafc8a34eab94d95d4a41367`
 - `@cavelang/cli/dist/internal/mcp/tools.d.ts` — `7c0a5ca32f0b7e34c35ebe06f16ca4514416fe3eb1e50201c70c0e1838a0e6a0`
 - `@cavelang/cli/dist/internal/rules/declare.d.ts` — `4ebe2d87b9a1d9b68dbf2f31c38209e44c72c0799784146c5b672161ba5a4bd5`
@@ -9721,14 +9789,14 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/shape/index.d.ts` — `a7bf072d48d5ca56006171f9a701fb82bd440be6176be2da2f5edf408cf043c5`
 - `@cavelang/cli/dist/internal/shape/suggest.d.ts` — `2ab8788483c7534b3f05cd60d662421c53c9c5a65f004342f18368b6aab87115`
 - `@cavelang/cli/dist/internal/sync/index.d.ts` — `1a194eabf5ed8fe507ecbd8c680ca9bd0b2ac22a4e73aac11bf75c85dbc76e04`
-- `@cavelang/cli/dist/internal/sync/sync.d.ts` — `0e482d96307b6c0c658da7db2abe33262c321db293560f27c0dc7dcb04b5c160`
+- `@cavelang/cli/dist/internal/sync/sync.d.ts` — `4993115e2e89482d95091aefcc8d9192bef57f2a1f9499493c62c4388901277d`
 - `@cavelang/cli/dist/internal/view/api.d.ts` — `68425c7f8a0c86e9e70f2af0ca44a81ab8aff66d26cfd9c94a35f506311a524d`
 - `@cavelang/cli/dist/internal/view/index.d.ts` — `3c0b42259fe456e35e41dd15fe629f671020bc373653f5c4f78390fae3c0040b`
 - `@cavelang/cli/dist/internal/view/main.d.ts` — `7e74be111be0e5698b8ba68840461d55b27599e83c67547a6971308c496d89ce`
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `1768c933c4e2033dd4e03bcc34af5bc4c12b32b974621621aaf1cfec67c002ba`
+- `@cavelang/cli/dist/src/cli.d.ts` — `75cfff7de087cd75db7cad212c691665402134e819a104acd13939b7bacf9fdd`
 - `@cavelang/cli/dist/src/commands.d.ts` — `1b285e187db8f48372ef811cb7544a941af3b33ac11f8846af66401956c9ae7f`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
 - `@cavelang/cli/dist/src/doctor.d.ts` — `ee5d939ff3bd8b93c9f63488a19d6def879df9dc4df764e9722db5bf6ba9aedf`
@@ -9788,7 +9856,8 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/adapter-entry.d.ts` — `0c74dcd8323b25aa37bd4888214c69b48f0ef3010ccbede828706a6cc46d428a`
 - `@cavelang/store/dist/src/adapter.d.ts` — `ac1a4c44abcb0ce5bc81f4880052927e7542e95c4b13fa53e762a7be42b557c3`
 - `@cavelang/store/dist/src/backup.d.ts` — `bf3b6c51f627b3e32d99ce867a8917b005d73f66e371376c5a72fc7612935455`
-- `@cavelang/store/dist/src/index.d.ts` — `693146ea9abcfcc31e02266487e46bc33ad9b40b31f6dcc93e6613f85b9c57a8`
+- `@cavelang/store/dist/src/index.d.ts` — `2def01641a819b041399ad088bb072b4b056f09e0c8727e04cba63d28d488fc0`
+- `@cavelang/store/dist/src/locate.d.ts` — `10bd1da37d2fac79c1a2baf8ac6dacf14406393e9d833859d8c5e173e95617fa`
 - `@cavelang/store/dist/src/node-adapter-entry.d.ts` — `caa3e62eae43a241439666faadb32bfe6e37b63e383008dfc10f49c7fc9fda07`
 - `@cavelang/store/dist/src/node-adapter.d.ts` — `a1da5678ae06fdda86856834f7f2a75fc329c4202801ece383890f6d3d7429e8`
 - `@cavelang/store/dist/src/open.d.ts` — `842d7f35311ce7b46bb7337a74247ba268ff9e5241e0dbb57bd9c11cc9afa08f`

@@ -76,7 +76,14 @@ annotations), which is the language interchange contract rather than JSON.
 
 Every command answers `--help` with its options and examples (also
 `cave help <command>`). `--db` is optional everywhere: it defaults to
-`$CAVE_DB`, or `cave.db` in the current directory.
+`$CAVE_DB`, or `cave.db` in the current directory. It names a store by
+content, not by extension: a SQLite file opens as usual, and any other file
+is CAVE text, replayed into an in-memory store before a read-only command
+runs (`query`, `search`, `resolve`, `check`, `export`, `report`, `generate`,
+`serve`, `mcp --read-only`, dry-run and `--list` modes), exactly as `cave
+import` would store it. Commands that append refuse a text file and point at
+`cave import --db <store.db> <file>`; a read against a missing path is an
+error rather than a fresh empty database (spec §13.7).
 
 All commands—synchronous, asynchronous, and long-running—enter through one
 promise-based dispatcher. It owns argument-exception formatting, stdout and

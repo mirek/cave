@@ -6,7 +6,7 @@
 
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { defaultDbPath, open } from '@cavelang/store'
+import { defaultDbPath, openAt } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
 const usage = `cave ingest — LLM-driven ingestion of files and web pages
@@ -101,7 +101,7 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
     return 1
   }
   const noPrelude = values['no-prelude'] === true
-  const store = open(db, noPrelude ? { registry: Registry.empty } : {})
+  const store = openAt(db, { intent: 'write', ...noPrelude ? { registry: Registry.empty } : {} })
   try {
     const options = {
       db,

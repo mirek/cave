@@ -213,6 +213,36 @@ named the entity, a query answers what is currently believed. `--limit`
 caps the matches (a hundred by default) and `--json` returns the full
 claim records.
 
+== A file is a store
+
+`--db` names a store by what is in the file, not by the file's name. A
+SQLite file opens as usual; any other file is read as CAVE text and replayed
+into an in-memory store before the command runs, holding exactly the claims
+`cave import` would have stored. The file this chapter started from answers
+questions without ever having been added anywhere:
+
+```sh
+$ cave query --db roastery.cave '?lot HAS process: ?how'
+?lot = lot/yirgacheffe-26  ?how = washed
+?lot = lot/huila-26  ?how = natural
+?lot = lot/santa-ana-26  ?how = washed
+```
+
+Nothing is written. A command that appends refuses a text file and points
+at `cave import`, and a read against a path that does not exist is an error
+rather than a fresh, empty database, so a typo in `--db` never looks like a
+store with nothing in it:
+
+```sh
+$ printf 'lot/huila-26 HAS process: honey\n' | cave add --db roastery.cave
+cave add: roastery.cave is CAVE text, not a database — text stores are read-only; materialize it with `cave import --db <store.db> roastery.cave`
+[exit 1]
+
+$ cave query --db roastry.db '?lot HAS process: ?how'
+cave query: no store at roastry.db — create one with `cave add --db roastry.db`, or pass a CAVE text file
+[exit 1]
+```
+
 == SQL, when you need it
 
 Today's store is an ordinary SQLite file with a documented schema
@@ -233,5 +263,6 @@ fully-bound pattern prints the matching rows. Tags and contexts in the
 pattern narrow it, `WHERE` filters on confidence, value, and transaction
 time. Inverse verbs query the same rows; `VERB+` follows a chain. Default
 reads are current belief; `--all`, `--as-of`, `--at`, `--resolve`, and
-`--aliases` change the universe and compose. `--json` for programs, SQL for
+`--aliases` change the universe and compose. A CAVE text file is a store
+for every command that only reads. `--json` for programs, SQL for
 everything else.]

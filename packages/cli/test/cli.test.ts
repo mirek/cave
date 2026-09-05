@@ -460,14 +460,20 @@ test('output channels are as the book documents: failures and rejections on stde
     assert.match(parsed.err, /line 1: missing object/)
     assert.doesNotMatch(parsed.out, /missing object/)
 
-    const simple = cave(['query', 'x IS y', '--db', db, '--as-of', 'yesterday'])
-    assert.equal(simple.code, 1)
-    assert.equal(simple.out, '')
-    assert.equal(simple.err.trimEnd().split('\n').length, 1, 'a simple failure is one line on stderr')
+    const missing = cave(['query', 'x IS y', '--db', db])
+    assert.equal(missing.code, 1)
+    assert.equal(missing.out, '')
+    assert.match(missing.err, /^cave query: no store at /, 'a read never creates the store (spec §13.7)')
+    assert.equal(missing.err.trimEnd().split('\n').length, 1, 'a simple failure is one line on stderr')
 
     const shape = join(dir, 'shape.cave')
     writeFileSync(shape, 'lot EXPECTS price\nlot/tolima-27 IS lot\n')
     assert.equal(cave(['add', shape, '--db', db]).code, 0)
+
+    const simple = cave(['query', 'x IS y', '--db', db, '--as-of', 'yesterday'])
+    assert.equal(simple.code, 1)
+    assert.equal(simple.out, '')
+    assert.equal(simple.err.trimEnd().split('\n').length, 1, 'a simple failure is one line on stderr')
     const gated = join(dir, 'gated.cave')
     writeFileSync(gated, 'lot/tolima-28 IS lot\n')
     const rejected = cave(['add', gated, '--db', db, '--check'])
@@ -1355,9 +1361,12 @@ test('sync --dry-run reports without writing; --json is machine-readable', () =>
   withDir(dir => {
     const a = join(dir, 'a.db')
     const b = join(dir, 'b.db')
+    writeFileSync(join(dir, 'a.cave'), 'a IS target\n')
+    assert.equal(addCommand(['--db', a, join(dir, 'a.cave')]).code, 0)
     writeFileSync(join(dir, 'b.cave'), 'x NEEDS y\n')
     assert.equal(addCommand(['--db', b, join(dir, 'b.cave')]).code, 0)
 
+    // A dry run only reads, so the target must already exist (spec §13.7).
     const dry = syncCommand(['--db', a, b, '--dry-run', '--json'])
     assert.equal(dry.code, 0)
     const report = JSON.parse(dry.out)
@@ -1485,5 +1494,63 @@ test('report uses the shared sensitivity ceiling and validates labels (spec §9.
     const invalid = reportCommand([template, '--db', db, '--max-sensitivity', 'secret'])
     assert.equal(invalid.code, 1)
     assert.match(invalid.err, /public, internal, confidential, restricted/)
+  })
+})
+
+test('a CAVE text file is a store for read commands (spec §13.7)', () => {
+  withDir(dir => {
+    const file = join(dir, 'repos.cave')
+    writeFileSync(file, 'cave IS repo\ncave HAS stars: 12 @src:readme\n')
+    const queried = cave(['query', '--db', file, '?repo IS repo'])
+    assert.equal(queried.code, 0)
+    assert.equal(queried.out, '?repo = cave\n')
+    const exported = cave(['export', '--db', file])
+    assert.match(exported.out, /HAS stars: 12 @src:readme/, 'authored provenance survives')
+    assert.doesNotMatch(exported.out, /src:cli/, 'no actor stamp — cave import semantics')
+    const searched = cave(['search', '--db', file, 'stars'])
+    assert.match(searched.out, /cave HAS stars: 12/)
+    assert.equal(cave(['check', '--db', file]).code, 0)
+    assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\ncave HAS stars: 12 @src:readme\n', 'the file is untouched')
+  })
+})
+
+test('text stores are read-only and unparsable text fails the load', () => {
+  withDir(dir => {
+    const file = join(dir, 'repos.cave')
+    writeFileSync(file, 'cave IS repo\n')
+    const added = cave(['add', '--db', file, join(dir, 'repos.cave')])
+    assert.equal(added.code, 1)
+    assert.match(added.err, /repos\.cave is CAVE text, not a database — text stores are read-only; materialize it with `cave import --db <store\.db> .*repos\.cave`/)
+    assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\n')
+
+    const bad = join(dir, 'bad.cave')
+    writeFileSync(bad, 'cave IS repo\nthis is not\n')
+    const loaded = cave(['query', '--db', bad, '?x IS ?y'])
+    assert.equal(loaded.code, 1)
+    assert.match(loaded.err, /cannot load .*bad\.cave as a store/)
+    assert.match(loaded.err, /bad\.cave line 2: /)
+  })
+})
+
+test('read commands never create a database at a missing path', () => {
+  withDir(dir => {
+    const missing = join(dir, 'typo.db')
+    const template = join(dir, 'report.md')
+    writeFileSync(template, '# nothing\n')
+    for (const argv of [
+      ['query', '?x IS ?y'], ['search', 'x'], ['resolve'], ['check'], ['export'], ['report', template], ['generate'],
+      ['derive', '--list'], ['act', '--list'], ['sync', '--dry-run', missing]
+    ]) {
+      const [command, ...rest] = argv
+      const result = cave([command!, '--db', missing, ...rest])
+      assert.equal(result.code, 1, `${command} must fail`)
+      assert.match(result.err, /no store at .*typo\.db — create one with `cave add --db .*typo\.db`, or pass a CAVE text file/, command)
+      assert.equal(existsSync(missing), false, `${command} must not create the database`)
+    }
+    const seed = join(dir, 'seed.cave')
+    writeFileSync(seed, 'cave IS repo\n')
+    const created = cave(['add', '--db', missing, '--no-src', seed])
+    assert.equal(created.code, 0, created.err)
+    assert.equal(existsSync(missing), true, 'add still initializes a missing store')
   })
 })

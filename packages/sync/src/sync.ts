@@ -22,10 +22,12 @@
  * is the sync log; a merge that changed nothing appends nothing.
  */
 
-import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { Uuidv7 } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
-import { Provenance, Schema, type Store } from '@cavelang/store'
+import { Provenance, Schema, isStoreFile, type Store } from '@cavelang/store'
+
+export { isStoreFile }
 
 export type SyncOptions = {
   /** Origin label of the §28.3 merge record (default `origin`; `syncFile` defaults to the source's basename stem). */
@@ -73,20 +75,6 @@ export const sanitizeLabel = (text: string): string => {
 export const labelOf = (path: string): string => {
   const base = path.replaceAll('\\', '/').split('/').pop() ?? path
   return sanitizeLabel(base.replace(/\.[^.]+$/, ''))
-}
-
-/** SQLite database files begin with this NUL-terminated 16-byte header. */
-const sqliteHeader = 'SQLite format 3\u0000'
-
-/** @returns `true` when the file starts with the SQLite header — a store file rather than canonical text. */
-export const isStoreFile = (path: string): boolean => {
-  const fd = openSync(path, 'r')
-  try {
-    const head = Buffer.alloc(16)
-    return readSync(fd, head, 0, 16, 0) === 16 && head.toString('latin1') === sqliteHeader
-  } finally {
-    closeSync(fd)
-  }
 }
 
 /** Runs `body` in a transaction that always rolls back — the dry-run mode. */

@@ -68,6 +68,27 @@ decoding rejects unknown versions and verifies transaction, key, and canonical
 text identity. The checked-in v1 fixture is the compatibility baseline for
 future decoders.
 
+## Text stores
+
+`openAt(path, { intent })` opens what a `--db` path names, by content (spec
+§13.7): a SQLite file as usual, `:memory:` fresh, and any other file as CAVE
+text replayed into an in-memory store with `cave import` semantics — no actor
+stamp, so the claims are the ones importing the file would store. `intent:
+'read'` never touches the filesystem: a missing path throws instead of
+creating a database. `intent: 'write'` (the default) creates a missing SQLite
+store and throws on a text file with the materialization hint, since nothing
+appended in memory would outlive the process. A text file with a line that
+fails to parse fails the load, naming every line. `kindOf(path)` returns
+`memory | sqlite | text | missing`, `isStoreFile(path)` is the SQLite-header
+check, and `openText(path)` replays a text file directly.
+
+```ts
+import { openAt } from '@cavelang/store'
+
+const notes = openAt('notes.cave', { intent: 'read' })
+notes.currentBeliefs()                       // the file's claims, assembled in memory
+```
+
 ## Semantics
 
 - **Schema upgrades are explicit** (§13.2.1): `PRAGMA user_version` records
@@ -188,6 +209,7 @@ future decoders.
 | `recordOf(row)` | | map a storage row to the stable `cave.claim/v1` JSON contract |
 | `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
 | `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
+| `openAt(path, {intent, registry})` / `openText(path)` / `kindOf(path)` / `isStoreFile(path)` | §13.7 | open a `--db` path by content: SQLite as is, CAVE text replayed into memory; `read` never creates a file |
 | `adapter` / `db` | | selected adapter capabilities and its raw structural database handle |
 
 ## Storage decisions

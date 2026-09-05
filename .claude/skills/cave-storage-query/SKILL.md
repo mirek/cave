@@ -699,6 +699,31 @@ and verbs are not entities. Verb spellings resolve separately through
 `RENAMED-TO` lifecycle declarations (§5.8).
 Finding the pairs worth linking is alias *discovery* (§27).
 
+### 13.7 Text stores
+
+Canonical text is the interchange format (§2.2), so a CAVE text file is a
+complete description of a store. A surface that only reads, given a store
+path whose file is not a SQLite database — detected by the 16-byte SQLite
+header, never by extension — MUST replay the file into a fresh in-memory
+store with `cave import` semantics (no actor stamp, §9.5, so the assembled
+claims are exactly those importing the file would store) and serve the read
+from it. A line that fails to parse fails the load: the file *is* the
+database, and a store silently missing rows is worse than an error.
+
+Text stores are read-only. Nothing appended in memory outlives the process,
+so a surface that appends MUST refuse a text file and name the
+materialization path (`cave import --db <store.db> <file>`). A surface that
+only reads MUST NOT create or migrate a database: a missing path is an error
+naming the command that initializes one, never a fresh empty store that
+hides a typo. Only appending surfaces initialize a missing SQLite store.
+Mixed commands decide by what the invocation does (`--dry-run`, `--list`,
+`suggest-alias` without `--write`, and `sync --dry-run` read). Two
+long-lived surfaces are deliberate exceptions: `cave mcp` initializes its
+store on first start even under `--read-only`, because the file is an
+agent's memory and may not exist yet, and serves a text file only under
+`--read-only`; `cave connect --query` over a missing path queries the
+mapped source alone (§23.3).
+
 ---
 
 ## 20. Shape Expectations and Knowledge Health

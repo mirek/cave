@@ -42,7 +42,9 @@ The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
 24.18.0 Active LTS is the recommended production runtime, and 26.4.0 Current is
 also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
 Server 2022. A CAVE store is one local file; `--db` is optional everywhere
-and defaults to `$CAVE_DB`, or `cave.db` in the current directory.
+and defaults to `$CAVE_DB`, or `cave.db` in the current directory. A CAVE
+text file is a store too: `cave query --db notes.cave '?x USES ?y'` replays
+the file into memory and answers from it, with nothing written anywhere.
 
 ## Tutorial I — a monorepo, one claim at a time
 
