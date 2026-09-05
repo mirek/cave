@@ -255,32 +255,51 @@ export const queryRecords = (
     }
     folded.set(fold(column), column)
   }
-  const db = new DatabaseSync(':memory:')
-  try {
-    const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
-    // No affinity: a value is exactly what the source gave — a CSV cell is
-    // text ("00123" stays "00123"), a JSON number is a number — and a query
-    // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
-    db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value' : columns.map(quoted).join(', ')})`)
-    if (columns.length > 0) {
-      const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
-      for (const record of records) {
-        insert.run(...columns.map(column => sqlValue(record[column])))
+  const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
+  const stage = (): Record<string, unknown>[] => {
+    const db = new DatabaseSync(':memory:')
+    try {
+      // No affinity: a value is exactly what the source gave — a CSV cell is
+      // text ("00123" stays "00123"), a JSON number is a number — and a query
+      // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
+      db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value' : columns.map(quoted).join(', ')})`)
+      if (columns.length > 0) {
+        const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
+        for (const record of records) {
+          insert.run(...columns.map(column => sqlValue(record[column])))
+        }
+      } else {
+        // Records without any field are still records: one row each, so a
+        // count or a constant projection sees them.
+        const insert = db.prepare(`INSERT INTO ${quoted(table)} DEFAULT VALUES`)
+        for (let i = 0; i < records.length; i += 1) insert.run()
       }
-    } else {
-      // Records without any field are still records: one row each, so a
-      // count or a constant projection sees them.
-      const insert = db.prepare(`INSERT INTO ${quoted(table)} DEFAULT VALUES`)
-      for (let i = 0; i < records.length; i += 1) insert.run()
+      const statement = db.prepare(sql)
+      // Integers beyond the safe range arrive as bigints and become text in
+      // `sqliteValue`, instead of throwing out of range.
+      statement.setReadBigInts(true)
+      const rows = statement.all() as Record<string, unknown>[]
+      return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
+    } finally {
+      db.close()
     }
-    const statement = db.prepare(sql)
-    // Integers beyond the safe range arrive as bigints and become text in
-    // `sqliteValue`, instead of throwing out of range.
-    statement.setReadBigInts(true)
-    const rows = statement.all() as Record<string, unknown>[]
-    return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
-  } finally {
-    db.close()
+  }
+  // A schemaless source (JSON, JSONL) that became empty has no columns to
+  // offer, yet the query names the ones it expects: for an empty input
+  // only, learn them from SQLite's own complaint and retry, so the query
+  // answers with zero rows exactly as it would over a header-only CSV.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return stage()
+    } catch (error) {
+      const missing = records.length === 0 && attempt < 64 ? /no such column: (.+)$/.exec(error instanceof Error ? error.message : '') : null
+      const name = missing?.[1]?.trim().replace(/^"(.*)"$/, '$1').replace(new RegExp(`^${table}\\.`), '')
+      if (name === undefined || name === '' || known.has(name)) {
+        throw error
+      }
+      known.add(name)
+      columns.push(name)
+    }
   }
 }
 

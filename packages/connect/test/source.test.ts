@@ -143,6 +143,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
     [{ id: '00123', t: 'text' }, { id: '123', t: 'text' }], 'text stays text — identifiers keep their zeros')
   assert.deepEqual(Source.queryRecords([], 'SELECT id, name FROM records', 'records', ['id', 'name']), [], 'a header-only source still has its columns')
   assert.deepEqual(Source.queryRecords([{}, {}], 'SELECT count(*) AS n FROM records'), [{ n: 2 }], 'field-less records are still rows')
+  assert.deepEqual(Source.queryRecords([], 'SELECT id, name FROM records WHERE CAST(id AS INTEGER) > 1 ORDER BY records.name'), [], 'a schemaless source that became empty still answers the columns its query names')
+  assert.throws(() => Source.queryRecords([{ id: 1 }], 'SELECT nope FROM records'), /no such column/, 'with records present a missing column is the mistake it is')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')
