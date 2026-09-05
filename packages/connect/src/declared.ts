@@ -69,14 +69,20 @@ export type Delta = { readonly name: string, readonly fields: Partial<Record<Att
  * and bookkeeping — read with one indexed range query rather than a scan
  * of every belief, since discovery reads them after every source.
  */
-const sourceRows = (store: Store): Row.t[] => {
-  // The range goes into the grouped subquery too, so the latest-per-key
-  // aggregation runs over the source rows alone, not the whole store.
-  const range = 'subject >= ? AND subject < ?'
-  const end = `${prefix.slice(0, -1)}0`
+const sourceRows = (store: Store): Row.t[] =>
+  currentRowsUnder(store, prefix).filter(row => row.verb === 'HAS' && row.conf > 0 && row.negated === 0)
+
+/**
+ * The current row of every claim key whose subject starts with `under`,
+ * read with one indexed range query: the range goes into the grouped
+ * subquery too, so the latest-per-key aggregation runs over those rows
+ * alone, not the whole store.
+ */
+const currentRowsUnder = (store: Store, under: string): Row.t[] => {
+  const end = `${under.slice(0, -1)}${String.fromCharCode(under.charCodeAt(under.length - 1) + 1)}`
   return store.db.prepare(
-    `${QuerySql.current(`(SELECT * FROM cave_claim WHERE ${range})`)} WHERE c.${range.replaceAll('subject', 'subject')} AND c.verb = 'HAS' AND c.conf > 0 AND c.negated = 0 ORDER BY c.tx`
-  ).all(prefix, end, prefix, end) as unknown as Row.t[]
+    `${QuerySql.current('(SELECT * FROM cave_claim WHERE subject >= ? AND subject < ?)')} WHERE c.subject >= ? AND c.subject < ? ORDER BY c.tx`
+  ).all(under, end, under, end) as unknown as Row.t[]
 }
 
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
@@ -367,19 +373,14 @@ export type Discovery = {
 }
 
 /**
- * The declaration state an overlay depends on, by name: the declaration's
- * signature and who owns it — a named closure follows ownership, so an
- * ownership-only change (another source re-emitting the same declaration)
- * is a change too.
+ * The declaration state an overlay depends on: the current row of every
+ * `source/…` claim key — effective declarations, shadowed series, partial
+ * deltas, bookkeeping, and the provenance ownership follows — keyed by
+ * claim key. Any change a writer makes to those inputs, even one that
+ * leaves every effective declaration and owner the same, changes it.
  */
-export const declarationState = (store: Store): Map<string, string> => {
-  const owners = new Map<string, string[]>()
-  for (const [owner, names] of ownership(store)) {
-    for (const name of names) owners.set(name, [...owners.get(name) ?? [], owner])
-  }
-  return new Map(declaredSources(store).map(declared =>
-    [declared.name, `${signature(declared)}|${(owners.get(declared.name) ?? []).sort().join(',')}`]))
-}
+export const declarationState = (store: Store): Map<string, string> =>
+  new Map(currentRowsUnder(store, prefix).map(row => [row.claim_key, row.id]))
 
 /** Whether two declaration snapshots agree, name by name. */
 export const sameDeclarations = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean =>
@@ -401,9 +402,10 @@ export const discovery = async (origin: Store, root: string, options: DiscoverOp
   const { store, dispose } = snapshot(origin)
   try {
     const baseline = declarationState(store)
-    if (options.only !== undefined && !baseline.has(options.only)) {
+    const names = declaredSources(store).map(declared => declared.name)
+    if (options.only !== undefined && !names.includes(options.only)) {
       throw new Error(`no declared source/${options.only}` +
-        (baseline.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...baseline.keys()].join(', ')}`))
+        (names.length === 0 ? ' — the store declares no sources' : ` — declared: ${names.join(', ')}`))
     }
     // The selection starts as the named source and everything it already
     // owns, so a parent that fails to load does not hide its descendants.
@@ -526,19 +528,13 @@ export const recordedDeclaration = (store: Store, name: string): undefined | str
   return row !== undefined && row.conf > 0 && row.negated === 0 ? row.value_text ?? undefined : undefined
 }
 
-/** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's. */
+/** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's — read by range, not by scanning history. */
 const hasAnyDigest = (store: Store, name: string): boolean => {
   const naming = declaredNaming(name)
-  if (hasDigest(store, naming.unit())) {
-    return true
-  }
-  const latest = new Map<string, { conf: number, tx: string, subject: string }>()
-  for (const row of store.byContext(provenanceContext)) {
-    if (row.attribute !== digestAttribute || row.negated !== 0) continue
-    const seen = latest.get(row.claim_key)
-    if (seen === undefined || seen.tx < row.tx) latest.set(row.claim_key, row)
-  }
-  return [...latest.values()].some(row => row.conf > 0 && row.subject.startsWith(naming.recordPrefix))
+  return hasDigest(store, naming.unit()) ||
+    currentRowsUnder(store, naming.recordPrefix).some(row =>
+      row.attribute === digestAttribute && row.negated === 0 && row.conf > 0 &&
+      store.toClaim(row).contexts.includes(provenanceContext))
 }
 
 /**

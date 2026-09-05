@@ -707,7 +707,10 @@ test('the overlay baseline includes ownership, so an ownership-only change is a 
       const after = Declared.declarationState(store)
       assert.equal(Declared.sameDeclarations(Declared.signatures(Declared.declaredSources(store)), Declared.signatures(Declared.declaredSources(store))), true)
       assert.equal(Declared.sameDeclarations(before, after), false, 'the same declaration re-emitted by another owner changes the state the overlay checks')
-      assert.match(after.get('child')!, /\|a,b$/)
+      // A latent input changes too: a partial delta with no path yet.
+      const latent = Declared.declarationState(store)
+      store.ingest('source/child HAS key: id @src:elsewhere')
+      assert.equal(Declared.sameDeclarations(latent, Declared.declarationState(store)), false, 'a shadowed or partial source claim is part of the state')
     } finally {
       store.close()
     }
