@@ -16,6 +16,7 @@ is known and suspected:
 #file("tasting.cave")
 ```cave
 ; the July cupping: what we tasted, and what we think explains it
+
 flat-taste EXISTS @cafe/harbour @ 90% ; two complaints in a week
 stale-lot CAUSE flat-taste @ 50%
 grinder/harbour CAUSE flat-taste @ 30%
@@ -36,6 +37,7 @@ $ cave reconstruct --db roastery.db flat-taste --steps 4 --trace
 ; 2. stale-lot @ 0.40 +1 claim(s)
 ; 3. burr-swap @ 0.32 +0 claim(s)
 ; 4. grinder/harbour @ 0.24 +1 claim(s)
+
 flat-taste EXISTS @cafe/harbour @src:cli @ 90% ; two complaints in a week
 stale-lot CAUSE flat-taste @src:cli @ 50%
 grinder/harbour CAUSE flat-taste @src:cli @ 30%

@@ -401,6 +401,7 @@ $ cave reconstruct --db incident.db checkout/errors --trace
 ; 3. redis-cache/failover @ 0.68 +1 claim(s)
 ; 4. config-push @ 0.46 +0 claim(s)
 ; 5. cdn @ 0.24 +0 claim(s)
+
 cdn CAUSE checkout/errors @src:cli @ 30% ; first suspicion
 redis-cache/failover CAUSE checkout/errors @src:cli @ 85%
 rollback FIX checkout/errors @src:cli

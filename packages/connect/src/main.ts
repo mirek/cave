@@ -182,22 +182,24 @@ const runDry = async (source: string, values: Values, io: IO, context: RunContex
     return 1
   }
   const loaded = await loadSource(source, values, context)
-  const out: string[] = []
+  // Each section opens with a marker comment and a blank line: the blank
+  // line keeps the marker documentary (§6.4) when the preview is added to
+  // a store, so it carries exactly the claims a real run would write.
+  const sections: string[] = []
   if (mapping.prelude !== '') {
-    out.push('; --- prelude', mapping.prelude.trimEnd())
+    sections.push(`; --- prelude\n\n${mapping.prelude.trimEnd()}`)
   }
   let failures = 0
   loaded.records.forEach((record, at) => {
     const instantiation = Template.instantiate(mapping.templates, name => Template.fieldOf(record, name))
-    out.push(`; --- record ${at + 1}`)
     if (instantiation.problems.length > 0) {
       failures += 1
-      out.push(...instantiation.problems.map(problem => `; FAILED — ${problem}`))
+      sections.push([`; --- record ${at + 1}`, ...instantiation.problems.map(problem => `; FAILED — ${problem}`)].join('\n'))
       return
     }
-    out.push(instantiation.text.trimEnd())
+    sections.push(`; --- record ${at + 1}\n\n${instantiation.text.trimEnd()}`)
   })
-  io.stdout.write(`${out.join('\n')}\n`)
+  io.stdout.write(`${sections.join('\n\n')}\n`)
   return failures > 0 ? 1 : 0
 }
 

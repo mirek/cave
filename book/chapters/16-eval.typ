@@ -33,10 +33,12 @@ la-cima HAS certification: organic
 #file("evals/roastery.queries.cave")
 ```cave
 ; what the built store must answer, written as cave query prints it
+
 la-cima HAS certification: ?c
   ?c = organic
 
 ; the hedged score must not pass a confidence filter
+
 lot/tolima-26 HAS score: ?s
   WHERE conf >= 0.8
   none

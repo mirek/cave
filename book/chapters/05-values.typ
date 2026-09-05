@@ -85,9 +85,11 @@ confused:
 
 ```cave
 ; sure of the measurement, which is itself imprecise
+
 lot/huila-26 HAS moisture: ~10.8% +/- 0.3% @src:meter @ 95%
 
 ; a precise number from a source we do not trust much
+
 lot/huila-26 HAS moisture: 11.4% @src:la-cima/email @ 30%
 ```
 

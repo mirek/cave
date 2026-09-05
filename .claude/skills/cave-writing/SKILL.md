@@ -417,7 +417,7 @@ entity VERB object +/- delta @context #tag @ 90% ! ; comment
 | `+/- delta` | value uncertainty | `revenue: 20B USD/yr +/- 2B USD/yr` |
 | `(Nσ)` | σ level override | `+/- 2B USD/yr (1σ)` |
 | `!` | important | `auth/key HAS expiry: 3600s !` |
-| `; comment` | persisted prose | `; confirmed by heap dump` |
+| `; comment` | persisted prose; a `;` block directly above the line joins it (§6.4) | `; confirmed by heap dump` |
 
 ### 6.1 Context — `@ctx`
 
@@ -497,6 +497,40 @@ auth/key HAS expiry: 3600s ; rotated quarterly per security policy
 OpenAI BECOMES for-profit ; alienated early nonprofit supporters
 ```
 
+A comment may span several lines. A block of full-line `;` comments directly
+above a claim line is part of that claim's comment: each line is stripped of
+its indentation, the `;`, and exactly one space after it, the lines join with
+newlines, and the same-line `; comment`, when present, is the last line. The
+same one-space rule applies to that trailing comment. Only trailing whitespace
+is trimmed, so indentation written inside a comment survives — a code sample
+or a Markdown list in a comment renders as written:
+
+```cave
+; the retry policy, as the client implements it:
+;   def backoff(attempt):
+;       return min(2 ** attempt, 30)
+api/client HAS retry-cap: 30s
+```
+
+```cave
+; the key rotates quarterly; ops confirmed the schedule
+; against the security policy on 2026-06-01
+auth/key HAS expiry: 3600s ; confirmed by ops
+```
+
+That claim's comment is three lines. Empty comment lines at either end of the
+block are dropped and interior ones survive as paragraph breaks. A blank line
+between the block and the claim breaks the attachment: the block is then
+documentary source text, which is how a file header stays out of the store.
+A block attaches to whichever line follows it — a claim, a qualifier, a
+continuation, or a prefix header (where, like the header's trailing comment,
+it is documentary and not inherited, §8.5). A §28.4 `;@ tx` annotation line
+is neither prose nor a break: the block passes through it to the claim.
+
+Canonical emitters (§16) write a multi-line comment as full-line comments
+directly above the claim line with the last line riding on the claim, so
+`cave export` and `cave add` round-trip it.
+
 Comments are the escape hatch — when a triple is too terse, the prose rides alongside it. Use them for rationale, source hints, or nuance that does not fit the triple. Use them sparingly.
 
 ---
@@ -561,14 +595,17 @@ Value uncertainty is **aleatory** (the quantity itself is imprecise). Claim conf
 
 ```cave
 ; High confidence, imprecise measurement
+
 OpenAI HAS revenue: ~20B USD/yr +/- 2B USD/yr @ 95%
 ; "very sure it's around 20B, but could be 18-22B"
 
 ; Low confidence, precise claim
+
 OpenAI HAS revenue: 21.3B USD/yr @ 30%
 ; "someone said exactly 21.3B but I doubt the source"
 
 ; Full specification
+
 OpenAI HAS projected-loss: 14B USD/yr +/- 3B USD/yr @2026 @ 70%
 ; N(14B, 1.5B) with 70% belief weight
 ```
@@ -702,11 +739,12 @@ qualifier, continuation, or grouped-claim semantics from §8.1–§8.4. This
 boundary keeps all existing CAVE text backward-compatible.
 
 Blank lines and full-line comments are transparent while a prefix is open. A
-trailing `; comment` on a prefix header is documentary source text only: it is
-not repeated or persisted on the leaf claims. A comment on a completed leaf
-remains that claim's persisted comment. Each leaf keeps its physical source
-line in the syntax tree; persisted `raw_line` is the expanded, self-contained
-logical claim.
+trailing `; comment` on a prefix header, and a comment block directly above
+it (§6.4), are documentary source text only: neither is repeated or persisted
+on the leaf claims. A comment on a completed leaf — including the comment
+block directly above the leaf — remains that claim's persisted comment. Each
+leaf keeps its physical source line in the syntax tree; persisted `raw_line`
+is the expanded, self-contained logical claim, its comment block included.
 
 Canonical emitters factor two or more adjacent sibling claims through their
 shared incomplete token prefixes. Factoring is recursive, stops before a
@@ -778,6 +816,11 @@ line          = blank
               | indented_line
               | prefix_line ;
 
+(* A run of comment_lines directly above a claim_line, indented_line, or
+   prefix_line (no blank in between; §28.4 annotation lines pass through)
+   is that line's comment block: the lines and the trailing comment join
+   with newlines, trailing last (§6.4). A run followed by a blank is
+   documentary. *)
 comment_line  = ";" text ;
 
 claim_line    = subject space verb [space "NOT"] space payload metadata [comment] ;

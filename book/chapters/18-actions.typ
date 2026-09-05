@@ -16,6 +16,7 @@ the body, under a stable name:
 #file("actions.cave")
 ```cave
 ; governed writes: the only way an order gets recorded
+
 action/reorder HAS action: `?lot, ?lot NEEDS reorder, ?lot SUPPLIED-BY ?supplier => ?lot HAS order: 30kg, ?supplier NEEDS contact` ; order 30 kg of a lot that ran low
 action/reorder/lot IS param ; the lot to reorder
 ```

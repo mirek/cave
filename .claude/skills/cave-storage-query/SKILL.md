@@ -394,7 +394,7 @@ CREATE TABLE cave_claim (
   importance    INTEGER NOT NULL DEFAULT 0,
 
   comment       TEXT,
-  raw_line      TEXT NOT NULL,          -- exactly as written, incl. inverse form
+  raw_line      TEXT NOT NULL,          -- exactly as written, incl. inverse form and the comment block above the line (§6.4)
 
   claim_key     TEXT NOT NULL           -- normalized key; shared by forward/inverse readings
 );
@@ -728,6 +728,7 @@ service EXPECTS repo
 service EXPECTS USES         ; instances appear as subject of a USES claim
 team EXPECTS PART-OF         ; instances appear where PART-OF puts them —
                              ; the object side of a stored CONTAINS row
+
 team EXPECTS PART-OF #cardinality:one ; exactly one current parent relation
 service EXPECTS latency #unit:ms      ; current value uses normalized unit ms
 ```
@@ -1608,6 +1609,16 @@ at the same indentation:
 auth USES jwt @ 90% @src:cli
   ;@ 01980a5e-4c2e-7000-b7d2-8e3a1f6c9b04
   BECAUSE security-review
+```
+
+A claim whose comment spans several lines (§6.4) opens with its comment
+block; the annotation stays the line directly above the claim line, and
+the block passes through it:
+
+```cave
+; rotated quarterly
+;@ 01980a5e-4c2d-7000-8a3f-2b1c9d4e5f60
+auth/key HAS expiry: 3600s @src:cli ; confirmed by ops
 ```
 
 `cave export --tx` emits annotations for its §9.7-selected rows;

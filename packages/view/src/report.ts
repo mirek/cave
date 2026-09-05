@@ -345,7 +345,12 @@ const renderReport = (store: Store, template: string, options: ReportOptions): R
     // The canonical line (§16's emitter over the stored row) rather than
     // raw_line: §9.5 stamps live in the context table, and a citation
     // must show provenance the authored abbreviation would hide.
-    const canonical = emitClaim(Row.toClaim(row, contexts, tags))
+    // A code span holds one line: a multi-line comment (§6.4) folds its
+    // lines with ` / ` instead of opening above the claim as in CAVE text.
+    const claim = Row.toClaim(row, contexts, tags)
+    const canonical = claim.comment === undefined ?
+      emitClaim(claim) :
+      `${emitClaim({ ...claim, comment: undefined })} ; ${claim.comment.split('\n').join(' / ')}`
     const date = new Date(Uuidv7.msOf(row.tx)).toISOString().slice(0, 10)
     const spans = SourceSpan.ofContexts(contexts).filter(reference => reference.span !== undefined)
     const provenance = spans.length === 0 ? '' : `, source ${spans.map(sourceLink).join(', ')}`

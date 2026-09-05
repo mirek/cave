@@ -166,6 +166,7 @@ for record fields (CSV columns, JSON keys — dotted names like
 
 ```cave
 ; people.map.cave
+
 WORKS-AT IS verb ; X is employed by organization Y
 WORKS-AT REVERSE EMPLOYS
 
@@ -183,6 +184,12 @@ they contain a variable:
   here, never in record templates.
 - **Record templates** — blocks with variables, instantiated once per
   record.
+
+A comment block directly above a block's first line is that line's
+comment (§6.4) and belongs to the block: above a template it is
+instantiated with every record, above a static claim it is appended with
+the prelude. A blank line after a comment keeps it documentary. A dropped
+template line takes the comment block above it along.
 
 A variable is a whole whitespace-delimited token beginning with `?`;
 tokens inside `"…"` or `` `…` `` literals are never substituted. When a

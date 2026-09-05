@@ -1,4 +1,5 @@
 ; the world model: companies, the themes that move them, and who supplies whom
+
 DRIVES IS verb ; theme X moves company or theme Y; confidence = how much of Y's fortune X explains
 DRIVES REVERSE DRIVEN-BY
 SUPPLIES IS verb ; company X sells a critical input to company Y

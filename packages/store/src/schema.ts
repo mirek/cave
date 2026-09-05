@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS cave_claim (
   importance    INTEGER NOT NULL DEFAULT 0,
 
   comment       TEXT,
-  raw_line      TEXT NOT NULL,         -- exactly as written, incl. inverse form
+  raw_line      TEXT NOT NULL,         -- exactly as written, incl. inverse form and the comment block above the line
 
   claim_key     TEXT NOT NULL          -- normalized key; shared by forward/inverse readings
 );

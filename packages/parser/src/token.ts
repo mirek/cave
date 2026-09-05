@@ -51,9 +51,18 @@ export const tokenize = (line: string): Token[] =>
   P.parse(lineTokens, line)
 
 /**
+ * The text of a comment after its `;` (spec §6.4): exactly one following
+ * space is dropped and trailing whitespace is trimmed, so the rest of the
+ * line — including any indentation the author wrote — survives verbatim.
+ * That is what lets a comment carry indented text such as code.
+ */
+export const commentText = (afterSemicolon: string): string =>
+  (afterSemicolon.startsWith(' ') ? afterSemicolon.slice(1) : afterSemicolon).trimEnd()
+
+/**
  * Splits a line at the first `;` that sits outside quotes and backticks
- * (spec §6.4). @returns the head and the trimmed comment text, `undefined`
- * when there is no comment or it is empty.
+ * (spec §6.4). @returns the head and the comment text ({@link commentText}),
+ * `undefined` when there is no comment or it is empty.
  */
 export const splitComment = (line: string): { head: string, comment?: string } => {
   let quote: undefined | string
@@ -70,7 +79,7 @@ export const splitComment = (line: string): { head: string, comment?: string } =
       continue
     }
     if (char === ';') {
-      const comment = line.slice(i + 1).trim()
+      const comment = commentText(line.slice(i + 1))
       return comment === '' ?
         { head: line.slice(0, i) } :
         { head: line.slice(0, i), comment }
@@ -78,3 +87,31 @@ export const splitComment = (line: string): { head: string, comment?: string } =
   }
   return { head: line }
 }
+
+/**
+ * Inverse of {@link splitComment} for a persisted comment (spec §6.4): a
+ * comment is one or more lines, and every line but the last is rendered as a
+ * full-line `;` comment directly above the claim while the last rides on the
+ * claim line itself. Each line is written as `; ` plus its text, so the
+ * text's own indentation survives a round trip; an empty line renders as a
+ * bare `;`.
+ */
+export const joinComment = (head: string, comment?: string): string => {
+  if (comment === undefined) {
+    return head
+  }
+  const lines = comment.split('\n')
+  const last = lines.pop()!
+  return [...lines.map(line => line === '' ? ';' : `; ${line}`), `${head} ; ${last}`].join('\n')
+}
+
+const txLineRe = /^\s*;@\s+(\S+)\s*$/
+
+/**
+ * @returns the transaction id carried by a physical line when it is a spec
+ * §28.4 annotation (`;@ <tx>`), `undefined` otherwise. Purely lexical — the
+ * caller validates the id shape. An annotation is never comment prose: it
+ * neither joins nor interrupts the comment block above a claim (§6.4).
+ */
+export const txOfLine = (raw: string): undefined | string =>
+  txLineRe.exec(raw)?.[1]

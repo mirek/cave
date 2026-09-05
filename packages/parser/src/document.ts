@@ -18,6 +18,15 @@
  * compose recursively. Complete lines never become prefixes, preserving the
  * three existing indentation meanings above.
  *
+ * A block of full-line `;` comments directly above a line is that line's
+ * comment (§6.4): the block's lines and the trailing `; comment` join with
+ * newlines, trailing last. Each line keeps everything after `;` and one
+ * space, so indented text inside a comment survives. A blank line after the block leaves it
+ * documentary — file headers stay out of the store — and a §28.4 `;@ tx`
+ * annotation is transparent to the block. A block above a prefix header
+ * is documentary like the header's trailing comment; a block above an
+ * invalid line is dropped with it.
+ *
  * One ambiguity needs a tiebreak: `API NEEDS auth` starts with a token that
  * is lexically verb-shaped. A two-token `VERB VERB` line is a continuation:
  * it has a verb and object but no third token for a full claim's payload.
@@ -101,8 +110,26 @@ const hasIndentedContent = (rawLines: readonly string[], at: number, depth: numb
   return false
 }
 
-const logicalRaw = (head: string, comment?: string): string =>
-  comment === undefined ? head : `${head} ; ${comment}`
+/**
+ * Joins a comment block and a trailing comment into one persisted comment
+ * (§6.4), trailing last. Empty lines at either end are dropped, so a block
+ * of bare `;` lines is no comment at all; interior empty lines survive as
+ * paragraph breaks.
+ */
+const combineComment = (leading: readonly string[], trailing?: string): undefined | string => {
+  const lines = [...leading, ...trailing === undefined ? [] : [trailing]]
+  while (lines[0] === '') {
+    lines.shift()
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop()
+  }
+  return lines.length === 0 ? undefined : lines.join('\n')
+}
+
+type CommentBlock = { readonly texts: string[], readonly raws: string[] }
+
+const emptyBlock = (): CommentBlock => ({ texts: [], raws: [] })
 
 /**
  * Parses a CAVE document. Never throws; problems surface as diagnostics and
@@ -116,6 +143,15 @@ export const parseDocument = (input: string): Ast.Document => {
   const problem = (line: number, raw: string, message: string): void => {
     diagnostics.push({ line, message, raw })
   }
+  /** The comment block accumulating above the next line (§6.4). */
+  let block = emptyBlock()
+  const commentLine = (lineNo: number, raw: string, text: string): void => {
+    lines.push({ kind: 'comment', line: lineNo, raw, text })
+    if (Token.txOfLine(raw) === undefined) {
+      block.texts.push(text)
+      block.raws.push(raw)
+    }
+  }
   rawLines.forEach((raw, at) => {
     const lineNo = at + 1
     const { depth, rest, tabs } = indentOf(raw)
@@ -124,19 +160,23 @@ export const parseDocument = (input: string): Ast.Document => {
     }
     if (rest === '') {
       lines.push({ kind: 'blank', line: lineNo, raw })
+      block = emptyBlock()
       return
     }
     if (rest.startsWith(';')) {
-      lines.push({ kind: 'comment', line: lineNo, raw, text: rest.slice(1).trim() })
+      commentLine(lineNo, raw, Token.commentText(rest.slice(1)))
       return
     }
     const split = Token.splitComment(rest)
     const ownHead = split.head.trim()
     const ownTokens = Token.tokenize(ownHead)
     if (ownTokens.length === 0) {
-      lines.push({ kind: 'comment', line: lineNo, raw, text: split.comment ?? '' })
+      commentLine(lineNo, raw, split.comment ?? '')
       return
     }
+    const leading = block
+    block = emptyBlock()
+    const comment = combineComment(leading.texts, split.comment)
     while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
       stack.pop()
     }
@@ -150,7 +190,9 @@ export const parseDocument = (input: string): Ast.Document => {
       `${inherited.head} ${ownHead}`
     const semanticDepth = inherited?.semanticDepth ?? depth
     const parent = inherited === undefined ? frame?.index : inherited.parent
-    const expanded = inherited === undefined ? undefined : logicalRaw(head, split.comment)
+    const expanded = inherited !== undefined ?
+      Token.joinComment(head, comment) :
+      leading.raws.length > 0 ? [...leading.raws, raw].join('\n') : undefined
     const asPrefix = (message: string): boolean => {
       if (!hasIndentedContent(rawLines, at, depth)) {
         problem(lineNo, raw, message)
@@ -166,7 +208,7 @@ export const parseDocument = (input: string): Ast.Document => {
         depth,
         expanded: head,
         ...parent === undefined ? {} : { parent },
-        ...split.comment === undefined ? {} : { comment: split.comment }
+        ...comment === undefined ? {} : { comment }
       })
       stack.push({ index, depth, prefix })
       return true
@@ -191,7 +233,7 @@ export const parseDocument = (input: string): Ast.Document => {
     }
     switch (kind) {
       case 'claim': {
-        const result = Line.parseClaim(tokens, split.comment)
+        const result = Line.parseClaim(tokens, comment)
         if (!result.ok) {
           asPrefix(result.message)
           return
@@ -211,7 +253,7 @@ export const parseDocument = (input: string): Ast.Document => {
         return
       }
       case 'continuation': {
-        const result = Line.parseBody(tokens, split.comment)
+        const result = Line.parseBody(tokens, comment)
         if (!result.ok) {
           asPrefix(result.message)
           return
@@ -232,7 +274,7 @@ export const parseDocument = (input: string): Ast.Document => {
       }
       case 'qualifier': {
         const qualifier = (tokens[0] as { text: string }).text as Verb.Qualifier
-        const result = Line.parseQualifierPayload(tokens.slice(1), split.comment)
+        const result = Line.parseQualifierPayload(tokens.slice(1), comment)
         if (!result.ok) {
           asPrefix(result.message)
           return

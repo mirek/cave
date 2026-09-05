@@ -29,7 +29,13 @@ parse('a USES b')  // strict variant: throws on any diagnostic
 
 1. **Split physical lines**, measure indentation (`document.ts`).
 2. **Split off the comment** at the first `;` outside quotes/backticks
-   (`Token.splitComment`).
+   (`Token.splitComment`), and join it with the block of full-line `;`
+   comments directly above the line (§6.4): the block's lines and the
+   trailing comment, newline-separated, trailing last. Each line keeps its
+   text after `;` and one space (`Token.commentText`), trailing whitespace
+   trimmed, so indented text inside a comment survives. A blank line after
+   the block leaves it documentary; a `;@ tx` annotation (`Token.txOfLine`)
+   passes through. `Token.joinComment` is the inverse, used by emitters.
 3. **Tokenize** into words / `"text"` literals / `` `code` `` literals
    (`token.ts`, `@prelude/parser` combinators).
 4. **Expand incomplete prefixes** (§8.5): prepend every incomplete ancestor's
@@ -106,10 +112,12 @@ examples and are tried in order:
   only when its accumulated tokens are incomplete and it has indented
   content. Complete lines retain the established qualifier, continuation,
   and grouped-claim semantics. Prefixes compose recursively; blank and
-  full-line comments are transparent. A prefix's trailing comment is
-  documentary and not inherited, while a leaf comment remains persisted.
+  full-line comments are transparent. A prefix's trailing comment, and the
+  comment block directly above the header, are documentary and not
+  inherited, while a leaf comment — block included — remains persisted.
   `raw` preserves the physical leaf and `expanded` carries the self-contained
-  logical line used as stored `raw_line`.
+  logical text used as stored `raw_line`: the prefix-expanded line, or the
+  comment block together with the line it belongs to.
 
 ## Tests
 

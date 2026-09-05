@@ -16,6 +16,7 @@ attribute name (lowercase) or a verb (uppercase):
 #file("shapes.cave")
 ```cave
 ; what a well-described record looks like
+
 lot EXPECTS price #unit:USD/kg
 lot EXPECTS score
 lot EXPECTS SUPPLIED-BY #cardinality:one

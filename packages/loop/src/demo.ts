@@ -52,7 +52,8 @@ export const run = (): { lines: string[] } => {
   lines.push('')
   lines.push('reconstructed claims:')
   for (const claim of claims) {
-    lines.push(`  ${emitClaim(claim)}`)
+    // A multi-line comment (§6.4) opens above the claim line; indent every line.
+    lines.push(...emitClaim(claim).split('\n').map(line => `  ${line}`))
   }
   return { lines }
 }

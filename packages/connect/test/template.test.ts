@@ -25,6 +25,56 @@ test('mapping splits into prelude and record templates (spec §23.1)', () => {
   assert.deepEqual(mapping.variables, ['channel', 'company', 'id', 'name'])
 })
 
+test('a comment block directly above a template belongs to it; a blank line keeps it in the prelude (spec §6.4, §23.1)', () => {
+  const { mapping, problems } = Template.parse([
+    '; people mapping, a file header',
+    '',
+    'WORKS-AT IS verb',
+    '; imported record',
+    ';   source: the HR export',
+    '?id IS person',
+    '; the optional line',
+    '?id HAS name: ?name',
+    '',
+    '; documentary between templates',
+    '',
+    '?id WORKS-AT ?company'
+  ].join('\n'))
+  assert.deepEqual(problems, [])
+  assert.ok(mapping)
+  assert.equal(mapping.prelude, '; people mapping, a file header\n\nWORKS-AT IS verb\n')
+  assert.deepEqual(mapping.templates, [
+    ['; imported record', ';   source: the HR export', '?id IS person'],
+    ['; the optional line', '?id HAS name: ?name', '', '; documentary between templates', ''],
+    ['?id WORKS-AT ?company']
+  ])
+  const full = Template.instantiate(mapping.templates, name => ({ id: 'alice', name: 'Alice', company: 'acme' })[name])
+  assert.equal(full.text, [
+    '; imported record',
+    ';   source: the HR export',
+    'alice IS person',
+    '; the optional line',
+    'alice HAS name: Alice',
+    '',
+    '; documentary between templates',
+    '',
+    'alice WORKS-AT acme',
+    ''
+  ].join('\n'))
+  const partial = Template.instantiate(mapping.templates, name => ({ id: 'bob', company: 'acme' })[name])
+  assert.equal(partial.dropped, 1)
+  assert.equal(partial.text, [
+    '; imported record',
+    ';   source: the HR export',
+    'bob IS person',
+    '',
+    '; documentary between templates',
+    '',
+    'bob WORKS-AT acme',
+    ''
+  ].join('\n'), 'a dropped line takes the comment block above it along')
+})
+
 test('mapping lint rejects real syntax problems and attribute variables', () => {
   const attribute = Template.parse('?id HAS ?attr: ?value')
   assert.equal(attribute.mapping, undefined)

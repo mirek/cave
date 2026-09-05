@@ -74,6 +74,7 @@ Five packages and what they use — [`packages.cave`](examples/monorepo/packages
 
 ```cave
 ; a small monorepo: which package uses which
+
 web USES ui
 web USES api-client
 ui USES core
@@ -81,8 +82,11 @@ api-client USES core
 docs USES ui
 ```
 
-`;` starts a comment. `cave add` stores the file; `cave query` asks a
-question, where `?p` is a variable that binds to whatever fits:
+`;` starts a comment: a trailing `; note` is stored with its claim, and so is
+a block of `;` lines directly above one, while a header like the one here,
+separated by a blank line, stays documentary. `cave add` stores the file;
+`cave query` asks a question, where `?p` is a variable that binds to whatever
+fits:
 
 ```
 $ cave add --db repo.db packages.cave
@@ -135,6 +139,7 @@ for repeating the prefix — [`details.cave`](examples/monorepo/details.cave):
 
 ```cave
 ; what kind of thing each package is, and who owns it
+
 web IS app
 docs IS app
 ui IS library #public
@@ -177,6 +182,7 @@ subject of the line above.
 
 ```cave
 ; zoom in: the files inside the packages, and what imports what
+
 IMPORTS IS verb ; file X imports file Y
 IMPORTS REVERSE IMPORTED-BY
 
@@ -226,6 +232,7 @@ cli,billing
 
 ```cave
 ; one CSV row = one dependency edge; ?package and ?uses are the column names
+
 ?package USES ?uses
 ```
 
@@ -337,6 +344,7 @@ record the conclusion, with a reason attached. A rule is a line of the form
 
 ```cave
 ; a security advisory against a package reaches everything that uses it, directly or not
+
 AFFECTS IS verb ; advisory X affects package Y
 AFFECTS REVERSE AFFECTED-BY
 EXPOSED-TO IS verb ; package X is exposed to advisory Y through its dependencies
@@ -389,6 +397,7 @@ should carry — [`shapes.cave`](examples/monorepo/shapes.cave):
 
 ```cave
 ; what a well-described package looks like
+
 library EXPECTS owner
 app EXPECTS owner
 ```
@@ -509,6 +518,7 @@ does double duty here: on `DRIVES` it is the exposure weight, and a
 
 ```cave
 ; the world model: companies, the themes that move them, and who supplies whom
+
 DRIVES IS verb ; theme X moves company or theme Y; confidence = how much of Y's fortune X explains
 DRIVES REVERSE DRIVEN-BY
 SUPPLIES IS verb ; company X sells a critical input to company Y
@@ -657,6 +667,7 @@ declared under a stable name — [`actions.cave`](examples/market/actions.cave):
 
 ```cave
 ; governed writes: the only ways a decision gets recorded
+
 action/set-stance HAS action: `?company, ?stance, ?company IS company => ?company HAS stance: ?stance` ; record a portfolio stance on a company
 action/flag-review HAS action: `?company, ?news, ?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => ?company NEEDS review` ; an overweight name got bad news — both must be current belief
 ```

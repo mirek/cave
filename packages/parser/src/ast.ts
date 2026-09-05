@@ -21,7 +21,12 @@ export type Meta = {
   readonly delta?: Value.t
   /** `(Nσ)` override (spec §7.2). */
   readonly sigmaLevel?: number
-  /** `; comment` (spec §6.4). */
+  /**
+   * The persisted comment (spec §6.4): the full-line `;` block directly
+   * above the line and its trailing `; comment`, joined with newlines,
+   * trailing last. Each line keeps its text after `;` and one space, so
+   * indentation inside the comment is preserved.
+   */
   readonly comment?: string
 }
 
@@ -67,8 +72,11 @@ export type QualifierPayload =
  * A parsed line. `depth` is the indentation width in characters; `parent` is
  * the index (into the document's `lines`) of the nearest less-indented
  * materialized claim above (spec §8). `raw` is the physical line exactly as
- * written. A shorthand leaf also carries `expanded`, the self-contained
- * logical line assembled from its incomplete prefix ancestors (§8.5).
+ * written. A line whose logical text is more than its physical line also
+ * carries `expanded`: the self-contained line a shorthand leaf assembles
+ * from its incomplete prefix ancestors (§8.5), or the comment block above
+ * a line together with the line itself (§6.4). `comment` lines stay in the
+ * tree whether or not the line below absorbed them.
  */
 export type Line =
   | { readonly kind: 'blank', readonly line: number, readonly raw: string }

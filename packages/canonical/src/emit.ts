@@ -45,14 +45,11 @@ const metaText = (claim: Claim.t): string[] => {
   if (claim.importance) {
     parts.push('!')
   }
-  if (claim.comment !== undefined) {
-    parts.push(`; ${claim.comment}`)
-  }
   return parts
 }
 
-/** @returns one canonical line for a claim (no indentation). */
-export const emitClaim = (claim: Claim.t): string => {
+/** @returns the canonical claim line without its comment. */
+const claimLine = (claim: Claim.t): string => {
   const parts = [Claim.formatTerm(claim.subject), claim.verb]
   if (claim.negated) {
     parts.push('NOT')
@@ -66,6 +63,14 @@ export const emitClaim = (claim: Claim.t): string => {
 }
 
 /**
+ * @returns the canonical text of one claim (no indentation): a single line,
+ * or — when the comment spans several lines (§6.4) — its leading comment
+ * lines above the claim line, the last comment line riding on the claim.
+ */
+export const emitClaim = (claim: Claim.t): string =>
+  Token.joinComment(claimLine(claim), claim.comment)
+
+/**
  * @returns the qualifier-payload text of a condition claim. Negation always
  * emits as a `NOT` *prefix* — the §8.2 canonical `WHEN NOT x` shape — never
  * as the claim-internal `VERB NOT` form: a postfix `NOT` after a symbolic
@@ -75,29 +80,27 @@ export const emitClaim = (claim: Claim.t): string => {
 const conditionText = (claim: Claim.t): string => {
   const body = claim.verb === 'EXISTS' && claim.payload.kind === 'none' ?
     [Claim.formatTerm(claim.subject), ...metaText(claim)].join(' ') :
-    emitClaim({ ...claim, negated: false })
+    claimLine({ ...claim, negated: false })
   return claim.negated ? `NOT ${body}` : body
 }
 
 /**
  * A transaction annotation (spec §28.4): the full-line comment placed
  * immediately above a claim line to carry its transaction id through
- * canonical text. Comment lines are transparent to the grammar (§8), so
- * annotated text reads unchanged everywhere; sync-aware readers pair each
- * annotation with the claim line below it.
+ * canonical text. Annotation lines are transparent to the grammar (§8) and
+ * to the comment block above a claim (§6.4), so annotated text reads
+ * unchanged everywhere; sync-aware readers pair each annotation with the
+ * claim line below it.
  */
 export const txComment = (tx: string): string =>
   `;@ ${tx}`
-
-const txLineRe = /^\s*;@\s+(\S+)\s*$/
 
 /**
  * @returns the transaction id carried by a raw line when it is a §28.4
  * annotation (`;@ <tx>`), `undefined` otherwise. Purely lexical — the
  * caller validates the id shape.
  */
-export const txOfLine = (raw: string): undefined | string =>
-  txLineRe.exec(raw)?.[1]
+export const txOfLine = Token.txOfLine
 
 export type EmitOptions = {
   /**
@@ -130,14 +133,6 @@ const tokenText = (token: Token.t): string => {
       return `\`${token.text}\``
     case 'word':
       return token.text
-  }
-}
-
-const renderParts = (text: string): { tokens: readonly string[], comment?: string } => {
-  const split = Token.splitComment(text)
-  return {
-    tokens: Token.tokenize(split.head).map(tokenText),
-    ...split.comment === undefined ? {} : { comment: split.comment }
   }
 }
 
@@ -209,12 +204,15 @@ const emitForest = (
 
     const item = forest[at]!
     const indent = '  '.repeat(depth)
+    // A multi-line comment (§6.4) opens above the claim line; the §28.4
+    // annotation stays the line directly above the claim.
+    const rendered = Token.joinComment(item.tokens.join(' '), item.node.comment).split('\n')
+    const last = rendered.pop()!
+    lines.push(...rendered.map(line => `${indent}${line}`))
     if (item.node.annotation !== undefined) {
       lines.push(`${indent}${item.node.annotation}`)
     }
-    lines.push(
-      `${indent}${item.tokens.join(' ')}${item.node.comment === undefined ? '' : ` ; ${item.node.comment}`}`
-    )
+    lines.push(`${indent}${last}`)
     emitForest(
       item.node.children.map(node => ({ node, tokens: node.tokens })),
       depth + 1,
@@ -256,15 +254,15 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
   const nodeAt = (index: number, role: undefined | Canonicalize.EdgeRole): RenderNode => {
     const { claim } = result.claims[index]!
     const text = role === undefined || role === 'QUALIFIES' ?
-      emitClaim(claim) :
+      claimLine(claim) :
       `${role} ${conditionText(claim)}`
-    const parts = renderParts(text)
+    const tokens = Token.tokenize(text).map(tokenText)
     const annotation = options.annotate?.(index)
     if (expanded.has(index)) {
       return {
         index,
-        tokens: parts.tokens,
-        ...parts.comment === undefined ? {} : { comment: parts.comment },
+        tokens,
+        ...claim.comment === undefined ? {} : { comment: claim.comment },
         ...annotation === undefined ? {} : { annotation },
         children: []
       }
@@ -272,8 +270,8 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
     expanded.add(index)
     return {
       index,
-      tokens: parts.tokens,
-      ...parts.comment === undefined ? {} : { comment: parts.comment },
+      tokens,
+      ...claim.comment === undefined ? {} : { comment: claim.comment },
       ...annotation === undefined ? {} : { annotation },
       children: (childEdges.get(index) ?? []).map(edge => nodeAt(edge.child, edge.role))
     }

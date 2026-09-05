@@ -6373,6 +6373,22 @@ Kind: value.
 export declare const code: (value: string) => Token;
 ```
 
+#### `commentText`
+
+Kind: value.
+
+```ts
+export declare const commentText: (afterSemicolon: string) => string;
+```
+
+#### `joinComment`
+
+Kind: value.
+
+```ts
+export declare const joinComment: (head: string, comment?: string) => string;
+```
+
 #### `splitComment`
 
 Kind: value.
@@ -6423,6 +6439,14 @@ Kind: value.
 
 ```ts
 export declare const tokenize: (line: string) => Token[];
+```
+
+#### `txOfLine`
+
+Kind: value.
+
+```ts
+export declare const txOfLine: (raw: string) => undefined | string;
 ```
 
 #### `word`
@@ -9734,7 +9758,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/parser/dist/src/document.d.ts` — `2571df5f76191edfcb008f7acea13d97c25ddf64af24da50526da9ec620a42ec`
 - `@cavelang/parser/dist/src/index.d.ts` — `25846cb1d030f184c46f49c8fb941b57e0fe9661da006933b3cf26d1aa5647e6`
 - `@cavelang/parser/dist/src/line.d.ts` — `c7766d6ba681f31c878a5c97c8ec2b132e4fe1bdbf42db212cd41fe3f0e0d439`
-- `@cavelang/parser/dist/src/token.d.ts` — `8fa9b58c28b69071a79e0152b1be3d4cfe3b069e3e6612e99a727d4a6a6f09cc`
+- `@cavelang/parser/dist/src/token.d.ts` — `5d861ca228a728da0a63395614b29f0c23fbda2a9fc94159c56c912881d16b71`
 - `@cavelang/query/dist/src/bounded.d.ts` — `3aec072e05d3ce3f0e19eb683f16839d89653d845892b3de263f88774a0b1366`
 - `@cavelang/query/dist/src/compile.d.ts` — `8617165963b21b8dabdf24d401436a858173412764efe407daca3e02161737c9`
 - `@cavelang/query/dist/src/index.d.ts` — `1c175d519d9034a4a3469bb14c52735c0f9a80a013cd79dae3b8ae4b2e702f8f`

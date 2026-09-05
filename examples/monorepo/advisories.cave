@@ -1,4 +1,5 @@
 ; a security advisory against a package reaches everything that uses it, directly or not
+
 AFFECTS IS verb ; advisory X affects package Y
 AFFECTS REVERSE AFFECTED-BY
 EXPOSED-TO IS verb ; package X is exposed to advisory Y through its dependencies

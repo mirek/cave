@@ -12,6 +12,7 @@ mapping always produce the same claims.
 
 ```cave
 ; people.map.cave
+
 WORKS-AT IS verb ; X is employed by organization Y
 WORKS-AT REVERSE EMPLOYS
 
@@ -43,8 +44,12 @@ const report = connect(store, mapping!, records, { name: 'people', key: 'id' })
 
 Variable-free blocks are the **prelude** (verb declarations, static
 claims), appended once per run; blocks with variables instantiate once
-per record. A claim line whose record lacks a referenced field is dropped
-with its indented children — optional columns yield fewer claims.
+per record. A comment block directly above a block's first line is that
+line's comment (spec §6.4) and travels with the block — instantiated once
+per record for a template — while a blank line after a comment keeps it
+documentary in the prelude. A claim line whose record lacks a referenced
+field is dropped with its indented children and the comment block above
+it — optional columns yield fewer claims.
 Substituted values format deterministically: numbers/booleans and safe
 atoms verbatim, CAVE values (`20B USD/yr`, `2026-Q1`) verbatim in payload
 positions, everything else as an exact quoted literal. Formatting never

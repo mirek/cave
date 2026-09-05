@@ -73,7 +73,10 @@ preserves direction and makes reverse reads return the preferred opposite name.
 - primary verb direction (§5.5);
 - `WHEN NOT x`, never `UNLESS` (§8.2);
 - §3.2 anatomy order: payload, `+/- delta`, `(Nσ)`, contexts, tags,
-  `@ N%` (omitted at 100%), `!`, `; comment`.
+  `@ N%` (omitted at 100%), `!`, `; comment`. A multi-line comment (§6.4)
+  opens as full-line `;` comments directly above the claim line, its last
+  line riding on the claim, so `emitClaim` may return several lines; a
+  §28.4 annotation stays the line directly above the claim.
 - recursive factoring of adjacent sibling claims through shared incomplete
   prefixes, stopping before a header would itself parse as a complete claim.
 
@@ -121,7 +124,8 @@ parseable.
   qualifier-level `NOT`, and `UNLESS` each flip the condition's negation.
 - **Comments do not fan out from headers**: a prefix header comment is
   documentary only. Persisted comments stay on leaf claims, preventing one
-  comment from silently becoming metadata on several rows.
+  comment from silently becoming metadata on several rows. A leaf's
+  multi-line comment block is emitted at the leaf's indentation.
 
 ## Tests
 

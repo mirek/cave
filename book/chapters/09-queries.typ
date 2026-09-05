@@ -107,6 +107,7 @@ geography to the store:
 #file("regions.cave")
 ```cave
 ; where the lots come from, as a containment tree
+
 colombia CONTAINS region/huila
 region/huila CONTAINS lot/huila-26
 region/huila CONTAINS lot/santa-ana-26
