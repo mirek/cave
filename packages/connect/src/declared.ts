@@ -22,7 +22,7 @@
  * same declarations against a SQLite store, URLs included.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
 import { LocateError, open } from '@cavelang/store'
@@ -290,9 +290,12 @@ const mappingSync = (declared: Declared, dir: string): { mapping: Template.Mappi
     }
     return { mapping: parseTemplate(readFileSync(resolvePath(declared.path, dir), 'utf8'), caveLabel), cave: true }
   }
-  return Template.isInline(declared.map!) ?
+  // A file that exists is the mapping, whatever its name looks like; only
+  // otherwise is the text read as an inline template.
+  const mapPath = resolvePath(declared.map!, dir)
+  return !existsSync(mapPath) && Template.isInline(declared.map!) ?
     { mapping: parseTemplate(Template.inlineDocument(declared.map!), 'inline mapping'), cave: false } :
-    { mapping: parseTemplate(readFileSync(resolvePath(declared.map!, dir), 'utf8'), `mapping ${declared.map}`), cave: false }
+    { mapping: parseTemplate(readFileSync(mapPath, 'utf8'), `mapping ${declared.map}`), cave: false }
 }
 
 const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<{ mapping: Template.Mapping, cave: boolean }> => {

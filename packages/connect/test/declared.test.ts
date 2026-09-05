@@ -761,3 +761,19 @@ test('a declared source may carry its mapping inline and reshape its records wit
     }
   })
 })
+
+test('a declared map naming an existing file is read as a file even when its name contains a comma', () => {
+  withDir(dir => {
+    mkdirSync(join(dir, 'maps'))
+    writeFileSync(join(dir, 'maps', 'people,v2.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/people HAS path: people.csv\nsource/people HAS map: maps/people,v2.cave\n')
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      assert.equal(store.currentBeliefs().some(row => row.conf > 0 && row.subject === 'ann' && row.object === 'person'), true)
+    } finally {
+      store.close()
+    }
+  })
+})

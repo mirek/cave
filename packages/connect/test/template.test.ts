@@ -188,6 +188,9 @@ test('an inline mapping is one line of comma-separated claim lines, split outsid
   assert.equal(Template.isInline('data/people.map.cave'), false)
   assert.equal(Template.inlineDocument('?name IS person, ?name HAS note: "hello, world", ?name WORKS-AT ?company'),
     '?name IS person\n?name HAS note: "hello, world"\n?name WORKS-AT ?company\n')
+  assert.equal(Template.inlineDocument('?id IS person, ?id IS staff ; imported, verified'),
+    '?id IS person\n?id IS staff ; imported, verified\n', 'a comment keeps its commas and rides on the last line')
+  assert.equal(Template.isInline('people.map.cave ; note, with comma'), false, 'a comma inside a comment is not a separator')
   const { mapping, problems } = Template.parseAny('?name IS person, ?name WORKS-AT ?company')
   assert.deepEqual(problems, [])
   assert.deepEqual(mapping?.variables, ['company', 'name'])

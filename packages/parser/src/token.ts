@@ -123,6 +123,9 @@ export const txOfLine = (raw: string): undefined | string =>
  * quoted term never splits.
  */
 export const topLevel = (text: string, needle: string): number[] => {
+  if (needle === '') {
+    throw new Error('topLevel: the separator must not be empty')
+  }
   const positions: number[] = []
   let quote: undefined | string
   for (let i = 0; i < text.length; i++) {
