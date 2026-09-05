@@ -142,6 +142,7 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([{ id: '00123' }, { id: '123' }], 'SELECT id, typeof(id) AS t FROM records ORDER BY rowid'),
     [{ id: '00123', t: 'text' }, { id: '123', t: 'text' }], 'text stays text — identifiers keep their zeros')
   assert.deepEqual(Source.queryRecords([], 'SELECT id, name FROM records', 'records', ['id', 'name']), [], 'a header-only source still has its columns')
+  assert.deepEqual(Source.queryRecords([{}, {}], 'SELECT count(*) AS n FROM records'), [{ n: 2 }], 'field-less records are still rows')
   assert.deepEqual(Source.queryRecords(records, 'SELECT count(*) AS n FROM people', 'people'), [{ n: 3 }], 'the table can be named')
   assert.throws(() => Source.queryRecords(records, 'SELECT 1', 'bad name'), /not a plain identifier/)
   assert.deepEqual(Source.queryRecords([], 'SELECT count(*) AS n FROM records'), [{ n: 0 }], 'no records is an empty table')
@@ -151,8 +152,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
     const loaded = Source.loadSync(join(dir, 'people.csv'), { sql: "SELECT name || '-' || id AS slug FROM records WHERE CAST(id AS INTEGER) = 2" })
     assert.deepEqual(loaded.records, [{ slug: 'bob-2' }])
     assert.equal(loaded.spans, undefined, 'line spans do not survive a query')
-    writeFileSync(join(dir, 'empty.csv'), 'id,name\n')
-    assert.deepEqual(Source.loadSync(join(dir, 'empty.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'the header survives an empty file')
+    writeFileSync(join(dir, 'empty.csv'), ' id , name \n')
+    assert.deepEqual(Source.loadSync(join(dir, 'empty.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'the header survives an empty file, trimmed as record keys are')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

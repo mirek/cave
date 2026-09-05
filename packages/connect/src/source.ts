@@ -154,7 +154,7 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
   }
   const present = dataRows.filter(row_ => row_.cells.length > 1 || row_.cells[0] !== '')
   return {
-    columns: header,
+    columns: header.map(cell => cell.trim()),
     records: present.map(row_ => Object.fromEntries(
       header.map((name, at) => [name.trim(), row_.cells[at] ?? ''])
     )),
@@ -250,11 +250,16 @@ export const queryRecords = (
     // text ("00123" stays "00123"), a JSON number is a number — and a query
     // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
     db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value' : columns.map(quoted).join(', ')})`)
-    if (columns.length > 0 && records.length > 0) {
+    if (columns.length > 0) {
       const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
       for (const record of records) {
         insert.run(...columns.map(column => sqlValue(record[column])))
       }
+    } else {
+      // Records without any field are still records: one row each, so a
+      // count or a constant projection sees them.
+      const insert = db.prepare(`INSERT INTO ${quoted(table)} DEFAULT VALUES`)
+      for (let i = 0; i < records.length; i += 1) insert.run()
     }
     const rows = db.prepare(sql).all() as Record<string, unknown>[]
     return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
