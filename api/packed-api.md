@@ -8614,7 +8614,7 @@ export type Intent = 'read' | 'scratch' | 'write';
 Kind: value.
 
 ```ts
-export declare const openText: (path: string, options?: OpenOptions) => Store;
+export declare const openText: (path: string, options?: Omit<OpenOptions, "access">) => Store;
 ```
 
 ### `Provenance`
@@ -9881,7 +9881,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/adapter.d.ts` — `ac1a4c44abcb0ce5bc81f4880052927e7542e95c4b13fa53e762a7be42b557c3`
 - `@cavelang/store/dist/src/backup.d.ts` — `bf3b6c51f627b3e32d99ce867a8917b005d73f66e371376c5a72fc7612935455`
 - `@cavelang/store/dist/src/index.d.ts` — `87636442d951b0d6a761573928755530c700a4531984b9c1267eb0e9907be1a8`
-- `@cavelang/store/dist/src/locate.d.ts` — `6b66e7a02d7fa3403cc07acf352a827ca64a02c8b3209dbce5430ff22e0344a9`
+- `@cavelang/store/dist/src/locate.d.ts` — `7d4c47964cdc8d7f9929a67f8c11a4f898fe31dfdf226d60d14a46069f8c4830`
 - `@cavelang/store/dist/src/node-adapter-entry.d.ts` — `caa3e62eae43a241439666faadb32bfe6e37b63e383008dfc10f49c7fc9fda07`
 - `@cavelang/store/dist/src/node-adapter.d.ts` — `a1da5678ae06fdda86856834f7f2a75fc329c4202801ece383890f6d3d7429e8`
 - `@cavelang/store/dist/src/open.d.ts` — `842d7f35311ce7b46bb7337a74247ba268ff9e5241e0dbb57bd9c11cc9afa08f`
