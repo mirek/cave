@@ -468,3 +468,29 @@ test('--name follows a source whose mapping the selected source retracts', async
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('--name keeps an unchanged source\'s descendants: an edit to the child data is followed', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value }
+    }
+    assert.equal((await pass(['--db', db, '--name', 'parent'])).code, 0)
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const again = await pass(['--db', db, '--name', 'parent'])
+    assert.equal(again.code, 0)
+    assert.match(again.out, /source\/people: 2 record\(s\): 1 mapped, 1 skipped/, 'parent is unchanged, yet the child it owns runs and picks up the edit')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -1936,6 +1936,14 @@ Kind: value.
 export declare const merge: (known: undefined | Declared, delta: Delta) => undefined | Declared;
 ```
 
+#### `ownedDeclarations`
+
+Kind: value.
+
+```ts
+export declare const ownedDeclarations: (store: Store, owner: string) => string[];
+```
+
 #### `prefix`
 
 Kind: value.
@@ -10148,7 +10156,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `9045ca0ab10ba769e8cafda59fb9d6f97bb887409936d4bde5ade6ef97455432`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `3b9ab7969ee014c0b75569e2fd910f181d2474bfd99f9b67a7f2f8bccf2f395d`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`

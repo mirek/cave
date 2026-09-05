@@ -364,9 +364,13 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
       }
       const current = declaredSources(store)
       // A selection grows by what the replayed sources changed — added,
-      // re-declared, or retracted declarations alike.
+      // re-declared, or retracted declarations alike — and by what they
+      // still own, so an unchanged source keeps its descendants.
       if (allowed !== undefined) {
         for (const name of changedNames(seen, signatures(current))) allowed.add(name)
+        for (const ready of sequence) {
+          for (const name of ownedDeclarations(store, ready.declared.name)) allowed.add(name)
+        }
       }
       seen = signatures(current)
       return current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
@@ -376,6 +380,8 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     }
     version(next.name)
     done.set(next.name, signature(next))
+    // The name rule holds for every declaration, skipped ones included.
+    validate(next)
     // Only the baseline declaration counts as followed: a version a replayed
     // source produced is new, whatever the store followed before.
     if (options.skipFollowed === true && baseline.get(next.name) === signature(next) && followed(store, next.name)) {
@@ -383,6 +389,22 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     }
     sequence.push(await prepare(next, dir, options.fetchImpl))
   }
+}
+
+/**
+ * Names of the sources whose current declaration claims a followed source
+ * owns — appended under its run — so a selection keeps a source's
+ * descendants even when its run changed nothing.
+ */
+export const ownedDeclarations = (store: Store, owner: string): string[] => {
+  const names = new Set<string>()
+  for (const row of store.byProvenance('run', owner)) {
+    if (row.conf > 0 && row.negated === 0 && row.verb === 'HAS' && row.attribute !== null &&
+      row.subject.startsWith(prefix) && isAttribute(row.attribute) && store.currentBelief(row.claim_key)?.id === row.id) {
+      names.add(row.subject.slice(prefix.length))
+    }
+  }
+  return [...names].sort()
 }
 
 /** Declaration signatures by name. */
@@ -451,6 +473,12 @@ export const assemble = (store: Store, root: string, options: { readonly force?:
       throw new LocateError(error instanceof Error ? error.message : String(error))
     }
     done.set(next.name, signature(next))
+    try {
+      // The name rule holds for every declaration, skipped ones included.
+      validate(next)
+    } catch (error) {
+      throw new LocateError(`${prefix}${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}`)
+    }
     if (Source.isUrl(next.path) || resolvePath(next.path, dir) === self) {
       continue
     }

@@ -421,3 +421,13 @@ test('a text store overlay loads a followed source again when a URL source re-de
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a nested name is refused even when the declaration would be skipped as a URL or as already followed', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'team.csv'), 'id,name\nadmin,ann\n')
+    writeFileSync(join(dir, 'team.map.cave'), '?name IS person\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/team HAS path: team.csv\nsource/team HAS map: team.map.cave\nsource/team HAS key: id\nsource/team/admin HAS path: https://example.test/admin.cave\n')
+    assert.throws(() => openAt(root, { intent: 'read', assemble }), /source\/team\/admin \(https:\/\/example\.test\/admin\.cave\): source names are one path segment/)
+  })
+})

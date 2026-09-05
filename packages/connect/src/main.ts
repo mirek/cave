@@ -422,8 +422,10 @@ const declaredPass = async (
       const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
       if (allowed !== undefined) {
         // The selection grows by whatever this source changed — added,
-        // re-declared, or retracted declarations alike.
+        // re-declared, or retracted declarations alike — and by what it
+        // still owns, so an unchanged source keeps its descendants.
         for (const name of Declared.changedNames(before, Declared.signatures(Declared.declaredSources(store)))) allowed.add(name)
+        for (const name of Declared.ownedDeclarations(store, next.name)) allowed.add(name)
       }
       io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
       if (report.failures.length > 0) failed += 1

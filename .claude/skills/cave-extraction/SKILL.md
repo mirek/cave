@@ -336,7 +336,8 @@ lifecycle run is the stamp.
 - `cave connect [--db <path>]` with no source runs one pass over every
   declared source, sources declared by a followed `.cave` source included,
   until none is left; `--name <n>` selects one together with every
-  source whose declaration its run added, changed, or retracted; `--force`, `--prune`,
+  source it declares — the ones its run added, changed, or retracted,
+  and the ones it still owns; `--force`, `--prune`,
   `--dry-run`, `--watch` (every declared local file and mapping, the set
   refreshed after each pass) and `--query` (an overlay of all of them,
   §23.3) apply as for a single source. The overlay and the dry run load
