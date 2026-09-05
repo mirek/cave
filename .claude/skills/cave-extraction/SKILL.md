@@ -301,8 +301,9 @@ directory: a store and its sources travel together.
 
 A `.cave` source that becomes empty still says something — nothing — and
 every claim it owned retracts. A followed `.cave` source may declare
-sources the store does not, or re-declare ones it does — a newer path or
-mapping; the declarations are re-read after every followed source, the
+sources the store does not, or re-declare ones it does — a newer path, or
+just a new mapping or key, a delta over the current declaration; the
+declarations are re-read after every followed source, the
 current declaration is what runs, and a source whose declaration changed
 runs again (its earlier claims retracted by the ordinary diff), until
 nothing changes. An overlay or dry run applies the same rule to what it

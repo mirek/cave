@@ -60,13 +60,11 @@ export type t = Declared
 const isAttribute = (name: string): name is Attribute =>
   (attributes as readonly string[]).includes(name)
 
-/**
- * The store's declared sources: every `source/<name>` whose current belief
- * carries a positive `path`, with the other declaration attributes that
- * are current alongside it. Retracting the `path` (`… @ 0%`) removes the
- * source; superseding it moves it.
- */
-export const declaredSources = (store: Store): Declared[] => {
+/** A source's declaration attributes as one text carries them — possibly partial, a delta over what the store knows. */
+export type Delta = { readonly name: string, readonly fields: Partial<Record<Attribute, string>> }
+
+/** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
+export const deltasOf = (store: Store): Delta[] => {
   const byName = new Map<string, Partial<Record<Attribute, string>>>()
   for (const row of store.currentBeliefs()) {
     if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
@@ -81,11 +79,26 @@ export const declaredSources = (store: Store): Declared[] => {
     fields[row.attribute] = row.value_text
     byName.set(name, fields)
   }
-  return [...byName]
-    .filter(([, fields]) => fields.path !== undefined)
-    .map(([name, fields]) => ({ name, ...fields, path: fields.path! }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  return [...byName].map(([name, fields]) => ({ name, fields })).sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/** A delta applied over a known declaration; a source without a `path` is not declared. */
+export const merge = (known: undefined | Declared, delta: Delta): undefined | Declared => {
+  const fields = { ...known === undefined ? {} : known, ...delta.fields, name: delta.name }
+  return fields.path === undefined ? undefined : fields as Declared
+}
+
+/**
+ * The store's declared sources: every `source/<name>` whose current belief
+ * carries a positive `path`, with the other declaration attributes that
+ * are current alongside it. Retracting the `path` (`… @ 0%`) removes the
+ * source; superseding it moves it.
+ */
+export const declaredSources = (store: Store): Declared[] =>
+  deltasOf(store).flatMap(delta => {
+    const declared = merge(undefined, delta)
+    return declared === undefined ? [] : [declared]
+  })
 
 /**
  * The sources a CAVE text declares, read without touching any store: the
@@ -93,11 +106,23 @@ export const declaredSources = (store: Store): Declared[] => {
  * or a dry run discovers what a followed `.cave` source declares in turn,
  * before anything is appended.
  */
-export const declaredIn = (text: string): Declared[] => {
+export const declaredIn = (text: string): Declared[] =>
+  declarationsIn(text).flatMap(delta => {
+    const declared = merge(undefined, delta)
+    return declared === undefined ? [] : [declared]
+  })
+
+/**
+ * Every source declaration attribute a CAVE text carries, complete or
+ * partial: a followed `.cave` source may change just the map or key of a
+ * source the store already declares, and that delta must reach whatever
+ * reads declarations without appending (`discover`, `--name`).
+ */
+export const declarationsIn = (text: string): Delta[] => {
   const scratch = open()
   try {
     scratch.ingest(text)
-    return declaredSources(scratch)
+    return deltasOf(scratch)
   } finally {
     scratch.close()
   }
@@ -299,8 +324,10 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     const loaded = await prepare(next, dir, options.fetchImpl)
     ready.set(next.name, loaded)
     if (loaded.cave) {
-      for (const nested of declaredIn(loaded.mapping.prelude)) {
-        known.set(nested.name, nested)
+      // Deltas over what is known: a nested text may change one attribute.
+      for (const delta of declarationsIn(loaded.mapping.prelude)) {
+        const merged = merge(known.get(delta.name), delta)
+        if (merged !== undefined) known.set(delta.name, merged)
       }
     }
   }

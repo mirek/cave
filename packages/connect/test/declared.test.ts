@@ -269,3 +269,26 @@ test('a nested source name is refused: it would collide with a record key', () =
     assert.throws(() => openAt(root, { intent: 'read', assemble }), /source\/team\/admin \(x\.cave\): source names are one path segment — source\/team\/admin would collide with record "admin" of source\/team/)
   })
 })
+
+test('a nested text that changes one attribute of a known source is a delta: discovery and --name follow the merged declaration', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave\n')
+    assert.deepEqual(Declared.declarationsIn('source/people HAS map: as-staff.map.cave\n'), [{ name: 'people', fields: { map: 'as-staff.map.cave' } }])
+    assert.deepEqual(Declared.declaredIn('source/people HAS map: as-staff.map.cave\n'), [], 'without a path it is not a declaration on its own')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/remap HAS path: remap.cave')
+      const ready = await Declared.discover(store, db)
+      assert.equal(ready.find(entry => entry.declared.name === 'people')?.declared.map, 'as-staff.map.cave', 'the delta is applied over the known declaration')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

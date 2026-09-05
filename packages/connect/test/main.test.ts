@@ -402,3 +402,31 @@ test('--name follows what the selected source declares in turn, and nothing else
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('--name follows a source whose mapping the selected source changes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/people HAS key: id\nsource/remap HAS path: remap.cave')
+    seed.close()
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--name', 'remap'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /^source\/remap: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    const store = open(db)
+    try {
+      const ann = store.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'ann').map(row => row.object)
+      assert.deepEqual(ann, ['staff'], 'the re-mapped source ran under the merged declaration')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

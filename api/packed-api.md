@@ -1806,6 +1806,14 @@ export declare const attributes: readonly [
 ];
 ```
 
+#### `declarationsIn`
+
+Kind: value.
+
+```ts
+export declare const declarationsIn: (text: string) => Delta[];
+```
+
 #### `Declared`
 
 Kind: type.
@@ -1838,6 +1846,25 @@ Kind: value.
 
 ```ts
 export declare const declaredSources: (store: Store) => Declared[];
+```
+
+#### `Delta`
+
+Kind: type.
+
+```ts
+export type Delta = {
+    readonly name: string;
+    readonly fields: Partial<Record<Attribute, string>>;
+};
+```
+
+#### `deltasOf`
+
+Kind: value.
+
+```ts
+export declare const deltasOf: (store: Store) => Delta[];
 ```
 
 #### `describe`
@@ -1890,6 +1917,14 @@ Kind: value.
 
 ```ts
 export declare const isCave: (declared: Declared) => boolean;
+```
+
+#### `merge`
+
+Kind: value.
+
+```ts
+export declare const merge: (known: undefined | Declared, delta: Delta) => undefined | Declared;
 ```
 
 #### `prefix`
@@ -10088,7 +10123,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `77c9703616502f39daf2eacacc9695b8a114824c4115b180e16173f62c6b8891`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `e09d73e28cf506ab053a63d66c7c8b9186fb4f0ca8cbe8a7669255e54ca48db0`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`

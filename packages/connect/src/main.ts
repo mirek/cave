@@ -421,7 +421,9 @@ const declaredPass = async (
     try {
       const ready = await Declared.prepare(next, dir, context.fetchImpl)
       if (ready.cave && allowed !== undefined) {
-        for (const nested of Declared.declaredIn(ready.mapping.prelude)) allowed.add(nested.name)
+        // Any declaration attribute the source touches, complete or not,
+        // brings that source into the selection: the store merges it.
+        for (const delta of Declared.declarationsIn(ready.mapping.prelude)) allowed.add(delta.name)
       }
       const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
       io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
