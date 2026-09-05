@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/fusion",
-  "version": "0.32.3",
+  "version": "0.33.0",
   "type": "module",
   "description": "CAVE probabilistic layer — Bayesian fusion of numeric estimates, noisy-AND conditional confidence, hypothesis helpers.",
   "keywords": [
