@@ -78,3 +78,29 @@ export const splitComment = (line: string): { head: string, comment?: string } =
   }
   return { head: line }
 }
+
+/**
+ * Inverse of {@link splitComment} for a persisted comment (spec §6.4): a
+ * comment is one or more lines, and every line but the last is rendered as a
+ * full-line `;` comment directly above the claim while the last rides on the
+ * claim line itself. An empty interior line renders as a bare `;`.
+ */
+export const joinComment = (head: string, comment?: string): string => {
+  if (comment === undefined) {
+    return head
+  }
+  const lines = comment.split('\n')
+  const last = lines.pop()!
+  return [...lines.map(line => line === '' ? ';' : `; ${line}`), `${head} ; ${last}`].join('\n')
+}
+
+const txLineRe = /^\s*;@\s+(\S+)\s*$/
+
+/**
+ * @returns the transaction id carried by a physical line when it is a spec
+ * §28.4 annotation (`;@ <tx>`), `undefined` otherwise. Purely lexical — the
+ * caller validates the id shape. An annotation is never comment prose: it
+ * neither joins nor interrupts the comment block above a claim (§6.4).
+ */
+export const txOfLine = (raw: string): undefined | string =>
+  txLineRe.exec(raw)?.[1]

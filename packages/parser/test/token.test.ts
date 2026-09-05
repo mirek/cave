@@ -78,3 +78,16 @@ test('splitComment drops empty comments', () => {
   assert.deepEqual(Token.splitComment('x IS y ;'), { head: 'x IS y ' })
   assert.deepEqual(Token.splitComment('x IS y ;   '), { head: 'x IS y ' })
 })
+
+test('joinComment is the inverse of splitComment across lines (spec §6.4)', () => {
+  assert.equal(Token.joinComment('auth USES jwt'), 'auth USES jwt')
+  assert.equal(Token.joinComment('auth USES jwt', 'one line'), 'auth USES jwt ; one line')
+  assert.equal(Token.joinComment('auth USES jwt', 'first\n\nlast'), '; first\n;\nauth USES jwt ; last')
+})
+
+test('txOfLine recognizes §28.4 annotations only', () => {
+  assert.equal(Token.txOfLine('  ;@ 0198 '), '0198')
+  assert.equal(Token.txOfLine('; plain comment'), undefined)
+  assert.equal(Token.txOfLine(';@'), undefined)
+  assert.equal(Token.txOfLine(';@ two tokens'), undefined)
+})

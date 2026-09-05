@@ -26,6 +26,10 @@
 
 import { Claim, Key, Multiplier, Value } from '@cavelang/core'
 import { parseDocument } from '@cavelang/parser'
+
+/** Indents every line of a claim's canonical text (a multi-line comment opens above the claim, §6.4). */
+const indented = (text: string): string =>
+  text.split('\n').map(line => `  ${line}`).join('\n')
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
@@ -283,7 +287,17 @@ export const tools: readonly Tool[] = [
         if (match.at !== undefined && line !== undefined && bindings === '') {
           line = `${line} ; at ${String(args['at'])}: ${match.at.text}`
         }
-        return bindings === '' ? line ?? 'match' : line === undefined ? bindings : `${bindings}  ; ${line}`
+        if (bindings === '') {
+          return line ?? 'match'
+        }
+        if (line === undefined) {
+          return bindings
+        }
+        // A raw line may open with its comment block (§6.4); the block
+        // stays above the binding line, the claim line rides after it.
+        const opening = line.split('\n')
+        const claimLine = opening.pop()!
+        return [...opening.map(text => text.trim()), `${bindings}  ; ${claimLine}`].join('\n')
       })
       if (result.next !== undefined) lines.push(`next cursor: ${result.next}`)
       return lines.join('\n')
@@ -334,7 +348,7 @@ export const tools: readonly Tool[] = [
         throw new Error([
           `cannot fuse across ${quantities.size} quantities — spec §10.1 fuses independent estimates ` +
           'of one quantity (one claim key modulo @src: contexts); narrow the selection. Found:',
-          ...[...quantities.values()].map(claim => `  ${emitClaim(claim)}`)
+          ...[...quantities.values()].map(claim => indented(emitClaim(claim)))
         ].join('\n'))
       }
       const posterior = fuse(estimates.map(({ estimate }) => estimate))!
@@ -342,7 +356,7 @@ export const tools: readonly Tool[] = [
       const skipped = claims.length - estimates.length
       return [
         `fused ${estimates.length} estimate(s)${skipped > 0 ? `, skipped ${skipped} without a positive numeric +/- estimate` : ''}:`,
-        ...estimates.map(({ claim }) => `  ${emitClaim(claim)}`),
+        ...estimates.map(({ claim }) => indented(emitClaim(claim))),
         `posterior: ${withUnit(posterior.mean, unit)} +/- ${withUnit(2 * posterior.sigma, unit)} (2σ)` +
         ` ; mean ${Value.formatNumber(posterior.mean)}, sigma ${Value.formatNumber(posterior.sigma)}`
       ].join('\n')

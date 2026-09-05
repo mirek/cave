@@ -224,3 +224,47 @@ test('a support cycle with no top-level member still emits every claim once (spe
     'the cycle breaks at the re-statement instead of dropping rows'
   )
 })
+
+test('multi-line comments open above the claim line, trailing last, and round-trip (spec §6.4)', () => {
+  const source = [
+    '; rotated quarterly',
+    '; per security policy',
+    'auth/key HAS expiry: 3600s ! ; confirmed by ops',
+    'auth USES jwt',
+    '  ; reviewed in june',
+    '  BECAUSE security-review',
+    'foo HAS a: A',
+    '; second leaf',
+    '; keeps its block',
+    'foo HAS b: B'
+  ].join('\n')
+  const result = canonicalizeText(source, standardRegistry)
+  assert.deepEqual(result.problems, [])
+  assert.equal(result.claims[0]!.claim.comment, 'rotated quarterly\nper security policy\nconfirmed by ops')
+  assert.equal(
+    emitClaim(result.claims[0]!.claim),
+    '; rotated quarterly\n; per security policy\nauth/key HAS expiry: 3600s ! ; confirmed by ops'
+  )
+  const text = emit(result, { annotate: index => `;@ tx-${index}` })
+  assert.equal(text, [
+    '; rotated quarterly',
+    '; per security policy',
+    ';@ tx-0',
+    'auth/key HAS expiry: 3600s ! ; confirmed by ops',
+    ';@ tx-1',
+    'auth USES jwt',
+    '  ;@ tx-2',
+    '  BECAUSE security-review ; reviewed in june',
+    'foo HAS',
+    '  ;@ tx-3',
+    '  a: A',
+    '  ; second leaf',
+    '  ;@ tx-4',
+    '  b: B ; keeps its block',
+    ''
+  ].join('\n'))
+  const again = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(again.problems, [])
+  assert.deepEqual(again.claims.map(entry => entry.claim.comment), result.claims.map(entry => entry.claim.comment))
+  assert.equal(emit(again), emit(result))
+})

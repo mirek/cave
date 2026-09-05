@@ -16,6 +16,7 @@ An automation is declared like a rule and named like an action:
 #file("automations.cave")
 ```cave
 ; whenever a lot runs low, order more
+
 automation/reorder-low-stock HAS automation: `?lot NEEDS reorder => action/reorder` ; low stock triggers a reorder
 ```
 

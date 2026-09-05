@@ -1,2 +1,3 @@
 ; when bad news reaches a name we are overweight, ask for a review — automatically
+
 automation/review-bad-news HAS automation: `?news PRESSURES ?company #direction:down, ?company HAS stance: overweight => action/flag-review` ; overweight name under pressure -> ask for a review

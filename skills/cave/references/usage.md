@@ -10,7 +10,9 @@ subject HAS attribute: value [+/- delta] [@context...] [#tag[:value]...] [@ N%] 
 - Write entities in kebab-case, using `/` for scope.
 - Write verbs in uppercase. Common verbs include `IS`, `HAS`, `CAUSE`, `FIX`, `NEEDS`, `USES`, `YIELDS`, `ENABLES`, `BLOCKS`, `CONTAINS`, `PRECEDES`, `EXTENDS`, and `ALIAS`.
 - Write context without a space (`@production`, `@src:design-doc`) and confidence with a space (`@ 80%`).
-- Use `+/-` for numeric uncertainty and `;` for persisted comments.
+- Use `+/-` for numeric uncertainty and `;` for persisted comments. A block
+  of `;` lines directly above a claim joins its comment (trailing `; note`
+  last); leave a blank line after a comment that should stay documentary.
 - Factor repeated prefixes with two-space indentation; incomplete headers
   compose recursively and do not themselves create claims:
 

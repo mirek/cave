@@ -299,3 +299,78 @@ test('unknown-verb triples with uppercase subjects stay claims (tiebreak)', () =
     assert.equal(grouped.claim.verb, 'MIGRATES')
   }
 })
+
+test('a comment block directly above a line is its comment, trailing last (spec §6.4)', () => {
+  const doc = parseDocument([
+    '; file header, kept out of the store',
+    '',
+    '; rotated quarterly',
+    ';   per security policy',
+    'auth/key HAS expiry: 3600s ; confirmed by ops',
+    '; only a block',
+    'auth USES jwt',
+    '',
+    '; separated by a blank line',
+    '',
+    'billing USES jwt'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  const claims = doc.lines.filter(line => line.kind === 'claim')
+  assert.deepEqual(claims.map(line => line.claim.meta.comment), [
+    'rotated quarterly\nper security policy\nconfirmed by ops',
+    'only a block',
+    undefined
+  ])
+  assert.deepEqual(claims.map(line => line.expanded), [
+    '; rotated quarterly\n;   per security policy\nauth/key HAS expiry: 3600s ; confirmed by ops',
+    '; only a block\nauth USES jwt',
+    undefined
+  ])
+  assert.deepEqual(claims.map(line => line.raw), ['auth/key HAS expiry: 3600s ; confirmed by ops', 'auth USES jwt', 'billing USES jwt'])
+  assert.equal(doc.lines.filter(line => line.kind === 'comment').length, 5, 'comment lines stay in the tree')
+})
+
+test('comment blocks: empty edges drop, interior blanks stay, annotations are transparent (spec §6.4, §28.4)', () => {
+  const doc = parseDocument([
+    ';',
+    '; first paragraph',
+    ';',
+    '; second paragraph',
+    ';@ 01980a5e-4c2d-7000-8a3f-2b1c9d4e5f60',
+    'auth USES jwt',
+    ';',
+    ';',
+    'billing USES jwt ;',
+    'api USES jwt',
+    '  ; why the qualifier holds',
+    '  BECAUSE security-review ; reviewed in june'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  const [auth, billing] = doc.lines.filter(line => line.kind === 'claim')
+  assert.ok(auth?.kind === 'claim' && billing?.kind === 'claim')
+  assert.equal(auth.claim.meta.comment, 'first paragraph\n\nsecond paragraph')
+  assert.equal(auth.expanded, ';\n; first paragraph\n;\n; second paragraph\nauth USES jwt')
+  assert.equal(billing.claim.meta.comment, undefined)
+  assert.equal(billing.expanded, ';\n;\nbilling USES jwt ;')
+  const qualifier = doc.lines.find(line => line.kind === 'qualifier')
+  assert.ok(qualifier?.kind === 'qualifier' && qualifier.payload.kind === 'entity')
+  assert.equal(qualifier.payload.meta.comment, 'why the qualifier holds\nreviewed in june')
+  assert.equal(qualifier.expanded, '  ; why the qualifier holds\n  BECAUSE security-review ; reviewed in june')
+})
+
+test('a comment block above a prefix header is documentary; one above a leaf joins the expanded line (spec §6.4, §8.5)', () => {
+  const doc = parseDocument([
+    '; describes the group',
+    'foo HAS',
+    '  ; first leaf note',
+    '  a: A ; inline',
+    '  b: B'
+  ].join('\n'))
+  assert.deepEqual(doc.diagnostics, [])
+  const prefix = doc.lines[1]!
+  assert.ok(prefix.kind === 'prefix')
+  assert.equal(prefix.comment, 'describes the group')
+  const claims = doc.lines.filter(line => line.kind === 'claim')
+  assert.deepEqual(claims.map(line => line.claim.meta.comment), ['first leaf note\ninline', undefined])
+  assert.deepEqual(claims.map(line => line.expanded), ['; first leaf note\nfoo HAS a: A ; inline', 'foo HAS b: B'])
+})

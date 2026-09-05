@@ -31,7 +31,7 @@ Examples:
   checkout/errors CAUSE retry-storm @production @ 70% #topic:reliability
   OpenAI HAS revenue: ~20B USD/yr +/- 2B USD/yr @2026-Q1 @ 90%
 
-Use kebab-case entities with / for scope, UPPERCASE verbs, @ctx without a space for context, and @ 90% with a space for confidence. Keep source citations in @src: contexts. The MCP server stamps an agent source when cave_add receives no @src:. Use cave_lint, then cave_add.`,
+Use kebab-case entities with / for scope, UPPERCASE verbs, @ctx without a space for context, and @ 90% with a space for confidence. A ; comment is stored with its claim, and a block of ; lines directly above a claim joins that comment (a blank line after a comment keeps it documentary). Keep source citations in @src: contexts. The MCP server stamps an agent source when cave_add receives no @src:. Use cave_lint, then cave_add.`,
 
   find: `Choose the narrowest retrieval tool that fits:
 - cave_about: all current claims mentioning a known entity, in either direction.

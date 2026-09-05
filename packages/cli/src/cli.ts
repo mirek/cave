@@ -39,7 +39,7 @@ import { readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
-import { parseDocument } from '@cavelang/parser'
+import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
@@ -958,10 +958,12 @@ export const queryCommand = (argv: readonly string[]): Output => {
       // A fully bound pattern has no bindings to print; transitive matches
       // additionally carry no row — confirm with the pattern itself.
       // Bindings carry the matched claim's comment so the evidence written
-      // next to a claim travels with the answer; raw lines already do.
+      // next to a claim travels with the answer; raw lines already do. A
+      // multi-line comment (§6.4) opens above the binding line, as it does
+      // above a claim.
       const comment = match.claim?.claim.comment
       const line = bindings !== '' ?
-        `${bindings}${comment === undefined ? '' : `  ; ${comment}`}` :
+        comment === undefined ? bindings : Token.joinComment(`${bindings} `, comment) :
         match.claim?.claim.raw ?? pattern.split('\n')[0]!
       // An interpolated trajectory shows its value at the anchor
       // (spec §32.4) — bindings already carry it in the value slot.
@@ -1831,9 +1833,11 @@ export const reconstructCommand = async (
           ),
           positionals
         )
+      // The trace is a documentary comment block: the blank line after it
+      // keeps it off the first claim when the output is added back (§6.4).
       const lines = [
-        ...values.trace === true ?
-          result.trace.map(step => `; ${step.step}. ${step.cue.entity} @ ${step.cue.score.toFixed(2)} +${step.collected} claim(s)`) :
+        ...values.trace === true && result.trace.length > 0 ?
+          [...result.trace.map(step => `; ${step.step}. ${step.cue.entity} @ ${step.cue.score.toFixed(2)} +${step.collected} claim(s)`), ''] :
           [],
         ...result.claims.map(claim => emitClaim(claim))
       ]

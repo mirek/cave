@@ -113,9 +113,10 @@ lot/huila-26 HAS
 ```
 
 This is three claims, each beginning `lot/huila-26 HAS`. The header is not a
-claim and is not stored; a trailing comment on a header is documentation
-only. Prefixes nest, and blank lines and comment lines inside them are
-transparent:
+claim and is not stored; a trailing comment on a header, or a comment block
+directly above it, is documentation only, while a comment block directly
+above a leaf belongs to that leaf's claim. Prefixes nest, and blank lines and
+comment lines inside them are transparent:
 
 ```cave
 lot/huila-26 HAS

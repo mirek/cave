@@ -168,7 +168,8 @@ roaster/drum HAS service-due: 2026-09-01 !
 == Comments, once more
 
 The comment after `;` rides with the claim through storage, export, search,
-and reports. Everything before this chapter used it for the small rationale a
+and reports, and so does a block of `;` lines directly above the claim
+(Chapter 2). Everything before this chapter used it for the small rationale a
 triple cannot carry, and that is the right amount: a comment is where you
 write *why*, not where you write the next three claims.
 

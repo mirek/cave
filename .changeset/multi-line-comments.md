@@ -1,0 +1,5 @@
+---
+"@cavelang/parser": minor
+---
+
+Comments may span several lines: a block of full-line `;` comments directly above a claim, qualifier, continuation, or prefix header is that line's comment (spec §6.4). The block's lines and the trailing `; comment` join with newlines, trailing last; a blank line after the block keeps it documentary, so file headers stay out of the store, and a `;@ tx` annotation (§28.4) passes through the block. `raw_line` carries the block with the line; the canonical emitter writes a multi-line comment as `;` lines directly above the claim line (`emitClaim` may return several lines), which `cave export` and `cave add` round-trip; `cave query` prints a multi-line comment above its binding line; `cave reconstruct --trace` and `cave connect --dry-run` separate their marker comments from claims with a blank line. The parser exports `Token.joinComment` and `Token.txOfLine`; the examples, fixtures, and book gained a blank line after each documentary header comment.

@@ -166,6 +166,7 @@ for record fields (CSV columns, JSON keys — dotted names like
 
 ```cave
 ; people.map.cave
+
 WORKS-AT IS verb ; X is employed by organization Y
 WORKS-AT REVERSE EMPLOYS
 

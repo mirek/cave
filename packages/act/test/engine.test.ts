@@ -226,6 +226,7 @@ test('declaration lifecycle — idempotent declare, list with docs, retract disa
   const store = open()
   const file = [
     '; deploy vocabulary',
+    '',
     deployAction,
     'action/mark-deployed/service IS param ; the service that was deployed',
     'action/mark-deployed/version IS param ; the version now running',

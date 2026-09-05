@@ -16,6 +16,7 @@ an ordinary claim whose slots may be variables. `=>` is the only new token.
 #file("rules.cave")
 ```cave
 ; what follows from what we already know
+
 DEPENDS-ON IS verb ; coffee X depends on supplier Y
 DEPENDS-ON REVERSE SUPPLIES-FOR
 
@@ -49,6 +50,7 @@ lot/santa-ana-26,15,2026-08-22
 #file("stock.map.cave")
 ```cave
 ; one row per lot in the green store
+
 ?lot HAS stock: ?kg kg
 ?lot HAS last-roasted: ?roasted
 ```

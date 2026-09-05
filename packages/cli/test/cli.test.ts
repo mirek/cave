@@ -258,6 +258,31 @@ test('query bindings carry the matched claim comment; raw lines already do', () 
   })
 })
 
+test('a comment block above a claim is stored, queried, and printed as one multi-line comment (spec §6.4)', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'k.cave')
+    writeFileSync(file, [
+      '; the auth notes, a file header kept out of the store',
+      '',
+      '; json web tokens',
+      '; rotated weekly',
+      'auth USES jwt ; confirmed by ops',
+      'billing USES jwt'
+    ].join('\n'))
+    assert.equal(addCommand([file, '--db', db]).code, 0)
+    const users = queryCommand(['?x USES jwt', '--db', db])
+    assert.equal(users.out, '; json web tokens\n; rotated weekly\n?x = auth  ; confirmed by ops\n?x = billing\n')
+    const bound = queryCommand(['auth USES jwt', '--db', db])
+    assert.equal(bound.out, '; json web tokens\n; rotated weekly\nauth USES jwt ; confirmed by ops\n', 'the raw line carries its block')
+    const json = JSON.parse(queryCommand(['?x USES jwt', '--db', db, '--json']).out)
+    assert.equal(json.matches[0].claim.claim.comment, 'json web tokens\nrotated weekly\nconfirmed by ops')
+    const exported = exportCommand(['--db', db]).out
+    assert.match(exported, /^; json web tokens\n; rotated weekly\nauth USES jwt @src:cli ; confirmed by ops\n/m, 'export opens the block above the claim')
+    assert.deepEqual(searchCommand(['rotated', '--db', db]).out.trimEnd().split('\n'), ['; json web tokens', '; rotated weekly', 'auth USES jwt ; confirmed by ops'])
+  })
+})
+
 test('search: FTS5 over comments, attribute names, values, tags, contexts and inverse spellings', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
@@ -631,6 +656,7 @@ test('reconstruct walks the store from seed cues; --trace lines are comments', (
     const result = await reconstructCommand(['--db', db, 'reject-valid-tokens', '--trace'])
     assert.equal(result.code, 0, result.err)
     assert.match(result.out, /; 1\. reject-valid-tokens @ 1\.00/)
+    assert.match(result.out, /claim\(s\)\n\n[^;\n]/, 'a blank line keeps the trace off the first claim (spec §6.4)')
     assert.match(result.out, /token-expiry CAUSE reject-valid-tokens/)
     assert.match(result.out, /topic\/auth-hardening CONTAINS token-expiry/)
     assert.doesNotMatch(result.out, /unrelated\/service/)

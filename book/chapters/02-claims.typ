@@ -154,11 +154,39 @@ stored with the row, exported with it, and searchable.
 lot/santa-ana-26 HAS score: 85 @src:cupping/june ; clean, but nothing remarkable
 ```
 
-A line that is only a comment is documentation for the file and is not
-stored. Comments are the escape hatch for nuance that does not fit a triple,
-and the file above uses them sparingly on purpose. When you catch yourself
-writing a paragraph after a semicolon, the paragraph probably contains three
-more claims.
+A comment can be longer than one line. A block of `;` lines directly above a
+claim is part of that claim's comment, and the trailing `; note` on the claim
+line, if there is one, is its last line:
+
+#file("cupping-notes.cave")
+```cave
+; the June cupping, scored by two of us and averaged
+
+; the santa-ana lot cupped clean, but the finish
+; was flat by the third cup
+lot/santa-ana-26 HAS score: 85 @src:cupping/june ; averaged from two scores
+```
+
+The first line is separated from the claim by a blank line, so it stays a
+note about the file. The block under it belongs to the claim, and it comes
+back with the claim wherever the claim is printed:
+
+```sh
+$ cave add --db notes.db cupping-notes.cave
+added 1 claim(s), 0 edge(s)
+
+$ cave query --db notes.db 'lot/santa-ana-26 HAS score: ?s'
+; the santa-ana lot cupped clean, but the finish
+; was flat by the third cup
+?s = 85  ; averaged from two scores
+```
+
+A comment with nothing but a blank line between it and the next claim is
+documentation for the file and is not stored, which is what the first line of
+`roastery.cave` is. Comments are the escape hatch for nuance that does not
+fit a triple, and the file above uses them sparingly on purpose. When you
+catch yourself writing a paragraph after a semicolon, the paragraph probably
+contains three more claims.
 
 == Lint before you load
 

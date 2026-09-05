@@ -26,6 +26,7 @@ names:
 #file("stock.map.cave")
 ```cave
 ; one row per lot in the green store
+
 ?lot HAS stock: ?kg kg
 ?lot HAS last-roasted: ?roasted
 ```
@@ -41,14 +42,21 @@ optional columns yield fewer claims, never malformed ones.
 ```sh
 $ cave connect stock.csv --map stock.map.cave --dry-run --key lot
 ; --- prelude
+
 ; one row per lot in the green store
+
 ; --- record 1
+
 lot/yirgacheffe-26 HAS stock: 42 kg
 lot/yirgacheffe-26 HAS last-roasted: 2026-08-20
+
 ; --- record 2
+
 lot/huila-26 HAS stock: 8 kg
 lot/huila-26 HAS last-roasted: 2026-08-18
+
 ; --- record 3
+
 lot/santa-ana-26 HAS stock: 15 kg
 lot/santa-ana-26 HAS last-roasted: 2026-08-22
 ```
