@@ -153,6 +153,35 @@ The same command reads a SQLite table (`--table` or `--sql`), a JSON
 document (`--records data.items` to point at the array), or a URL that
 serves JSON or CSV. Dotted variables like `?address.city` walk nested JSON.
 
+== A one-line mapping, and SQL first
+
+A mapping short enough to type can be given inline: a comma-separated list
+of claim lines, the same convention action effects use. And when the data
+needs reshaping before it is mapped, `--sql` runs a query over the parsed
+records first, whatever the file format — the rows land in a temporary
+SQLite table called `records`, and the query's rows are what the mapping
+sees:
+
+```sh
+$ cave connect stock.csv --map '?lot HAS stock: ?kg kg' --key lot --db roastery.db --query '?lot HAS stock: ?kg'
+?lot = lot/yirgacheffe-26  ?kg = 42 kg
+?lot = lot/huila-26  ?kg = 6 kg
+?lot = lot/santa-ana-26  ?kg = 15 kg
+
+$ cave connect stock.csv --sql 'SELECT lot, kg FROM records WHERE kg > 10' --map '?lot IS well-stocked' --key lot --dry-run
+; --- record 1
+
+lot/yirgacheffe-26 IS well-stocked
+
+; --- record 2
+
+lot/santa-ana-26 IS well-stocked
+```
+
+Projection, filtering, and derived columns belong in SQL before the
+mapping and in rules (Chapter 17) after it; the mapping itself never
+computes.
+
 == Declaring a source
 
 Typing the same `cave connect` line every morning is the kind of thing a

@@ -214,6 +214,32 @@ Formatting never invents names: values are inserted exactly or quoted
 exactly. If entities need kebab-case identity, shape them in the source
 (a slug column, or a `--sql` projection).
 
+**Inline mappings.** A short mapping MAY be written on one line as a
+comma-separated list of claim lines — the §25.1 effect-template
+convention — wherever a mapping is named: `--map` on the command line,
+or the `map` attribute of a declared source (§23.4):
+
+```cave
+source/people HAS map: `?name IS person, ?name WORKS-AT ?company, ?name HAS email: ?email`
+```
+
+The list splits at commas outside `"…"` and `` `…` `` literals, each part
+is one line of the document the mapping stands for, and the result parses
+exactly as the file would. A value is inline when it contains a
+`?variable` token or a top-level comma and no newline; a path never has
+either. An inline mapping has no prelude.
+
+**Reshaping with SQL.** `--sql` (or the `sql` attribute) applies to every
+tabular source, not only SQLite: for csv, tsv, json, and jsonl the parsed
+records are loaded into a temporary in-memory SQLite table — `records`,
+or the `--table`/`table` name — one column per field in first-seen order,
+scalars as they are, booleans as `0`/`1`, structured values as JSON text
+(`json_extract` reaches into them) — and the query's rows are the records
+the mapping sees. Projection, filtering, joins, `lower()`, `substr()`,
+date arithmetic, and derived columns therefore need no expression
+language of their own (§19.5): SQL before the mapping, rules (§24) after
+it. Source line spans (§9.8) do not survive a query.
+
 ### 23.2 Records, digests, and record provenance
 
 Each record gets a stable identity `connect/<name>/<key>`, where `<name>`
@@ -291,7 +317,9 @@ share, so a nested name is refused. A source is declared by a current
 positive `path`; the other attributes
 mirror the options one-to-one — `map`, `key`, `format`, `delimiter`,
 `table`, `sql`, `records` — and are read from the same entity's current
-beliefs. A `.cave` path (or `format: cave`) is a **mapping-free source**:
+beliefs. `map` is a template path or an inline template (§23.1); `sql`
+reshapes any tabular source before the mapping, with `table` naming the
+temporary table for non-SQLite formats. A `.cave` path (or `format: cave`) is a **mapping-free source**:
 the file is its own template, all prelude, and it is treated as a
 lifecycle unit, so claims it no longer says are retracted when it changes.
 Retracting the `path` (`… @ 0%`) removes the source; superseding it moves

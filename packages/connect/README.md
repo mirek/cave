@@ -55,6 +55,19 @@ atoms verbatim, CAVE values (`20B USD/yr`, `2026-Q1`) verbatim in payload
 positions, everything else as an exact quoted literal. Formatting never
 invents names — no slugification; shape entity ids in the source.
 
+A short mapping can be written inline wherever a mapping is named, as a
+comma-separated list of claim lines (the §25.1 effect-template convention):
+
+```sh
+cave connect people.csv --map '?name IS person, ?name WORKS-AT ?company' --key id
+```
+
+`--sql` reshapes any tabular source before the mapping: for csv, tsv, json,
+and jsonl the records load into a temporary in-memory SQLite table
+(`records`, or `--table`), structured values as JSON text, and the query's
+rows are the records — projection, filtering, and derived columns in SQL,
+no expression language of its own (`Source.queryRecords`).
+
 ## Records, digests, provenance (§23.2)
 
 Each record gets identity `connect/<name>/<key>` (`--key <field>`, or the
@@ -118,8 +131,9 @@ source/verbs HAS path: verbs.cave        ; a .cave file is its own template
 ```
 
 `path` declares the source; `map`, `key`, `format`, `delimiter`, `table`,
-`sql`, and `records` mirror the options; a `.cave` path needs no map and is
-a lifecycle unit (what it no longer says is retracted when it changes). A
+`sql`, and `records` mirror the options — `map` may be inline, `sql` applies
+to any tabular source; a `.cave` path needs no map and is a lifecycle unit
+(what it no longer says is retracted when it changes). A
 name is one path segment, so it cannot collide with a record key. A followed
 `.cave` source may declare or re-declare sources; declarations are re-read
 after every source and the current one runs, until nothing changes.

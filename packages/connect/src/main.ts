@@ -3,7 +3,7 @@
  * `--watch`, `--query`), and report rendering around `run.ts`.
  */
 
-import { readFileSync, watch as watchFs } from 'node:fs'
+import { existsSync, readFileSync, watch as watchFs } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
@@ -30,6 +30,8 @@ The source is a .csv/.tsv/.json/.jsonl/.ndjson file, a SQLite database
 mapping is an ordinary CAVE document whose ?field variables stand for
 record fields; variable-free blocks append once per run, variable blocks
 instantiate once per record — no LLM in the loop, same input, same claims.
+A short mapping can be written inline, and --sql reshapes any tabular
+source through SQLite before the mapping sees it.
 Mapped claims retain the physical source; CSV/TSV and JSONL records also carry
 their exact one-based inclusive line span (spec §9.8).
 
@@ -44,15 +46,20 @@ CAVE text file used as --db follows its declared sources on every open.
 
 Options:
   --db <path>          knowledge database (default: $CAVE_DB, or cave.db)
-  --map <file>         mapping template (required)
+  --map <file|inline>  mapping template (required): a file, or the template
+                       itself — a comma-separated list of claim lines,
+                       '?name IS person, ?name WORKS-AT ?company'
   --name <name>        source name for record identity (default: file basename)
   --key <field>        record key field — keyed records diff against their
                        previous claims on change; unkeyed records are
                        content-addressed
   --format <fmt>       csv | tsv | json | jsonl | sqlite (default: by extension)
   --delimiter <char>   CSV field delimiter (default , — tab for .tsv)
-  --table <name>       SQLite table to read (SELECT *)
-  --sql <query>        SQLite query (alternative to --table)
+  --table <name>       SQLite table to read (SELECT *); for other formats
+                       the temporary table --sql runs against (records)
+  --sql <query>        SQLite query (alternative to --table); for csv, tsv,
+                       json and jsonl the records load into a temporary
+                       in-memory table and the query's rows are the records
   --records <path>     dot path to the record array inside a JSON document
   --force              re-map records whose digest is unchanged
   --prune              retract claims of records that disappeared from the source
@@ -151,8 +158,11 @@ const renderReport = (report: Report): string => {
   return lines.join('\n')
 }
 
-const loadMapping = (path: string): { mapping?: Template.Mapping, problems: readonly string[] } =>
-  Template.parse(readFileSync(path, 'utf8'))
+/** `--map` is a template file, or the template itself written inline (spec §23.1). */
+const loadMapping = (spec: string): { mapping?: Template.Mapping, problems: readonly string[] } =>
+  Template.isInline(spec) && !existsSync(spec) ?
+    Template.parse(Template.inlineDocument(spec)) :
+    Template.parse(readFileSync(spec, 'utf8'))
 
 const sourceOptions = (values: Values, context: RunContext): Source.Options => ({
   ...values.format === undefined ? {} : { format: values.format as Source.Format },
@@ -332,7 +342,7 @@ const runWatch = async (
   }
   // Watch the parent directories — editors replace files on save, and a
   // watcher on the file itself dies with the old inode.
-  const targets = [...new Set([resolve(source), resolve(values.map!)])]
+  const targets = [...new Set([resolve(source), ...Template.isInline(values.map!) && !existsSync(values.map!) ? [] : [resolve(values.map!)]])]
   const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
   const watchers = targets.map(target =>
     watch(dirname(target), (_event, filename) => {
@@ -578,7 +588,7 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
     }
     for (const target of new Set(declared.flatMap(source => [
       ...Source.isUrl(source.path) ? [] : [Declared.resolvePath(source.path, dir)],
-      ...source.map === undefined ? [] : [Declared.resolvePath(source.map, dir)]
+      ...source.map === undefined || Template.isInline(source.map) ? [] : [Declared.resolvePath(source.map, dir)]
     ]))) {
       if (watched.has(target)) continue
       watched.set(target, watch(dirname(target), (_event, filename) => {

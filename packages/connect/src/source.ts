@@ -24,9 +24,17 @@ export type Options = {
   readonly format?: Format
   /** CSV delimiter (default `,`; `\t` for tsv). */
   readonly delimiter?: string
-  /** SQLite table to read (`SELECT *`). */
+  /**
+   * SQLite table to read (`SELECT *`); for any other format, the name of
+   * the temporary table `sql` runs against (default `records`).
+   */
   readonly table?: string
-  /** SQLite query — the alternative to `table`. */
+  /**
+   * SQLite query — the alternative to `table`. For any other format the
+   * parsed records are loaded into a temporary in-memory SQLite table and
+   * the query's rows become the records (spec §23.1): one mechanism for
+   * projecting, filtering, and reshaping, no expression language.
+   */
   readonly sql?: string
   /** Dot path to the record array inside a JSON document. */
   readonly records?: string
@@ -196,6 +204,57 @@ const sqliteValue = (value: unknown): unknown =>
     (Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()) :
     value
 
+/** The SQLite representation of a record field: scalars as they are, booleans as 0/1, anything structured as JSON text. */
+const sqlValue = (value: unknown): null | number | string =>
+  value === undefined || value === null ? null :
+    typeof value === 'number' || typeof value === 'string' ? value :
+      typeof value === 'boolean' ? (value ? 1 : 0) :
+        typeof value === 'bigint' ? Number(value) :
+          JSON.stringify(value)
+
+/**
+ * Runs `sql` over the records loaded from a text format: the records
+ * become one temporary in-memory table (`records`, or `table`), one column
+ * per field in first-seen order, and the query's rows are the records
+ * that reach the mapping (spec §23.1). Line spans do not survive a query.
+ */
+export const queryRecords = (
+  records: readonly Record<string, unknown>[],
+  sql: string,
+  table = 'records'
+): Record<string, unknown>[] => {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
+    throw new Error(`--table ${JSON.stringify(table)} is not a plain identifier`)
+  }
+  const columns: string[] = []
+  const known = new Set<string>()
+  for (const record of records) {
+    for (const key of Object.keys(record)) {
+      if (!known.has(key)) {
+        known.add(key)
+        columns.push(key)
+      }
+    }
+  }
+  const db = new DatabaseSync(':memory:')
+  try {
+    const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
+    // NUMERIC affinity: a CSV cell "2" compares as the number 2 and a JSON
+    // number stays one, while anything else stays text.
+    db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value NUMERIC' : columns.map(column => `${quoted(column)} NUMERIC`).join(', ')})`)
+    if (columns.length > 0 && records.length > 0) {
+      const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
+      for (const record of records) {
+        insert.run(...columns.map(column => sqlValue(record[column])))
+      }
+    }
+    const rows = db.prepare(sql).all() as Record<string, unknown>[]
+    return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
+  } finally {
+    db.close()
+  }
+}
+
 const readSqlite = (path: string, options: Options): Record<string, unknown>[] => {
   if ((options.table === undefined) === (options.sql === undefined)) {
     throw new Error(`${path}: a SQLite source needs exactly one of --table or --sql`)
@@ -239,8 +298,15 @@ export const loadSync = (source: string, options: Options = {}): Loaded => {
   if (format === 'sqlite') {
     return { records: readSqlite(source, options), format }
   }
-  return { ...parseLocated(format, readFileSync(source, 'utf8'), source, options), format }
+  return { ...queried(parseLocated(format, readFileSync(source, 'utf8'), source, options), options), format }
 }
+
+/** Applies `sql`, when given, to records of a text format — the spans no longer align, so they go. */
+const queried = (
+  parsed: { records: Record<string, unknown>[], spans?: LineSpan[] },
+  options: Options
+): { records: Record<string, unknown>[], spans?: LineSpan[] } =>
+  options.sql === undefined ? parsed : { records: queryRecords(parsed.records, options.sql, options.table) }
 
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
 export const load = async (source: string, options: Options = {}): Promise<Loaded> => {
@@ -253,7 +319,7 @@ export const load = async (source: string, options: Options = {}): Promise<Loade
     if (format === 'sqlite') {
       throw new Error(`${source}: SQLite sources must be local files`)
     }
-    return { ...parseLocated(format, text, source, options), format }
+    return { ...queried(parseLocated(format, text, source, options), options), format }
   }
   return loadSync(source, options)
 }

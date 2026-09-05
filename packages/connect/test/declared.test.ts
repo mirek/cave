@@ -740,3 +740,24 @@ test('a transition whose replacement fails to ingest keeps the last good data', 
     }
   })
 })
+
+test('a declared source may carry its mapping inline and reshape its records with sql', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n2,bob,globex\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, [
+      'source/people HAS path: people.csv',
+      'source/people HAS map: `?name IS person, ?name WORKS-AT ?company`',
+      'source/people HAS sql: "SELECT name, lower(company) AS company FROM records WHERE id = 1"',
+      'source/people HAS key: name'
+    ].join('\n'))
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const claims = store.currentBeliefs().filter(row => row.conf > 0 && ['ann', 'bob'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`).sort()
+      assert.deepEqual(claims, ['ann IS person', 'ann WORKS-AT acme'])
+      assert.equal(Declared.describe(Declared.declaredSources(store)[0]!), 'people: people.csv --map "?name IS person, ?name WORKS-AT ?company" --key name --sql "SELECT name, lower(company) AS company FROM records WHERE id = 1"')
+    } finally {
+      store.close()
+    }
+  })
+})

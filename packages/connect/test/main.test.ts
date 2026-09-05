@@ -607,3 +607,17 @@ test('a declared dry run only reads the store and works on a write-protected one
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('the CLI takes an inline --map and --sql over a CSV source', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect([join(dir, 'people.csv'), '--map', '?name IS person, ?name HAS id: ?id', '--sql', 'SELECT id, name FROM records WHERE id > 1', '--key', 'id', '--dry-run'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.equal(stdout.value, '; --- record 1\n\nbob IS person\nbob HAS id: 2\n')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

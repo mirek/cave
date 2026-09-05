@@ -45,7 +45,7 @@ export type Declared = {
   readonly name: string
   /** File path (relative to the store's directory) or URL. */
   readonly path: string
-  /** Mapping template path; a `.cave` source needs none. */
+  /** Mapping template path, or an inline template (`?name IS person, …`); a `.cave` source needs none. */
   readonly map?: string
   readonly key?: string
   /** `csv | tsv | json | jsonl | sqlite`, or `cave`; by extension when omitted. */
@@ -74,6 +74,17 @@ const sourceRows = (store: Store): Row.t[] =>
 
 
 
+/**
+ * A stored attribute value as declared: the store keeps a literal's
+ * delimiters (`"SELECT …"`, `` `?name IS person, …` ``), and a path, a
+ * query, or an inline mapping is the text inside them.
+ */
+export const unwrap = (value: string): string =>
+  (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+  (value.startsWith('`') && value.endsWith('`') && value.length >= 2) ?
+    value.slice(1, -1) :
+    value
+
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
   // Several belief series may speak about one attribute (the root file
@@ -91,7 +102,7 @@ export const deltasOf = (store: Store): Delta[] => {
     const fields = byName.get(name) ?? {}
     const seen = fields[row.attribute]
     if (seen === undefined || seen.tx < row.tx) {
-      fields[row.attribute] = { value: row.value_text, tx: row.tx }
+      fields[row.attribute] = { value: unwrap(row.value_text), tx: row.tx }
     }
     byName.set(name, fields)
   }
@@ -279,7 +290,9 @@ const mappingSync = (declared: Declared, dir: string): { mapping: Template.Mappi
     }
     return { mapping: parseTemplate(readFileSync(resolvePath(declared.path, dir), 'utf8'), caveLabel), cave: true }
   }
-  return { mapping: parseTemplate(readFileSync(resolvePath(declared.map!, dir), 'utf8'), `mapping ${declared.map}`), cave: false }
+  return Template.isInline(declared.map!) ?
+    { mapping: parseTemplate(Template.inlineDocument(declared.map!), 'inline mapping'), cave: false } :
+    { mapping: parseTemplate(readFileSync(resolvePath(declared.map!, dir), 'utf8'), `mapping ${declared.map}`), cave: false }
 }
 
 const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<{ mapping: Template.Mapping, cave: boolean }> => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -129,4 +129,26 @@ test('formatOf infers from extension, nameOf names the source (spec §23.2)', ()
   assert.equal(Source.formatOf('data.xml', { format: 'json' }), 'json')
   assert.equal(Source.nameOf('/tmp/dir/people.csv'), 'people')
   assert.equal(Source.nameOf('https://x.example/exports/people v2.json'), 'people-v2')
+})
+
+test('--sql reshapes text-format records through a temporary SQLite table (spec §23.1)', () => {
+  const records = [
+    { id: 1, name: 'ann', active: true, address: { city: 'Oslo' } },
+    { id: 2, name: 'bob', active: false, address: { city: 'Riga' } },
+    { id: 3, name: 'cy', tags: ['x', 'y'] }
+  ]
+  const rows = Source.queryRecords(records, "SELECT upper(name) AS shout, json_extract(address, '$.city') AS city, active FROM records WHERE id < 3 ORDER BY id")
+  assert.deepEqual(rows, [{ shout: 'ANN', city: 'Oslo', active: 1 }, { shout: 'BOB', city: 'Riga', active: 0 }])
+  assert.deepEqual(Source.queryRecords(records, 'SELECT count(*) AS n FROM people', 'people'), [{ n: 3 }], 'the table can be named')
+  assert.throws(() => Source.queryRecords(records, 'SELECT 1', 'bad name'), /not a plain identifier/)
+  assert.deepEqual(Source.queryRecords([], 'SELECT count(*) AS n FROM records'), [{ n: 0 }], 'no records is an empty table')
+  const dir = mkdtempSync(join(tmpdir(), 'cave-source-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const loaded = Source.loadSync(join(dir, 'people.csv'), { sql: "SELECT name || '-' || id AS slug FROM records WHERE id = 2" })
+    assert.deepEqual(loaded.records, [{ slug: 'bob-2' }])
+    assert.equal(loaded.spans, undefined, 'line spans do not survive a query')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

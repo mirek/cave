@@ -180,3 +180,17 @@ test('variables inside literals are never substituted (spec §23.1)', () => {
   const out = Template.instantiate(mapping!.templates, () => 'x')
   assert.equal(out.text.trimEnd(), 'x HAS greeting: "hello ?name"')
 })
+
+test('an inline mapping is one line of comma-separated claim lines, split outside literals (spec §23.1)', () => {
+  assert.equal(Template.isInline('?name IS person, ?name WORKS-AT ?company'), true)
+  assert.equal(Template.isInline('?name IS person'), true, 'a single variable line is inline too')
+  assert.equal(Template.isInline('people.map.cave'), false)
+  assert.equal(Template.isInline('data/people.map.cave'), false)
+  assert.equal(Template.inlineDocument('?name IS person, ?name HAS note: "hello, world", ?name WORKS-AT ?company'),
+    '?name IS person\n?name HAS note: "hello, world"\n?name WORKS-AT ?company\n')
+  const { mapping, problems } = Template.parseAny('?name IS person, ?name WORKS-AT ?company')
+  assert.deepEqual(problems, [])
+  assert.deepEqual(mapping?.variables, ['company', 'name'])
+  assert.equal(mapping?.templates.length, 2)
+  assert.equal(mapping?.prelude, '')
+})
