@@ -243,6 +243,16 @@ export const queryRecords = (
       }
     }
   }
+  // SQLite column names are case-insensitive: two fields that differ only
+  // in case cannot both be staged, and merging them would lose data.
+  const folded = new Map<string, string>()
+  for (const column of columns) {
+    const other = folded.get(column.toLowerCase())
+    if (other !== undefined) {
+      throw new Error(`fields ${JSON.stringify(other)} and ${JSON.stringify(column)} differ only in case, which SQLite cannot tell apart — rename one in the source before --sql`)
+    }
+    folded.set(column.toLowerCase(), column)
+  }
   const db = new DatabaseSync(':memory:')
   try {
     const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`

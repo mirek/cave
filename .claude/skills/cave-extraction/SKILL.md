@@ -238,7 +238,9 @@ add, values exactly as parsed: a CSV cell is text (`00123` stays
 `00123`; cast for arithmetic, `CAST(kg AS REAL) > 10`), a JSON number is
 a number, a boolean is `0`/`1`, a structured value is JSON text
 (`json_extract` reaches into it) — and the query's rows are the records
-the mapping sees. Projection, filtering, joins, `lower()`, `substr()`,
+the mapping sees. Two fields whose names differ only in case cannot both
+be staged (SQLite column names are case-insensitive) and are an error
+rather than a silent merge. Projection, filtering, joins, `lower()`, `substr()`,
 date arithmetic, and derived columns therefore need no expression
 language of their own (§19.5): SQL before the mapping, rules (§24) after
 it. Source line spans (§9.8) do not survive a query.

@@ -147,6 +147,7 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')
   assert.deepEqual(Source.queryRecords([{ id: '2' }], 'SELECT id FROM records', 'records', ['id', 'id']), [{ id: '2' }], 'a repeated header is one column')
+  assert.throws(() => Source.queryRecords([{ id: 1, ID: 2 }], 'SELECT id FROM records'), /fields "id" and "ID" differ only in case/, 'SQLite cannot tell them apart, and merging would lose data')
   assert.deepEqual(Source.queryRecords(records, 'SELECT count(*) AS n FROM people', 'people'), [{ n: 3 }], 'the table can be named')
   assert.throws(() => Source.queryRecords(records, 'SELECT 1', 'bad name'), /not a plain identifier/)
   assert.deepEqual(Source.queryRecords([], 'SELECT count(*) AS n FROM records'), [{ n: 0 }], 'no records is an empty table')
