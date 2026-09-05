@@ -83,7 +83,11 @@ runs (`query`, `search`, `resolve`, `check`, `export`, `report`, `generate`,
 `serve`, `mcp --read-only`, dry-run and `--list` modes), exactly as `cave
 import` would store it. Commands that append refuse a text file and point at
 `cave import --db <store.db> <file>`; a read against a missing path is an
-error rather than a fresh empty database (spec §13.7).
+error rather than a fresh empty database, and a read never migrates an older
+store — it names the writing command that does (spec §13.7). Dry runs
+(`derive --dry-run`, `act --dry-run`, `sync --dry-run`, `connect --query`)
+append inside a rolled-back transaction, so they open writable but likewise
+create and migrate nothing.
 
 All commands—synchronous, asynchronous, and long-running—enter through one
 promise-based dispatcher. It owns argument-exception formatting, stdout and

@@ -71,16 +71,22 @@ future decoders.
 ## Text stores
 
 `openAt(path, { intent })` opens what a `--db` path names, by content (spec
-§13.7): a SQLite file as usual, `:memory:` fresh, and any other file as CAVE
-text replayed into an in-memory store with `cave import` semantics — no actor
+§13.7): a SQLite file, `:memory:` fresh, and any other file as CAVE text
+replayed into an in-memory store with `cave import` semantics — no actor
 stamp, so the claims are the ones importing the file would store. `intent:
-'read'` never touches the filesystem: a missing path throws instead of
-creating a database. `intent: 'write'` (the default) creates a missing SQLite
-store and throws on a text file with the materialization hint, since nothing
-appended in memory would outlive the process. A text file with a line that
-fails to parse fails the load, naming every line. `kindOf(path)` returns
-`memory | sqlite | text | missing`, `isStoreFile(path)` is the SQLite-header
-check, and `openText(path)` replays a text file directly.
+'read'` never touches the filesystem: SQLite opens read-only (a
+write-protected store serves), an older schema is reported with the command
+that migrates it instead of being migrated, and a missing path throws instead
+of creating a database. `intent: 'scratch'` is for dry runs that append inside
+a rolled-back transaction: writable, but it creates and migrates nothing
+either. `intent: 'write'` (the default) creates a missing SQLite store,
+migrates an older one, and throws on a text file with the materialization
+hint, since nothing appended in memory would outlive the process. A text file
+with a line that fails to parse fails the load, naming every line.
+`kindOf(path)` returns `memory | sqlite | text | missing`, `isStoreFile(path)`
+is the SQLite-header check, `openText(path)` replays a text file directly, and
+`open(path, { access })` exposes the same `read-only | no-migrate | migrate`
+choice to callers that already know the file is SQLite.
 
 ```ts
 import { openAt } from '@cavelang/store'
@@ -95,7 +101,9 @@ notes.currentBeliefs()                       // the file's claims, assembled in 
   the local format (current version 1; version 0 is the unversioned legacy
   baseline). `open()` rejects newer stores, applies every older migration in
   order with its backfill and version update in one `BEGIN IMMEDIATE`
-  transaction, then validates required tables, indexes, and columns. A crash
+  transaction, then validates required tables, indexes, and columns; with
+  `access: 'read-only'` or `'no-migrate'` it validates only and reports an
+  older version instead of migrating it. A crash
   leaves a resumable old or complete new version—never a committed half-step.
   Migrations are forward-only; make rollback points by closing all users and
   copying the closed SQLite file before upgrade.
@@ -209,7 +217,7 @@ notes.currentBeliefs()                       // the file's claims, assembled in 
 | `recordOf(row)` | | map a storage row to the stable `cave.claim/v1` JSON contract |
 | `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
 | `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
-| `openAt(path, {intent, registry})` / `openText(path)` / `kindOf(path)` / `isStoreFile(path)` | §13.7 | open a `--db` path by content: SQLite as is, CAVE text replayed into memory; `read` never creates a file |
+| `openAt(path, {intent, registry})` / `openText(path)` / `kindOf(path)` / `isStoreFile(path)` | §13.7 | open a `--db` path by content: SQLite (read-only for `read`, unmigrated for `scratch`), CAVE text replayed into memory; only `write` creates or migrates |
 | `adapter` / `db` | | selected adapter capabilities and its raw structural database handle |
 
 ## Storage decisions

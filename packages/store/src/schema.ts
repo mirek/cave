@@ -108,7 +108,7 @@ const migrations: readonly Migration[] = [
   }
 ]
 
-const versionOf = (db: Database): number =>
+export const versionOf = (db: Database): number =>
   (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
 
 const requiredTables = [
@@ -159,6 +159,25 @@ export const validate = (db: Database, version: number, schema = 'main'): void =
   if (problems.length > 0) {
     throw new Error(`CAVE: schema version ${version} is incompatible: ${problems.join(', ')}`)
   }
+}
+
+/**
+ * Validates a store without changing it (spec §13.7): the current version
+ * passes, a newer one is rejected as `init` rejects it, and an older one
+ * reports the migration a writing open would apply instead of applying it.
+ */
+export const check = (db: Database): void => {
+  const version = versionOf(db)
+  if (version > currentVersion) {
+    throw new Error(
+      `CAVE: schema version ${version} is newer than this runtime supports (${currentVersion}); upgrade CAVE`)
+  }
+  if (version < currentVersion) {
+    throw new Error(
+      `CAVE: schema version ${version} needs migration to ${currentVersion} — ` +
+      'back up the store, then open it with a writing command such as cave add to migrate')
+  }
+  validate(db, version)
 }
 
 /**

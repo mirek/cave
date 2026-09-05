@@ -787,9 +787,12 @@ const readStdin = (): string => {
 
 /**
  * Opens the store `--db` names (spec §13.7): a SQLite file, or a CAVE text
- * file replayed into memory. `read` never creates or changes a file — a
- * missing path is an error, not an empty database; `write` creates a
- * missing SQLite store and refuses text files with the materialization hint.
+ * file replayed into memory. `read` never creates, migrates, or changes a
+ * file — a missing path is an error, not an empty database; `scratch` is a
+ * dry run that appends inside a rolled-back transaction, so it may write
+ * but creates and migrates nothing; `write` creates a missing SQLite store,
+ * migrates an older one, and refuses text files with the materialization
+ * hint.
  */
 const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenIntent): Store =>
   openAt(values.db ?? defaultDbPath(), {
@@ -1135,7 +1138,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
   if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
     return fail(`cave derive: --max-passes expects a positive integer, got ${JSON.stringify(values['max-passes'])}\n`)
   }
-  const store = openDb(values, values['dry-run'] === true || values.list === true ? 'read' : 'write')
+  const store = openDb(values, values['dry-run'] === true ? 'scratch' : values.list === true ? 'read' : 'write')
   try {
     if (values.list === true) {
       const rules = listRules(store)
@@ -1289,7 +1292,7 @@ export const actCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: true
   })
-  const store = openDb(values, values.list === true || values['dry-run'] === true ? 'read' : 'write')
+  const store = openDb(values, values['dry-run'] === true ? 'scratch' : values.list === true ? 'read' : 'write')
   try {
     if (values.declare === true) {
       const declaration = declareActions(store, readInput(positionals))
@@ -1599,7 +1602,7 @@ export const syncCommand = (argv: readonly string[]): Output => {
     return fail('cave sync: exactly one source is required — a CAVE store file, ;@-annotated text, or - for stdin (spec §28.5)\n')
   }
   const dbPath = values.db ?? defaultDbPath()
-  const store = openDb(values, values['dry-run'] === true ? 'read' : 'write')
+  const store = openDb(values, values['dry-run'] === true ? 'scratch' : 'write')
   try {
     const options = {
       into: values.into === undefined ? labelOf(dbPath) : sanitizeLabel(values.into),

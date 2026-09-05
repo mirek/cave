@@ -158,23 +158,38 @@ export const defaultDbPath = (): string =>
   process.env['CAVE_DB'] ?? 'cave.db'
 
 /**
+ * How an open may touch the database file (spec §13.7): `migrate` (the
+ * default) creates a missing store and upgrades an older schema;
+ * `no-migrate` opens a writable connection but only validates the schema,
+ * for dry runs that append inside a rolled-back transaction; `read-only`
+ * opens a read-only connection and only validates, so a read never changes
+ * the file and works on a write-protected one.
+ */
+export type Access = 'read-only' | 'no-migrate' | 'migrate'
+
+/**
  * Opens (creating if necessary) a CAVE store. The registry defaults to the
  * standard §5.5 prelude pairs and is extended by any declaration claims
  * already stored; pass `Canonical.Registry.empty` for a declaration-free
- * start.
+ * start. `access` decides whether the open may create or migrate.
  */
 export const open = (
   adapter: Adapter,
   path: string = ':memory:',
-  options: { registry?: Canonical.Registry.t } = {}
+  options: { registry?: Canonical.Registry.t, access?: Access } = {}
 ) => {
-  const db = adapter.open(path)
+  const access = options.access ?? 'migrate'
+  const db = adapter.open(path, access === 'read-only' ? { readOnly: true } : {})
   // Concurrent writers wait for the database allocation lock instead of
   // failing immediately with SQLITE_BUSY.
   db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
   try {
-    Schema.init(db, adapter.capabilities)
+    if (access === 'migrate') {
+      Schema.init(db, adapter.capabilities)
+    } else {
+      Schema.check(db)
+    }
   } catch (error) {
     db.close()
     throw error

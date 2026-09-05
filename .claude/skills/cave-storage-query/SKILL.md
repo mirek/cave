@@ -715,9 +715,14 @@ so a surface that appends MUST refuse a text file and name the
 materialization path (`cave import --db <store.db> <file>`). A surface that
 only reads MUST NOT create or migrate a database: a missing path is an error
 naming the command that initializes one, never a fresh empty store that
-hides a typo. Only appending surfaces initialize a missing SQLite store.
-Mixed commands decide by what the invocation does (`--dry-run`, `--list`,
-`suggest-alias` without `--write`, and `sync --dry-run` read). Two
+hides a typo, and an older schema is reported with the command that
+migrates it, never migrated in place; a read opens SQLite read-only, so a
+write-protected store serves. Only appending surfaces initialize a missing
+SQLite store or migrate an older one. Mixed commands decide by what the
+invocation does: `--list` and `suggest-alias` without `--write` read, while
+a dry run (`derive`, `act`, `sync --dry-run`, `connect --query`) appends
+inside a rolled-back transaction and therefore opens writable but still
+creates and migrates nothing. Two
 long-lived surfaces are deliberate exceptions: `cave mcp` initializes its
 store on first start even under `--read-only`, because the file is an
 agent's memory and may not exist yet, and serves a text file only under

@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { isStoreFile, kindOf, open, openAt, openText } from '@cavelang/store'
+import { DatabaseSync } from 'node:sqlite'
+import { LocateError, Schema, isStoreFile, kindOf, open, openAt, openText } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-locate-'))
@@ -84,5 +85,60 @@ test('a read open never creates a database; a write open still does', () => {
 
     const reopened = openAt(missing, { intent: 'read' })
     reopened.close()
+  })
+})
+
+const versionOf = (path: string): number => {
+  const db = new DatabaseSync(path, { readOnly: true })
+  try {
+    return Schema.versionOf(db)
+  } finally {
+    db.close()
+  }
+}
+
+test('read and scratch opens never migrate an older store; a write open does', () => {
+  withDir(dir => {
+    const path = join(dir, 'legacy.db')
+    const store = open(path)
+    store.ingest('a IS b')
+    store.db.exec('PRAGMA user_version = 0')
+    store.close()
+    const before = readFileSync(path)
+    for (const intent of ['read', 'scratch'] as const) {
+      assert.throws(() => openAt(path, { intent }), error => {
+        assert.ok(error instanceof LocateError, `${intent}: a usage failure, not a crash`)
+        assert.match(error.message, /legacy\.db: schema version 0 needs migration to 1 — back up the store, then open it with a writing command such as cave add/)
+        return true
+      })
+      assert.equal(versionOf(path), 0, `${intent} left the version alone`)
+    }
+    assert.deepEqual(readFileSync(path), before, 'not a byte changed')
+    const migrated = openAt(path, { intent: 'write' })
+    migrated.close()
+    assert.equal(versionOf(path), Schema.currentVersion, 'a writing open migrates')
+  })
+})
+
+test('a read open is read-only and serves a write-protected store', () => {
+  withDir(dir => {
+    const path = join(dir, 'k.db')
+    const writer = open(path)
+    writer.ingest('a IS b')
+    writer.close()
+    chmodSync(path, 0o444)
+    try {
+      const reader = openAt(path, { intent: 'read' })
+      try {
+        assert.equal(reader.currentBeliefs().length, 1)
+        assert.throws(() => reader.ingest('c IS d'), /readonly|read-only/i, 'the connection itself refuses writes')
+      } finally {
+        reader.close()
+      }
+      const scratch = openAt(path, { intent: 'scratch' })
+      scratch.close()
+    } finally {
+      chmodSync(path, 0o644)
+    }
   })
 })

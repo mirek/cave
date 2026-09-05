@@ -8572,7 +8572,7 @@ export declare class LocateError extends Error {
 Kind: type.
 
 ```ts
-export type LocateOptions = OpenOptions & {
+export type LocateOptions = Omit<OpenOptions, 'access'> & {
     readonly intent?: Intent;
 };
 ```
@@ -8583,6 +8583,14 @@ Kind: value.
 
 ```ts
 export declare const open: (path?: string, options?: OpenOptions) => Store;
+```
+
+### `OpenAccess`
+
+Kind: type.
+
+```ts
+export type Access = 'read-only' | 'no-migrate' | 'migrate';
 ```
 
 ### `openAt`
@@ -8598,7 +8606,7 @@ export declare const openAt: (path: string, options?: LocateOptions) => Store;
 Kind: type.
 
 ```ts
-export type Intent = 'read' | 'write';
+export type Intent = 'read' | 'scratch' | 'write';
 ```
 
 ### `openText`
@@ -9097,6 +9105,14 @@ export declare const toColumns: (claim: Claim.t) => {
 
 Kind: value, namespace.
 
+#### `check`
+
+Kind: value.
+
+```ts
+export declare const check: (db: Database) => void;
+```
+
 #### `currentVersion`
 
 Kind: value.
@@ -9127,6 +9143,14 @@ Kind: value.
 
 ```ts
 export declare const validate: (db: Database, version: number, schema?: string) => void;
+```
+
+#### `versionOf`
+
+Kind: value.
+
+```ts
+export declare const versionOf: (db: Database) => number;
 ```
 
 ### `Sensitivity`
@@ -9856,8 +9880,8 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/adapter-entry.d.ts` — `0c74dcd8323b25aa37bd4888214c69b48f0ef3010ccbede828706a6cc46d428a`
 - `@cavelang/store/dist/src/adapter.d.ts` — `ac1a4c44abcb0ce5bc81f4880052927e7542e95c4b13fa53e762a7be42b557c3`
 - `@cavelang/store/dist/src/backup.d.ts` — `bf3b6c51f627b3e32d99ce867a8917b005d73f66e371376c5a72fc7612935455`
-- `@cavelang/store/dist/src/index.d.ts` — `2def01641a819b041399ad088bb072b4b056f09e0c8727e04cba63d28d488fc0`
-- `@cavelang/store/dist/src/locate.d.ts` — `10bd1da37d2fac79c1a2baf8ac6dacf14406393e9d833859d8c5e173e95617fa`
+- `@cavelang/store/dist/src/index.d.ts` — `87636442d951b0d6a761573928755530c700a4531984b9c1267eb0e9907be1a8`
+- `@cavelang/store/dist/src/locate.d.ts` — `6b66e7a02d7fa3403cc07acf352a827ca64a02c8b3209dbce5430ff22e0344a9`
 - `@cavelang/store/dist/src/node-adapter-entry.d.ts` — `caa3e62eae43a241439666faadb32bfe6e37b63e383008dfc10f49c7fc9fda07`
 - `@cavelang/store/dist/src/node-adapter.d.ts` — `a1da5678ae06fdda86856834f7f2a75fc329c4202801ece383890f6d3d7429e8`
 - `@cavelang/store/dist/src/open.d.ts` — `842d7f35311ce7b46bb7337a74247ba268ff9e5241e0dbb57bd9c11cc9afa08f`
@@ -9866,7 +9890,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/record.d.ts` — `d1573ad1d88be6c49e069ca904e86da092306fcdb177d5d32aed34b8ef96a2bb`
 - `@cavelang/store/dist/src/resolve.d.ts` — `d13b19bdd7d46eb57ad75a4ae43cc9f53a6b115d4861f17a9cebb55b1479b458`
 - `@cavelang/store/dist/src/row.d.ts` — `3bead05cb6fa8e4558badc91efd60362c028a5c53ee0e5cd6ce97a20628c10fb`
-- `@cavelang/store/dist/src/runtime.d.ts` — `d18b3960c8175effc3694afc4bd66225d9d24b8ca9fb3e3235b954987083762b`
-- `@cavelang/store/dist/src/schema.d.ts` — `cad4fdbb8d3842bf9e866bea8c1891d5036014cf4fb0cfa1d645afa90c9f046f`
+- `@cavelang/store/dist/src/runtime.d.ts` — `2fda7e7dadd437a4b3cf85797ba962d7468a0f6cff67d88c27d3623c632bb02d`
+- `@cavelang/store/dist/src/schema.d.ts` — `daeecab6c304b4f2bdf5d33509e2de6dfe44b1dcfeac69970565d1dd6755ab37`
 - `@cavelang/store/dist/src/sensitivity.d.ts` — `4a8e9a09f9bdcff92bdebfa2839760a0880cec2f9685f7061251e1af4cdec3f4`
-- `@cavelang/store/dist/src/store.d.ts` — `103ab16da1aa501377801ed9b7ee60818576b478661b1fb03ad002049d3e863c`
+- `@cavelang/store/dist/src/store.d.ts` — `b30431dbed2de58fe85360d2c99253d321f04f63e7a5aab2f21cb0b78ec097a6`

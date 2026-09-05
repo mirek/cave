@@ -219,7 +219,7 @@ const runQuery = async (
   const db = values.db ?? defaultDbPath()
   const registry = values['no-prelude'] === true ? { registry: Registry.empty } : {}
   // Federation over a store that does not exist yet queries the source alone.
-  const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'read', ...registry })
+  const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'scratch', ...registry })
   try {
     const { matches, report } = federatedQuery(
       store, mapping, loaded.records,

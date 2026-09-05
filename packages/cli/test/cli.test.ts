@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open, Schema } from '@cavelang/store'
@@ -1552,5 +1553,34 @@ test('read commands never create a database at a missing path', () => {
     const created = cave(['add', '--db', missing, '--no-src', seed])
     assert.equal(created.code, 0, created.err)
     assert.equal(existsSync(missing), true, 'add still initializes a missing store')
+  })
+})
+
+test('read commands never migrate an older store; a writing command does (spec §13.7)', () => {
+  withDir(dir => {
+    const db = join(dir, 'legacy.db')
+    const legacy = open(db)
+    legacy.ingest('a IS b')
+    legacy.db.exec('PRAGMA user_version = 0')
+    legacy.close()
+    const versionOf = (): number => {
+      const raw = new DatabaseSync(db, { readOnly: true })
+      try {
+        return Schema.versionOf(raw)
+      } finally {
+        raw.close()
+      }
+    }
+    const read = cave(['query', '--db', db, '?x IS ?y'])
+    assert.equal(read.code, 1)
+    assert.match(read.err, /^cave query: .*legacy\.db: schema version 0 needs migration to 1 — back up the store, then open it with a writing command such as cave add/)
+    assert.equal(versionOf(), 0, 'the read left the schema version alone')
+    const dry = cave(['derive', '--db', db, '--dry-run'])
+    assert.equal(dry.code, 1)
+    assert.equal(versionOf(), 0, 'a dry run left the schema version alone')
+    const seed = join(dir, 'seed.cave')
+    writeFileSync(seed, 'c IS d\n')
+    assert.equal(cave(['add', '--db', db, seed]).code, 0)
+    assert.equal(versionOf(), Schema.currentVersion, 'a writing command migrates')
   })
 })
