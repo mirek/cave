@@ -532,33 +532,37 @@ const hasAnyDigest = (store: Store, name: string): boolean => {
  * source that was followed without a recorded declaration (digests, no
  * marker) is treated as changed, conservatively.
  */
-export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report => {
-  const previous = recordedDeclaration(store, ready.declared.name)
-  const transition = previous === undefined ?
-    hasAnyDigest(store, ready.declared.name) :
-    previous !== declarationDigest(ready.declared)
-  // A .cave source that became a record source: its prelude unit is no
-  // longer a lifecycle unit the pass would diff, so it is retired whole —
-  // and the pass below runs forced, since the old prelude digest would
-  // otherwise pass a same-text prelude off as unchanged.
-  const retired = transition && !ready.cave ? retireRun(store, declaredNaming(ready.declared.name).run()) : 0
-  const passed = connect(store, ready.mapping, ready.records, {
-    name: ready.declared.name,
-    naming: declaredNaming(ready.declared.name),
-    // A .cave source is data that changes: claims it no longer yields retract.
-    preludeLifecycle: ready.cave,
-    ...ready.source === undefined ? {} : { source: ready.source },
-    ...ready.spans === undefined ? {} : { spans: ready.spans },
-    ...ready.declared.key === undefined ? {} : { key: ready.declared.key },
-    force: options.force === true || transition,
-    prune: options.prune === true || transition
+export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report =>
+  // One transaction: a transition that retires the former unit and then
+  // fails to ingest its replacement (a prelude the registry refuses, say)
+  // rolls the retirement back, keeping the last good data.
+  store.transaction(() => {
+    const previous = recordedDeclaration(store, ready.declared.name)
+    const transition = previous === undefined ?
+      hasAnyDigest(store, ready.declared.name) :
+      previous !== declarationDigest(ready.declared)
+    // A .cave source that became a record source: its prelude unit is no
+    // longer a lifecycle unit the pass would diff, so it is retired whole —
+    // and the pass below runs forced, since the old prelude digest would
+    // otherwise pass a same-text prelude off as unchanged.
+    const retired = transition && !ready.cave ? retireRun(store, declaredNaming(ready.declared.name).run()) : 0
+    const passed = connect(store, ready.mapping, ready.records, {
+      name: ready.declared.name,
+      naming: declaredNaming(ready.declared.name),
+      // A .cave source is data that changes: claims it no longer yields retract.
+      preludeLifecycle: ready.cave,
+      ...ready.source === undefined ? {} : { source: ready.source },
+      ...ready.spans === undefined ? {} : { spans: ready.spans },
+      ...ready.declared.key === undefined ? {} : { key: ready.declared.key },
+      force: options.force === true || transition,
+      prune: options.prune === true || transition
+    })
+    const report = retired === 0 ? passed : { ...passed, retracted: passed.retracted + retired }
+    if (!followed(store, ready.declared)) {
+      store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)
+    }
+    return report
   })
-  const report = retired === 0 ? passed : { ...passed, retracted: passed.retracted + retired }
-  if (!followed(store, ready.declared)) {
-    store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)
-  }
-  return report
-}
 
 export type Assembled = {
   readonly declared: Declared

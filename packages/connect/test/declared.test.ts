@@ -718,3 +718,25 @@ test('the overlay baseline includes ownership, so an ownership-only change is a 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a transition whose replacement fails to ingest keeps the last good data', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS old\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    // The new mapping's prelude contradicts the standard registry: CONTAINS already has an inverse.
+    writeFileSync(join(dir, 'bad.map.cave'), 'CONTAINS REVERSE ELSEWHERE\n\n?name IS person\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/b HAS path: facts.cave')
+      assemble(store, db)
+      assert.ok(store.currentBeliefs().some(row => row.conf > 0 && row.subject === 'fact'))
+      assert.throws(() => Declared.run(store, Declared.prepareSync({ name: 'b', path: 'people.csv', map: 'bad.map.cave', key: 'id' }, dir)), /prelude failed to ingest/)
+      const current = store.currentBeliefs().filter(row => row.conf > 0 && ['fact', 'ann'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`)
+      assert.deepEqual(current, ['fact IS old'], 'the former prelude is not retired when its replacement fails')
+      assert.equal(Declared.recordedDeclaration(store, 'b'), Declared.declarationDigest({ name: 'b', path: 'facts.cave' }), 'the recorded declaration is still the old one')
+    } finally {
+      store.close()
+    }
+  })
+})
