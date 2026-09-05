@@ -508,14 +508,12 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
   const transition = previous === undefined ?
     hasAnyDigest(store, ready.declared.name) :
     previous !== declarationDigest(ready.declared)
-  if (transition && !ready.cave) {
-    // A .cave source that became a record source: its prelude unit is no
-    // longer a lifecycle unit the pass would diff, so it is retired whole —
-    // and the pass below runs forced, since the old prelude digest would
-    // otherwise pass a same-text prelude off as unchanged.
-    retireRun(store, declaredNaming(ready.declared.name).run())
-  }
-  const report = connect(store, ready.mapping, ready.records, {
+  // A .cave source that became a record source: its prelude unit is no
+  // longer a lifecycle unit the pass would diff, so it is retired whole —
+  // and the pass below runs forced, since the old prelude digest would
+  // otherwise pass a same-text prelude off as unchanged.
+  const retired = transition && !ready.cave ? retireRun(store, declaredNaming(ready.declared.name).run()) : 0
+  const passed = connect(store, ready.mapping, ready.records, {
     name: ready.declared.name,
     naming: declaredNaming(ready.declared.name),
     // A .cave source is data that changes: claims it no longer yields retract.
@@ -526,6 +524,7 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
     force: options.force === true || transition,
     prune: options.prune === true || transition
   })
+  const report = retired === 0 ? passed : { ...passed, retracted: passed.retracted + retired }
   if (!followed(store, ready.declared)) {
     store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)
   }

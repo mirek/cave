@@ -632,10 +632,13 @@ test('a .cave source re-declared as a record source retires its former prelude',
     writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: people.csv\nsource/b HAS map: people.map.cave\nsource/b HAS key: id\n')
     const root = join(dir, 'notes.cave')
     writeFileSync(root, 'source/b HAS path: facts.cave\nsource/z HAS path: z.cave\n')
-    const store = openAt(root, { intent: 'read', assemble })
+    const store = open()
     try {
+      store.ingest('source/b HAS path: facts.cave\nsource/z HAS path: z.cave')
+      const assembled = assemble(store, root)
       const current = store.currentBeliefs().filter(row => row.conf > 0 && ['fact', 'ann'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`)
       assert.deepEqual(current, ['ann IS person'], "b's former prelude claim is retired along with the .cave declaration")
+      assert.equal(assembled.filter(entry => entry.declared.name === 'b').at(-1)?.report.retracted, 1, 'and the report counts the retirement')
     } finally {
       store.close()
     }
