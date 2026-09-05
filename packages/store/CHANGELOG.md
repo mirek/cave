@@ -1,5 +1,13 @@
 # @cavelang/store
 
+## 0.35.0
+
+### Patch Changes
+
+- Updated dependencies [d64cad8]
+  - @cavelang/core@0.35.0
+  - @cavelang/canonical@0.35.0
+
 ## 0.34.0
 
 ### Minor Changes

@@ -1,5 +1,23 @@
 # @cavelang/cli
 
+## 0.35.0
+
+### Minor Changes
+
+- d64cad8: Declared sources (spec §23.4): `source/<name> HAS path: …` claims persist a `cave connect` invocation in-band, with `map`, `key`, `format`, `delimiter`, `table`, `sql`, and `records` attributes mirroring the options; a `.cave` path needs no map and is a lifecycle unit. `cave connect` with no source runs every declared source (`--list`, `--name`, `--force`, `--prune`, `--dry-run`, `--watch`, `--query`), `cave query --sources` overlays them in a rolled-back transaction, and a CAVE text file used as `--db` follows its declared sources on every open, in every surface. Declared sources stamp `@src:<name>/<key>` and keep digests under `source/<name>/<key>`, so the §26.3 policy on the same entity applies to what they yield. `@cavelang/connect` exports `Declared`, `assemble`, `declaredNaming`, `adHocNaming`, and `Source.loadSync`; `@cavelang/store`'s `openAt` and `openText` take an `assemble` hook.
+
+### Patch Changes
+
+- 0c9e0b7: Declared sources (spec §23.4): declarations are re-read after every followed source and a re-declared source runs again, so a `.cave` source that supersedes a path or mapping wins in passes, assembly, overlays, and dry runs alike; source names are one path segment, so they cannot collide with record keys; and a text store's `--sources` overlay recognizes record-only sources as already followed.
+- Updated dependencies [d64cad8]
+  - @cavelang/core@0.35.0
+  - @cavelang/canonical@0.35.0
+  - @cavelang/fusion@0.35.0
+  - @cavelang/parser@0.35.0
+  - @cavelang/query@0.35.0
+  - @cavelang/store@0.35.0
+  - @cavelang/highlight@0.35.0
+
 ## 0.34.0
 
 ### Patch Changes
