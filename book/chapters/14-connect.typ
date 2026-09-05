@@ -153,9 +153,48 @@ The same command reads a SQLite table (`--table` or `--sql`), a JSON
 document (`--records data.items` to point at the array), or a URL that
 serves JSON or CSV. Dotted variables like `?address.city` walk nested JSON.
 
+== Declaring a source
+
+Typing the same `cave connect` line every morning is the kind of thing a
+store should remember. It can, and with no new syntax: a source is a few
+attribute claims on a `source/<name>` entity, the same entity Chapter 11
+uses for a source's reliability.
+
+#file("sources.cave")
+```cave
+source/stock HAS path: stock.csv
+source/stock HAS map: stock.map.cave
+source/stock HAS key: lot
+source/stock HAS reliability: 90%
+```
+
+`path` declares the source; `map`, `key`, `format`, `delimiter`, `table`,
+`sql`, and `records` mirror the options. A `.cave` path needs no map: the
+file is its own template. Paths are relative to the store's directory, so a
+store and its sources travel together. Because a CAVE text file is itself
+a store (Chapter 9), this file already answers questions: opening it
+follows the sources it declares.
+
+```sh
+$ cave query --db sources.cave 'lot/huila-26 HAS stock: ?kg'
+?kg = 6 kg
+
+$ cave connect --db sources.cave --list
+stock: stock.csv --map stock.map.cave --key lot
+```
+
+Add the same lines to a SQLite store and `cave connect` with no source
+runs every declared source, `--watch` tails all their files, and
+`cave query --sources` overlays them without writing. A declared source
+stamps `@src:stock/<key>` rather than `@src:connect/stock/<key>`, so the
+stamp names the same entity the reliability sits on and the policy applies
+to what the source yields.
+
 #recap[`cave connect <source> --map <template>` instantiates a CAVE
 document per record; blocks without variables are prelude. Records are
 identified by `--key`, digested, stamped `@src:connect/<name>/<key>` and
 with their source line, and re-runs re-map only what changed; vanished
 claims are retracted, `--prune` handles vanished records. `--watch` tails a
-file; `--query` answers over store plus source without writing.]
+file; `--query` answers over store plus source without writing. A
+`source/<name> HAS path:` claim declares a source in-band: `cave connect`
+with no argument runs them, and a text store follows them on open.]

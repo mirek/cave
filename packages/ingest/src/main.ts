@@ -7,6 +7,7 @@
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { LocateError, defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
+import { assemble } from '@cavelang/connect'
 import type { Store } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
@@ -111,7 +112,7 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
   try {
     store = !planning ? openAt(db, { intent: 'write', ...registry }) :
       kindOf(db) === 'missing' ? open(':memory:', registry) :
-        openAt(db, { intent: 'read', ...registry })
+        openAt(db, { intent: 'read', assemble, ...registry })
   } catch (error) {
     if (!(error instanceof LocateError)) throw error
     stderr.write(`cave ingest: ${error.message}\n`)

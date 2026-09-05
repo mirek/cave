@@ -259,3 +259,50 @@ test('watch startup, debounce, retry, pruning and explicit-source lifecycle are 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('cave connect without a source runs, lists, previews, and overlays the declared sources (spec §23.4)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n?name WORKS-AT ?company\n')
+    writeFileSync(join(dir, 'verbs.cave'), 'WORKS-AT IS verb\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    store.ingest('source/verbs HAS path: verbs.cave')
+    store.close()
+
+    const listed = await captured(['--db', db, '--list'])
+    assert.equal(listed.code, 0, listed.err)
+    assert.equal(listed.out, 'verbs: verbs.cave\n', 'before any pass only the root declaration exists')
+
+    const rejected = await captured(['--db', db, '--map', 'people.map.cave'])
+    assert.equal(rejected.code, 1)
+    assert.match(rejected.err, /--map describe a source argument/)
+
+    const overlay = await captured(['--db', db, '--query', '?who WORKS-AT ?co'])
+    assert.equal(overlay.code, 0, overlay.err)
+    assert.equal(overlay.out, '?who = ann  ?co = acme\n', 'the overlay follows the nested declaration too')
+    const untouched = open(db)
+    assert.equal(untouched.currentBeliefs().length, 1, 'nothing persisted from the overlay')
+    untouched.close()
+
+    const pass = await captured(['--db', db])
+    assert.equal(pass.code, 0, pass.err)
+    assert.match(pass.out, /^source\/verbs: 0 record\(s\).*\+4 claim\(s\)\nsource\/people: 1 record\(s\): 1 mapped.*\+2 claim\(s\)\n$/)
+    const listedAfter = await captured(['--db', db, '--list'])
+    assert.equal(listedAfter.out, 'people: people.csv --map people.map.cave --key id\nverbs: verbs.cave\n')
+
+    const only = await captured(['--db', db, '--name', 'people'])
+    assert.equal(only.code, 0, only.err)
+    assert.match(only.out, /^source\/people: 1 record\(s\): 0 mapped, 1 skipped/)
+    const unknown = await captured(['--db', db, '--name', 'nope'])
+    assert.equal(unknown.code, 1)
+    assert.match(unknown.err, /no declared source\/nope — declared: people, verbs/)
+
+    const dry = await captured(['--db', db, '--dry-run', '--name', 'people'])
+    assert.equal(dry.code, 0, dry.err)
+    assert.match(dry.out, /^; === source\/people \(people\.csv\)\n\n; --- record 1\n\nann IS person\nann WORKS-AT acme\n$/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

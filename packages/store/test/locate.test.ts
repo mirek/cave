@@ -173,3 +173,28 @@ test('a read open serves a WAL-mode store without changing the database', () => 
     }
   })
 })
+
+test('a text store hands itself to the assembler with its own path', () => {
+  withDir(dir => {
+    const file = join(dir, 'notes.cave')
+    writeFileSync(file, 'a IS b\n')
+    const roots: string[] = []
+    const store = openAt(file, {
+      intent: 'read',
+      assemble: (assembled, root) => {
+        roots.push(root)
+        assembled.ingest('c IS d')
+      }
+    })
+    try {
+      assert.deepEqual(roots, [file])
+      assert.equal(store.currentBeliefs().length, 2, 'what the assembler appends is part of the store')
+    } finally {
+      store.close()
+    }
+    assert.throws(() => openAt(file, {
+      intent: 'read',
+      assemble: () => { throw new LocateError('source/x (x.csv): missing') }
+    }), /source\/x \(x\.csv\): missing/)
+  })
+})

@@ -6,7 +6,8 @@ import { dirname, join, parse } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { directCommand, runProcessSync } from '@cavelang/loop'
-import { Schema, defaultDbPath } from '@cavelang/store'
+import { LocateError, Schema, defaultDbPath, kindOf, openText } from '@cavelang/store'
+import { assemble } from '@cavelang/connect'
 import { nodeSqliteAdapter } from '@cavelang/store/adapter/node'
 import type { SqliteDatabase } from '@cavelang/store/adapter'
 
@@ -32,7 +33,7 @@ export type DoctorReport = {
   readonly configuration: {
     readonly database: {
       readonly source: 'flag' | 'environment' | 'default'
-      readonly kind: 'memory' | 'file'
+      readonly kind: 'memory' | 'file' | 'text'
       readonly exists: boolean
       readonly schemaVersion?: number
       readonly claims?: number
@@ -214,6 +215,31 @@ const inspectDatabase = (path: string, source: DatabaseConfiguration['source']):
       configuration: base,
       checks: [check('store.database', 'warn', 'The configured database does not exist yet',
         'Run cave add to create it, or pass --db for an existing store.')]
+    }
+  }
+  if (!memory && kindOf(path) === 'text') {
+    // A CAVE text file is a read-only store assembled in memory (spec
+    // §13.7, §23.4): replay it, sources included, and count what it holds.
+    const configuration: DatabaseConfiguration = { ...base, kind: 'text' }
+    try {
+      const store = openText(path, { assemble })
+      try {
+        const claims = store.currentBeliefs().filter(row => row.conf > 0).length
+        return {
+          configuration: { ...configuration, claims },
+          checks: [check('store.database', 'pass',
+            `CAVE text store assembled in memory (${claims} current claim(s)); text stores are read-only`)]
+        }
+      } finally {
+        store.close()
+      }
+    } catch (error) {
+      return {
+        configuration,
+        checks: [check('store.database', 'fail',
+          `The CAVE text store does not load: ${error instanceof LocateError ? error.message.split('\n')[0] : error instanceof Error ? error.message : String(error)}`,
+          'Fix the file (cave parse) or the source it declares; a text store is read-only.')]
+      }
     }
   }
 

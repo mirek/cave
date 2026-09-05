@@ -43,6 +43,7 @@ import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
 import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
 import type { OpenIntent, Store } from '@cavelang/store'
+import { assemble as assembleSources } from '@cavelang/connect'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -252,7 +253,7 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--sources] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -278,6 +279,10 @@ Options:
                  collapse to the row the resolution policy picks
                  (precedence class, reliability-weighted confidence, tx);
                  incompatible with --all
+  --sources      overlay the store's declared sources (spec §23.4) inside a
+                 rolled-back transaction — federation-lite: external data is
+                 consulted at query time, nothing persists; a text store
+                 already follows its sources on open
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -297,6 +302,7 @@ Examples:
   cave query --db k.db 'revenue IS' --at 2026-07
   cave query --db k.db 'alice WORKS-AT ?org' --at 2021
   cave query --db k.db 'service HAS owner: ?who' --resolve
+  cave query --db k.db '?who WORKS-AT acme' --sources
   cave query --db k.db '?x ?verb ?y @production' --json`,
 
   search: `cave search — full-text search over claims and comments (spec §13.2)
@@ -797,8 +803,33 @@ const readStdin = (): string => {
 const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenIntent): Store =>
   openAt(values.db ?? defaultDbPath(), {
     intent,
+    // A text store follows its declared sources on open (spec §23.4).
+    assemble: assembleSources,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
+
+const sourcesRollback = Symbol('cave query --sources rollback')
+
+/**
+ * Runs `body` with the store's declared sources overlaid (spec §23.4):
+ * assembled inside a transaction that always rolls back, so external data
+ * is consulted at query time and nothing persists, digests included.
+ */
+const withSources = <T>(store: Store, root: string, body: () => T): T => {
+  let result: undefined | { value: T }
+  try {
+    store.transaction(() => {
+      assembleSources(store, root)
+      result = { value: body() }
+      throw sourcesRollback
+    })
+  } catch (error) {
+    if (error !== sourcesRollback) {
+      throw error
+    }
+  }
+  return result!.value
+}
 
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?
@@ -940,6 +971,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       'as-of': { type: 'string' },
       at: { type: 'string' },
       resolve: { type: 'boolean' },
+      sources: { type: 'boolean' },
       limit: { type: 'string' },
       cursor: { type: 'string' },
       'no-prelude': { type: 'boolean' }
@@ -950,10 +982,15 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return fail('cave query: a pattern is required (spec §12.1)\n')
   }
   const pattern = positionals.join('\n')
-  const store = openDb(values, 'read')
+  if (values.sources === true && values.cursor !== undefined) {
+    return fail('cave query: --cursor cannot continue a --sources overlay — it is assembled per invocation and rolled back\n')
+  }
+  // The overlay appends inside a transaction it rolls back: writable, but
+  // never creating or migrating (spec §13.7).
+  const store = openDb(values, values.sources === true ? 'scratch' : 'read')
   try {
     const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
-    const result = caveQueryPage(store, pattern, {
+    const page = (): ReturnType<typeof caveQueryPage> => caveQueryPage(store, pattern, {
       all: values.all === true,
       aliases: values.aliases === true,
       resolve: values.resolve === true,
@@ -962,6 +999,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
       ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
       ...values.at === undefined ? {} : { at: values.at }
     })
+    const result = values.sources === true ? withSources(store, values.db ?? defaultDbPath(), page) : page()
     if (values.json === true) {
       return ok(`${JSON.stringify(result, undefined, 2)}\n`)
     }

@@ -44,7 +44,9 @@ also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
 Server 2022. A CAVE store is one local file; `--db` is optional everywhere
 and defaults to `$CAVE_DB`, or `cave.db` in the current directory. A CAVE
 text file is a store too: `cave query --db notes.cave '?x USES ?y'` replays
-the file into memory and answers from it, with nothing written anywhere.
+the file into memory, follows the sources it declares (`source/people HAS
+path: people.csv`, spec §23.4), and answers from it, with nothing written
+anywhere.
 
 ## Tutorial I — a monorepo, one claim at a time
 

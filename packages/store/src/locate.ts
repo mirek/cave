@@ -10,6 +10,7 @@
  */
 
 import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { nodeSqliteAdapter } from './node-adapter.ts'
 import { openWith } from './runtime.ts'
 import type { OpenOptions, Store } from './runtime.ts'
@@ -56,8 +57,19 @@ export const kindOf = (path: string): Kind => {
  */
 export type Intent = 'read' | 'scratch' | 'write'
 
+/**
+ * Completes a text store after its file is replayed (spec §23.4): the
+ * connector follows the `source/<name>` declarations the file carries,
+ * resolving their paths against the file's directory (`root` is the file's
+ * absolute path). The store package knows nothing about sources; surfaces
+ * pass `@cavelang/connect`'s `assemble`. A thrown `LocateError` fails the
+ * load like unparsable text.
+ */
+export type Assemble = (store: Store, root: string) => void
+
 export type LocateOptions = Omit<OpenOptions, 'access'> & {
   readonly intent?: Intent
+  readonly assemble?: Assemble
 }
 
 const accessOf = (intent: Intent): Access =>
@@ -100,7 +112,7 @@ export const textStoreReadOnlyMessage = (path: string): string =>
  * line that fails to parse fails the load: the file *is* the database,
  * and a store silently missing rows is worse than an error.
  */
-export const openText = (path: string, options: Omit<OpenOptions, 'access'> = {}): Store => {
+export const openText = (path: string, options: Omit<OpenOptions, 'access'> & { readonly assemble?: Assemble } = {}): Store => {
   const text = readFileSync(path, 'utf8')
   // A fresh in-memory store is always created and initialized: an `access`
   // mode is meaningless here and must not reach the open.
@@ -111,6 +123,7 @@ export const openText = (path: string, options: Omit<OpenOptions, 'access'> = {}
       const detail = result.problems.map(problem => `  ${path} line ${problem.line}: ${problem.message}`)
       throw new LocateError(`cannot load ${path} as a store — fix these lines (cave parse ${path}):\n${detail.join('\n')}`)
     }
+    options.assemble?.(store, resolve(path))
   } catch (error) {
     store.close()
     throw error

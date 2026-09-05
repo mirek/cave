@@ -10,6 +10,15 @@
   ],
   "references": [
     {
+      "path": "../canonical"
+    },
+    {
+      "path": "../connect"
+    },
+    {
+      "path": "../core"
+    },
+    {
       "path": "../loop"
     },
     {
@@ -23,12 +32,6 @@
     },
     {
       "path": "../sync"
-    },
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../canonical"
     }
   ]
 }

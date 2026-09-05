@@ -3,7 +3,7 @@
   "version": "0.33.0",
   "private": true,
   "type": "module",
-  "description": "LLM-driven knowledge ingestion — batch files and web pages (fetch + Readability) through any headless agent (claude, copilot, custom SDK scripts) into a CAVE database.",
+  "description": "LLM-driven knowledge ingestion \u2014 batch files and web pages (fetch + Readability) through any headless agent (claude, copilot, custom SDK scripts) into a CAVE database.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@cavelang/canonical": "workspace:*",
+    "@cavelang/connect": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/loop": "workspace:*",
     "@cavelang/mcp": "workspace:*",

@@ -7,9 +7,11 @@ import { readFileSync, watch as watchFs } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
+import { LocateError, defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { Record as QueryRecord } from '@cavelang/query'
+import { Record as QueryRecord, query as caveQuery } from '@cavelang/query'
+import type { Match } from '@cavelang/query'
+import * as Declared from './declared.ts'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
 import { connect, federatedQuery } from './run.ts'
@@ -19,6 +21,9 @@ const usage = `cave connect — deterministic structured ingestion through a map
 
 Usage:
   cave connect [--db <path>] <source> --map <file> [options]
+  cave connect [--db <path>] [--name <n>] [--force] [--prune] [--dry-run] [--watch]
+  cave connect [--db <path>] --list
+  cave connect [--db <path>] --query '<pattern>'
 
 The source is a .csv/.tsv/.json/.jsonl/.ndjson file, a SQLite database
 (with --table or --sql), or an http(s) URL serving JSON or CSV. The
@@ -27,6 +32,15 @@ record fields; variable-free blocks append once per run, variable blocks
 instantiate once per record — no LLM in the loop, same input, same claims.
 Mapped claims retain the physical source; CSV/TSV and JSONL records also carry
 their exact one-based inclusive line span (spec §9.8).
+
+Without a source, the store's declared sources run (spec §23.4): every
+source/<name> entity whose current claims name a path, with the other
+options as attributes — HAS map:, key:, format:, delimiter:, table:, sql:,
+records:. A .cave path needs no map (the file is its own template). Paths
+resolve against the store's directory. Declared sources stamp
+@src:<name>/<key> and keep digests under source/<name>/<key>, so the
+source/<name> entity also carries the §26.3 policy for what it yields. A
+CAVE text file used as --db follows its declared sources on every open.
 
 Options:
   --db <path>          knowledge database (default: $CAVE_DB, or cave.db)
@@ -46,13 +60,20 @@ Options:
   --watch              keep running; re-map when the source or mapping changes
   --query <pattern>    federation-lite (spec §23.3): map, query the union,
                        roll back — nothing persists; uses an in-memory store
-                       when the database file does not exist
+                       when the database file does not exist; without a
+                       source, overlays every declared source
+  --list               print the declared sources as cave connect invocations
+  --name <name>        without a source: run only this declared source
   --json               with --query: emit matches as JSON
   --all                with --query: match all beliefs, not just current ones
   --aliases            with --query: resolve entities through ALIAS claims
   --no-prelude         open the store without the standard §5.5 registry
 
 Examples:
+  cave connect --db k.db --list
+  cave connect --db k.db
+  cave connect --db k.db --watch
+  cave query --db notes.cave '?who WORKS-AT acme'     # a text store follows its sources
   cave connect people.csv --map people.map.cave --db k.db --key id
   cave connect crm.sqlite --table contacts --map contacts.map.cave --key email
   cave connect https://api.example.com/deps.json --records data.items --map deps.map.cave
@@ -78,6 +99,7 @@ type Values = {
   all?: boolean
   aliases?: boolean
   'no-prelude'?: boolean
+  list?: boolean
   help?: boolean
 }
 
@@ -335,6 +357,240 @@ const runWatch = async (
   }
 }
 
+const printMatches = (store: Store, matches: readonly Match[], pattern: string, values: Values, io: IO): void => {
+  if (values.json === true) {
+    io.stdout.write(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
+    return
+  }
+  if (matches.length === 0) {
+    io.stdout.write('no matches\n')
+    return
+  }
+  const lines = matches.map(match => {
+    const bindings = Object.entries(match.bindings)
+      .map(([variable, value]) => `?${variable} = ${value}`)
+      .join('  ')
+    return bindings !== '' ? bindings : match.row?.raw_line ?? pattern
+  })
+  io.stdout.write(`${lines.join('\n')}\n`)
+}
+
+const registryOf = (values: Values): { registry?: Registry.t } =>
+  values['no-prelude'] === true ? { registry: Registry.empty } : {}
+
+/** The declared sources of the store, or the one `--name` selects. */
+const selectDeclared = (store: Store, values: Values): Declared.t[] => {
+  const declared = Declared.declaredSources(store)
+  if (values.name === undefined) {
+    return declared
+  }
+  const selected = declared.filter(source => source.name === values.name)
+  if (selected.length === 0) {
+    throw new Error(`no declared source/${values.name}` +
+      (declared.length === 0 ? ' — the store declares no sources' : ` — declared: ${declared.map(source => source.name).join(', ')}`))
+  }
+  return selected
+}
+
+const declaredPass = async (
+  store: Store,
+  root: string,
+  values: Values,
+  io: IO,
+  context: RunContext
+): Promise<number> => {
+  const dir = Declared.directoryOf(root)
+  let failed = 0
+  const done = new Set<string>()
+  // A followed .cave source may declare sources of its own: keep going
+  // until no undeclared-so-far source is left, as `assemble` does.
+  for (;;) {
+    const pending = selectDeclared(store, values).filter(declared => !done.has(declared.name))
+    if (pending.length === 0) {
+      return failed > 0 ? 1 : 0
+    }
+    for (const declared of pending) {
+      done.add(declared.name)
+      try {
+        const ready = await Declared.prepare(declared, dir, context.fetchImpl)
+        const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
+        io.stdout.write(`source/${declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+        if (report.failures.length > 0) failed += 1
+      } catch (error) {
+        io.stderr.write(`source/${declared.name} (${declared.path}): ${error instanceof Error ? error.message : String(error)}\n`)
+        failed += 1
+      }
+    }
+  }
+}
+
+const declaredDry = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
+  const dir = Declared.directoryOf(root)
+  const sections: string[] = []
+  let failures = 0
+  for (const declared of selectDeclared(store, values)) {
+    sections.push(`; === source/${declared.name} (${declared.path})`)
+    try {
+      const ready = await Declared.prepare(declared, dir, context.fetchImpl)
+      if (ready.mapping.prelude !== '') {
+        sections.push(`; --- prelude\n\n${ready.mapping.prelude.trimEnd()}`)
+      }
+      ready.records.forEach((record, at) => {
+        const instantiation = Template.instantiate(ready.mapping.templates, name => Template.fieldOf(record, name))
+        if (instantiation.problems.length > 0) {
+          failures += 1
+          sections.push([`; --- record ${at + 1}`, ...instantiation.problems.map(problem => `; FAILED — ${problem}`)].join('\n'))
+          return
+        }
+        sections.push(`; --- record ${at + 1}\n\n${instantiation.text.trimEnd()}`)
+      })
+    } catch (error) {
+      failures += 1
+      sections.push(`; FAILED — ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  io.stdout.write(`${sections.join('\n\n')}\n`)
+  return failures > 0 ? 1 : 0
+}
+
+const rollback = Symbol('cave-connect declared query rollback')
+
+/** Federation-lite over every declared source (spec §23.3, §23.4): assemble inside a transaction, query, roll back. */
+const declaredQuery = (store: Store, root: string, values: Values, io: IO): number => {
+  let matches: undefined | readonly Match[]
+  try {
+    store.transaction(() => {
+      Declared.assemble(store, root)
+      matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
+      throw rollback
+    })
+  } catch (error) {
+    if (error !== rollback) {
+      throw error
+    }
+  }
+  printMatches(store, matches!, values.query!, values, io)
+  return 0
+}
+
+const declaredWatch = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
+  const dir = Declared.directoryOf(root)
+  const passOnce = async (): Promise<void> => {
+    try {
+      await declaredPass(store, root, values, io, context)
+    } catch (error) {
+      io.stderr.write(`cave connect watch pass: ${error instanceof Error ? error.message : String(error)}\n`)
+    }
+  }
+  let running = false
+  let queued = false
+  let timer: unknown
+  const fire = async (): Promise<void> => {
+    if (running) {
+      queued = true
+      return
+    }
+    running = true
+    do {
+      queued = false
+      await passOnce()
+    } while (queued)
+    running = false
+  }
+  const schedule: ScheduleLike = context.schedule ?? ((callback, delayMs) =>
+    setTimeout(() => { void callback() }, delayMs))
+  const cancelScheduled = context.cancelScheduled ?? (handle =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>))
+  const trigger = (): void => {
+    if (running) {
+      queued = true
+      return
+    }
+    if (timer !== undefined) cancelScheduled(timer)
+    timer = schedule(async () => {
+      timer = undefined
+      await fire()
+    }, 200)
+  }
+  // Every local declared file and mapping; URL sources only run on file changes.
+  const targets = [...new Set(selectDeclared(store, values).flatMap(declared => [
+    ...Source.isUrl(declared.path) ? [] : [Declared.resolvePath(declared.path, dir)],
+    ...declared.map === undefined ? [] : [Declared.resolvePath(declared.map, dir)]
+  ]))]
+  if (targets.length === 0) {
+    io.stderr.write('cave connect: nothing to watch — no declared local source\n')
+    return 1
+  }
+  const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
+  const watchers = targets.map(target =>
+    watch(dirname(target), (_event, filename) => {
+      if (filename === null || filename.toString() === basename(target)) {
+        trigger()
+      }
+    }))
+  try {
+    await passOnce()
+    io.stdout.write('watching (ctrl-c to stop)\n')
+    await waitForAbort(io.signal)
+    return 0
+  } finally {
+    if (timer !== undefined) cancelScheduled(timer)
+    for (const watcher of watchers) watcher.close()
+  }
+}
+
+/**
+ * `cave connect` without a source (spec §23.4): the store's declared
+ * sources. `--list` prints them, `--dry-run` previews, `--query` overlays
+ * them in a rolled-back transaction, `--watch` re-runs on file changes,
+ * and the plain form runs one pass over each.
+ */
+const runDeclared = async (values: Values, io: IO, context: RunContext): Promise<number> => {
+  const perSource = (['map', 'key', 'format', 'delimiter', 'table', 'sql', 'records'] as const)
+    .filter(option => values[option] !== undefined)
+  if (perSource.length > 0) {
+    io.stderr.write(`cave connect: ${perSource.map(option => `--${option}`).join(', ')} describe a source argument — ` +
+      'without one, declare them on the source/<name> entity (spec §23.4)\n')
+    return 1
+  }
+  const db = values.db ?? defaultDbPath()
+  try {
+    if (values.list === true) {
+      const store = openAt(db, { intent: 'read', assemble: Declared.assemble, ...registryOf(values) })
+      try {
+        const declared = selectDeclared(store, values)
+        io.stdout.write(declared.length === 0 ? 'no declared sources\n' : `${declared.map(Declared.describe).join('\n')}\n`)
+        return 0
+      } finally {
+        store.close()
+      }
+    }
+    if (values['dry-run'] === true || values.query !== undefined) {
+      // A text store already followed its sources on open; the overlay
+      // then finds every record unchanged and adds nothing.
+      const store = openAt(db, { intent: values.query === undefined ? 'read' : 'scratch', assemble: Declared.assemble, ...registryOf(values) })
+      try {
+        return values.query === undefined ?
+          await declaredDry(store, db, values, io, context) :
+          declaredQuery(store, db, values, io)
+      } finally {
+        store.close()
+      }
+    }
+    const store = openAt(db, { intent: 'write', ...registryOf(values) })
+    try {
+      return values.watch === true ?
+        await declaredWatch(store, db, values, io, context) :
+        await declaredPass(store, db, values, io, context)
+    } finally {
+      store.close()
+    }
+  } catch (error) {
+    io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+    return error instanceof LocateError ? 1 : 1
+  }
+}
+
 export const runConnect = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
   const io: IO = {
     stdout: context.stdout ?? process.stdout,
@@ -362,6 +618,7 @@ export const runConnect = async (argv: readonly string[], context: RunContext = 
       all: { type: 'boolean' },
       aliases: { type: 'boolean' },
       'no-prelude': { type: 'boolean' },
+      list: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' }
     },
     allowPositionals: true
@@ -370,9 +627,16 @@ export const runConnect = async (argv: readonly string[], context: RunContext = 
     io.stdout.write(`${usage}\n`)
     return 0
   }
+  if (positionals.length === 0) {
+    return runDeclared(values, io, context)
+  }
   const [source] = positionals
   if (source === undefined || positionals.length !== 1) {
     io.stderr.write(`cave connect: exactly one source is required\n\n${usage}\n`)
+    return 1
+  }
+  if (values.list === true) {
+    io.stderr.write('cave connect: --list takes no source\n')
     return 1
   }
   if (values.map === undefined) {

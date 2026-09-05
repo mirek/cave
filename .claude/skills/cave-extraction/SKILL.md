@@ -270,3 +270,68 @@ Retraction never touches vocabulary declaration claims (`X IS verb`,
   union of store and source, and the transaction **rolls back** —
   external data is consulted at query time without being extracted into
   the store. Nothing persists, not even digests.
+
+### 23.4 Declared sources
+
+A `cave connect` invocation MAY be persisted in-band, as ordinary attribute
+claims on a `source/<name>` entity — no new syntax, and the same entity
+§26.3 uses for source policy:
+
+```cave
+source/people HAS path: data/people.csv
+source/people HAS map: data/people.map.cave
+source/people HAS key: id
+source/people HAS reliability: 80%       ; §26.3, on the same entity
+source/verbs HAS path: verbs.cave        ; a .cave file needs no map
+```
+
+A source is declared by a current positive `path`; the other attributes
+mirror the options one-to-one — `map`, `key`, `format`, `delimiter`,
+`table`, `sql`, `records` — and are read from the same entity's current
+beliefs. A `.cave` path (or `format: cave`) is a **mapping-free source**:
+the file is its own template, all prelude, and it is treated as a
+lifecycle unit, so claims it no longer says are retracted when it changes.
+Retracting the `path` (`… @ 0%`) removes the source; superseding it moves
+it. Paths resolve against the **store's directory** (the SQLite file's, or
+the text file's; the working directory for `:memory:`), never the working
+directory: a store and its sources travel together.
+
+**Naming.** A declared source stamps `@src:<name>/<key>` on record claims
+and `@src:<name>` on its prelude, and keeps its digests under
+`source/<name>/<key>` and `source/<name>`, instead of the ad-hoc
+`connect/<name>/<key>` of §23.2. The stamp context and the entity that
+describes the source therefore mirror each other exactly as §26.3
+prescribes (`src:people/42` ↔ `source/people`), so
+`source/people HAS reliability: 80%` applies to what the source yields
+with no further declaration. Digest, diff-on-change retraction, `--prune`,
+`--force`, source spans, and the rest of §23.2 carry over unchanged; the
+lifecycle run is the stamp.
+
+**Surfaces.**
+
+- `cave connect [--db <path>]` with no source runs one pass over every
+  declared source, sources declared by a followed `.cave` source included,
+  until none is left; `--name <n>` selects one; `--force`, `--prune`,
+  `--dry-run`, `--watch` (every declared local file and mapping) and
+  `--query` (an overlay of all of them, §23.3) apply as for a single
+  source; `--list` prints each declaration as the equivalent invocation.
+  Per-source options (`--map`, `--key`, …) are rejected without a source:
+  they belong on the entity.
+- A CAVE text file used as `--db` (§13.7) **follows its declared sources
+  on every open**: the file and what it declares are one store, assembled
+  in memory. The root file itself is never re-read as a source, so a file
+  that declares itself, directly or through a cycle, is loaded once; a
+  source that fails to load fails the open, as unparsable text does. URL
+  sources are not followed during assembly (fetching cannot be
+  synchronous); `cave connect` follows them.
+- `cave query --sources` overlays a SQLite store's declared sources inside
+  a transaction that rolls back (§23.3); a text store needs no flag. The
+  overlay cannot be paged with `--cursor`.
+- Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,
+  `Declared.prepare`/`prepareSync`, `Declared.run`, `assemble(store, root)`
+  (the `openAt` assembler), and `declaredNaming(name)`.
+
+Declared sources are data: a store received through `cave sync` may name
+paths on the receiving machine, and following them is always the explicit
+act of a command run there — a `cave connect` pass, an overlay, or opening
+a text file as a store.

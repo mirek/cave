@@ -104,6 +104,42 @@ never poison the rest of the run — or the prune set.
 `node:fs.watch`, and timers; integrations can drive URL, watcher, debounce,
 retry, and cleanup boundaries without external network access or sleeps.
 
+## Declared sources (§23.4)
+
+A connect invocation persists in-band as attribute claims on a
+`source/<name>` entity — the entity §26.3 already uses for source policy:
+
+```cave
+source/people HAS path: data/people.csv
+source/people HAS map: data/people.map.cave
+source/people HAS key: id
+source/people HAS reliability: 80%
+source/verbs HAS path: verbs.cave        ; a .cave file is its own template
+```
+
+`path` declares the source; `map`, `key`, `format`, `delimiter`, `table`,
+`sql`, and `records` mirror the options; a `.cave` path needs no map and is
+a lifecycle unit (what it no longer says is retracted when it changes).
+Paths resolve against the store's directory. Declared sources stamp
+`@src:<name>/<key>` and keep digests under `source/<name>/<key>`
+(`declaredNaming`), so the stamp and the policy entity mirror each other.
+
+```sh
+cave connect --db k.db --list            # each declaration as an invocation
+cave connect --db k.db                   # one pass over every declared source
+cave connect --db k.db --name people --prune
+cave connect --db k.db --watch           # every declared file and mapping
+cave connect --db k.db --query '?who WORKS-AT acme'
+cave query --db k.db '?who WORKS-AT acme' --sources   # the same overlay
+cave query --db notes.cave '?who WORKS-AT acme'       # a text store follows its sources on open
+```
+
+Programmatic: `Declared.declaredSources(store)`, `Declared.prepare` /
+`prepareSync`, `Declared.run(store, prepared, { force, prune })`, and
+`assemble(store, root)` — the assembler `@cavelang/store`'s `openAt` calls
+for a text store, following nested declarations until none is left and
+never re-reading the root file.
+
 ## Design notes
 
 - **No new syntax.** Templates reuse the CAVE-Q `?x` token form inside
