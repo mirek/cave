@@ -313,12 +313,13 @@ newest current claim wins. A retraction inside a followed text retracts
 its own series only (§9.5): to remove a declaration the root made,
 restate it with the root's context, `source/b HAS path: old.csv @src:cli
 @ 0%`. An overlay or dry run discovers declarations by running the pass itself
-inside transactions that roll back — each round replays the sources loaded
-so far, reads the declarations the store then holds, and loads the next —
-and it keeps the exact run sequence, a re-declared source appearing again
-later; the overlay replays that sequence. Nothing is simulated, so a
-preview agrees with the pass, and a dry run therefore opens the store
-writable like an overlay, creating and migrating nothing.
+against a private snapshot of the store — each source runs once as it is
+discovered, the declarations are read from the copy as they then stand,
+and the copy is discarded — and it keeps the exact run sequence, a
+re-declared source appearing again later; the overlay then replays that
+sequence in the real store's rolled-back transaction. Nothing is
+simulated, so a preview agrees with the pass, and the real database holds
+no lock while sources load.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under

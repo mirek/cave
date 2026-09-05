@@ -549,3 +549,38 @@ test('discovery runs each source once: the work grows with the sources, not with
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('discovery holds no lock on the real store while a source loads', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/remote HAS path: https://example.test/slow.cave')
+      let release: () => void = () => {}
+      const gate = new Promise<void>(resolve => { release = resolve })
+      const fetchImpl = async (): Promise<Response> => {
+        await gate
+        return new Response('slow IS done\n', { status: 200 })
+      }
+      const pending = Declared.discover(store, db, { fetchImpl })
+      await new Promise(resolve => setImmediate(resolve))
+      // A second connection writes while the fetch is still pending.
+      const writer = open(db)
+      try {
+        writer.ingest('meanwhile IS written')
+      } finally {
+        writer.close()
+      }
+      release()
+      const sequence = await pending
+      assert.deepEqual(sequence.map(entry => entry.declared.name), ['remote'])
+      assert.equal(store.currentBeliefs().some(row => row.subject === 'meanwhile'), true)
+      assert.equal(store.currentBeliefs().some(row => row.subject === 'slow'), false, 'the snapshot copy was discarded')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

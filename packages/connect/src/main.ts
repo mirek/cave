@@ -406,7 +406,10 @@ const declaredPass = async (
   // declarations are re-read after every source: a followed .cave source
   // may declare new sources or re-declare existing ones, and the current
   // declaration is what runs, until nothing changes — as `assemble` does.
-  const allowed = values.name === undefined ? undefined : new Set(selectDeclared(store, values).map(declared => declared.name))
+  // The selection starts as the named source and everything it already
+  // owns, so a parent that fails to load does not hide its descendants.
+  const allowed = values.name === undefined ? undefined :
+    new Set(Declared.closure(store, selectDeclared(store, values).map(declared => declared.name)).map(declared => declared.name))
   const version = Declared.versionCounter()
   for (;;) {
     const next = Declared.declaredSources(store)

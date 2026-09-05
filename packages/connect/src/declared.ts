@@ -22,8 +22,9 @@
  * same declarations against a SQLite store, URLs included.
  */
 
-import { readFileSync } from 'node:fs'
-import { dirname, extname, resolve } from 'node:path'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, extname, join, resolve } from 'node:path'
 import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
@@ -337,28 +338,32 @@ export const versionCounter = (): (name: string) => void => {
  * Loads every declared source of the store without leaving anything in
  * it, URLs included, and returns the exact sequence a pass would run —
  * a source re-declared along the way appears again, later. Nothing is
- * simulated: the sources run through the real pass inside one scratch
- * scope (a transaction held open across the loads and rolled back at the
- * end), each exactly once as it is discovered, and the declarations are
- * read from the store as they stand after each run; so precedence,
- * deltas, retractions, and what an unchanged source skips come out
- * exactly as in the pass. `force` replays every text (the overlay applies
+ * simulated: the sources run through the real pass against a private
+ * snapshot of the store, each exactly once as it is discovered, and the
+ * declarations are read from that copy as they stand after each run; so
+ * precedence, deltas, retractions, and what an unchanged source skips
+ * come out exactly as in the pass, and the real database holds no lock
+ * while sources load. `force` replays every text (the overlay applies
  * everything it loads); `prune` retracts what vanished records declared.
- * The store must be writable — a `scratch` open, never a read-only one.
  */
-export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
+export const discover = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
   const dir = directoryOf(root)
-  const baseline = signatures(declaredSources(store))
-  const allowed = options.only === undefined ? undefined : new Set([options.only])
-  if (allowed !== undefined && !baseline.has(options.only!)) {
+  const baseline = signatures(declaredSources(origin))
+  if (options.only !== undefined && !baseline.has(options.only)) {
     throw new Error(`no declared source/${options.only}` +
       (baseline.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...baseline.keys()].join(', ')}`))
   }
+  // The selection starts as the named source and everything it already
+  // owns, so a parent that fails to load does not hide its descendants.
+  const allowed = options.only === undefined ? undefined : new Set(closure(origin, [options.only]).map(declared => declared.name))
   const sequence: Prepared[] = []
   const done = new Map<string, string>()
   const version = versionCounter()
   let seen = baseline
-  const scope = store.scratch()
+  // Everything runs against a private snapshot of the store: the real
+  // database holds no lock while sources load (a URL may take a minute),
+  // and the copy is simply discarded.
+  const { store, dispose } = snapshot(origin)
   try {
     for (;;) {
       const current = declaredSources(store)
@@ -393,7 +398,26 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
       run(store, loaded, { force: options.force === true, prune: options.prune === true })
     }
   } finally {
-    scope.rollback()
+    dispose()
+  }
+}
+
+/** A private, disposable copy of a store — an exact snapshot in a temporary file, opened writable. */
+const snapshot = (origin: Store): { store: Store, dispose: () => void } => {
+  const capability = origin.adapter.capabilities.backup
+  if (capability === undefined) {
+    throw new Error(`cave connect: SQLite adapter ${JSON.stringify(origin.adapter.name)} cannot snapshot a store for discovery`)
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'cave-discover-'))
+  const path = join(dir, 'snapshot.db')
+  capability.write(origin.db, path)
+  const store = open(path, { registry: origin.baseRegistry(), access: 'no-migrate' })
+  return {
+    store,
+    dispose: () => {
+      store.close()
+      rmSync(dir, { recursive: true, force: true })
+    }
   }
 }
 

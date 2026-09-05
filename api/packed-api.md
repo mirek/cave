@@ -1920,7 +1920,7 @@ export declare const directoryOf: (root: string) => string;
 Kind: value.
 
 ```ts
-export declare const discover: (store: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
+export declare const discover: (origin: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
 ```
 
 #### `DiscoverOptions`
@@ -10181,7 +10181,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `bcf88a239c5c3800250a9daa296e2a837e613a787a765307bf4dfc7e22b84f29`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `0b2efc2dd41edf96c894dd99464a7aa0c1fcad05e2dc4fb69ca995d8c5b1f8ac`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`
@@ -10303,4 +10303,4 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/runtime.d.ts` — `2fda7e7dadd437a4b3cf85797ba962d7468a0f6cff67d88c27d3623c632bb02d`
 - `@cavelang/store/dist/src/schema.d.ts` — `daeecab6c304b4f2bdf5d33509e2de6dfe44b1dcfeac69970565d1dd6755ab37`
 - `@cavelang/store/dist/src/sensitivity.d.ts` — `4a8e9a09f9bdcff92bdebfa2839760a0880cec2f9685f7061251e1af4cdec3f4`
-- `@cavelang/store/dist/src/store.d.ts` — `be5e66be21bfb2b224f7af24f146e53a4ced74e7ddc6f6cacf8c4e6760b7d410`
+- `@cavelang/store/dist/src/store.d.ts` — `b30431dbed2de58fe85360d2c99253d321f04f63e7a5aab2f21cb0b78ec097a6`

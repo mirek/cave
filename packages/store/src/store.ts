@@ -294,36 +294,6 @@ export const open = (
     }
   }
 
-  /**
-   * A transaction that stays open across asynchronous work and is only
-   * ever rolled back — the scope a dry run or an overlay accumulates in
-   * while it still loads sources. Nested `transaction` calls become
-   * savepoints inside it; `rollback` discards everything appended since
-   * `scratch` and restores the in-memory verb registry. One scope at a
-   * time, and never inside a `transaction`.
-   */
-  const scratch = (): { rollback(): void } => {
-    if (transactionDepth !== 0) {
-      throw new Error('CAVE: a scratch scope cannot open inside a transaction')
-    }
-    const savedRegistry = registry
-    db.exec('BEGIN IMMEDIATE')
-    transactionDepth = 1
-    let open = true
-    return {
-      rollback: () => {
-        if (!open) return
-        open = false
-        try {
-          db.exec('ROLLBACK')
-        } finally {
-          registry = savedRegistry
-          transactionDepth = 0
-        }
-      }
-    }
-  }
-
   const claimExists = db.prepare('SELECT 1 FROM cave_claim WHERE id = ?')
   const edgeExists = db.prepare('SELECT 1 FROM cave_edge WHERE parent_id = ? AND role = ? AND child_id = ?')
 
@@ -489,7 +459,6 @@ export const open = (
      * (spec §20.3).
      */
     transaction,
-    scratch,
 
     /**
      * Parses, canonicalizes and appends CAVE text. Lenient by default —

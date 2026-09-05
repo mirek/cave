@@ -462,7 +462,7 @@ test('--name follows a source whose mapping the selected source retracts', async
     writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave @ 0%\n')
     const only = await pass(['--db', db, '--name', 'remap'])
     assert.equal(only.code, 0, only.err)
-    assert.match(only.out, /^source\/remap: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    assert.match(only.out, /source\/remap: [\s\S]*source\/people: 1 record\(s\): 1 mapped.*1 retracted/, 'people runs again after remap retracted its map claim')
     assert.deepEqual(current(), ['person'], 'people ran again under the root mapping once remap retracted its own')
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -518,7 +518,8 @@ test('--name keeps the sources a CSV source declares through its records', async
     writeFileSync(join(dir, 'child.cave'), 'child IS changed\n')
     const again = await pass(['--db', db, '--name', 'registry'])
     assert.equal(again.code, 0)
-    assert.match(again.out, /source\/registry: 1 record\(s\): 0 mapped, 1 skipped.*\nsource\/child: .*\+1 claim\(s\), 1 retracted/, 'the parent record is unchanged, yet the child it owns through that record runs')
+    assert.match(again.out, /source\/registry: 1 record\(s\): 0 mapped, 1 skipped/, 'the parent record is unchanged')
+    assert.match(again.out, /source\/child: .*\+1 claim\(s\), 1 retracted/, 'yet the child it owns through that record runs and picks up the edit')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -555,6 +556,34 @@ test('a named watch watches the files of the sources the selection owns', async 
   } finally {
     controller.abort()
     if (running !== undefined) await running
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name still runs a parent\'s recorded descendants when the parent itself fails to load', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string, err: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value, err: stderr.value }
+    }
+    assert.equal((await pass(['--db', db, '--name', 'parent'])).code, 0)
+    rmSync(join(dir, 'parent.cave'))
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const broken = await pass(['--db', db, '--name', 'parent'])
+    assert.equal(broken.code, 1, 'the missing parent is a failure')
+    assert.match(broken.err, /source\/parent \(parent\.cave\)/)
+    assert.match(broken.out, /source\/people: 2 record\(s\): 1 mapped/, 'its recorded descendant still runs')
+  } finally {
     rmSync(dir, { recursive: true, force: true })
   }
 })
