@@ -333,7 +333,9 @@ export const queryRecords = (
       // Only a schemaless, empty input infers: a header-bearing source keeps
       // SQLite's own validation, so a typo stays a typo. A column named in
       // `JOIN … USING` gets its own diagnostic.
-      const reference = records.length === 0 && schemaless && error instanceof Error ? missingColumn(error.message)?.trim() : undefined
+      // The name arrives exactly as SQLite parsed it, edge spaces included:
+      // `\` first \`` is the field " first ".
+      const reference = records.length === 0 && schemaless && error instanceof Error ? missingColumn(error.message) : undefined
       const names = reference === undefined ? [] : inferColumns(reference).filter(name => name !== '' && !known.has(name))
       if (names.length === 0) {
         throw error
