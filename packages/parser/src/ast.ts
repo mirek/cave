@@ -24,7 +24,8 @@ export type Meta = {
   /**
    * The persisted comment (spec §6.4): the full-line `;` block directly
    * above the line and its trailing `; comment`, joined with newlines,
-   * trailing last.
+   * trailing last. Each line keeps its text after `;` and one space, so
+   * indentation inside the comment is preserved.
    */
   readonly comment?: string
 }

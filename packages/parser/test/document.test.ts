@@ -304,9 +304,10 @@ test('a comment block directly above a line is its comment, trailing last (spec 
   const doc = parseDocument([
     '; file header, kept out of the store',
     '',
-    '; rotated quarterly',
-    ';   per security policy',
-    'auth/key HAS expiry: 3600s ; confirmed by ops',
+    '; rotated quarterly:',
+    ';   def rotate(key):',
+    ';       return key.next()',
+    'auth/key HAS expiry: 3600s ;  confirmed by ops  ',
     '; only a block',
     'auth USES jwt',
     '',
@@ -317,17 +318,17 @@ test('a comment block directly above a line is its comment, trailing last (spec 
   assert.deepEqual(doc.diagnostics, [])
   const claims = doc.lines.filter(line => line.kind === 'claim')
   assert.deepEqual(claims.map(line => line.claim.meta.comment), [
-    'rotated quarterly\nper security policy\nconfirmed by ops',
+    'rotated quarterly:\n  def rotate(key):\n      return key.next()\n confirmed by ops',
     'only a block',
     undefined
   ])
   assert.deepEqual(claims.map(line => line.expanded), [
-    '; rotated quarterly\n;   per security policy\nauth/key HAS expiry: 3600s ; confirmed by ops',
+    '; rotated quarterly:\n;   def rotate(key):\n;       return key.next()\nauth/key HAS expiry: 3600s ;  confirmed by ops  ',
     '; only a block\nauth USES jwt',
     undefined
   ])
-  assert.deepEqual(claims.map(line => line.raw), ['auth/key HAS expiry: 3600s ; confirmed by ops', 'auth USES jwt', 'billing USES jwt'])
-  assert.equal(doc.lines.filter(line => line.kind === 'comment').length, 5, 'comment lines stay in the tree')
+  assert.deepEqual(claims.map(line => line.raw), ['auth/key HAS expiry: 3600s ;  confirmed by ops  ', 'auth USES jwt', 'billing USES jwt'])
+  assert.equal(doc.lines.filter(line => line.kind === 'comment').length, 6, 'comment lines stay in the tree')
 })
 
 test('comment blocks: empty edges drop, interior blanks stay, annotations are transparent (spec §6.4, §28.4)', () => {

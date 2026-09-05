@@ -499,8 +499,18 @@ OpenAI BECOMES for-profit ; alienated early nonprofit supporters
 
 A comment may span several lines. A block of full-line `;` comments directly
 above a claim line is part of that claim's comment: each line is stripped of
-its indentation, the `;`, and the whitespace after it, the lines join with
-newlines, and the same-line `; comment`, when present, is the last line.
+its indentation, the `;`, and exactly one space after it, the lines join with
+newlines, and the same-line `; comment`, when present, is the last line. The
+same one-space rule applies to that trailing comment. Only trailing whitespace
+is trimmed, so indentation written inside a comment survives — a code sample
+or a Markdown list in a comment renders as written:
+
+```cave
+; the retry policy, as the client implements it:
+;   def backoff(attempt):
+;       return min(2 ** attempt, 30)
+api/client HAS retry-cap: 30s
+```
 
 ```cave
 ; the key rotates quarterly; ops confirmed the schedule

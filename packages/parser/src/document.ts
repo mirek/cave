@@ -20,7 +20,8 @@
  *
  * A block of full-line `;` comments directly above a line is that line's
  * comment (§6.4): the block's lines and the trailing `; comment` join with
- * newlines, trailing last. A blank line after the block leaves it
+ * newlines, trailing last. Each line keeps everything after `;` and one
+ * space, so indented text inside a comment survives. A blank line after the block leaves it
  * documentary — file headers stay out of the store — and a §28.4 `;@ tx`
  * annotation is transparent to the block. A block above a prefix header
  * is documentary like the header's trailing comment; a block above an
@@ -163,7 +164,7 @@ export const parseDocument = (input: string): Ast.Document => {
       return
     }
     if (rest.startsWith(';')) {
-      commentLine(lineNo, raw, rest.slice(1).trim())
+      commentLine(lineNo, raw, Token.commentText(rest.slice(1)))
       return
     }
     const split = Token.splitComment(rest)

@@ -156,7 +156,9 @@ lot/santa-ana-26 HAS score: 85 @src:cupping/june ; clean, but nothing remarkable
 
 A comment can be longer than one line. A block of `;` lines directly above a
 claim is part of that claim's comment, and the trailing `; note` on the claim
-line, if there is one, is its last line:
+line, if there is one, is its last line. Each line keeps everything after the
+semicolon and one space, so a comment can hold indented text such as a code
+sample or a list without losing its shape:
 
 #file("cupping-notes.cave")
 ```cave

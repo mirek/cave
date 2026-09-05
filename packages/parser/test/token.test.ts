@@ -74,6 +74,12 @@ test('splitComment ignores ; inside quotes and backticks', () => {
   assert.deepEqual(Token.splitComment('x IS "a;b"'), { head: 'x IS "a;b"' })
 })
 
+test('splitComment drops one space after ; and trailing whitespace, keeping inner indentation (spec §6.4)', () => {
+  assert.deepEqual(Token.splitComment('x IS y ;  indented  '), { head: 'x IS y ', comment: ' indented' })
+  assert.deepEqual(Token.splitComment('x IS y ;tight'), { head: 'x IS y ', comment: 'tight' })
+  assert.equal(Token.commentText('\tdef f():'), '\tdef f():')
+})
+
 test('splitComment drops empty comments', () => {
   assert.deepEqual(Token.splitComment('x IS y ;'), { head: 'x IS y ' })
   assert.deepEqual(Token.splitComment('x IS y ;   '), { head: 'x IS y ' })
@@ -83,6 +89,9 @@ test('joinComment is the inverse of splitComment across lines (spec §6.4)', () 
   assert.equal(Token.joinComment('auth USES jwt'), 'auth USES jwt')
   assert.equal(Token.joinComment('auth USES jwt', 'one line'), 'auth USES jwt ; one line')
   assert.equal(Token.joinComment('auth USES jwt', 'first\n\nlast'), '; first\n;\nauth USES jwt ; last')
+  const code = 'python:\n  def f():\n      return 1'
+  assert.equal(Token.joinComment('x IS y', code), '; python:\n;   def f():\nx IS y ;       return 1')
+  assert.equal(Token.splitComment(Token.joinComment('x IS y', code).split('\n').pop()!).comment, '      return 1', 'round trip keeps indentation')
 })
 
 test('txOfLine recognizes §28.4 annotations only', () => {

@@ -31,7 +31,9 @@ parse('a USES b')  // strict variant: throws on any diagnostic
 2. **Split off the comment** at the first `;` outside quotes/backticks
    (`Token.splitComment`), and join it with the block of full-line `;`
    comments directly above the line (§6.4): the block's lines and the
-   trailing comment, newline-separated, trailing last. A blank line after
+   trailing comment, newline-separated, trailing last. Each line keeps its
+   text after `;` and one space (`Token.commentText`), trailing whitespace
+   trimmed, so indented text inside a comment survives. A blank line after
    the block leaves it documentary; a `;@ tx` annotation (`Token.txOfLine`)
    passes through. `Token.joinComment` is the inverse, used by emitters.
 3. **Tokenize** into words / `"text"` literals / `` `code` `` literals
