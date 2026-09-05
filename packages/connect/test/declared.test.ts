@@ -247,12 +247,12 @@ test('discover applies nested re-declarations and treats record-only sources as 
     try {
       store.ingest('source/b HAS path: old.cave\nsource/z HAS path: z.cave\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id')
       const ready = await Declared.discover(store, db)
-      assert.deepEqual(ready.map(entry => [entry.declared.name, entry.declared.path]), [['b', 'new.cave'], ['people', 'people.csv'], ['z', 'z.cave']], 'declared order, b re-prepared in place with the nested path')
+      assert.deepEqual(ready.map(entry => [entry.declared.name, entry.declared.path]), [['b', 'old.cave'], ['people', 'people.csv'], ['z', 'z.cave'], ['b', 'new.cave']], 'the run sequence: b runs under the old path, z re-declares it, b runs again under the new one')
       Declared.run(store, Declared.prepareSync({ name: 'people', path: 'people.csv', map: 'people.map.cave', key: 'id' }, dir))
       assert.equal(Declared.followed(store, 'people'), true, 'record digests count — the mapping has no prelude')
       assert.equal(Declared.followed(store, 'b'), false)
       const left = await Declared.discover(store, db, { skipFollowed: true })
-      assert.deepEqual(left.map(entry => entry.declared.name), ['b', 'z'])
+      assert.deepEqual(left.map(entry => entry.declared.name), ['b', 'z', 'b'], 'people is skipped; b runs, z re-declares it, b runs again')
     } finally {
       store.close()
     }
@@ -284,7 +284,7 @@ test('a nested text that changes one attribute of a known source is a delta: dis
     try {
       store.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/remap HAS path: remap.cave')
       const ready = await Declared.discover(store, db)
-      assert.equal(ready.find(entry => entry.declared.name === 'people')?.declared.map, 'as-staff.map.cave', 'the delta is applied over the known declaration')
+      assert.equal(ready.filter(entry => entry.declared.name === 'people').at(-1)?.declared.map, 'as-staff.map.cave', 'the delta is applied over the known declaration, and people runs again under it')
     } finally {
       store.close()
     }
@@ -310,13 +310,13 @@ test('discovery keeps the store\'s precedence: an unchanged followed source does
       store.ingest('source/b HAS path: newer.cave', { source: 'cli' })
       assert.equal(Declared.declaredSources(store).find(declared => declared.name === 'b')?.path, 'newer.cave', 'the newest current claim wins')
       const ready = await Declared.discover(store, db)
-      assert.equal(ready.find(entry => entry.declared.name === 'b')?.declared.path, 'newer.cave', 'discovery does not re-apply the unchanged text over the newer claim')
+      assert.equal(ready.filter(entry => entry.declared.name === 'b').at(-1)?.declared.path, 'newer.cave', 'discovery does not re-apply the unchanged text over the newer claim')
       const forced = await Declared.discover(store, db, { force: true })
-      assert.equal(forced.find(entry => entry.declared.name === 'b')?.declared.path, 'new.cave', 'a forced pass re-applies z, and its claim is then the newest')
+      assert.equal(forced.filter(entry => entry.declared.name === 'b').at(-1)?.declared.path, 'new.cave', 'a forced pass re-applies z, and its claim is then the newest')
       // A retraction inside a followed text touches its own series only.
       writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.cave @ 0%\n')
       const retracting = await Declared.discover(store, db)
-      assert.equal(retracting.find(entry => entry.declared.name === 'b')?.declared.path, 'newer.cave', "the root's series is untouched by z's retraction")
+      assert.equal(retracting.filter(entry => entry.declared.name === 'b').at(-1)?.declared.path, 'newer.cave', "the root's series is untouched by z's retraction")
     } finally {
       store.close()
     }
@@ -347,4 +347,53 @@ test('many independent sources are not a cycle; a source re-declared past the ca
     writeFileSync(cyclic, 'source/a HAS path: a1.cave\nsource/b HAS path: b1.cave\n')
     assert.throws(() => openAt(cyclic, { intent: 'read', assemble }), /keeps being re-declared — no fixed point after 20 re-declarations/)
   })
+})
+
+test('discovery follows a source removing a declaration it made, and keeps the run order the overlay must replay', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    // a (which sorts before b) declares b; the store followed a, then a
+    // drops the line: the pass runs a first and retracts b's declaration,
+    // so nothing must load b any more.
+    writeFileSync(join(dir, 'b.cave'), 'b IS here\n')
+    writeFileSync(join(dir, 'a.cave'), 'source/b HAS path: b.cave\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/a HAS path: a.cave')
+      assemble(store, db)
+      assert.deepEqual(Declared.declaredSources(store).map(declared => declared.name), ['a', 'b'])
+      writeFileSync(join(dir, 'a.cave'), 'a IS quiet\n')
+      const ready = await Declared.discover(store, db)
+      assert.deepEqual(ready.map(entry => entry.declared.name), ['a'], 'b is retracted by the replayed pass, so it is not loaded')
+      assert.deepEqual(Declared.declaredSources(store).map(declared => declared.name), ['a', 'b'], 'and the store itself is untouched')
+    } finally {
+      store.close()
+    }
+    // a(a1) declares c=c1; z re-declares a=a2, which declares c=c2: the
+    // sequence is a, c, z, a, c and replaying it in that order ends with c2.
+    writeFileSync(join(dir, 'c1.cave'), 'c IS one\n')
+    writeFileSync(join(dir, 'c2.cave'), 'c IS two\n')
+    writeFileSync(join(dir, 'a1.cave'), 'source/c HAS path: c1.cave\n')
+    writeFileSync(join(dir, 'a2.cave'), 'source/c HAS path: c2.cave\n')
+    writeFileSync(join(dir, 'zz.cave'), 'source/a HAS path: a2.cave\n')
+    const db2 = join(dir, 'k2.db')
+    const store2 = open(db2)
+    try {
+      store2.ingest('source/a HAS path: a1.cave\nsource/z HAS path: zz.cave')
+      const sequence = await Declared.discover(store2, db2, { force: true })
+      assert.deepEqual(sequence.map(entry => [entry.declared.name, entry.declared.path]), [['a', 'a1.cave'], ['c', 'c1.cave'], ['z', 'zz.cave'], ['a', 'a2.cave'], ['c', 'c2.cave']], 'the pass order: c (declared by a) sorts before z and runs first')
+      store2.transaction(() => {
+        for (const ready of sequence) Declared.run(store2, ready, { force: true })
+        assert.deepEqual(store2.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'c').map(row => row.object), ['two'], 'replaying the sequence in order ends where the pass ends')
+        throw new Error('rollback')
+      })
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'rollback')) throw error
+    } finally {
+      store2.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

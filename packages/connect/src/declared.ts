@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, digestOf, hasDigest, isConnected, provenanceContext } from './run.ts'
+import { connect, declaredNaming, hasDigest, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -315,64 +315,68 @@ export const versionCounter = (): (name: string) => void => {
   }
 }
 
+const discoverRollback = Symbol('cave-connect discover rollback')
+
+/** Runs `body` inside a transaction that always rolls back and returns its value. */
+const rolledBack = <T>(store: Store, body: () => T): T => {
+  let result: undefined | { value: T }
+  try {
+    store.transaction(() => {
+      result = { value: body() }
+      throw discoverRollback
+    })
+  } catch (error) {
+    if (error !== discoverRollback) {
+      throw error
+    }
+  }
+  return result!.value
+}
+
 /**
- * Loads every declared source of the store without appending anything to
- * it, URLs included. What a followed `.cave` source declares in turn is
- * found the way a pass finds it: a scratch store seeded with the store's
- * current `source/…` claims receives each followed text under the same
- * stamp, exactly when the pass would append it (digest changed, or
- * `force`), and the declarations are read back from that scratch store —
- * so precedence between the root file and followed sources, deltas, and
- * retractions come out as they would after the pass. Declared order,
- * nested ones after the source that declared them.
+ * Loads every declared source of the store without leaving anything in
+ * it, URLs included, and returns the exact sequence a pass would run —
+ * a source re-declared along the way appears again, later. Nothing is
+ * simulated: each round replays the sequence so far through the real
+ * pass inside a transaction that rolls back, reads the declarations the
+ * store then holds, and loads the next source whose declaration changed;
+ * so precedence, deltas, retractions, and what an unchanged source skips
+ * come out exactly as in the pass. `force` replays every text (the
+ * overlay applies everything it loads). The store must be writable for
+ * the rolled-back rounds — a `scratch` open, never a read-only one.
  */
 export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
   const dir = directoryOf(root)
-  const scratch = open(':memory:', { registry: store.baseRegistry() })
-  try {
-    const seeds = store.currentBeliefs().filter(row => row.conf > 0 && row.subject.startsWith(prefix))
-    if (seeds.length > 0) {
-      scratch.insertResult({
-        claims: seeds.map(row => ({ claim: store.toClaim(row), line: 0 })),
-        edges: [],
-        registry: scratch.registry(),
-        problems: []
-      })
-    }
-    const allowed = options.only === undefined ? undefined : new Set([options.only])
-    if (allowed !== undefined && !declaredSources(scratch).some(declared => declared.name === options.only)) {
-      const names = declaredSources(scratch).map(declared => declared.name)
-      throw new Error(`no declared source/${options.only}` +
-        (names.length === 0 ? ' — the store declares no sources' : ` — declared: ${names.join(', ')}`))
-    }
-    const done = new Map<string, string>()
-    const ready = new Map<string, Prepared>()
-    const version = versionCounter()
-    for (;;) {
-      const next = declaredSources(scratch)
+  const allowed = options.only === undefined ? undefined : new Set([options.only])
+  if (allowed !== undefined && !declaredSources(store).some(declared => declared.name === options.only)) {
+    const names = declaredSources(store).map(declared => declared.name)
+    throw new Error(`no declared source/${options.only}` +
+      (names.length === 0 ? ' — the store declares no sources' : ` — declared: ${names.join(', ')}`))
+  }
+  const sequence: Prepared[] = []
+  const done = new Map<string, string>()
+  const version = versionCounter()
+  for (;;) {
+    const next = rolledBack(store, () => {
+      for (const ready of sequence) {
+        run(store, ready, { force: options.force === true })
+      }
+      return declaredSources(store)
         .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
-      if (next === undefined) {
-        return [...ready.values()]
-      }
-      version(next.name)
-      done.set(next.name, signature(next))
-      if (options.skipFollowed === true && followed(store, next.name)) {
-        continue
-      }
-      const loaded = await prepare(next, dir, options.fetchImpl)
-      ready.set(next.name, loaded)
-      if (loaded.cave) {
-        const naming = declaredNaming(next.name)
-        if (allowed !== undefined) {
-          for (const delta of declarationsIn(loaded.mapping.prelude)) allowed.add(delta.name)
-        }
-        if (options.force === true || !isConnected(store, naming.unit(), digestOf(loaded.mapping.prelude))) {
-          scratch.ingest(loaded.mapping.prelude, { source: naming.run(), lifecycle: true })
-        }
-      }
+    })
+    if (next === undefined) {
+      return sequence
     }
-  } finally {
-    scratch.close()
+    version(next.name)
+    done.set(next.name, signature(next))
+    if (options.skipFollowed === true && followed(store, next.name)) {
+      continue
+    }
+    const loaded = await prepare(next, dir, options.fetchImpl)
+    sequence.push(loaded)
+    if (loaded.cave && allowed !== undefined) {
+      for (const delta of declarationsIn(loaded.mapping.prelude)) allowed.add(delta.name)
+    }
   }
 }
 

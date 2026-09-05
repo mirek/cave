@@ -312,10 +312,13 @@ attribute — the root file and a followed source stamp differently — the
 newest current claim wins. A retraction inside a followed text retracts
 its own series only (§9.5): to remove a declaration the root made,
 restate it with the root's context, `source/b HAS path: old.csv @src:cli
-@ 0%`. An overlay or dry run discovers declarations the way a pass would
-find them — a scratch store seeded with the current `source/…` claims
-receives each followed text under its stamp exactly when the pass would
-append it — so a preview agrees with the pass.
+@ 0%`. An overlay or dry run discovers declarations by running the pass itself
+inside transactions that roll back — each round replays the sources loaded
+so far, reads the declarations the store then holds, and loads the next —
+and it keeps the exact run sequence, a re-declared source appearing again
+later; the overlay replays that sequence. Nothing is simulated, so a
+preview agrees with the pass, and a dry run therefore opens the store
+writable like an overlay, creating and migrating nothing.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under

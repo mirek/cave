@@ -610,9 +610,9 @@ const runDeclared = async (values: Values, io: IO, context: RunContext): Promise
       }
     }
     if (values['dry-run'] === true || values.query !== undefined) {
-      // A text store already followed its sources on open; the overlay
-      // then finds every record unchanged and adds nothing.
-      const store = openAt(db, { intent: values.query === undefined ? 'read' : 'scratch', assemble: Declared.assemble, ...registryOf(values) })
+      // Discovery replays the pass inside rolled-back transactions, so the
+      // dry run opens writable too (never creating or migrating).
+      const store = openAt(db, { intent: 'scratch', assemble: Declared.assemble, ...registryOf(values) })
       try {
         return values.query === undefined ?
           await declaredDry(store, db, values, io, context) :
