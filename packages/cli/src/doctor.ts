@@ -249,7 +249,7 @@ const inspectDatabase = (path: string, source: DatabaseConfiguration['source']):
         configuration,
         checks: [check('store.database', 'warn',
           `Database schema ${version} needs migration to schema ${Schema.currentVersion}`,
-          'Back up the database, then open it with a writing command such as cave add to migrate it; reads never migrate.')]
+          'Close every user and copy the database file as a rollback point, then open it with a writing command such as cave add to migrate it; reads never migrate.')]
       }
     }
 

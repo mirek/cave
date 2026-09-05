@@ -1573,7 +1573,7 @@ test('read commands never migrate an older store; a writing command does (spec �
     }
     const read = cave(['query', '--db', db, '?x IS ?y'])
     assert.equal(read.code, 1)
-    assert.match(read.err, /^cave query: .*legacy\.db: schema version 0 needs migration to 1 — back up the store, then open it with a writing command such as cave add/)
+    assert.match(read.err, /^cave query: .*legacy\.db: schema version 0 needs migration to 1 — close every user and copy the file as a rollback point, then open it with a writing command such as cave add/)
     assert.equal(versionOf(), 0, 'the read left the schema version alone')
     const dry = cave(['derive', '--db', db, '--dry-run'])
     assert.equal(dry.code, 1)
@@ -1597,5 +1597,21 @@ test('backup refuses to snapshot a text store onto itself', () => {
     const created = cave(['backup', '--db', file, '--out', snapshot])
     assert.equal(created.code, 0, created.err)
     assert.equal(cave(['query', '--db', snapshot, '?x IS repo']).out, '?x = cave\n', 'a snapshot elsewhere materializes the text store')
+  })
+})
+
+test('backup of a store awaiting migration names the file-copy rollback point instead of migrating', () => {
+  withDir(dir => {
+    const db = join(dir, 'legacy.db')
+    const legacy = open(db)
+    legacy.ingest('a IS b')
+    legacy.db.exec('PRAGMA user_version = 0')
+    legacy.close()
+    const bytes = readFileSync(db)
+    const result = cave(['backup', '--db', db, '--out', join(dir, 'snap.db')])
+    assert.equal(result.code, 1)
+    assert.match(result.err, /schema version 0 needs migration to 1 — close every user and copy the file as a rollback point/)
+    assert.deepEqual(readFileSync(db), bytes, 'the source is neither migrated nor touched')
+    assert.equal(existsSync(join(dir, 'snap.db')), false)
   })
 })

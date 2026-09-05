@@ -175,7 +175,7 @@ export const check = (db: Database): void => {
   if (version < currentVersion) {
     throw new Error(
       `CAVE: schema version ${version} needs migration to ${currentVersion} — ` +
-      'back up the store, then open it with a writing command such as cave add to migrate')
+      'close every user and copy the file as a rollback point, then open it with a writing command such as cave add to migrate')
   }
   validate(db, version)
 }

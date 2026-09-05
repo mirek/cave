@@ -108,7 +108,7 @@ test('read and scratch opens never migrate an older store; a write open does', (
     for (const intent of ['read', 'scratch'] as const) {
       assert.throws(() => openAt(path, { intent }), error => {
         assert.ok(error instanceof LocateError, `${intent}: a usage failure, not a crash`)
-        assert.match(error.message, /legacy\.db: schema version 0 needs migration to 1 — back up the store, then open it with a writing command such as cave add/)
+        assert.match(error.message, /legacy\.db: schema version 0 needs migration to 1 — close every user and copy the file as a rollback point, then open it with a writing command such as cave add/)
         return true
       })
       assert.equal(versionOf(path), 0, `${intent} left the version alone`)
