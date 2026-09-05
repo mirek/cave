@@ -488,7 +488,7 @@ const declaredQuery = async (store: Store, root: string, values: Values, io: IO,
     let failed = 0
     try {
       store.transaction(() => {
-        if (!Declared.sameDeclarations(baseline, Declared.signatures(Declared.declaredSources(store)))) {
+        if (!Declared.sameDeclarations(baseline, Declared.declarationState(store))) {
           throw stale
         }
         for (const source of sequence) {

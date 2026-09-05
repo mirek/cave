@@ -1854,6 +1854,14 @@ Kind: value.
 export declare const declarationsIn: (text: string) => Delta[];
 ```
 
+#### `declarationState`
+
+Kind: value.
+
+```ts
+export declare const declarationState: (store: Store) => Map<string, string>;
+```
+
 #### `Declared`
 
 Kind: type.
@@ -10256,7 +10264,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `201bea0fef789200a3ff782b5c1c1b340b92e37299c64f74ce628b33759522dd`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `e98ac9c0d12ba0ab27fa1b5914bd31e7ec4962503b289e204a50485b42244bc8`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `b41197c4e25caeec3f2cf4cb561adbcf2f5b05ff8b5f61e1649fd460f7ca39cc`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `4d8560c311276ce5d9b12f63a7bc5cfde2246d2b8696b50b44fee0e982ade671`

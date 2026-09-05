@@ -824,7 +824,7 @@ const withSources = <T>(store: Store, discovered: Declared.Discovery, body: () =
     store.transaction(() => {
       // Discovered on a snapshot: if a writer changed the declarations
       // since, the sequence is stale and the caller rediscovers.
-      if (!Declared.sameDeclarations(discovered.baseline, Declared.signatures(Declared.declaredSources(store)))) {
+      if (!Declared.sameDeclarations(discovered.baseline, Declared.declarationState(store))) {
         throw sourcesRollback
       }
       for (const source of discovered.sequence) {

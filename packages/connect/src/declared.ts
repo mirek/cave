@@ -360,10 +360,25 @@ export const versionCounter = (): (name: string) => void => {
 export const discover = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> =>
   (await discovery(origin, root, options)).sequence
 
-/** A discovery's run sequence with the declarations it started from — what an overlay must still see before replaying. */
+/** A discovery's run sequence with the declaration state it started from — what an overlay must still see before replaying. */
 export type Discovery = {
   readonly sequence: Prepared[]
   readonly baseline: ReadonlyMap<string, string>
+}
+
+/**
+ * The declaration state an overlay depends on, by name: the declaration's
+ * signature and who owns it — a named closure follows ownership, so an
+ * ownership-only change (another source re-emitting the same declaration)
+ * is a change too.
+ */
+export const declarationState = (store: Store): Map<string, string> => {
+  const owners = new Map<string, string[]>()
+  for (const [owner, names] of ownership(store)) {
+    for (const name of names) owners.set(name, [...owners.get(name) ?? [], owner])
+  }
+  return new Map(declaredSources(store).map(declared =>
+    [declared.name, `${signature(declared)}|${(owners.get(declared.name) ?? []).sort().join(',')}`]))
 }
 
 /** Whether two declaration snapshots agree, name by name. */
@@ -379,23 +394,24 @@ export const staleOverlay = (): Error =>
 /** `discover`, also returning the declarations the snapshot started from. */
 export const discovery = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Discovery> => {
   const dir = directoryOf(root)
-  const baseline = signatures(declaredSources(origin))
-  if (options.only !== undefined && !baseline.has(options.only)) {
-    throw new Error(`no declared source/${options.only}` +
-      (baseline.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...baseline.keys()].join(', ')}`))
-  }
-  // The selection starts as the named source and everything it already
-  // owns, so a parent that fails to load does not hide its descendants.
-  const allowed = options.only === undefined ? undefined : new Set(closure(origin, [options.only]).map(declared => declared.name))
-  const sequence: Prepared[] = []
-  const done = new Map<string, string>()
-  const version = versionCounter()
-  let seen = baseline
   // Everything runs against a private snapshot of the store: the real
   // database holds no lock while sources load (a URL may take a minute),
-  // and the copy is simply discarded.
+  // and the copy is simply discarded. The baseline and the selection come
+  // from that same snapshot, so they agree with each other.
   const { store, dispose } = snapshot(origin)
   try {
+    const baseline = declarationState(store)
+    if (options.only !== undefined && !baseline.has(options.only)) {
+      throw new Error(`no declared source/${options.only}` +
+        (baseline.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...baseline.keys()].join(', ')}`))
+    }
+    // The selection starts as the named source and everything it already
+    // owns, so a parent that fails to load does not hide its descendants.
+    const allowed = options.only === undefined ? undefined : new Set(closure(store, [options.only]).map(declared => declared.name))
+    const sequence: Prepared[] = []
+    const done = new Map<string, string>()
+    const version = versionCounter()
+    let seen = signatures(declaredSources(store))
     for (;;) {
       const current = declaredSources(store)
       // A selection grows by what the replayed sources changed — added,

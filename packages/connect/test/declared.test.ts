@@ -689,3 +689,29 @@ test('a failed snapshot leaves no temporary directory behind', async () => {
     store.close()
   }
 })
+
+test('the overlay baseline includes ownership, so an ownership-only change is a change', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'child.cave'), 'child IS here\n')
+    writeFileSync(join(dir, 'a.cave'), 'source/child HAS path: child.cave\n')
+    writeFileSync(join(dir, 'b.cave'), 'source/child HAS path: child.cave\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/a HAS path: a.cave\nsource/b HAS path: b.cave')
+      Declared.run(store, Declared.prepareSync({ name: 'a', path: 'a.cave' }, dir))
+      const before = Declared.declarationState(store)
+      assert.equal(Declared.signatures(Declared.declaredSources(store)).get('child'), Declared.signature({ name: 'child', path: 'child.cave' }))
+      Declared.run(store, Declared.prepareSync({ name: 'b', path: 'b.cave' }, dir))
+      const after = Declared.declarationState(store)
+      assert.equal(Declared.sameDeclarations(Declared.signatures(Declared.declaredSources(store)), Declared.signatures(Declared.declaredSources(store))), true)
+      assert.equal(Declared.sameDeclarations(before, after), false, 'the same declaration re-emitted by another owner changes the state the overlay checks')
+      assert.match(after.get('child')!, /\|a,b$/)
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
