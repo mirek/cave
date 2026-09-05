@@ -151,6 +151,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.throws(() => Source.queryRecords([], 'SELECT nmae FROM records', 'records', ['id', 'name']), /no such column: nmae/, 'a header-bearing source keeps its validation even when empty')
   assert.deepEqual(Source.queryRecords([], 'SELECT id FROM records', 'records', []), [], 'a CSV cleared to nothing has no header: an empty schema infers like no schema')
   assert.deepEqual(Source.queryRecords([], 'SELECT r.id, s.name FROM records r JOIN records s USING(id, "first.name")'), [], 'a column named only in JOIN … USING is staged from its own diagnostic')
+  const wide = Array.from({ length: 100 }, (_, at) => `c${at}`)
+  assert.deepEqual(Source.queryRecords([], `SELECT ${wide.join(', ')} FROM records WHERE ${wide.map(name => `${name} IS NULL`).join(' AND ')}`), [], 'inference is not capped: every column a wide query names is staged')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')

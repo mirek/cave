@@ -308,14 +308,16 @@ export const queryRecords = (
   // A CSV cleared to nothing has no header either: an empty schema is no
   // schema, not a header of zero columns.
   const schemaless = schema === undefined || schema.length === 0
-  for (let attempt = 0; ; attempt += 1) {
+  // Every retry stages at least one column it did not know, so the loop
+  // ends when SQLite stops naming new ones — however wide the query.
+  for (;;) {
     try {
       return stage()
     } catch (error) {
       // Only a schemaless, empty input infers: a header-bearing source keeps
       // SQLite's own validation, so a typo stays a typo. A column named in
       // `JOIN … USING` gets its own diagnostic.
-      const missing = records.length === 0 && schemaless && attempt < 64 ?
+      const missing = records.length === 0 && schemaless ?
         /(?:no such column: (.+?)(?: - should this be .*)?|cannot join using column (.+?) - column not present in both tables)$/
           .exec(error instanceof Error ? error.message : '') :
         null
