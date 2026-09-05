@@ -9800,7 +9800,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/loop/sqlite.d.ts` — `7f6cbf331eac3e8095f9deaaf0e239293a2f6beb34ad03d6540d263ac501f728`
 - `@cavelang/cli/dist/internal/loop/store.d.ts` — `0fbc7f47a361e53f5c5c6d3c45647b8f3c3a3e6a38d2e7f5fc3c09f9bcfb14cd`
 - `@cavelang/cli/dist/internal/mcp/index.d.ts` — `e7fee31ace36c6fe7d07ba183ea32929d2451b17db50cc0c30613d55193e80a6`
-- `@cavelang/cli/dist/internal/mcp/main.d.ts` — `aaef0d5dedd267384935f762524177029353f35242437d0fc91cd657db9d2b02`
+- `@cavelang/cli/dist/internal/mcp/main.d.ts` — `022772619c430d7849a21df3914c83a8c61603e78f26b37387df8ad1fd8338c5`
 - `@cavelang/cli/dist/internal/mcp/server.d.ts` — `3511232a34d9ffbc2441a4867fe2b2350aba31f3eafc8a34eab94d95d4a41367`
 - `@cavelang/cli/dist/internal/mcp/tools.d.ts` — `7c0a5ca32f0b7e34c35ebe06f16ca4514416fe3eb1e50201c70c0e1838a0e6a0`
 - `@cavelang/cli/dist/internal/rules/declare.d.ts` — `4ebe2d87b9a1d9b68dbf2f31c38209e44c72c0799784146c5b672161ba5a4bd5`
