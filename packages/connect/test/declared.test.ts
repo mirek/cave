@@ -522,3 +522,30 @@ test('discovery with prune drops the sources a vanished record declared', async 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('discovery runs each source once: the work grows with the sources, not with their square', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    const count = 40
+    for (let i = 0; i < count; i += 1) writeFileSync(join(dir, `s${i}.cave`), `fact${i} IS true\n`)
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest(Array.from({ length: count }, (_, i) => `source/s${i} HAS path: s${i}.cave`).join('\n'))
+      let ingests = 0
+      const counting = new Proxy(store, {
+        get: (target, key, receiver) => key === 'ingest' ?
+          (...args: Parameters<typeof store.ingest>) => { ingests += 1; return target.ingest(...args) } :
+          Reflect.get(target, key, receiver)
+      })
+      const sequence = await Declared.discover(counting, db, { force: true })
+      assert.equal(sequence.length, count)
+      assert.ok(ingests <= 3 * count, `${ingests} ingests for ${count} sources — each ran once (prelude, digest, declaration marker), not once per round`)
+      assert.equal(store.currentBeliefs().filter(row => row.subject.startsWith('fact')).length, 0, 'and nothing stayed')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

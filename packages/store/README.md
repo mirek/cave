@@ -221,6 +221,7 @@ notes.currentBeliefs()                       // the file's claims, assembled in 
 | `exportText({current, tx, maxSensitivity})` | §9.7 | emit sensitivity-scoped canonical CAVE text (default maximum `internal`); `tx` includes replayable `;@` row identities; `current` compacts, never sanitizes; complete portable history requires `restricted` |
 | `backup(store, path)` / `verifyBackup(path)` / `restoreBackup(snapshot, path)` | §13.2.2 | exact verified SQLite snapshot lifecycle |
 | `openAt(path, {intent, registry})` / `openText(path)` / `kindOf(path)` / `isStoreFile(path)` | §13.7 | open a `--db` path by content: SQLite (read-only for `read`, unmigrated for `scratch`), CAVE text replayed into memory; only `write` creates or migrates |
+| `transaction(body)` / `scratch()` | §20.3, §23.4 | one write transaction (nested calls are savepoints) / a transaction that stays open across asynchronous work and is only ever rolled back, for dry runs and overlays that still load sources |
 | `adapter` / `db` | | selected adapter capabilities and its raw structural database handle |
 
 ## Storage decisions

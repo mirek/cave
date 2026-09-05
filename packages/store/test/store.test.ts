@@ -260,3 +260,26 @@ test('transaction nests and rolls back appends with their declarations (spec §2
   assert.equal(store.claimsAbout('billing').length, 1, 'nested commit lands')
   store.close()
 })
+
+test('a scratch scope holds a transaction open across awaits and only ever rolls back', async () => {
+  const store = open()
+  try {
+    store.ingest('a IS b')
+    const scope = store.scratch()
+    store.ingest('c IS d')
+    store.transaction(() => { store.ingest('e IS f') })
+    assert.throws(() => store.transaction(() => { store.ingest('g IS h'); throw new Error('inner') }), /inner/)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    store.ingest('SPEAKS IS verb')
+    assert.equal(store.currentBeliefs().filter(row => row.conf > 0).length, 4, 'appends inside the scope are visible, the failed inner transaction is not')
+    assert.throws(() => store.scratch(), /cannot open inside a transaction/)
+    scope.rollback()
+    scope.rollback()
+    assert.deepEqual(store.currentBeliefs().map(row => `${row.subject} ${row.verb} ${row.object}`), ['a IS b'], 'everything since scratch is gone')
+    assert.equal(store.registry().declared.has('SPEAKS'), false, 'the registry is restored too')
+    store.transaction(() => { store.ingest('x IS y') })
+    assert.equal(store.currentBeliefs().length, 2, 'an ordinary transaction works again afterwards')
+  } finally {
+    store.close()
+  }
+})

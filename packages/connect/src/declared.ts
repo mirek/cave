@@ -333,35 +333,18 @@ export const versionCounter = (): (name: string) => void => {
   }
 }
 
-const discoverRollback = Symbol('cave-connect discover rollback')
-
-/** Runs `body` inside a transaction that always rolls back and returns its value. */
-const rolledBack = <T>(store: Store, body: () => T): T => {
-  let result: undefined | { value: T }
-  try {
-    store.transaction(() => {
-      result = { value: body() }
-      throw discoverRollback
-    })
-  } catch (error) {
-    if (error !== discoverRollback) {
-      throw error
-    }
-  }
-  return result!.value
-}
-
 /**
  * Loads every declared source of the store without leaving anything in
  * it, URLs included, and returns the exact sequence a pass would run —
  * a source re-declared along the way appears again, later. Nothing is
- * simulated: each round replays the sequence so far through the real
- * pass inside a transaction that rolls back, reads the declarations the
- * store then holds, and loads the next source whose declaration changed;
- * so precedence, deltas, retractions, and what an unchanged source skips
- * come out exactly as in the pass. `force` replays every text (the
- * overlay applies everything it loads). The store must be writable for
- * the rolled-back rounds — a `scratch` open, never a read-only one.
+ * simulated: the sources run through the real pass inside one scratch
+ * scope (a transaction held open across the loads and rolled back at the
+ * end), each exactly once as it is discovered, and the declarations are
+ * read from the store as they stand after each run; so precedence,
+ * deltas, retractions, and what an unchanged source skips come out
+ * exactly as in the pass. `force` replays every text (the overlay applies
+ * everything it loads); `prune` retracts what vanished records declared.
+ * The store must be writable — a `scratch` open, never a read-only one.
  */
 export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
   const dir = directoryOf(root)
@@ -375,11 +358,9 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
   const done = new Map<string, string>()
   const version = versionCounter()
   let seen = baseline
-  for (;;) {
-    const next = rolledBack(store, () => {
-      for (const ready of sequence) {
-        run(store, ready, { force: options.force === true, prune: options.prune === true })
-      }
+  const scope = store.scratch()
+  try {
+    for (;;) {
       const current = declaredSources(store)
       // A selection grows by what the replayed sources changed — added,
       // re-declared, or retracted declarations alike — and by what they
@@ -391,24 +372,28 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
         }
       }
       seen = signatures(current)
-      return current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
-    })
-    if (next === undefined) {
-      return sequence
+      const next = current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
+      if (next === undefined) {
+        return sequence
+      }
+      version(next.name)
+      done.set(next.name, signature(next))
+      // The name rule holds for every declaration, skipped ones included.
+      validate(next)
+      // Followed means followed under this very declaration: a version a
+      // replayed source produced, or one assembly replaced, is new. A source
+      // already loaded in this discovery is never skipped again — a
+      // declaration that went away and came back must run again, after the
+      // intervening version.
+      if (options.skipFollowed === true && !sequence.some(ready => ready.declared.name === next.name) && followed(store, next)) {
+        continue
+      }
+      const loaded = await prepare(next, dir, options.fetchImpl)
+      sequence.push(loaded)
+      run(store, loaded, { force: options.force === true, prune: options.prune === true })
     }
-    version(next.name)
-    done.set(next.name, signature(next))
-    // The name rule holds for every declaration, skipped ones included.
-    validate(next)
-    // Followed means followed under this very declaration: a version a
-    // replayed source produced, or one assembly replaced, is new. A source
-    // already loaded in this discovery is never skipped again — a
-    // declaration that went away and came back must run again, after the
-    // intervening version.
-    if (options.skipFollowed === true && !sequence.some(ready => ready.declared.name === next.name) && followed(store, next)) {
-      continue
-    }
-    sequence.push(await prepare(next, dir, options.fetchImpl))
+  } finally {
+    scope.rollback()
   }
 }
 

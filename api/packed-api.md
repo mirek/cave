@@ -10303,4 +10303,4 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/runtime.d.ts` — `2fda7e7dadd437a4b3cf85797ba962d7468a0f6cff67d88c27d3623c632bb02d`
 - `@cavelang/store/dist/src/schema.d.ts` — `daeecab6c304b4f2bdf5d33509e2de6dfe44b1dcfeac69970565d1dd6755ab37`
 - `@cavelang/store/dist/src/sensitivity.d.ts` — `4a8e9a09f9bdcff92bdebfa2839760a0880cec2f9685f7061251e1af4cdec3f4`
-- `@cavelang/store/dist/src/store.d.ts` — `b30431dbed2de58fe85360d2c99253d321f04f63e7a5aab2f21cb0b78ec097a6`
+- `@cavelang/store/dist/src/store.d.ts` — `be5e66be21bfb2b224f7af24f146e53a4ced74e7ddc6f6cacf8c4e6760b7d410`
