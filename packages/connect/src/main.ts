@@ -476,30 +476,43 @@ const rollback = Symbol('cave-connect declared query rollback')
  * sources load first, URLs included, then append inside one transaction
  * that rolls back after the query.
  */
+const stale = Symbol('cave-connect declared query stale')
+
 const declaredQuery = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
   // The overlay applies every source (force), so discovery simulates that.
-  const ready = await Declared.discover(store, root, discoverOptions(values, context, true))
-  let matches: undefined | readonly Match[]
-  let failed = 0
-  try {
-    store.transaction(() => {
-      for (const source of ready) {
-        const report = Declared.run(store, source, { force: true, prune: values.prune === true })
-        if (report.failures.length > 0) {
-          failed += 1
-          io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+  // The sequence was discovered on a snapshot; a writer may have changed
+  // the declarations since, so the replay checks and rediscovers if so.
+  for (let attempt = 0; attempt < Declared.overlayAttempts; attempt += 1) {
+    const { sequence, baseline } = await Declared.discovery(store, root, discoverOptions(values, context, true))
+    let matches: undefined | readonly Match[]
+    let failed = 0
+    try {
+      store.transaction(() => {
+        if (!Declared.sameDeclarations(baseline, Declared.signatures(Declared.declaredSources(store)))) {
+          throw stale
         }
+        for (const source of sequence) {
+          const report = Declared.run(store, source, { force: true, prune: values.prune === true })
+          if (report.failures.length > 0) {
+            failed += 1
+            io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+          }
+        }
+        matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
+        throw rollback
+      })
+    } catch (error) {
+      if (error === stale) {
+        continue
       }
-      matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
-      throw rollback
-    })
-  } catch (error) {
-    if (error !== rollback) {
-      throw error
+      if (error !== rollback) {
+        throw error
+      }
     }
+    printMatches(store, matches!, values.query!, values, io)
+    return failed > 0 ? 1 : 0
   }
-  printMatches(store, matches!, values.query!, values, io)
-  return failed > 0 ? 1 : 0
+  throw Declared.staleOverlay()
 }
 
 const declaredWatch = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {

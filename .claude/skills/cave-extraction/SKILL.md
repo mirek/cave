@@ -323,9 +323,12 @@ against a private snapshot of the store — each source runs once as it is
 discovered, the declarations are read from the copy as they then stand,
 and the copy is discarded — and it keeps the exact run sequence, a
 re-declared source appearing again later; the overlay then replays that
-sequence in the real store's rolled-back transaction. Nothing is
-simulated, so a preview agrees with the pass, the real database holds no
-lock while sources load, and a dry run only reads the store.
+sequence in the real store's rolled-back transaction, after checking
+that the declarations still match the snapshot's — a writer may have
+changed them while sources loaded — and rediscovering when they do not,
+three times before giving up. Nothing is simulated, so a preview agrees
+with the pass, the real database holds no lock while sources load, and a
+dry run only reads the store.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under

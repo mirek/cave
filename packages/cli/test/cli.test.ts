@@ -1740,3 +1740,32 @@ test('query --sources answers the overlay whole and fetches a text store\'s URL 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('query --sources rediscovers when a writer changes the declarations while sources load', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    store.ingest('source/remote HAS path: https://example.test/a.cave')
+    store.close()
+    const fetched: string[] = []
+    let first = true
+    const fetchImpl = async (url: string): Promise<Response> => {
+      fetched.push(url)
+      if (first) {
+        first = false
+        // A writer moves the declaration while the first load is in flight.
+        const writer = open(db)
+        writer.ingest('source/remote HAS path: https://example.test/b.cave')
+        writer.close()
+      }
+      return new Response(url.endsWith('a.cave') ? 'answer IS a\n' : 'answer IS b\n', { status: 200 })
+    }
+    const result = await querySourcesCommand(['--db', db, 'answer IS ?x', '--sources'], { fetchImpl })
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.out, '?x = b\n', 'the overlay answers from the declaration current at replay')
+    assert.deepEqual(fetched, ['https://example.test/a.cave', 'https://example.test/b.cave'])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

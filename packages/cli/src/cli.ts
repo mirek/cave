@@ -818,11 +818,16 @@ const sourcesRollback = Symbol('cave query --sources rollback')
  * that always rolls back, so external data is consulted at query time and
  * nothing persists, digests included.
  */
-const withSources = <T>(store: Store, ready: readonly Declared.Prepared[], body: () => T): T => {
+const withSources = <T>(store: Store, discovered: Declared.Discovery, body: () => T): undefined | { value: T } => {
   let result: undefined | { value: T }
   try {
     store.transaction(() => {
-      for (const source of ready) {
+      // Discovered on a snapshot: if a writer changed the declarations
+      // since, the sequence is stale and the caller rediscovers.
+      if (!Declared.sameDeclarations(discovered.baseline, Declared.signatures(Declared.declaredSources(store)))) {
+        throw sourcesRollback
+      }
+      for (const source of discovered.sequence) {
         const report = Declared.run(store, source, { force: true })
         if (report.failures.length > 0) {
           throw new LocateError(`source/${source.declared.name}: ${report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('; ')}`)
@@ -836,7 +841,7 @@ const withSources = <T>(store: Store, ready: readonly Declared.Prepared[], body:
       throw error
     }
   }
-  return result!.value
+  return result
 }
 
 const readInput = (files: readonly string[]): string =>
@@ -1034,14 +1039,20 @@ export const querySourcesCommand = async (
   // never creating or migrating (spec §13.7).
   const store = openDb(values, 'scratch')
   try {
-    const ready = await Declared.discover(store, root, {
-      // The overlay applies every source it loads (force), so discovery
-      // simulates that; a text store skips what assembly already followed.
-      force: true,
-      ...kindOf(root) === 'text' ? { skipFollowed: true } : {},
-      ...runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }
-    })
-    return renderQueryPage(store, values, pattern, () => withSources(store, ready, () => wholeQuery(store, values, pattern)))
+    for (let attempt = 0; attempt < Declared.overlayAttempts; attempt += 1) {
+      const discovered = await Declared.discovery(store, root, {
+        // The overlay applies every source it loads (force), so discovery
+        // simulates that; a text store skips what assembly already followed.
+        force: true,
+        ...kindOf(root) === 'text' ? { skipFollowed: true } : {},
+        ...runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }
+      })
+      const page = withSources(store, discovered, () => wholeQuery(store, values, pattern))
+      if (page !== undefined) {
+        return renderQueryPage(store, values, pattern, () => page.value)
+      }
+    }
+    throw Declared.staleOverlay()
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {

@@ -352,7 +352,27 @@ export const versionCounter = (): (name: string) => void => {
  * while sources load. `force` replays every text (the overlay applies
  * everything it loads); `prune` retracts what vanished records declared.
  */
-export const discover = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
+export const discover = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> =>
+  (await discovery(origin, root, options)).sequence
+
+/** A discovery's run sequence with the declarations it started from — what an overlay must still see before replaying. */
+export type Discovery = {
+  readonly sequence: Prepared[]
+  readonly baseline: ReadonlyMap<string, string>
+}
+
+/** Whether two declaration snapshots agree, name by name. */
+export const sameDeclarations = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean =>
+  a.size === b.size && [...a].every(([name, signature]) => b.get(name) === signature)
+
+/** How many times an overlay rediscovers when the declarations changed underneath it. */
+export const overlayAttempts = 3
+
+export const staleOverlay = (): Error =>
+  new Error(`the declared sources changed while the overlay loaded them, ${overlayAttempts} times over — retry when the store is quiet`)
+
+/** `discover`, also returning the declarations the snapshot started from. */
+export const discovery = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Discovery> => {
   const dir = directoryOf(root)
   const baseline = signatures(declaredSources(origin))
   if (options.only !== undefined && !baseline.has(options.only)) {
@@ -382,7 +402,7 @@ export const discover = async (origin: Store, root: string, options: DiscoverOpt
       seen = signatures(current)
       const next = current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
       if (next === undefined) {
-        return sequence
+        return { sequence, baseline }
       }
       version(next.name)
       done.set(next.name, signature(next))
