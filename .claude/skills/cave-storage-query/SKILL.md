@@ -731,8 +731,9 @@ rolled-back transaction (`derive`, `act`, `sync --dry-run`, `connect
 --query`) opens writable but still creates and migrates nothing. Two
 long-lived surfaces are deliberate exceptions: `cave mcp` initializes its
 store on first start even under `--read-only`, because the file is an
-agent's memory and may not exist yet, and serves a text file only under
-`--read-only`; `cave connect --query` and `cave ingest --plan`/`--dry-run`
+agent's memory and may not exist yet — an existing store under
+`--read-only` opens read-only like any read, and a text file is served
+only under `--read-only`; `cave connect --query` and `cave ingest --plan`/`--dry-run`
 over a missing path work against an empty in-memory store, so a source can
 be federated or planned before any store exists (§23.3).
 

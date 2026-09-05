@@ -1584,3 +1584,18 @@ test('read commands never migrate an older store; a writing command does (spec Â
     assert.equal(versionOf(), Schema.currentVersion, 'a writing command migrates')
   })
 })
+
+test('backup refuses to snapshot a text store onto itself', () => {
+  withDir(dir => {
+    const file = join(dir, 'repos.cave')
+    writeFileSync(file, 'cave IS repo\n')
+    const aliased = cave(['backup', '--db', file, '--out', file, '--force'])
+    assert.equal(aliased.code, 1)
+    assert.match(aliased.err, /is the text store itself/)
+    assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\n', 'the text file survives')
+    const snapshot = join(dir, 'repos.db')
+    const created = cave(['backup', '--db', file, '--out', snapshot])
+    assert.equal(created.code, 0, created.err)
+    assert.equal(cave(['query', '--db', snapshot, '?x IS repo']).out, '?x = cave\n', 'a snapshot elsewhere materializes the text store')
+  })
+})
