@@ -347,38 +347,51 @@ const rolledBack = <T>(store: Store, body: () => T): T => {
  */
 export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
   const dir = directoryOf(root)
+  const baseline = signatures(declaredSources(store))
   const allowed = options.only === undefined ? undefined : new Set([options.only])
-  if (allowed !== undefined && !declaredSources(store).some(declared => declared.name === options.only)) {
-    const names = declaredSources(store).map(declared => declared.name)
+  if (allowed !== undefined && !baseline.has(options.only!)) {
     throw new Error(`no declared source/${options.only}` +
-      (names.length === 0 ? ' — the store declares no sources' : ` — declared: ${names.join(', ')}`))
+      (baseline.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...baseline.keys()].join(', ')}`))
   }
   const sequence: Prepared[] = []
   const done = new Map<string, string>()
   const version = versionCounter()
+  let seen = baseline
   for (;;) {
     const next = rolledBack(store, () => {
       for (const ready of sequence) {
         run(store, ready, { force: options.force === true })
       }
-      return declaredSources(store)
-        .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
+      const current = declaredSources(store)
+      // A selection grows by what the replayed sources changed — added,
+      // re-declared, or retracted declarations alike.
+      if (allowed !== undefined) {
+        for (const name of changedNames(seen, signatures(current))) allowed.add(name)
+      }
+      seen = signatures(current)
+      return current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
     })
     if (next === undefined) {
       return sequence
     }
     version(next.name)
     done.set(next.name, signature(next))
-    if (options.skipFollowed === true && followed(store, next.name)) {
+    // Only the baseline declaration counts as followed: a version a replayed
+    // source produced is new, whatever the store followed before.
+    if (options.skipFollowed === true && baseline.get(next.name) === signature(next) && followed(store, next.name)) {
       continue
     }
-    const loaded = await prepare(next, dir, options.fetchImpl)
-    sequence.push(loaded)
-    if (loaded.cave && allowed !== undefined) {
-      for (const delta of declarationsIn(loaded.mapping.prelude)) allowed.add(delta.name)
-    }
+    sequence.push(await prepare(next, dir, options.fetchImpl))
   }
 }
+
+/** Declaration signatures by name. */
+export const signatures = (declared: readonly Declared[]): Map<string, string> =>
+  new Map(declared.map(entry => [entry.name, signature(entry)]))
+
+/** Names whose declaration was added, changed, or removed between two snapshots. */
+export const changedNames = (before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>): string[] =>
+  [...new Set([...before.keys(), ...after.keys()])].filter(name => before.get(name) !== after.get(name))
 
 export type RunOptions = {
   readonly force?: boolean

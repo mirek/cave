@@ -418,12 +418,13 @@ const declaredPass = async (
     done.set(next.name, Declared.signature(next))
     try {
       const ready = await Declared.prepare(next, dir, context.fetchImpl)
-      if (ready.cave && allowed !== undefined) {
-        // Any declaration attribute the source touches, complete or not,
-        // brings that source into the selection: the store merges it.
-        for (const delta of Declared.declarationsIn(ready.mapping.prelude)) allowed.add(delta.name)
-      }
+      const before = Declared.signatures(Declared.declaredSources(store))
       const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
+      if (allowed !== undefined) {
+        // The selection grows by whatever this source changed — added,
+        // re-declared, or retracted declarations alike.
+        for (const name of Declared.changedNames(before, Declared.signatures(Declared.declaredSources(store)))) allowed.add(name)
+      }
       io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
       if (report.failures.length > 0) failed += 1
     } catch (error) {

@@ -397,3 +397,27 @@ test('discovery follows a source removing a declaration it made, and keeps the r
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a text store overlay loads a followed source again when a URL source re-declares it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/remote HAS path: https://example.test/remap.cave\n')
+    const store = openAt(root, { intent: 'scratch', assemble })
+    try {
+      assert.equal(Declared.followed(store, 'people'), true)
+      const fetchImpl = async (): Promise<Response> =>
+        new Response('source/people HAS map: as-staff.map.cave\n', { status: 200, headers: { 'content-type': 'text/plain' } })
+      const sequence = await Declared.discover(store, root, { skipFollowed: true, force: true, fetchImpl })
+      assert.deepEqual(sequence.map(entry => [entry.declared.name, entry.declared.map ?? '']), [['remote', ''], ['people', 'as-staff.map.cave']],
+        'the followed baseline is skipped, the re-declared version is loaded')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

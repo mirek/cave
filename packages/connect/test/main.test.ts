@@ -430,3 +430,41 @@ test('--name follows a source whose mapping the selected source changes', async 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('--name follows a source whose mapping the selected source retracts', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/people HAS key: id\nsource/remap HAS path: remap.cave')
+    seed.close()
+    const pass = async (argv: readonly string[]): Promise<{ code: number, out: string, err: string }> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr })
+      return { code, out: stdout.value, err: stderr.value }
+    }
+    assert.equal((await pass(['--db', db])).code, 0)
+    const current = (): string[] => {
+      const store = open(db)
+      try {
+        return store.currentBeliefs().filter(row => row.conf > 0 && row.subject === 'ann').map(row => row.object!).sort()
+      } finally {
+        store.close()
+      }
+    }
+    assert.deepEqual(current(), ['staff'], 'the followed source re-mapped people')
+    // remap now retracts its own map claim: people's effective mapping is the root's again.
+    writeFileSync(join(dir, 'remap.cave'), 'source/people HAS map: as-staff.map.cave @ 0%\n')
+    const only = await pass(['--db', db, '--name', 'remap'])
+    assert.equal(only.code, 0, only.err)
+    assert.match(only.out, /^source\/remap: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    assert.deepEqual(current(), ['person'], 'people ran again under the root mapping once remap retracted its own')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
