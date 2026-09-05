@@ -48,7 +48,7 @@ export const docs: readonly Doc[] = [
   { slug: 'core', label: 'Core model', group: 'Reference', markdown: core, source: 'packages/core/README.md' },
   { slug: 'parser', label: 'Parser', group: 'Reference', markdown: parser, source: 'packages/parser/README.md' },
   { slug: 'canonical', label: 'Canonicalization', group: 'Reference', markdown: canonical, source: 'packages/canonical/README.md' },
-  { slug: 'store', label: 'SQLite store', group: 'Reference', markdown: store, source: 'packages/store/README.md' },
+  { slug: 'store', label: 'Store', group: 'Reference', markdown: store, source: 'packages/store/README.md' },
   { slug: 'query', label: 'CAVE-Q', group: 'Reference', markdown: query, source: 'packages/query/README.md' },
   { slug: 'fusion', label: 'Uncertainty fusion', group: 'Reference', markdown: fusion, source: 'packages/fusion/README.md' },
   { slug: 'shape', label: 'Shapes & checks', group: 'Reference', markdown: shape, source: 'packages/shape/README.md' },

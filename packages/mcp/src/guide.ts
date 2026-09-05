@@ -11,7 +11,7 @@ export const guideTopics = ['overview', 'write', 'find', 'revise', 'safety'] as 
 export type GuideTopic = typeof guideTopics[number]
 
 const guides: Readonly<Record<GuideTopic, string>> = {
-  overview: `CAVE is durable, local agent memory: atomic claims in an append-only SQLite database.
+  overview: `CAVE is durable, local agent memory: atomic claims in an append-only local store.
 
 Typical workflow:
 1. Recall before reasoning: use cave_about for one entity, cave_query for a known relation, cave_search for unknown wording, or cave_reconstruct for multi-hop context.
@@ -53,7 +53,7 @@ To retract that belief, append the same identity at zero confidence:
 
 Do not silently replace one source with another. Conflicting claims may coexist. Query with resolve=true only when a single policy-ranked answer is required. Run cave_derive after adding or changing premises when stored rules should materialize conclusions. Prefer generated act_<name> tools over free-form cave_add when a declared governed action fits.`,
 
-  safety: `CAVE preserves history. Retraction, current-only queries, resolution and sensitivity filters change what is shown or believed; they do not guarantee erasure from SQLite remnants, exports, sync peers or backups.
+  safety: `CAVE preserves history. Retraction, current-only queries, resolution and sensitivity filters change what is shown or believed; they do not guarantee erasure from storage remnants, exports, sync peers or backups.
 
 Never store credentials, private keys, tokens, or information whose retention policy requires selective deletion. If a secret is ingested, rotate it, stop propagation, inventory every database/export/backup, rebuild from reviewed safe input, and destroy or expire affected copies.
 

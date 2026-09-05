@@ -180,7 +180,7 @@ $ cave query --db roastery.db '?who SUPPLIES lot/huila-26' --json | head -n 11
 
 A pattern needs a name to start from. When all you remember is wording, a
 phrase from a comment, a value, a tag, `cave search` runs the store's
-full-text index (SQLite FTS5, built into Node.js) over every claim: subject,
+full-text index (no extra service to run) over every claim: subject,
 verb, object, attribute name, value text, comment, and the line as written,
 so tags, contexts, and inverse spellings match too. The terms are one
 literal phrase, and matches print newest first as raw lines, comments
@@ -214,8 +214,8 @@ claim records.
 
 == SQL, when you need it
 
-The store is an ordinary SQLite file with a documented schema (Chapter 25),
-and nothing stops you from opening it. CAVE-Q is the ergonomic layer for
+Today's store is an ordinary SQLite file with a documented schema
+(Chapter 25), and nothing stops you from opening it. CAVE-Q is the ergonomic layer for
 graph questions; SQL is the transparent escape hatch for analysis the
 pattern language does not cover. The current-belief query is one join, and
 it is worth knowing so that hand-written SQL agrees with the tool:

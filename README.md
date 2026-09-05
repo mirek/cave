@@ -1,8 +1,8 @@
 # CAVE — Compressed Atomic Verb Expressions
 
 CAVE is a small plain-text language for writing down what you know, one
-claim per line, plus a command-line tool that stores those claims in SQLite
-and lets you ask questions across them.
+claim per line, plus a command-line tool that keeps those claims, remembers
+how they change, and lets you ask questions across them.
 
 ```cave
 web USES ui
@@ -41,9 +41,8 @@ pnpm up --latest -g @cavelang/cli
 The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
 24.18.0 Active LTS is the recommended production runtime, and 26.4.0 Current is
 also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
-Server 2022. CAVE stores knowledge in a local SQLite database; `--db` is
-optional everywhere and defaults to `$CAVE_DB`, or `cave.db` in the current
-directory.
+Server 2022. A CAVE store is one local file; `--db` is optional everywhere
+and defaults to `$CAVE_DB`, or `cave.db` in the current directory.
 
 ## Tutorial I — a monorepo, one claim at a time
 
@@ -806,8 +805,8 @@ as belief stood on an earlier day.
   replayed against the real CLI by `pnpm test`, the few that need a model, a
   browser, a long-running server, or the optional Z3 solver marked and
   skipped; source in [`book/`](book)) and a
-  browser playground that runs the real parser, store and query engine on
-  SQLite WebAssembly.
+  browser playground that runs the real parser, store and query engine
+  entirely in the browser, on an in-memory store.
 
 ## Development
 

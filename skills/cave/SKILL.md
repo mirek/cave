@@ -55,6 +55,6 @@ Prefer a generated `act_<name>` tool over `cave_add` when a declared governed ac
 
 ## Protect data
 
-CAVE history is permanent by design. Retraction, current-only views, resolution, and sensitivity filters do not guarantee deletion from SQLite remnants, exports, peers, or backups. Never store secrets or data requiring selective erasure.
+CAVE history is permanent by design. Retraction, current-only views, resolution, and sensitivity filters do not guarantee deletion from storage remnants, exports, peers, or backups. Never store secrets or data requiring selective erasure.
 
 Read [references/usage.md](references/usage.md) when exact syntax, query examples, or the current tool decision table is needed and `cave_help` is unavailable.
