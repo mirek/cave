@@ -33,16 +33,21 @@ export const digestOf = (content: string): string =>
   createHash('sha256').update(content).digest('hex').slice(0, 12)
 
 /**
- * Claim key of a unit's digest claim. The value is excluded from keys
- * (spec §9.2), so the key is stable while the digest evolves.
+ * Claim key of a bookkeeping claim — `subject HAS attribute: … @src:cave-connect`.
+ * The value is excluded from keys (spec §9.2), so the key is stable while
+ * the value evolves, and the context makes it the connector's own series:
+ * an authored claim with the same attribute is another series entirely.
  */
-const digestKey = (subject: string): string =>
+export const bookkeepingKey = (subject: string, attribute: string): string =>
   Key.of(Claim.of({
     subject: Claim.entity(subject),
     verb: 'HAS',
-    payload: Claim.attribute(digestAttribute, Value.parse('x')),
+    payload: Claim.attribute(attribute, Value.parse('x')),
     contexts: [provenanceContext]
   }))
+
+const digestKey = (subject: string): string =>
+  bookkeepingKey(subject, digestAttribute)
 
 /** @returns `true` when the unit has been connected at all — a current digest claim of any value. */
 export const hasDigest = (store: Store, subject: string): boolean => {

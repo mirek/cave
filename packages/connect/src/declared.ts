@@ -29,7 +29,7 @@ import { LocateError, QuerySql, open } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext, retireRun } from './run.ts'
+import { bookkeepingKey, connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext, retireRun } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -472,8 +472,12 @@ export type RunOptions = {
 }
 
 /** The digest of the declaration a source was last run under, if any. */
-export const recordedDeclaration = (store: Store, name: string): undefined | string =>
-  sourceRows(store).find(row => row.subject === `${prefix}${name}` && row.attribute === declarationAttribute)?.value_text ?? undefined
+export const recordedDeclaration = (store: Store, name: string): undefined | string => {
+  // The connector's own series, by exact claim key: an authored claim with
+  // the same attribute, or one a source emitted, is another series.
+  const row = store.currentBelief(bookkeepingKey(`${prefix}${name}`, declarationAttribute))
+  return row !== undefined && row.conf > 0 && row.negated === 0 ? row.value_text ?? undefined : undefined
+}
 
 /** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's. */
 const hasAnyDigest = (store: Store, name: string): boolean => {
@@ -506,7 +510,9 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
     previous !== declarationDigest(ready.declared)
   if (transition && !ready.cave) {
     // A .cave source that became a record source: its prelude unit is no
-    // longer a lifecycle unit the pass would diff, so it is retired whole.
+    // longer a lifecycle unit the pass would diff, so it is retired whole —
+    // and the pass below runs forced, since the old prelude digest would
+    // otherwise pass a same-text prelude off as unchanged.
     retireRun(store, declaredNaming(ready.declared.name).run())
   }
   const report = connect(store, ready.mapping, ready.records, {
@@ -517,7 +523,7 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
     ...ready.source === undefined ? {} : { source: ready.source },
     ...ready.spans === undefined ? {} : { spans: ready.spans },
     ...ready.declared.key === undefined ? {} : { key: ready.declared.key },
-    force: options.force === true,
+    force: options.force === true || transition,
     prune: options.prune === true || transition
   })
   if (!followed(store, ready.declared)) {

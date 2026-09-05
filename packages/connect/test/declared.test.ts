@@ -641,3 +641,30 @@ test('a .cave source re-declared as a record source retires its former prelude',
     }
   })
 })
+
+test('a shape transition re-runs a same-text prelude, and the declaration marker is the connector\'s own series', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS kept\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), 'fact IS kept\n\n?name IS person\n')
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: people.csv\nsource/b HAS map: people.map.cave\nsource/b HAS key: id\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/b HAS path: facts.cave\nsource/z HAS path: z.cave\n')
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const current = store.currentBeliefs().filter(row => row.conf > 0 && ['fact', 'ann'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`).sort()
+      assert.deepEqual(current, ['ann IS person', 'fact IS kept'], 'the prelude the new mapping still declares is current again despite the unchanged digest')
+    } finally {
+      store.close()
+    }
+    const scratch = open()
+    try {
+      scratch.ingest('source/x HAS path: x.cave\nsource/x HAS connect-declaration: authored\nsource/x HAS connect-declaration: emitted @src:x')
+      assert.equal(Declared.recordedDeclaration(scratch, 'x'), undefined, 'only the @src:cave-connect series is the marker')
+      scratch.ingest('source/x HAS connect-declaration: real @src:cave-connect')
+      assert.equal(Declared.recordedDeclaration(scratch, 'x'), 'real')
+    } finally {
+      scratch.close()
+    }
+  })
+})
