@@ -305,6 +305,8 @@ export type DiscoverOptions = {
   readonly only?: string
   /** Simulate a `--force` pass: every followed text is applied, digest or not. */
   readonly force?: boolean
+  /** Simulate a `--prune` pass: records that left a source retract, declarations they made included. */
+  readonly prune?: boolean
   /**
    * Skip sources the store has already followed (they carry a digest claim)
    * — what a text store's overlay needs: assembly followed every local
@@ -376,7 +378,7 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
   for (;;) {
     const next = rolledBack(store, () => {
       for (const ready of sequence) {
-        run(store, ready, { force: options.force === true })
+        run(store, ready, { force: options.force === true, prune: options.prune === true })
       }
       const current = declaredSources(store)
       // A selection grows by what the replayed sources changed — added,
@@ -399,8 +401,11 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     // The name rule holds for every declaration, skipped ones included.
     validate(next)
     // Followed means followed under this very declaration: a version a
-    // replayed source produced, or one assembly replaced, is new.
-    if (options.skipFollowed === true && followed(store, next)) {
+    // replayed source produced, or one assembly replaced, is new. A source
+    // already loaded in this discovery is never skipped again — a
+    // declaration that went away and came back must run again, after the
+    // intervening version.
+    if (options.skipFollowed === true && !sequence.some(ready => ready.declared.name === next.name) && followed(store, next)) {
       continue
     }
     sequence.push(await prepare(next, dir, options.fetchImpl))

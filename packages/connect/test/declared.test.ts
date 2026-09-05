@@ -465,3 +465,60 @@ test('followed means followed under this very declaration, not merely digests le
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a declaration that goes away and comes back within one discovery runs again after the intervening version', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'as-person.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, [
+      'source/b HAS path: people.csv',
+      'source/b HAS map: as-staff.map.cave',
+      'source/u1 HAS path: https://example.test/u1.cave',
+      'source/u2 HAS path: https://example.test/u2.cave'
+    ].join('\n'))
+    const store = openAt(root, { intent: 'scratch', assemble })
+    try {
+      const texts: Record<string, string> = {
+        'https://example.test/u1.cave': 'source/b HAS map: as-person.map.cave\n',
+        'https://example.test/u2.cave': 'source/b HAS map: as-staff.map.cave\n'
+      }
+      const fetchImpl = async (url: string): Promise<Response> => new Response(texts[url] ?? '', { status: 200 })
+      const sequence = await Declared.discover(store, root, { skipFollowed: true, force: true, fetchImpl })
+      assert.deepEqual(sequence.map(entry => [entry.declared.name, entry.declared.map ?? '']),
+        [['u1', ''], ['b', 'as-person.map.cave'], ['u2', ''], ['b', 'as-staff.map.cave']],
+        'b runs under the intervening map and again under the restored one')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('discovery with prune drops the sources a vanished record declared', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'zchild.cave'), 'child IS here\n')
+    writeFileSync(join(dir, 'registry.csv'), 'entity,path\nsource/zchild,zchild.cave\n')
+    writeFileSync(join(dir, 'registry.map.cave'), '?entity HAS path: ?path\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/registry HAS path: registry.csv\nsource/registry HAS map: registry.map.cave\nsource/registry HAS key: entity')
+      assemble(store, db)
+      assert.deepEqual(Declared.declaredSources(store).map(declared => declared.name), ['registry', 'zchild'])
+      writeFileSync(join(dir, 'registry.csv'), 'entity,path\n')
+      const kept = await Declared.discover(store, db)
+      assert.deepEqual(kept.map(entry => entry.declared.name), ['registry', 'zchild'], 'without prune the vanished record keeps its declaration')
+      const pruned = await Declared.discover(store, db, { prune: true })
+      assert.deepEqual(pruned.map(entry => entry.declared.name), ['registry'], 'the registry runs first and prunes the record, so the child it declared is gone, as in the pass')
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

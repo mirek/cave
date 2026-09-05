@@ -439,7 +439,8 @@ const declaredPass = async (
 const discoverOptions = (values: Values, context: RunContext, force = values.force === true): Declared.DiscoverOptions => ({
   ...values.name === undefined ? {} : { only: values.name },
   ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl },
-  force
+  force,
+  prune: values.prune === true
 })
 
 /** Previews every declared source, nested declarations included, without touching the store. */
@@ -480,7 +481,7 @@ const declaredQuery = async (store: Store, root: string, values: Values, io: IO,
   try {
     store.transaction(() => {
       for (const source of ready) {
-        const report = Declared.run(store, source, { force: true })
+        const report = Declared.run(store, source, { force: true, prune: values.prune === true })
         if (report.failures.length > 0) {
           failed += 1
           io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
