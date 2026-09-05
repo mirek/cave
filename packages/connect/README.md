@@ -134,11 +134,14 @@ cave query --db k.db '?who WORKS-AT acme' --sources   # the same overlay
 cave query --db notes.cave '?who WORKS-AT acme'       # a text store follows its sources on open
 ```
 
-Programmatic: `Declared.declaredSources(store)`, `Declared.prepare` /
-`prepareSync`, `Declared.run(store, prepared, { force, prune })`, and
+Programmatic: `Declared.declaredSources(store)`, `Declared.declaredIn(text)`,
+`Declared.prepare` / `prepareSync`, `Declared.discover(store, root)` (every
+source loaded, nested declarations read from followed `.cave` text, nothing
+appended), `Declared.run(store, prepared, { force, prune })`, and
 `assemble(store, root)` — the assembler `@cavelang/store`'s `openAt` calls
-for a text store, following nested declarations until none is left and
-never re-reading the root file.
+for a text store, following nested declarations until none is left, never
+re-reading the root file, and skipping URL sources (which `cave connect`
+follows).
 
 ## Design notes
 

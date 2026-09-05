@@ -210,7 +210,8 @@ const readSqlite = (path: string, options: Options): Record<string, unknown>[] =
   }
 }
 
-const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
+/** Fetches a URL's body; the transport is injectable for tests. */
+export const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
   const response = await (options.fetchImpl ?? fetch)(url, {
     headers: {
       'user-agent': 'cave-connect',

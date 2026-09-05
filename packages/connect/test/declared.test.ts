@@ -139,3 +139,32 @@ test('a changed .cave source retracts what it no longer says; a pruned record re
     }
   })
 })
+
+test('assembly skips URL sources and follows one file under several names; declaredIn reads text', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'as-people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'as-staff.map.cave'), '?name IS staff\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, [
+      'source/remote HAS path: https://example.test/people.csv',
+      'source/remote HAS map: as-people.map.cave',
+      'source/remote-cave HAS path: https://example.test/verbs.cave',
+      'source/people HAS path: people.csv',
+      'source/people HAS map: as-people.map.cave',
+      'source/staff HAS path: people.csv',
+      'source/staff HAS map: as-staff.map.cave'
+    ].join('\n'))
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const current = store.currentBeliefs().filter(row => row.conf > 0)
+      assert.equal(current.filter(row => row.subject === 'ann' && row.verb === 'IS').map(row => row.object).sort().join(','), 'person,staff',
+        'the same file is followed under each name')
+      assert.equal(current.some(row => store.toClaim(row).contexts.some(context => context.startsWith('src:remote'))), false,
+        'URL sources are skipped during assembly, not errors')
+    } finally {
+      store.close()
+    }
+    assert.deepEqual(Declared.declaredIn('x IS y\nsource/a HAS path: a.cave\nsource/b HAS map: only.cave\n'), [{ name: 'a', path: 'a.cave' }])
+  })
+})

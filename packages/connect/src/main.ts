@@ -241,7 +241,7 @@ const runQuery = async (
   const db = values.db ?? defaultDbPath()
   const registry = values['no-prelude'] === true ? { registry: Registry.empty } : {}
   // Federation over a store that does not exist yet queries the source alone.
-  const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'scratch', ...registry })
+  const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'scratch', assemble: Declared.assemble, ...registry })
   try {
     const { matches, report } = federatedQuery(
       store, mapping, loaded.records,
@@ -424,30 +424,29 @@ const declaredPass = async (
   }
 }
 
+const discoverOptions = (values: Values, context: RunContext): Declared.DiscoverOptions => ({
+  ...values.name === undefined ? {} : { only: values.name },
+  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl }
+})
+
+/** Previews every declared source, nested declarations included, without touching the store. */
 const declaredDry = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
-  const dir = Declared.directoryOf(root)
   const sections: string[] = []
   let failures = 0
-  for (const declared of selectDeclared(store, values)) {
-    sections.push(`; === source/${declared.name} (${declared.path})`)
-    try {
-      const ready = await Declared.prepare(declared, dir, context.fetchImpl)
-      if (ready.mapping.prelude !== '') {
-        sections.push(`; --- prelude\n\n${ready.mapping.prelude.trimEnd()}`)
-      }
-      ready.records.forEach((record, at) => {
-        const instantiation = Template.instantiate(ready.mapping.templates, name => Template.fieldOf(record, name))
-        if (instantiation.problems.length > 0) {
-          failures += 1
-          sections.push([`; --- record ${at + 1}`, ...instantiation.problems.map(problem => `; FAILED — ${problem}`)].join('\n'))
-          return
-        }
-        sections.push(`; --- record ${at + 1}\n\n${instantiation.text.trimEnd()}`)
-      })
-    } catch (error) {
-      failures += 1
-      sections.push(`; FAILED — ${error instanceof Error ? error.message : String(error)}`)
+  for (const ready of await Declared.discover(store, root, discoverOptions(values, context))) {
+    sections.push(`; === source/${ready.declared.name} (${ready.declared.path})`)
+    if (ready.mapping.prelude !== '') {
+      sections.push(`; --- prelude\n\n${ready.mapping.prelude.trimEnd()}`)
     }
+    ready.records.forEach((record, at) => {
+      const instantiation = Template.instantiate(ready.mapping.templates, name => Template.fieldOf(record, name))
+      if (instantiation.problems.length > 0) {
+        failures += 1
+        sections.push([`; --- record ${at + 1}`, ...instantiation.problems.map(problem => `; FAILED — ${problem}`)].join('\n'))
+        return
+      }
+      sections.push(`; --- record ${at + 1}\n\n${instantiation.text.trimEnd()}`)
+    })
   }
   io.stdout.write(`${sections.join('\n\n')}\n`)
   return failures > 0 ? 1 : 0
@@ -455,12 +454,24 @@ const declaredDry = async (store: Store, root: string, values: Values, io: IO, c
 
 const rollback = Symbol('cave-connect declared query rollback')
 
-/** Federation-lite over every declared source (spec §23.3, §23.4): assemble inside a transaction, query, roll back. */
-const declaredQuery = (store: Store, root: string, values: Values, io: IO): number => {
+/**
+ * Federation-lite over every declared source (spec §23.3, §23.4): the
+ * sources load first, URLs included, then append inside one transaction
+ * that rolls back after the query.
+ */
+const declaredQuery = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
+  const ready = await Declared.discover(store, root, discoverOptions(values, context))
   let matches: undefined | readonly Match[]
+  let failed = 0
   try {
     store.transaction(() => {
-      Declared.assemble(store, root)
+      for (const source of ready) {
+        const report = Declared.run(store, source, { force: true })
+        if (report.failures.length > 0) {
+          failed += 1
+          io.stderr.write(`source/${source.declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
+        }
+      }
       matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
       throw rollback
     })
@@ -470,7 +481,7 @@ const declaredQuery = (store: Store, root: string, values: Values, io: IO): numb
     }
   }
   printMatches(store, matches!, values.query!, values, io)
-  return 0
+  return failed > 0 ? 1 : 0
 }
 
 const declaredWatch = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
@@ -481,6 +492,7 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
     } catch (error) {
       io.stderr.write(`cave connect watch pass: ${error instanceof Error ? error.message : String(error)}\n`)
     }
+    refreshWatchers()
   }
   let running = false
   let queued = false
@@ -512,30 +524,44 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
       await fire()
     }, 200)
   }
-  // Every local declared file and mapping; URL sources only run on file changes.
-  const targets = [...new Set(selectDeclared(store, values).flatMap(declared => [
-    ...Source.isUrl(declared.path) ? [] : [Declared.resolvePath(declared.path, dir)],
-    ...declared.map === undefined ? [] : [Declared.resolvePath(declared.map, dir)]
-  ]))]
-  if (targets.length === 0) {
+  // Every local declared file and mapping; URL sources only run on file
+  // changes. A followed .cave source may declare more, so the set is
+  // refreshed after every pass.
+  const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
+  const watched = new Map<string, { close(): void }>()
+  const refreshWatchers = (): void => {
+    let declared: Declared.t[]
+    try {
+      declared = selectDeclared(store, values)
+    } catch {
+      return
+    }
+    for (const target of new Set(declared.flatMap(source => [
+      ...Source.isUrl(source.path) ? [] : [Declared.resolvePath(source.path, dir)],
+      ...source.map === undefined ? [] : [Declared.resolvePath(source.map, dir)]
+    ]))) {
+      if (watched.has(target)) continue
+      watched.set(target, watch(dirname(target), (_event, filename) => {
+        if (filename === null || filename.toString() === basename(target)) {
+          trigger()
+        }
+      }))
+    }
+  }
+  refreshWatchers()
+  if (watched.size === 0) {
     io.stderr.write('cave connect: nothing to watch — no declared local source\n')
     return 1
   }
-  const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
-  const watchers = targets.map(target =>
-    watch(dirname(target), (_event, filename) => {
-      if (filename === null || filename.toString() === basename(target)) {
-        trigger()
-      }
-    }))
   try {
     await passOnce()
+    refreshWatchers()
     io.stdout.write('watching (ctrl-c to stop)\n')
     await waitForAbort(io.signal)
     return 0
   } finally {
     if (timer !== undefined) cancelScheduled(timer)
-    for (const watcher of watchers) watcher.close()
+    for (const watcher of watched.values()) watcher.close()
   }
 }
 
@@ -572,7 +598,7 @@ const runDeclared = async (values: Values, io: IO, context: RunContext): Promise
       try {
         return values.query === undefined ?
           await declaredDry(store, db, values, io, context) :
-          declaredQuery(store, db, values, io)
+          await declaredQuery(store, db, values, io, context)
       } finally {
         store.close()
       }

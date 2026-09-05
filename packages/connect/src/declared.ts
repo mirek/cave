@@ -24,7 +24,7 @@
 
 import { readFileSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
-import { LocateError } from '@cavelang/store'
+import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
@@ -87,6 +87,22 @@ export const declaredSources = (store: Store): Declared[] => {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/**
+ * The sources a CAVE text declares, read without touching any store: the
+ * text is replayed into a scratch in-memory store. This is how an overlay
+ * or a dry run discovers what a followed `.cave` source declares in turn,
+ * before anything is appended.
+ */
+export const declaredIn = (text: string): Declared[] => {
+  const scratch = open()
+  try {
+    scratch.ingest(text)
+    return declaredSources(scratch)
+  } finally {
+    scratch.close()
+  }
+}
+
 /** Where a declared path points: URLs as they are, files against the store's directory. */
 export const resolvePath = (path: string, dir: string): string =>
   Source.isUrl(path) ? path : resolve(dir, path)
@@ -133,13 +149,16 @@ const validate = (declared: Declared): void => {
   }
 }
 
-const parseTemplate = (path: string, label: string): Template.Mapping => {
-  const { mapping, problems } = Template.parse(readFileSync(path, 'utf8'))
+const parseTemplate = (text: string, label: string): Template.Mapping => {
+  const { mapping, problems } = Template.parse(text)
   if (mapping === undefined) {
     throw new Error(`${label}:\n${problems.map(problem => `  ${problem}`).join('\n')}`)
   }
   return mapping
 }
+
+const urlRefused = (source: string): Error =>
+  new Error(`${source}: URL sources are followed by cave connect, not when assembling a text store`)
 
 /** A declared source loaded and ready for a pass. */
 export type Prepared = {
@@ -161,24 +180,87 @@ const prepared = (declared: Declared, dir: string, mapping: Template.Mapping, lo
   cave: loaded === undefined
 })
 
-const mappingOf = (declared: Declared, dir: string): { mapping: Template.Mapping, cave: boolean } => {
+const caveLabel = 'the .cave source does not parse'
+
+/** The mapping template: the declared map file, or the `.cave` source itself. */
+const mappingSync = (declared: Declared, dir: string): { mapping: Template.Mapping, cave: boolean } => {
   validate(declared)
   if (isCave(declared)) {
-    return { mapping: parseTemplate(resolvePath(declared.path, dir), 'the .cave source does not parse'), cave: true }
+    if (Source.isUrl(declared.path)) {
+      throw urlRefused(declared.path)
+    }
+    return { mapping: parseTemplate(readFileSync(resolvePath(declared.path, dir), 'utf8'), caveLabel), cave: true }
   }
-  return { mapping: parseTemplate(resolvePath(declared.map!, dir), `mapping ${declared.map}`), cave: false }
+  return { mapping: parseTemplate(readFileSync(resolvePath(declared.map!, dir), 'utf8'), `mapping ${declared.map}`), cave: false }
 }
 
-/** Loads a declared source synchronously — local files only (`assemble`). */
+const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<{ mapping: Template.Mapping, cave: boolean }> => {
+  if (isCave(declared) && Source.isUrl(declared.path)) {
+    validate(declared)
+    const { text } = await Source.fetchText(declared.path, sourceOptions(declared, fetchImpl))
+    return { mapping: parseTemplate(text, caveLabel), cave: true }
+  }
+  return mappingSync(declared, dir)
+}
+
+/** Loads a declared source synchronously — local files only (`assemble`); a URL is refused. */
 export const prepareSync = (declared: Declared, dir: string): Prepared => {
-  const { mapping, cave } = mappingOf(declared, dir)
+  if (Source.isUrl(declared.path)) {
+    throw urlRefused(declared.path)
+  }
+  const { mapping, cave } = mappingSync(declared, dir)
   return prepared(declared, dir, mapping, cave ? undefined : Source.loadSync(resolvePath(declared.path, dir), sourceOptions(declared)))
 }
 
-/** Loads a declared source, URLs included (`cave connect`). */
+/** Loads a declared source, URLs included — a `.cave` URL is fetched and parsed as the template (`cave connect`). */
 export const prepare = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<Prepared> => {
-  const { mapping, cave } = mappingOf(declared, dir)
+  const { mapping, cave } = await mappingAsync(declared, dir, fetchImpl)
   return prepared(declared, dir, mapping, cave ? undefined : await Source.load(resolvePath(declared.path, dir), sourceOptions(declared, fetchImpl)))
+}
+
+export type DiscoverOptions = {
+  readonly fetchImpl?: Source.FetchLike
+  /** Only this declared source (and what it declares in turn). */
+  readonly only?: string
+}
+
+/**
+ * Loads every declared source of the store without appending anything,
+ * URLs included: what a followed `.cave` source declares in turn is read
+ * from its text (`declaredIn`), so an overlay or a dry run sees the same
+ * sources a real pass would follow. Declared order, nested ones after the
+ * source that declared them.
+ */
+export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
+  const dir = directoryOf(root)
+  const known = new Map(declaredSources(store).map(declared => [declared.name, declared]))
+  if (options.only !== undefined) {
+    const selected = known.get(options.only)
+    if (selected === undefined) {
+      throw new Error(`no declared source/${options.only}` +
+        (known.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...known.keys()].join(', ')}`))
+    }
+    known.clear()
+    known.set(selected.name, selected)
+  }
+  const done = new Set<string>()
+  const ready: Prepared[] = []
+  for (;;) {
+    const pending = [...known.values()].filter(declared => !done.has(declared.name))
+    if (pending.length === 0) {
+      return ready
+    }
+    for (const declared of pending) {
+      done.add(declared.name)
+      const loaded = await prepare(declared, dir, options.fetchImpl)
+      ready.push(loaded)
+      if (loaded.cave) {
+        for (const nested of declaredIn(loaded.mapping.prelude)) {
+          if (!known.has(nested.name)) known.set(nested.name, nested)
+        }
+      }
+    }
+  }
 }
 
 export type RunOptions = {
@@ -210,14 +292,17 @@ export type Assembled = {
  * sources declare in turn included, until none is left. `root` is the
  * store's own file (or `:memory:`): paths resolve against its directory
  * and the root file itself is never re-read as a source, so a file that
- * declares itself, directly or through a cycle, is loaded exactly once.
- * Failures are `LocateError`s — the store is incomplete without its
- * sources, exactly as with a text file that does not parse.
+ * declares itself, directly or through a cycle, is loaded exactly once —
+ * one file under several names, with different mappings say, is followed
+ * under each. URL sources are skipped, not errors: fetching cannot be
+ * synchronous, and `cave connect` follows them. Other failures are
+ * `LocateError`s — the store is incomplete without its sources, exactly
+ * as with a text file that does not parse.
  */
 export const assemble = (store: Store, root: string, options: { readonly force?: boolean } = {}): Assembled[] => {
   const dir = directoryOf(root)
   const done = new Set<string>()
-  const seen = new Set<string>(root === ':memory:' || root === '' ? [] : [resolve(root)])
+  const self = root === ':memory:' || root === '' ? undefined : resolve(root)
   const assembled: Assembled[] = []
   for (;;) {
     const pending = declaredSources(store).filter(declared => !done.has(declared.name))
@@ -226,11 +311,9 @@ export const assemble = (store: Store, root: string, options: { readonly force?:
     }
     for (const declared of pending) {
       done.add(declared.name)
-      const path = resolvePath(declared.path, dir)
-      if (seen.has(path)) {
+      if (Source.isUrl(declared.path) || resolvePath(declared.path, dir) === self) {
         continue
       }
-      seen.add(path)
       try {
         const report = run(store, prepareSync(declared, dir), { force: options.force === true })
         if (report.failures.length > 0) {

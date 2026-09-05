@@ -1814,6 +1814,14 @@ export type Declared = {
 };
 ```
 
+#### `declaredIn`
+
+Kind: value.
+
+```ts
+export declare const declaredIn: (text: string) => Declared[];
+```
+
 #### `declaredSources`
 
 Kind: value.
@@ -1836,6 +1844,25 @@ Kind: value.
 
 ```ts
 export declare const directoryOf: (root: string) => string;
+```
+
+#### `discover`
+
+Kind: value.
+
+```ts
+export declare const discover: (store: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
+```
+
+#### `DiscoverOptions`
+
+Kind: type.
+
+```ts
+export type DiscoverOptions = {
+    readonly fetchImpl?: Source.FetchLike;
+    readonly only?: string;
+};
 ```
 
 #### `isCave`
@@ -2046,6 +2073,17 @@ Kind: type.
 
 ```ts
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+```
+
+#### `fetchText`
+
+Kind: value.
+
+```ts
+export declare const fetchText: (url: string, options: Options) => Promise<{
+    text: string;
+    contentType: string;
+}>;
 ```
 
 #### `Format`
@@ -10015,11 +10053,11 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `3fbab319ea93b7bc36097509c1ab76dbf2931447680cb2c92da54999f775872b`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `5fa442ea198caea108b0a0cd5b1e910f11b2bf423d0865bbca587f8997665106`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `506d4b14b14d89409bde627e377212b7ff059afe1c2123b6e9a15aedffd8e783`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `2a84d2855ff02f498831c948f582129dec9e0f11671ecba1470e36ad1681fc1e`
-- `@cavelang/cli/dist/internal/connect/source.d.ts` — `b3fb6bf805b33514e63a7aa65122c334001a327f3594155cab0088257285c942`
+- `@cavelang/cli/dist/internal/connect/source.d.ts` — `00a14e59ac74e4430ec554253576bdfccadd54055cfa5f46c512a950d752c157`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c2be1aa54a74d3509bafc01930d9953525a386b737c51e88a14ee9cf13e2dc41`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`
 - `@cavelang/cli/dist/internal/eval/judge.d.ts` — `237ab4139a721b6aa824dc94a3688b47f481c3b51757460a445a1aa182852bbd`

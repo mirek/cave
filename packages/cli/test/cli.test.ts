@@ -1686,3 +1686,15 @@ test('doctor recognizes a CAVE text store and its declared sources', () => {
     assert.equal(broken.checks.find((entry: { id: string }) => entry.id === 'store.database').status, 'fail')
   })
 })
+
+test('backup of a text store snapshots the assembled store, declared sources included', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    const notes = join(dir, 'notes.cave')
+    writeFileSync(notes, 'acme IS company\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\n')
+    const snapshot = join(dir, 'notes.db')
+    assert.equal(cave(['backup', '--db', notes, '--out', snapshot]).code, 0)
+    assert.equal(cave(['query', '--db', snapshot, '?who IS person']).out, '?who = ann\n')
+  })
+})

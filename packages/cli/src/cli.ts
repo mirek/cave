@@ -1520,7 +1520,7 @@ export const backupCommand = (argv: readonly string[]): Output => {
     if (sameFile(dbPath, values.out)) {
       return fail(`cave backup: --out '${values.out}' is the source database — refusing to overwrite it\n`)
     }
-    const store = openAt(dbPath, { intent: 'read' })
+    const store = openAt(dbPath, { intent: 'read', assemble: assembleSources })
     try {
       return ok(snapshotLine('created', backupStore(store, values.out, { force: values.force === true })))
     } finally {

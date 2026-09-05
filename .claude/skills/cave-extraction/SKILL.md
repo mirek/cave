@@ -312,18 +312,24 @@ lifecycle run is the stamp.
 - `cave connect [--db <path>]` with no source runs one pass over every
   declared source, sources declared by a followed `.cave` source included,
   until none is left; `--name <n>` selects one; `--force`, `--prune`,
-  `--dry-run`, `--watch` (every declared local file and mapping) and
-  `--query` (an overlay of all of them, §23.3) apply as for a single
-  source; `--list` prints each declaration as the equivalent invocation.
+  `--dry-run`, `--watch` (every declared local file and mapping, the set
+  refreshed after each pass) and `--query` (an overlay of all of them,
+  §23.3) apply as for a single source. The overlay and the dry run load
+  every source first, URLs included, and read what a followed `.cave`
+  source declares in turn from its text, so they see the sources a real
+  pass would follow without appending anything; `--list` prints each
+  declaration as the equivalent invocation.
   Per-source options (`--map`, `--key`, …) are rejected without a source:
   they belong on the entity.
 - A CAVE text file used as `--db` (§13.7) **follows its declared sources
   on every open**: the file and what it declares are one store, assembled
   in memory. The root file itself is never re-read as a source, so a file
-  that declares itself, directly or through a cycle, is loaded once; a
-  source that fails to load fails the open, as unparsable text does. URL
-  sources are not followed during assembly (fetching cannot be
-  synchronous); `cave connect` follows them.
+  that declares itself, directly or through a cycle, is loaded once (one
+  file declared under several names, with different mappings say, is
+  followed under each); a source that fails to load fails the open, as
+  unparsable text does. URL sources are skipped during assembly, not
+  errors — fetching cannot be synchronous — and `cave connect` follows
+  them, a `.cave` URL included.
 - `cave query --sources` overlays a SQLite store's declared sources inside
   a transaction that rolls back (§23.3); a text store needs no flag. The
   overlay cannot be paged with `--cursor`.
