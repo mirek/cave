@@ -146,6 +146,7 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')
+  assert.deepEqual(Source.queryRecords([{ id: '2' }], 'SELECT id FROM records', 'records', ['id', 'id']), [{ id: '2' }], 'a repeated header is one column')
   assert.deepEqual(Source.queryRecords(records, 'SELECT count(*) AS n FROM people', 'people'), [{ n: 3 }], 'the table can be named')
   assert.throws(() => Source.queryRecords(records, 'SELECT 1', 'bad name'), /not a plain identifier/)
   assert.deepEqual(Source.queryRecords([], 'SELECT count(*) AS n FROM records'), [{ n: 0 }], 'no records is an empty table')
@@ -155,6 +156,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
     const loaded = Source.loadSync(join(dir, 'people.csv'), { sql: "SELECT name || '-' || id AS slug FROM records WHERE CAST(id AS INTEGER) = 2" })
     assert.deepEqual(loaded.records, [{ slug: 'bob-2' }])
     assert.equal(loaded.spans, undefined, 'line spans do not survive a query')
+    writeFileSync(join(dir, 'dup.csv'), 'id,id\n1,2\n')
+    assert.deepEqual(Source.loadSync(join(dir, 'dup.csv'), { sql: 'SELECT id FROM records' }).records, [{ id: '2' }], 'the later cell wins, as without sql')
     writeFileSync(join(dir, 'empty.csv'), ' id , name \n')
     assert.deepEqual(Source.loadSync(join(dir, 'empty.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'the header survives an empty file, trimmed as record keys are')
   } finally {

@@ -230,9 +230,10 @@ export const queryRecords = (
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
     throw new Error(`--table ${JSON.stringify(table)} is not a plain identifier`)
   }
-  // The source's own columns first (a CSV header survives an empty file),
-  // then any field the records add.
-  const columns: string[] = [...schema ?? []]
+  // The source's own columns first (a CSV header survives an empty file;
+  // a repeated header is one column, as it is one record field), then any
+  // field the records add.
+  const columns: string[] = [...new Set(schema ?? [])]
   const known = new Set<string>(columns)
   for (const record of records) {
     for (const key of Object.keys(record)) {
