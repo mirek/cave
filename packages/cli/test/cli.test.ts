@@ -1662,7 +1662,7 @@ test('a text store follows its declared sources and query --sources overlays the
     assert.equal(cave(['query', '--db', db, '?who WORKS-AT acme']).out, 'no matches\n', 'the overlay rolled back')
     const paged = await querySourcesCommand(['--db', db, '?who WORKS-AT acme', '--sources', '--cursor', 'x'])
     assert.equal(paged.code, 1)
-    assert.match(paged.err, /--cursor cannot continue a --sources overlay/)
+    assert.match(paged.err, /--cursor does not apply to --sources/)
     const synchronous = cave(['query', '--db', db, '?who WORKS-AT acme', '--sources'])
     assert.equal(synchronous.code, 1)
     assert.match(synchronous.err, /runs asynchronously — use querySourcesCommand/)
@@ -1705,4 +1705,38 @@ test('backup of a text store snapshots the assembled store, declared sources inc
     assert.equal(cave(['backup', '--db', notes, '--out', snapshot]).code, 0)
     assert.equal(cave(['query', '--db', snapshot, '?who IS person']).out, '?who = ann\n')
   })
+})
+
+test('query --sources answers the overlay whole and fetches a text store\'s URL sources', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
+    const rows = Array.from({ length: 150 }, (_, i) => `${i + 1},p${i + 1}`)
+    writeFileSync(join(dir, 'people.csv'), `id,name\n${rows.join('\n')}\n`)
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    store.ingest('source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id')
+    store.close()
+    const whole = await querySourcesCommand(['--db', db, '?who IS person', '--sources', '--limit', '50'])
+    assert.equal(whole.code, 0, whole.err)
+    assert.equal(whole.out.trim().split('\n').length, 150, 'every match, not one page')
+    assert.doesNotMatch(whole.out, /^next: /m)
+    const json = JSON.parse((await querySourcesCommand(['--db', db, '?who IS person', '--sources', '--json'])).out)
+    assert.equal(json.matches.length, 150)
+    assert.equal('next' in json, false)
+
+    const notes = join(dir, 'notes.cave')
+    writeFileSync(notes, 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/remote HAS path: https://example.test/remote.cave\n')
+    const fetched: string[] = []
+    const fetchImpl = async (url: string): Promise<Response> => {
+      fetched.push(url)
+      return new Response('remote IS thing\n', { status: 200, headers: { 'content-type': 'text/plain' } })
+    }
+    assert.equal(cave(['query', '--db', notes, 'remote IS ?what']).out, 'no matches\n', 'assembly skips the URL source')
+    const overlaid = await querySourcesCommand(['--db', notes, 'remote IS ?what', '--sources'], { fetchImpl })
+    assert.equal(overlaid.out, '?what = thing\n', 'the overlay fetches what assembly could not follow')
+    assert.deepEqual(fetched, ['https://example.test/remote.cave'], 'and only that — the local source was already followed')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

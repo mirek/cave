@@ -831,7 +831,9 @@ export declare const queryCommand: (argv: readonly string[]) => Output;
 Kind: value.
 
 ```ts
-export declare const querySourcesCommand: (argv: readonly string[]) => Promise<Output>;
+export declare const querySourcesCommand: (argv: readonly string[], runtime?: {
+    readonly fetchImpl?: Declared.DiscoverOptions["fetchImpl"];
+}) => Promise<Output>;
 ```
 
 ### `reconstructCommand`
@@ -1870,6 +1872,7 @@ Kind: type.
 export type DiscoverOptions = {
     readonly fetchImpl?: Source.FetchLike;
     readonly only?: string;
+    readonly skipFollowed?: boolean;
 };
 ```
 
@@ -2007,6 +2010,14 @@ Kind: value.
 
 ```ts
 export declare const federatedQuery: (store: Store, mapping: Template.Mapping, records: readonly Record<string, unknown>[], options: ConnectOptions, pattern: string, queryOptions?: QueryOptions) => FederatedOutcome;
+```
+
+### `hasDigest`
+
+Kind: value.
+
+```ts
+export declare const hasDigest: (store: Store, subject: string) => boolean;
 ```
 
 ### `isConnected`
@@ -10061,10 +10072,10 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `5fa442ea198caea108b0a0cd5b1e910f11b2bf423d0865bbca587f8997665106`
-- `@cavelang/cli/dist/internal/connect/index.d.ts` — `506d4b14b14d89409bde627e377212b7ff059afe1c2123b6e9a15aedffd8e783`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `5b4d9fca7a500c0f73bcea79410c9ba2abb6d0fb02ee9ea6f75c43757e72acc6`
+- `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
-- `@cavelang/cli/dist/internal/connect/run.d.ts` — `2a84d2855ff02f498831c948f582129dec9e0f11671ecba1470e36ad1681fc1e`
+- `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`
 - `@cavelang/cli/dist/internal/connect/source.d.ts` — `00a14e59ac74e4430ec554253576bdfccadd54055cfa5f46c512a950d752c157`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c2be1aa54a74d3509bafc01930d9953525a386b737c51e88a14ee9cf13e2dc41`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`
@@ -10110,7 +10121,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `41878f9d14b394c4023d2ba68b7d41332862f43c37f7182ca3eb0e5d184b77c9`
+- `@cavelang/cli/dist/src/cli.d.ts` — `231c7a8f8e4b42cf0deae2916aae1c97ae8b62e5bf044073fdabd432768b9e0a`
 - `@cavelang/cli/dist/src/commands.d.ts` — `3ee3255de25c70a1a7f17550ca8e942e992936a8c9be4a067da837f1816066ad`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
 - `@cavelang/cli/dist/src/doctor.d.ts` — `12e186bfd1e6db3e52658bea0d0ca042bbbd967ebcbcf06f5c36f5ee61ab78ac`

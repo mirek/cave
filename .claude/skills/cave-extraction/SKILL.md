@@ -334,9 +334,12 @@ lifecycle run is the stamp.
   unparsable text does. URL sources are skipped during assembly, not
   errors — fetching cannot be synchronous — and `cave connect` follows
   them, a `.cave` URL included.
-- `cave query --sources` overlays a SQLite store's declared sources inside
-  a transaction that rolls back (§23.3), loading them first, URLs included;
-  a text store needs no flag. The overlay cannot be paged with `--cursor`.
+- `cave query --sources` overlays the store's declared sources inside a
+  transaction that rolls back (§23.3), loading them first, URLs included.
+  A text store followed its local sources on open, so only what assembly
+  could not follow — URL sources and what they declare — is loaded. The
+  overlay exists for one invocation, so the answer is whole: pages are
+  followed inside the transaction and `--cursor` does not apply.
 - Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,
   `Declared.prepare`/`prepareSync`, `Declared.run`, `assemble(store, root)`
   (the `openAt` assembler), and `declaredNaming(name)`.

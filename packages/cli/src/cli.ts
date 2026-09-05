@@ -281,8 +281,10 @@ Options:
                  incompatible with --all
   --sources      overlay the store's declared sources (spec §23.4) inside a
                  rolled-back transaction — federation-lite: external data is
-                 consulted at query time, nothing persists; a text store
-                 already follows its sources on open
+                 consulted at query time, nothing persists. The answer is
+                 whole (no --cursor, --limit is not a page size); a text
+                 store followed its local sources on open, so only URL
+                 sources are loaded here
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -1000,19 +1002,25 @@ const parseQuery = (argv: readonly string[]): { values: QueryValues, pattern: st
     return { failure: fail('cave query: a pattern is required (spec §12.1)\n') }
   }
   if (values.sources === true && values.cursor !== undefined) {
-    return { failure: fail('cave query: --cursor cannot continue a --sources overlay — it is assembled per invocation and rolled back\n') }
+    return { failure: fail('cave query: --cursor does not apply to --sources — the overlay exists for one invocation and is answered whole\n') }
   }
   return { values, pattern: positionals.join('\n') }
 }
 
 /**
- * `cave query --sources` — the page over the store with its declared
- * sources overlaid (spec §23.4). Asynchronous because the sources load
- * first, URLs included, before the overlay appends inside a transaction
- * that rolls back; the dispatcher routes `--sources` here. A text store
- * followed its sources on open and is queried as it is.
+ * `cave query --sources` — the store with its declared sources overlaid
+ * (spec §23.4). Asynchronous because the sources load first, URLs
+ * included, before the overlay appends inside a transaction that rolls
+ * back; the dispatcher routes `--sources` here. A text store followed its
+ * local sources on open, so only what assembly could not follow — URL
+ * sources and what they declare — is loaded. The overlay exists for this
+ * invocation alone, so the answer is whole: pages are followed inside the
+ * transaction and no cursor is handed out.
  */
-export const querySourcesCommand = async (argv: readonly string[]): Promise<Output> => {
+export const querySourcesCommand = async (
+  argv: readonly string[],
+  runtime: { readonly fetchImpl?: Declared.DiscoverOptions['fetchImpl'] } = {}
+): Promise<Output> => {
   const parsed = parseQuery(argv)
   if ('failure' in parsed) {
     return parsed.failure
@@ -1026,11 +1034,11 @@ export const querySourcesCommand = async (argv: readonly string[]): Promise<Outp
   // never creating or migrating (spec §13.7).
   const store = openDb(values, 'scratch')
   try {
-    if (kindOf(root) === 'text') {
-      return renderQueryPage(store, values, pattern, () => queryPage(store, values, pattern))
-    }
-    const ready = await Declared.discover(store, root)
-    return renderQueryPage(store, values, pattern, () => withSources(store, ready, () => queryPage(store, values, pattern)))
+    const ready = await Declared.discover(store, root, {
+      ...kindOf(root) === 'text' ? { skipFollowed: true } : {},
+      ...runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }
+    })
+    return renderQueryPage(store, values, pattern, () => withSources(store, ready, () => wholeQuery(store, values, pattern)))
   } catch (error) {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {
@@ -1056,6 +1064,23 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return fail(`${error instanceof Error ? error.message : String(error)}\n`)
   } finally {
     store.close()
+  }
+}
+
+/** Every match of the overlay: the pages are followed here, inside the transaction that holds it. */
+const wholeQuery = (store: Store, values: QueryValues, pattern: string): ReturnType<typeof caveQueryPage> => {
+  const matches: ReturnType<typeof caveQueryPage>['matches'][number][] = []
+  let first: undefined | ReturnType<typeof caveQueryPage>
+  let cursor: undefined | string
+  for (;;) {
+    const page = queryPage(store, { ...values, limit: '1000', ...cursor === undefined ? {} : { cursor } }, pattern)
+    first ??= page
+    matches.push(...page.matches)
+    if (page.next === undefined) {
+      const { next: _next, ...rest } = first
+      return { ...rest, matches }
+    }
+    cursor = page.next
   }
 }
 

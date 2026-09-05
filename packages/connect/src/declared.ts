@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming } from './run.ts'
+import { connect, declaredNaming, hasDigest } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -222,6 +222,12 @@ export type DiscoverOptions = {
   readonly fetchImpl?: Source.FetchLike
   /** Only this declared source (and what it declares in turn). */
   readonly only?: string
+  /**
+   * Skip sources the store has already followed (they carry a digest claim)
+   * — what a text store's overlay needs: assembly followed every local
+   * source on open, so only the URL ones, and what they declare, are left.
+   */
+  readonly skipFollowed?: boolean
 }
 
 /**
@@ -252,6 +258,9 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     }
     for (const declared of pending) {
       done.add(declared.name)
+      if (options.skipFollowed === true && hasDigest(store, declaredNaming(declared.name).unit())) {
+        continue
+      }
       const loaded = await prepare(declared, dir, options.fetchImpl)
       ready.push(loaded)
       if (loaded.cave) {

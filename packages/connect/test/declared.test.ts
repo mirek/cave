@@ -189,3 +189,25 @@ test('a .cave source that becomes empty retracts everything it owned', () => {
     }
   })
 })
+
+test('discover can skip what the store already followed', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'a.cave'), 'a IS b\n')
+    writeFileSync(join(dir, 'c.cave'), 'c IS d\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/a HAS path: a.cave\nsource/c HAS path: c.cave')
+      Declared.run(store, Declared.prepareSync({ name: 'a', path: 'a.cave' }, dir))
+      const left = await Declared.discover(store, db, { skipFollowed: true })
+      assert.deepEqual(left.map(entry => entry.declared.name), ['c'])
+      const all = await Declared.discover(store, db)
+      assert.deepEqual(all.map(entry => entry.declared.name), ['a', 'c'])
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

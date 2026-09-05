@@ -44,6 +44,12 @@ const digestKey = (subject: string): string =>
     contexts: [provenanceContext]
   }))
 
+/** @returns `true` when the unit has been connected at all — a current digest claim of any value. */
+export const hasDigest = (store: Store, subject: string): boolean => {
+  const known = store.currentBelief(digestKey(subject))
+  return known !== undefined && known.conf > 0
+}
+
 /** @returns `true` when the unit's current digest claim matches `digest`. */
 export const isConnected = (store: Store, subject: string, digest: string): boolean => {
   const known = store.currentBelief(digestKey(subject))
