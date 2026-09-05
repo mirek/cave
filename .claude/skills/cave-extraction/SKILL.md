@@ -241,10 +241,12 @@ a number, a boolean is `0`/`1`, a structured value is JSON text
 the mapping sees. Two fields whose names differ only in case cannot both
 be staged (SQLite column names are case-insensitive) and are an error
 rather than a silent merge. A schemaless source (JSON, JSONL) that
-became empty has no columns of its own; for an empty, schemaless input
-the query's own column references are staged, so it answers zero rows
-as it would over a header-only CSV and a pruning pass still runs, while
-a source with a header keeps SQLite's validation of the query. Projection, filtering, joins, `lower()`, `substr()`,
+became empty has no columns of its own, and a CSV cleared to nothing
+has lost its header too; for an empty, schemaless input the query's own
+column references (including the columns a `JOIN … USING` names) are
+staged, so it answers zero rows as it would over a header-only CSV and
+a pruning pass still runs, while a source with a header keeps SQLite's
+validation of the query. Projection, filtering, joins, `lower()`, `substr()`,
 date arithmetic, and derived columns therefore need no expression
 language of their own (§19.5): SQL before the mapping, rules (§24) after
 it. Source line spans (§9.8) do not survive a query.

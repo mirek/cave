@@ -149,6 +149,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([], 'SELECT r.id, "r.id" FROM records AS r'), [], 'a qualified name and a quoted dotted column coexist')
   assert.throws(() => Source.queryRecords([{ id: 1 }], 'SELECT nope FROM records'), /no such column/, 'with records present a missing column is the mistake it is')
   assert.throws(() => Source.queryRecords([], 'SELECT nmae FROM records', 'records', ['id', 'name']), /no such column: nmae/, 'a header-bearing source keeps its validation even when empty')
+  assert.deepEqual(Source.queryRecords([], 'SELECT id FROM records', 'records', []), [], 'a CSV cleared to nothing has no header: an empty schema infers like no schema')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r.id, s.name FROM records r JOIN records s USING(id, "first.name")'), [], 'a column named only in JOIN … USING is staged from its own diagnostic')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')
@@ -168,6 +170,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
     assert.deepEqual(Source.loadSync(join(dir, 'dup.csv'), { sql: 'SELECT id FROM records' }).records, [{ id: '2' }], 'the later cell wins, as without sql')
     writeFileSync(join(dir, 'empty.csv'), ' id , name \n')
     assert.deepEqual(Source.loadSync(join(dir, 'empty.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'the header survives an empty file, trimmed as record keys are')
+    writeFileSync(join(dir, 'cleared.csv'), '')
+    assert.deepEqual(Source.loadSync(join(dir, 'cleared.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'a file cleared to nothing still answers the columns its query names')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

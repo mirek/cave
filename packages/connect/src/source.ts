@@ -305,16 +305,22 @@ export const queryRecords = (
   // offer, yet the query names the ones it expects: for an empty input
   // only, learn them from SQLite's own complaint and retry, so the query
   // answers with zero rows exactly as it would over a header-only CSV.
+  // A CSV cleared to nothing has no header either: an empty schema is no
+  // schema, not a header of zero columns.
+  const schemaless = schema === undefined || schema.length === 0
   for (let attempt = 0; ; attempt += 1) {
     try {
       return stage()
     } catch (error) {
       // Only a schemaless, empty input infers: a header-bearing source keeps
-      // SQLite's own validation, so a typo stays a typo.
-      const missing = records.length === 0 && schema === undefined && attempt < 64 ?
-        /no such column: (.+?)(?: - should this be .*)?$/.exec(error instanceof Error ? error.message : '') :
+      // SQLite's own validation, so a typo stays a typo. A column named in
+      // `JOIN … USING` gets its own diagnostic.
+      const missing = records.length === 0 && schemaless && attempt < 64 ?
+        /(?:no such column: (.+?)(?: - should this be .*)?|cannot join using column (.+?) - column not present in both tables)$/
+          .exec(error instanceof Error ? error.message : '') :
         null
-      const names = missing === null ? [] : inferColumns(missing[1]!.trim()).filter(name => name !== '' && !known.has(name))
+      const reference = missing === null ? undefined : (missing[1] ?? missing[2])!.trim()
+      const names = reference === undefined ? [] : inferColumns(reference).filter(name => name !== '' && !known.has(name))
       if (names.length === 0) {
         throw error
       }
