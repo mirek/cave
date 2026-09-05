@@ -261,7 +261,11 @@ export const queryRecords = (
       const insert = db.prepare(`INSERT INTO ${quoted(table)} DEFAULT VALUES`)
       for (let i = 0; i < records.length; i += 1) insert.run()
     }
-    const rows = db.prepare(sql).all() as Record<string, unknown>[]
+    const statement = db.prepare(sql)
+    // Integers beyond the safe range arrive as bigints and become text in
+    // `sqliteValue`, instead of throwing out of range.
+    statement.setReadBigInts(true)
+    const rows = statement.all() as Record<string, unknown>[]
     return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
   } finally {
     db.close()
