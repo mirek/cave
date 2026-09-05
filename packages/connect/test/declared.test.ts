@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { LocateError, open, openAt } from '@cavelang/store'
@@ -670,4 +670,22 @@ test('a shape transition re-runs a same-text prelude, and the declaration marker
       scratch.close()
     }
   })
+})
+
+test('a failed snapshot leaves no temporary directory behind', async () => {
+  const store = open()
+  try {
+    store.ingest('source/x HAS path: x.cave')
+    const leftovers = (): number => readdirSync(tmpdir()).filter(name => name.startsWith('cave-discover-')).length
+    const before = leftovers()
+    const failing = new Proxy(store, {
+      get: (target, key, receiver) => key === 'adapter' ?
+        { ...target.adapter, capabilities: { ...target.adapter.capabilities, backup: { ...target.adapter.capabilities.backup!, write: () => { throw new Error('disk full') } } } } :
+        Reflect.get(target, key, receiver)
+    })
+    await assert.rejects(Declared.discover(failing, ':memory:'), /disk full/)
+    assert.equal(leftovers(), before, 'the snapshot directory was removed')
+  } finally {
+    store.close()
+  }
 })

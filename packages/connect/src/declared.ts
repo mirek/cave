@@ -69,10 +69,15 @@ export type Delta = { readonly name: string, readonly fields: Partial<Record<Att
  * and bookkeeping — read with one indexed range query rather than a scan
  * of every belief, since discovery reads them after every source.
  */
-const sourceRows = (store: Store): Row.t[] =>
-  store.db.prepare(
-    `${QuerySql.current()} WHERE c.subject >= ? AND c.subject < ? AND c.verb = 'HAS' AND c.conf > 0 AND c.negated = 0 ORDER BY c.tx`
-  ).all(prefix, `${prefix.slice(0, -1)}0`) as unknown as Row.t[]
+const sourceRows = (store: Store): Row.t[] => {
+  // The range goes into the grouped subquery too, so the latest-per-key
+  // aggregation runs over the source rows alone, not the whole store.
+  const range = 'subject >= ? AND subject < ?'
+  const end = `${prefix.slice(0, -1)}0`
+  return store.db.prepare(
+    `${QuerySql.current(`(SELECT * FROM cave_claim WHERE ${range})`)} WHERE c.${range.replaceAll('subject', 'subject')} AND c.verb = 'HAS' AND c.conf > 0 AND c.negated = 0 ORDER BY c.tx`
+  ).all(prefix, end, prefix, end) as unknown as Row.t[]
+}
 
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
@@ -437,14 +442,20 @@ const snapshot = (origin: Store): { store: Store, dispose: () => void } => {
   }
   const dir = mkdtempSync(join(tmpdir(), 'cave-discover-'))
   const path = join(dir, 'snapshot.db')
-  capability.write(origin.db, path)
-  const store = open(path, { registry: origin.baseRegistry(), access: 'no-migrate' })
-  return {
-    store,
-    dispose: () => {
-      store.close()
-      rmSync(dir, { recursive: true, force: true })
+  try {
+    capability.write(origin.db, path)
+    const store = open(path, { registry: origin.baseRegistry(), access: 'no-migrate' })
+    return {
+      store,
+      dispose: () => {
+        store.close()
+        rmSync(dir, { recursive: true, force: true })
+      }
     }
+  } catch (error) {
+    // A failed copy must not leave a database-sized directory behind.
+    rmSync(dir, { recursive: true, force: true })
+    throw error
   }
 }
 
