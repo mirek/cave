@@ -1969,6 +1969,14 @@ Kind: value.
 export declare const ownedDeclarations: (store: Store, owner: string) => string[];
 ```
 
+#### `ownership`
+
+Kind: value.
+
+```ts
+export declare const ownership: (store: Store) => Map<string, Set<string>>;
+```
+
 #### `prefix`
 
 Kind: value.
@@ -2006,6 +2014,14 @@ Kind: value.
 
 ```ts
 export declare const prepareSync: (declared: Declared, dir: string) => Prepared;
+```
+
+#### `recordedDeclaration`
+
+Kind: value.
+
+```ts
+export declare const recordedDeclaration: (store: Store, name: string) => undefined | string;
 ```
 
 #### `resolvePath`
@@ -10181,7 +10197,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `0b2efc2dd41edf96c894dd99464a7aa0c1fcad05e2dc4fb69ca995d8c5b1f8ac`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `846ff1abf78fb73f5f77c0776533ae5855fd4e39e9c197327d283d43fc0dd430`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`

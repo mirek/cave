@@ -201,10 +201,11 @@ export const followed = (store: Store, declared: Declared): boolean => {
 
 /** A selection and everything it owns, transitively — what a named watch must watch. */
 export const closure = (store: Store, names: readonly string[]): Declared[] => {
+  const owners = ownership(store)
   const selected = new Set(names)
   const queue = [...names]
   for (let owner = queue.shift(); owner !== undefined; owner = queue.shift()) {
-    for (const name of ownedDeclarations(store, owner)) {
+    for (const name of owners.get(owner) ?? []) {
       if (!selected.has(name)) {
         selected.add(name)
         queue.push(name)
@@ -368,13 +369,10 @@ export const discover = async (origin: Store, root: string, options: DiscoverOpt
     for (;;) {
       const current = declaredSources(store)
       // A selection grows by what the replayed sources changed — added,
-      // re-declared, or retracted declarations alike — and by what they
-      // still own, so an unchanged source keeps its descendants.
+      // re-declared, or retracted declarations alike; what they own is
+      // added as each one runs, below.
       if (allowed !== undefined) {
         for (const name of changedNames(seen, signatures(current))) allowed.add(name)
-        for (const ready of sequence) {
-          for (const name of ownedDeclarations(store, ready.declared.name)) allowed.add(name)
-        }
       }
       seen = signatures(current)
       const next = current.find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
@@ -396,6 +394,10 @@ export const discover = async (origin: Store, root: string, options: DiscoverOpt
       const loaded = await prepare(next, dir, options.fetchImpl)
       sequence.push(loaded)
       run(store, loaded, { force: options.force === true, prune: options.prune === true })
+      if (allowed !== undefined) {
+        // Ownership only changes when a source runs: one pass for this one.
+        for (const name of ownedDeclarations(store, loaded.declared.name)) allowed.add(name)
+      }
     }
   } finally {
     dispose()
@@ -426,21 +428,30 @@ const snapshot = (origin: Store): { store: Store, dispose: () => void } => {
  * owns — appended under its run — so a selection keeps a source's
  * descendants even when its run changed nothing.
  */
-export const ownedDeclarations = (store: Store, owner: string): string[] => {
-  const names = new Set<string>()
+export const ownedDeclarations = (store: Store, owner: string): string[] =>
+  [...ownership(store).get(owner) ?? []].sort()
+
+/**
+ * Who owns which declarations, in one pass over the current declaration
+ * rows: the prelude runs as `<owner>`, a record as `<owner>/<key>`, so a
+ * mapping that emits declarations per record owns them through its
+ * records.
+ */
+export const ownership = (store: Store): Map<string, Set<string>> => {
+  const owners = new Map<string, Set<string>>()
   for (const row of store.currentBeliefs()) {
     if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
       !row.subject.startsWith(prefix) || !isAttribute(row.attribute)) {
       continue
     }
-    // The prelude runs as `<owner>`, a record as `<owner>/<key>`: a mapping
-    // that emits declarations per record owns them through its records.
-    const runs = store.provenanceOf(row)?.runs ?? []
-    if (runs.some(run => run === owner || run.startsWith(`${owner}/`))) {
-      names.add(row.subject.slice(prefix.length))
+    for (const run of store.provenanceOf(row)?.runs ?? []) {
+      const owner = run.split('/')[0]!
+      const owned = owners.get(owner) ?? new Set<string>()
+      owned.add(row.subject.slice(prefix.length))
+      owners.set(owner, owned)
     }
   }
-  return [...names].sort()
+  return owners
 }
 
 /** Declaration signatures by name. */
@@ -456,8 +467,21 @@ export type RunOptions = {
   readonly prune?: boolean
 }
 
-/** One pass of a prepared declared source under `declaredNaming` (spec §23.4), recording the declaration it ran under. */
+/** The digest of the declaration a source was last run under, if any. */
+export const recordedDeclaration = (store: Store, name: string): undefined | string =>
+  store.currentBeliefs().find(row =>
+    row.conf > 0 && row.negated === 0 && row.subject === `${prefix}${name}` && row.attribute === declarationAttribute)?.value_text ?? undefined
+
+/**
+ * One pass of a prepared declared source under `declaredNaming` (spec
+ * §23.4), recording the declaration it ran under. A source whose
+ * declaration changed since its last run — another path, key, query, or
+ * record selector — prunes as it runs: records the new version does not
+ * produce are retired, since the per-record diff never visits them.
+ */
 export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report => {
+  const previous = recordedDeclaration(store, ready.declared.name)
+  const transition = previous !== undefined && previous !== declarationDigest(ready.declared)
   const report = connect(store, ready.mapping, ready.records, {
     name: ready.declared.name,
     naming: declaredNaming(ready.declared.name),
@@ -467,7 +491,7 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
     ...ready.spans === undefined ? {} : { spans: ready.spans },
     ...ready.declared.key === undefined ? {} : { key: ready.declared.key },
     force: options.force === true,
-    prune: options.prune === true
+    prune: options.prune === true || transition
   })
   if (!followed(store, ready.declared)) {
     store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)

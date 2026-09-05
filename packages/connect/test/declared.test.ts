@@ -584,3 +584,21 @@ test('discovery holds no lock on the real store while a source loads', async () 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a source re-declared to another path retires the records its previous version produced', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'old.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'new.csv'), 'id,name\n2,bob\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.csv\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/b HAS path: old.csv\nsource/b HAS map: people.map.cave\nsource/b HAS key: id\nsource/z HAS path: z.cave\n')
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const people = store.currentBeliefs().filter(row => row.conf > 0 && row.verb === 'IS' && row.object === 'person').map(row => row.subject)
+      assert.deepEqual(people, ['bob'], "ann came from b's previous version and is retired with it")
+    } finally {
+      store.close()
+    }
+  })
+})
