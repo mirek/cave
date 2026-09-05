@@ -38,6 +38,8 @@ test('declared sources are current source/<name> claims with a path; retracting 
     ])
     assert.equal(Declared.describe(Declared.declaredSources(store)[0]!), 'people: data/people.csv --map people.map.cave --key id')
     assert.equal(Declared.describe({ name: 'staff', path: 'data/my people.csv', map: 'staff.map.cave' }), 'staff: "data/my people.csv" --map staff.map.cave', 'a path with whitespace is quoted so the listing pastes back')
+    assert.equal(Declared.describe({ name: 'odd', path: 'data/a;backup.csv', map: 'x.cave', sql: 'SELECT "a" AS b, $1, `c` FROM records' }),
+      'odd: "data/a;backup.csv" --map x.cave --sql "SELECT \\"a\\" AS b, \\$1, \\`c\\` FROM records"', 'shell punctuation is quoted, and what a double-quoted word still interprets is escaped')
     assert.equal(Declared.isCave({ name: 'verbs', path: 'verbs.cave' }), true)
     assert.equal(Declared.isCave({ name: 'x', path: 'x.txt', format: 'cave' }), true)
     assert.equal(Declared.isCave({ name: 'people', path: 'people.csv' }), false)

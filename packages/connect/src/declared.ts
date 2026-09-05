@@ -168,8 +168,15 @@ export const resolvePath = (path: string, dir: string): string =>
 export const isCave = (declared: Declared): boolean =>
   declared.format === 'cave' || (declared.format === undefined && extname(declared.path).toLowerCase() === '.cave')
 
-/** A value as a shell argument: quoted when it carries whitespace or quotes, as the path may. */
-const argument = (value: string): string => /[\s"]/.test(value) ? JSON.stringify(value) : value
+/**
+ * A value as a POSIX shell argument: bare when it is only word characters
+ * and path punctuation, otherwise double-quoted with the four characters
+ * a double-quoted shell word still interprets (`"`, `\\`, `$`, `` ` ``)
+ * escaped — so a listed invocation pastes back whatever the path or SQL
+ * carries.
+ */
+const argument = (value: string): string =>
+  /^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `"${value.replace(/["\\$`]/g, char => `\\${char}`)}"`
 
 /** The declaration as the equivalent `cave connect` invocation, for listings. */
 export const describe = (declared: Declared): string => {

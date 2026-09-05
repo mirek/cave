@@ -156,6 +156,9 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([], 'SELECT ` first ` AS a, [ last ] AS b, " both " AS c, r.` first ` AS d FROM records r'), [], 'edge spaces in a delimited name are part of the field')
   assert.deepEqual(Source.queryRecords([], 'SELECT `[id]` AS a, "`id`" AS b, `"x"` AS c, r."[y]" AS d FROM records r'), [], 'brackets and backticks SQLite already stripped are part of the field; a quoted name is staged both ways')
   assert.deepEqual(Source.queryRecords([], 'SELECT r."first\nname" AS name FROM records r JOIN records s USING("a\nb")'), [], 'a name spanning lines is inferred whole')
+  assert.deepEqual(Source.queryRecords([], 'SELECT "" AS value FROM records'), [], 'the empty name is a column SQLite accepts, so it is staged too')
+  assert.deepEqual(Source.queryRecords([{ id: 9223372036854775808n, neg: -9223372036854775809n }], 'SELECT id, typeof(id) AS t, neg FROM records'),
+    [{ id: '9223372036854775808', t: 'text', neg: '-9223372036854775809' }], 'a bigint beyond SQLite\'s 64-bit integer binds as its exact decimal text')
   const wide = Array.from({ length: 100 }, (_, at) => `c${at}`)
   assert.deepEqual(Source.queryRecords([], `SELECT ${wide.join(', ')} FROM records WHERE ${wide.map(name => `${name} IS NULL`).join(' AND ')}`), [], 'inference is not capped: every column a wide query names is staged')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
