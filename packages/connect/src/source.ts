@@ -208,6 +208,27 @@ const sqliteValue = (value: unknown): unknown =>
     (Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()) :
     value
 
+/**
+ * The column a missing-column diagnostic refers to. SQLite spells the
+ * reference without its quotes, so `r."last.name"` and `"first.name"`
+ * arrive as `r.last.name` and `first.name`: the query text decides — the
+ * longest dotted suffix that appears quoted in the SQL is the column,
+ * otherwise the last segment (a qualifier dropped).
+ */
+const inferColumn = (reference: string, sql: string): string => {
+  // A plain quoted identifier keeps its quotes in the diagnostic; a
+  // qualified one loses them. Either way the segments are bare here.
+  const unquote = (text: string): string => text.replace(/^["`[](.*)["`\]]$/, '$1')
+  const segments = (unquote(reference) === reference ? reference.split('.') : [unquote(reference)]).map(unquote)
+  for (let k = segments.length; k >= 2; k -= 1) {
+    const candidate = segments.slice(segments.length - k).join('.')
+    if ([`"${candidate}"`, `\`${candidate}\``, `[${candidate}]`].some(form => sql.includes(form))) {
+      return candidate
+    }
+  }
+  return segments.at(-1) ?? ''
+}
+
 /** The SQLite representation of a record field: scalars as they are (bigints exact), booleans as 0/1, anything structured as JSON text. */
 const sqlValue = (value: unknown): null | number | bigint | string =>
   value === undefined || value === null ? null :
@@ -296,8 +317,9 @@ export const queryRecords = (
         /no such column: (.+?)(?: - should this be .*)?$/.exec(error instanceof Error ? error.message : '') :
         null
       // The reference as SQLite spells it: possibly qualified by the table
-      // or an alias, possibly quoted; the column is its last bare segment.
-      const name = missing?.[1]?.trim().split('.').at(-1)?.replace(/^["`[](.*)["`\]]$/, '$1')
+      // or an alias, possibly quoted; the column is its last segment, split
+      // at dots outside quotes, since a quoted identifier may contain dots.
+      const name = missing === null ? undefined : inferColumn(missing[1]!.trim(), sql)
       if (name === undefined || name === '' || known.has(name)) {
         throw error
       }
