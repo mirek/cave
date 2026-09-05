@@ -1591,7 +1591,7 @@ test('backup refuses to snapshot a text store onto itself', () => {
     writeFileSync(file, 'cave IS repo\n')
     const aliased = cave(['backup', '--db', file, '--out', file, '--force'])
     assert.equal(aliased.code, 1)
-    assert.match(aliased.err, /is the text store itself/)
+    assert.match(aliased.err, /is the source database — refusing to overwrite it/)
     assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\n', 'the text file survives')
     const snapshot = join(dir, 'repos.db')
     const created = cave(['backup', '--db', file, '--out', snapshot])
@@ -1613,5 +1613,21 @@ test('backup of a store awaiting migration names the file-copy rollback point in
     assert.match(result.err, /schema version 0 needs migration to 1 — close every user and copy the file as a rollback point/)
     assert.deepEqual(readFileSync(db), bytes, 'the source is neither migrated nor touched')
     assert.equal(existsSync(join(dir, 'snap.db')), false)
+  })
+})
+
+test('report, export, and generate refuse --out that aliases a text store', () => {
+  withDir(dir => {
+    const file = join(dir, 'repos.cave')
+    writeFileSync(file, 'cave IS repo\n')
+    const template = join(dir, 'report.md')
+    writeFileSync(template, '# repos\n')
+    for (const argv of [['report', template], ['export'], ['generate']]) {
+      const [command, ...rest] = argv
+      const result = cave([command!, '--db', file, '--out', file, ...rest])
+      assert.equal(result.code, 1, command)
+      assert.match(result.err, /is the source database — refusing to overwrite it/, command)
+    }
+    assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\n', 'the text store survives')
   })
 })

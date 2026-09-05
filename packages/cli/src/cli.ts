@@ -35,13 +35,13 @@
  * `cave.db`. Every command answers `--help` with options and examples.
  */
 
-import { readFileSync, readSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, kindOf, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
+import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
 import type { OpenIntent, Store } from '@cavelang/store'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
@@ -1433,18 +1433,6 @@ const snapshotLine = (
   `${action} exact backup (${snapshot.rows} row(s), schema v${snapshot.schemaVersion}, ` +
   `${snapshot.bytes} bytes, sha256:${snapshot.sha256}) at ${snapshot.path}\n`
 
-/** Whether two paths name one file: real paths when they exist, absolute paths otherwise. */
-const samePath = (a: string, b: string): boolean => {
-  const canonical = (path: string): string => {
-    try {
-      return realpathSync(path)
-    } catch {
-      return resolve(path)
-    }
-  }
-  return canonical(a) === canonical(b)
-}
-
 /** `cave backup` — create or verify an exact store snapshot (§13.2.2). */
 export const backupCommand = (argv: readonly string[]): Output => {
   const { values } = parseArgs({
@@ -1477,9 +1465,10 @@ export const backupCommand = (argv: readonly string[]): Output => {
     const dbPath = values.db ?? defaultDbPath()
     // A text store is replayed into memory, so the backup API cannot see that
     // the destination aliases the source: refuse before the file could be
-    // replaced by a SQLite snapshot of itself.
-    if (kindOf(dbPath) === 'text' && samePath(dbPath, values.out)) {
-      return fail(`cave backup: --out ${values.out} is the text store itself; a snapshot is a SQLite file, write it elsewhere\n`)
+    // replaced by a SQLite snapshot of itself (a SQLite source is covered by
+    // the API's own check).
+    if (sameFile(dbPath, values.out)) {
+      return fail(`cave backup: --out '${values.out}' is the source database — refusing to overwrite it\n`)
     }
     const store = openAt(dbPath, { intent: 'read' })
     try {
@@ -1681,6 +1670,9 @@ export const reportCommand = (argv: readonly string[]): Output => {
   const maximum = Sensitivity.parse(values['max-sensitivity'] ?? Sensitivity.defaultMaximum)
   if (maximum === undefined) {
     return fail(`cave report: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
+  }
+  if (values.out !== undefined && sameFile(values.db ?? defaultDbPath(), values.out)) {
+    return fail(`cave report: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
   const store = openDb(values, 'read')
   try {
