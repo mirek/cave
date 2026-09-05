@@ -243,15 +243,17 @@ export const queryRecords = (
       }
     }
   }
-  // SQLite column names are case-insensitive: two fields that differ only
-  // in case cannot both be staged, and merging them would lose data.
+  // SQLite column names are case-insensitive — for ASCII letters only, as
+  // its own folding is — so two fields that differ only in ASCII case
+  // cannot both be staged, and merging them would lose data.
+  const fold = (name: string): string => name.replace(/[A-Z]/g, letter => letter.toLowerCase())
   const folded = new Map<string, string>()
   for (const column of columns) {
-    const other = folded.get(column.toLowerCase())
+    const other = folded.get(fold(column))
     if (other !== undefined) {
       throw new Error(`fields ${JSON.stringify(other)} and ${JSON.stringify(column)} differ only in case, which SQLite cannot tell apart — rename one in the source before --sql`)
     }
-    folded.set(column.toLowerCase(), column)
+    folded.set(fold(column), column)
   }
   const db = new DatabaseSync(':memory:')
   try {
