@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { defaultDbPath, open } from '@cavelang/store'
+import { defaultDbPath, kindOf, openAt } from '@cavelang/store'
 import { serve, serverInfo } from './server.ts'
 import { scopedTools, type Permission, type Scope } from './tools.ts'
 
@@ -19,7 +19,9 @@ Usage:
            [--src <context>] [--no-src] [--hooks <file>]
 
 Options:
-  --db <path>      database file (default: $CAVE_DB, or cave.db)
+  --db <path>      store: a SQLite file (created on first start; opened read-only
+                   under --read-only), or CAVE text served from memory under
+                   --read-only (default: $CAVE_DB, or cave.db)
   --no-prelude     open the store without the standard verb registry
   --read-only      serve only tools that never write (drops cave_add,
                    cave_derive and the generated act_<name> action tools)
@@ -141,7 +143,15 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
     return 2
   }
   const db = values.db ?? defaultDbPath()
-  const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  // A long-lived server creates its store on first start, --read-only
+  // included: the file is the agent's memory and may not exist yet. Beyond
+  // that, --read-only serves no writing tool, so an existing store opens
+  // read-only (never migrated) and a CAVE text file is served from memory —
+  // nothing appended in memory could outlive the process.
+  const store = openAt(db, {
+    intent: values['read-only'] === true && kindOf(db) !== 'missing' ? 'read' : 'write',
+    ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
+  })
   const scopeNote = [
     ...values['read-only'] === true ? ['read-only'] : [],
     ...scope.permissions === undefined ? [] : [`permissions ${scope.permissions.join(',')}`],

@@ -5,7 +5,7 @@
 
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { Sensitivity, defaultDbPath, open } from '@cavelang/store'
+import { Sensitivity, defaultDbPath, openAt } from '@cavelang/store'
 import { defaultHost, defaultPort, serve } from './server.ts'
 
 const usage = `cave serve — browse a CAVE store in the browser (spec §30)
@@ -15,7 +15,7 @@ Usage:
              [--max-sensitivity <level>]
 
 Options:
-  --db <path>    database file (default: $CAVE_DB, or cave.db)
+  --db <path>    store: a SQLite file, or CAVE text served from memory (default: $CAVE_DB, or cave.db)
   --port <n>     port to bind (default ${defaultPort} — "cave" on a phone
                  keypad; 0 picks a free port)
   --host <a>     interface to bind (default ${defaultHost} — localhost
@@ -84,7 +84,7 @@ export const runServe = async (argv: readonly string[], context: RunContext = {}
     return 1
   }
   const dbPath = values.db ?? defaultDbPath()
-  const store = open(dbPath, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openAt(dbPath, { intent: 'read', ...values['no-prelude'] === true ? { registry: Registry.empty } : {} })
   let handle: Awaited<ReturnType<typeof serve>> | undefined
   try {
     handle = await serve(store, {

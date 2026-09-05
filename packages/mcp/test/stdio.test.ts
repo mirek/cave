@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline'
+import { DatabaseSync } from 'node:sqlite'
+import { Schema, open } from '@cavelang/store'
 import { sourceFromOption, usage } from '../src/main.ts'
 
 const cliMain = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cli', 'src', 'main.ts')
@@ -181,6 +183,34 @@ test('cave mcp rejects a --src value that already has the src: prefix', async ()
     assert.equal(code, 2)
     assert.match(stderr, /--src must not include the src: prefix/)
     assert.ok(!existsSync(db), 'source validation fails before the database is touched')
+  } finally {
+    child.kill()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('cave mcp --read-only opens an existing store read-only and never migrates it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-mcp-'))
+  const db = join(dir, 'legacy.db')
+  const legacy = open(db)
+  legacy.ingest('a IS b')
+  legacy.db.exec('PRAGMA user_version = 0')
+  legacy.close()
+  const child = spawn(process.execPath, [
+    '--disable-warning=ExperimentalWarning', cliMain, 'mcp', '--db', db, '--read-only'
+  ], { stdio: ['pipe', 'pipe', 'pipe'] })
+  try {
+    let stderr = ''
+    child.stderr.on('data', chunk => { stderr += String(chunk) })
+    const code = await new Promise<number | null>(resolve => child.on('close', resolve))
+    assert.equal(code, 1)
+    assert.match(stderr, /legacy\.db: schema version 0 needs migration to 1/)
+    const raw = new DatabaseSync(db, { readOnly: true })
+    try {
+      assert.equal(Schema.versionOf(raw), 0, 'the read-only server left the schema alone')
+    } finally {
+      raw.close()
+    }
   } finally {
     child.kill()
     rmSync(dir, { recursive: true, force: true })

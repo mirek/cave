@@ -41,8 +41,8 @@ import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { Sensitivity, backup as backupStore, defaultDbPath, open, restoreBackup, verifyBackup } from '@cavelang/store'
-import type { Store } from '@cavelang/store'
+import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
+import type { OpenIntent, Store } from '@cavelang/store'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -142,10 +142,12 @@ Usage:
   cave help [command]                      this text, or one command's options and examples
 
 Every command answers --help. --db defaults to $CAVE_DB, or cave.db in
-the current directory. The spec lives in the .claude/skills/ directory at
+the current directory, and names a SQLite store or a CAVE text file: text
+replays into an in-memory store for commands that only read (writes refuse
+it), and a read never creates a missing database. The spec lives in the .claude/skills/ directory at
 the repository root (section index in README.md).`
 
-const dbHelp = `--db <path>    database file (default: $CAVE_DB, or cave.db)`
+const dbHelp = `--db <path>    store: a SQLite file, or CAVE text read into memory (default: $CAVE_DB, or cave.db)`
 
 /** Per-command help, printed for \`cave <command> --help\` and \`cave help <command>\`. */
 export const commandHelp: Record<string, string> = {
@@ -286,6 +288,7 @@ with the answer; fully bound patterns print the raw line, comment included.
 
 Examples:
   cave query '?x USES jwt'
+  cave query --db notes.cave '?x USES jwt'
   cave query --db k.db '?x HAS bug: ?bug #security'
   cave query --db k.db '?cause CAUSE app/crash' 'WHERE conf >= 0.5'
   cave query --db k.db 'terrier EXTENDS+ animal'
@@ -782,6 +785,21 @@ const readStdin = (): string => {
   }
 }
 
+/**
+ * Opens the store `--db` names (spec §13.7): a SQLite file, or a CAVE text
+ * file replayed into memory. `read` never creates, migrates, or changes a
+ * file — a missing path is an error, not an empty database; `scratch` is a
+ * dry run that appends inside a rolled-back transaction, so it may write
+ * but creates and migrates nothing; `write` creates a missing SQLite store,
+ * migrates an older one, and refuses text files with the materialization
+ * hint.
+ */
+const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenIntent): Store =>
+  openAt(values.db ?? defaultDbPath(), {
+    intent,
+    ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
+  })
+
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?
     readStdin() :
@@ -865,7 +883,7 @@ const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Out
     allowPositionals: true
   })
   const input = readInput(positionals)
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'write')
   try {
     const options = {
       strict: values.strict === true,
@@ -932,7 +950,7 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return fail('cave query: a pattern is required (spec §12.1)\n')
   }
   const pattern = positionals.join('\n')
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
     const result = caveQueryPage(store, pattern, {
@@ -1007,7 +1025,7 @@ export const searchCommand = (argv: readonly string[]): Output => {
   if (!Number.isInteger(limit) || limit < 1 || limit > maxQueryLimit) {
     return fail(`cave search: --limit must be an integer from 1 to ${maxQueryLimit}\n`)
   }
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     const raw = values.raw === true
     const found = store.search(query, { raw, limit: limit + 1 })
@@ -1057,7 +1075,7 @@ export const resolveCommand = (argv: readonly string[]): Output => {
     allowPositionals: false
   })
   const percent = (value: number): string => `${Math.round(value * 1000) / 10}%`
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     if (values.policy === true) {
       const policy = store.resolutionPolicy()
@@ -1120,7 +1138,12 @@ export const deriveCommand = (argv: readonly string[]): Output => {
   if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
     return fail(`cave derive: --max-passes expects a positive integer, got ${JSON.stringify(values['max-passes'])}\n`)
   }
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  // The intent follows the branch order below: listing reads, retracting
+  // writes, a dry run appends inside a rolled-back transaction.
+  const store = openDb(values,
+    values.list === true ? 'read' :
+      values.retract !== undefined ? 'write' :
+        values['dry-run'] === true ? 'scratch' : 'write')
   try {
     if (values.list === true) {
       const rules = listRules(store)
@@ -1274,7 +1297,14 @@ export const actCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: true
   })
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  // The intent follows the branch order below: declaring and retracting
+  // write, listing reads, a dry-run execution appends inside a rolled-back
+  // transaction.
+  const store = openDb(values,
+    values.declare === true ? 'write' :
+      values.list === true ? 'read' :
+        values.retract !== undefined ? 'write' :
+          values['dry-run'] === true ? 'scratch' : 'write')
   try {
     if (values.declare === true) {
       const declaration = declareActions(store, readInput(positionals))
@@ -1395,7 +1425,7 @@ export const checkCommand = (argv: readonly string[]): Output => {
   if (!Number.isFinite(staleDays) || staleDays < 0) {
     return fail(`cave check: --stale expects a non-negative number of days, got ${JSON.stringify(values.stale)}\n`)
   }
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     const report = caveCheck(store, { staleDays })
     const out = values.json === true ?
@@ -1444,7 +1474,15 @@ export const backupCommand = (argv: readonly string[]): Output => {
     if (values.out === undefined) {
       return fail('cave backup: --out <file> is required\n')
     }
-    const store = open(values.db ?? defaultDbPath())
+    const dbPath = values.db ?? defaultDbPath()
+    // A text store is replayed into memory, so the backup API cannot see that
+    // the destination aliases the source: refuse before the file could be
+    // replaced by a SQLite snapshot of itself (a SQLite source is covered by
+    // the API's own check).
+    if (sameFile(dbPath, values.out)) {
+      return fail(`cave backup: --out '${values.out}' is the source database — refusing to overwrite it\n`)
+    }
+    const store = openAt(dbPath, { intent: 'read' })
     try {
       return ok(snapshotLine('created', backupStore(store, values.out, { force: values.force === true })))
     } finally {
@@ -1527,7 +1565,7 @@ export const suggestAliasCommand = async (
     if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
       return fail(`cave suggest-alias: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     }
-    const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+    const store = openDb(values, values.write === true ? 'write' : 'read')
     try {
       let suggestions = suggestAliases(store, { minScore, ...limit === undefined ? {} : { limit } })
       if (values.agent !== undefined && suggestions.length > 0) {
@@ -1584,7 +1622,7 @@ export const syncCommand = (argv: readonly string[]): Output => {
     return fail('cave sync: exactly one source is required — a CAVE store file, ;@-annotated text, or - for stdin (spec §28.5)\n')
   }
   const dbPath = values.db ?? defaultDbPath()
-  const store = open(dbPath, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, values['dry-run'] === true ? 'scratch' : 'write')
   try {
     const options = {
       into: values.into === undefined ? labelOf(dbPath) : sanitizeLabel(values.into),
@@ -1645,7 +1683,10 @@ export const reportCommand = (argv: readonly string[]): Output => {
   if (maximum === undefined) {
     return fail(`cave report: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
   }
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  if (values.out !== undefined && sameFile(values.db ?? defaultDbPath(), values.out)) {
+    return fail(`cave report: --out '${values.out}' is the source database — refusing to overwrite it\n`)
+  }
+  const store = openDb(values, 'read')
   try {
     const rendered = caveReport(store, template, {
       aliases: values.aliases === true,
@@ -1713,7 +1754,7 @@ export const exportCommand = (argv: readonly string[]): Output => {
   if (values.out !== undefined && sameFile(db, values.out)) {
     return fail(`cave export: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
-  const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     const text = store.exportText({ current: values.current === true, tx: values.tx === true, maxSensitivity: maximum })
     if (values.out === undefined) {
@@ -1752,7 +1793,7 @@ export const generateCommand = (argv: readonly string[]): Output => {
   if (values.out !== undefined && sameFile(db, values.out)) {
     return fail(`cave generate: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
-  const store = open(db, values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  const store = openDb(values, 'read')
   try {
     const generated = generateClient(store, version === undefined ? {} : { version })
     if (!generated.ok) {
@@ -1817,7 +1858,7 @@ export const reconstructCommand = async (
     if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
       return fail(`cave reconstruct: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     }
-    const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+    const store = openDb(values, 'read')
     try {
       const graph = sqliteStore(store)
       const result = values.agent === undefined ?
@@ -1902,6 +1943,19 @@ export const cave = (argv: readonly string[]): Output => {
       (rest.includes('--help') || rest.includes('-h'))) {
     return ok(`${commandHelp[canonical]}\n`)
   }
+  try {
+    return run(canonical, rest)
+  } catch (error) {
+    // A --db path that is not what the command needs (spec §13.7) is a
+    // usage failure, reported the way dispatch reports thrown errors.
+    if (error instanceof LocateError) {
+      return fail(`cave ${canonical}: ${error.message}\n`)
+    }
+    throw error
+  }
+}
+
+const run = (canonical: undefined | string, rest: readonly string[]): Output => {
   switch (canonical) {
     case 'parse':
       return parseCommand(rest)
@@ -1948,6 +2002,6 @@ export const cave = (argv: readonly string[]): Output => {
     case '-h':
       return ok(`${usage}\n`)
     default:
-      return fail(`cave: unknown command ${JSON.stringify(command)}\n\n${usage}\n`, 2)
+      return fail(`cave: unknown command ${JSON.stringify(canonical)}\n\n${usage}\n`, 2)
   }
 }

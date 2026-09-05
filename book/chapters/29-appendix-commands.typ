@@ -7,8 +7,10 @@ text with examples. For the commands that open a store, `--db` defaults to
 `$CAVE_DB`, then `cave.db` in the current directory; `cave restore` is the
 exception and requires an explicit destination, and commands such as
 `parse`, `highlight`, `eval`, `doctor`, `demo`, and `version` take no store
-or only an optional one. This table is the map; the chapters are the
-territory.
+or only an optional one. The path names a store by content: a SQLite file,
+or a CAVE text file replayed into memory for the commands that only read
+(Chapter 9); appending commands refuse text files, and a read never creates
+a missing database. This table is the map; the chapters are the territory.
 
 #table(columns: (auto, auto, auto), inset: 5pt, stroke: 0.4pt + luma(190),
   [*Command*], [*Purpose*], [*Chapter*],

@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { shellComplete } from '@cavelang/loop'
-import { defaultDbPath, open } from '@cavelang/store'
+import { defaultDbPath, openAt } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { declareAutomations, listAutomations, retractAutomation } from './declare.ts'
 import { defaultAgentTimeoutSeconds, defaultMaxPasses, settle, settled } from './engine.ts'
@@ -284,7 +284,12 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
     io.stderr.write(`cave automate: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     return 1
   }
-  const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+  // The intent follows the branch order below: declaring writes before
+  // listing is considered.
+  const store = openAt(values.db ?? defaultDbPath(), {
+    intent: values.declare === true ? 'write' : values.list === true ? 'read' : 'write',
+    ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
+  })
   try {
     if (values.declare === true) {
       const declaration = declareAutomations(store, await readInput(positionals, io.stdin))

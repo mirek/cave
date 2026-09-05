@@ -3,7 +3,7 @@ import * as Canonical from '@cavelang/canonical'
 import type { Adapter } from './adapter.ts'
 import * as QuerySql from './query-sql.ts'
 import { open as openStore } from './store.ts'
-import type { Store as BaseStore } from './store.ts'
+import type { Access, Store as BaseStore } from './store.ts'
 
 export type Store = BaseStore & {
   /**
@@ -15,6 +15,8 @@ export type Store = BaseStore & {
 
 export type OpenOptions = {
   readonly registry?: Canonical.Registry.t
+  /** Whether the open may create or migrate the file (spec §13.7); `migrate` by default. */
+  readonly access?: Access
 }
 
 type Declaration = {

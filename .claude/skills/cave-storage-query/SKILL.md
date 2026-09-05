@@ -699,6 +699,44 @@ and verbs are not entities. Verb spellings resolve separately through
 `RENAMED-TO` lifecycle declarations (§5.8).
 Finding the pairs worth linking is alias *discovery* (§27).
 
+### 13.7 Text stores
+
+Canonical text is the interchange format (§2.2), so a CAVE text file is a
+complete description of a store. A surface that only reads, given a store
+path whose file is not a SQLite database — detected by the 16-byte SQLite
+header, never by extension — MUST replay the file into a fresh in-memory
+store with `cave import` semantics (no actor stamp, §9.5, so the assembled
+claims are exactly those importing the file would store) and serve the read
+from it. A line that fails to parse fails the load: the file *is* the
+database, and a store silently missing rows is worse than an error.
+
+Text stores are read-only. Nothing appended in memory outlives the process,
+so a surface that appends MUST refuse a text file and name the
+materialization path (`cave import --db <store.db> <file>`). A surface that
+only reads MUST NOT create or migrate a database: a missing path is an error
+naming the command that initializes one, never a fresh empty store that
+hides a typo, and an older schema is reported with the command that
+migrates it, never migrated in place; a read opens SQLite read-only, so a
+write-protected store serves. The WAL sidecars are the deliberate
+exception: a store an operator switched to WAL journaling needs its `-wal`
+and `-shm` files for readers and writers to coordinate, and SQLite recreates
+them when absent even on a read-only connection. A read MAY create those two
+files and nothing else, and it never changes the database file itself; an
+`immutable` open would avoid them only by risking stale or torn reads while
+a writer is active, so CAVE does not use one. Only appending surfaces initialize a missing
+SQLite store or migrate an older one. Mixed commands decide by what the
+invocation does: `--list`, `suggest-alias` without `--write`, and
+`ingest --plan`/`--dry-run` read, while a dry run that appends inside a
+rolled-back transaction (`derive`, `act`, `sync --dry-run`, `connect
+--query`) opens writable but still creates and migrates nothing. Two
+long-lived surfaces are deliberate exceptions: `cave mcp` initializes its
+store on first start even under `--read-only`, because the file is an
+agent's memory and may not exist yet — an existing store under
+`--read-only` opens read-only like any read, and a text file is served
+only under `--read-only`; `cave connect --query` and `cave ingest --plan`/`--dry-run`
+over a missing path work against an empty in-memory store, so a source can
+be federated or planned before any store exists (§23.3).
+
 ---
 
 ## 20. Shape Expectations and Knowledge Health

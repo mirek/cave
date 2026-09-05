@@ -3,11 +3,11 @@
  * `--watch`, `--query`), and report rendering around `run.ts`.
  */
 
-import { existsSync, readFileSync, watch as watchFs } from 'node:fs'
+import { readFileSync, watch as watchFs } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { defaultDbPath, open } from '@cavelang/store'
+import { defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { Record as QueryRecord } from '@cavelang/query'
 import * as Source from './source.ts'
@@ -218,7 +218,8 @@ const runQuery = async (
   const loaded = await loadSource(source, values, context)
   const db = values.db ?? defaultDbPath()
   const registry = values['no-prelude'] === true ? { registry: Registry.empty } : {}
-  const store = existsSync(db) ? open(db, registry) : open(':memory:', registry)
+  // Federation over a store that does not exist yet queries the source alone.
+  const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'scratch', ...registry })
   try {
     const { matches, report } = federatedQuery(
       store, mapping, loaded.records,
@@ -398,7 +399,10 @@ export const runConnect = async (argv: readonly string[], context: RunContext = 
     if (values.query !== undefined) {
       return await runQuery(source, values, name, io, context)
     }
-    const store = open(values.db ?? defaultDbPath(), values['no-prelude'] === true ? { registry: Registry.empty } : {})
+    const store = openAt(values.db ?? defaultDbPath(), {
+      intent: 'write',
+      ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
+    })
     try {
       if (values.watch === true) {
         return await runWatch(store, source, values, name, io, context)
