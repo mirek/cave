@@ -15,7 +15,7 @@
  * - `cave act [--db <path>] <name> [param=value…]` — execute an action (spec §25; `--declare`, `--list`, `--retract`)
  * - `cave automate [--db <path>]` — the event-driven loop (spec §29; async)
  * - `cave check [--db <path>]` — knowledge health report (`--stale`, `--json`)
- * - `cave backup [--db <path>] --out <path>` — exact verified SQLite snapshot
+ * - `cave backup [--db <path>] --out <path>` — exact verified store snapshot
  * - `cave restore <snapshot> --db <path>` — verify and atomically restore a snapshot
  * - `cave generate [--db <path>]` — versioned TypeScript client from EXPECTS declarations
  * - `cave suggest-alias [--db <path>]` — same-entity candidates (spec §27; async)
@@ -123,7 +123,7 @@ Usage:
   cave act --declare [file...]             declare actions from a CAVE document; --list / --retract <name> manage them
   cave automate [--db <path>]              event-driven loop (spec §29): new claims fire rules/actions/hooks/agent prompts [--once]
   cave check [--db <path>]                 knowledge health report (spec §20) [--stale <days>] [--json]
-  cave backup [--db <path>] --out <file>   exact verified SQLite snapshot [--force]
+  cave backup [--db <path>] --out <file>   exact verified store snapshot [--force]
   cave restore <snapshot> --db <path>      verify and atomically restore an exact snapshot [--force]
   cave generate [--db <path>]              generate a typed client from EXPECTS [--out <file>] [--version <n>]
   cave suggest-alias [--db <path>]         propose same-entity ALIAS candidates (spec §27) [--min <s>] [--agent] [--write]
@@ -311,7 +311,7 @@ Options:
                  are cave.claim/v1 records
   --no-prelude   open the store without the standard verb registry
 
-Searches the SQLite FTS5 index the store maintains over every claim:
+Searches the full-text index the store maintains over every claim:
 subject, verb, object, attribute name, value text, comment, and the raw
 line as written (so tags, contexts, and inverse spellings match too).
 Terms are one literal phrase by default — safe for hyphenated names such
@@ -471,7 +471,7 @@ Examples:
   cave check --db k.db --stale 30
   cave check --db k.db --json | jq '.violations'`,
 
-  backup: `cave backup — exact, verified SQLite snapshot (spec §13.2.2)
+  backup: `cave backup — exact, verified store snapshot (spec §13.2.2)
 
 Usage:
   cave backup [--db <path>] --out <file> [--force]
@@ -493,7 +493,7 @@ Examples:
   cave backup --db k.db --out backups/k.db
   cave backup --verify backups/k.db --sha256 <hex>`,
 
-  restore: `cave restore — verify and atomically restore an exact SQLite snapshot (spec §13.2.2)
+  restore: `cave restore — verify and atomically restore an exact store snapshot (spec §13.2.2)
 
 Usage:
   cave restore <snapshot> --db <path> [--force] [--sha256 <hex>]
@@ -1413,7 +1413,7 @@ const snapshotLine = (
   `${action} exact backup (${snapshot.rows} row(s), schema v${snapshot.schemaVersion}, ` +
   `${snapshot.bytes} bytes, sha256:${snapshot.sha256}) at ${snapshot.path}\n`
 
-/** `cave backup` — create or verify an exact SQLite snapshot (§13.2.2). */
+/** `cave backup` — create or verify an exact store snapshot (§13.2.2). */
 export const backupCommand = (argv: readonly string[]): Output => {
   const { values } = parseArgs({
     args: [...argv],

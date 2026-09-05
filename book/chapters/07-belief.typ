@@ -113,7 +113,7 @@ The first price sits inside the factored `lot/huila-26 HAS` block earlier in
 the export; the two rows appended in this chapter come after everything from
 the original file, in the order they were recorded. Importing that text into
 a fresh store replays it in order, so the same rows become current again. This is why the export is the
-interchange format and the SQLite file is a working index: the text carries
+interchange format and the store file is a working index: the text carries
 the history (Chapter 24 adds transaction identity to it).
 
 == Looking back: `--as-of`

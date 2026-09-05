@@ -43,7 +43,7 @@ export const App = () => {
       {!isDocs && !isPlayground && (
         <footer className="site-footer">
           <Logo />
-          <p>Compressed Atomic Verb Expressions.<br />Plain-text claims backed by SQLite.</p>
+          <p>Compressed Atomic Verb Expressions.<br />Plain-text claims you can query, replay, and cite.</p>
           <div><button onClick={() => navigate('docs/overview')}>Documentation</button><a href="./cave-book.pdf">Book</a><a href="https://github.com/mirek/cave">GitHub</a><span>v{caveVersion}</span></div>
         </footer>
       )}

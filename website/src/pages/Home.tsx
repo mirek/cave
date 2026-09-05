@@ -75,7 +75,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
           <Badge variant="secondary">Start with one line</Badge>
           <h1>Write down what you know, one claim per line. Ask questions across all of it.</h1>
           <p>
-            CAVE is a plain-text language for claims and a tool that stores them in SQLite, never overwrites them,
+            CAVE is a plain-text language for claims and a tool that keeps them in one local store, never overwrites them,
             and answers questions over the whole graph — chains, inverses, confidence, history, and why.
           </p>
           <div className="hero-actions">
@@ -102,7 +102,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
 
       <section className="proof-strip" aria-label="Project attributes">
         <span>PLAIN TEXT</span><i />
-        <span>SQLITE</span><i />
+        <span>LOCAL-FIRST</span><i />
         <span>APPEND-ONLY</span><i />
         <span>TEMPORAL</span><i />
         <span>CC0</span>
@@ -156,7 +156,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
 
       <Card className="cta">
         <div>
-          <Badge variant="outline">SQLite WebAssembly</Badge>
+          <Badge variant="outline">Nothing leaves the browser</Badge>
           <h2>Browser playground</h2>
         </div>
         <p>Edit a sample dataset, rebuild the in-memory store, and execute CAVE-Q without sending data to a server.</p>

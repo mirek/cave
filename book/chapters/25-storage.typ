@@ -2,7 +2,9 @@
 
 = How Claims Are Stored
 
-A store is one SQLite file with a small relational schema. This chapter
+In the current implementation a store is one SQLite file with a small
+relational schema; the schema is a detail behind the `cave` commands and the
+package APIs, not part of the language. This chapter
 describes the tables, the pipeline that turns a line of text into rows, the
 one rule that makes reverse readings free, and how the schema itself is
 versioned.

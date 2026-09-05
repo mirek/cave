@@ -18,7 +18,7 @@ flowchart TB
     surfaces["Surfaces<br/>CLI · MCP · HTTP view · website"]
     workflows["Workflows<br/>ingest · connect · rules · actions · automation · sync"]
     kernel["Knowledge kernel<br/>core · parser · canonical · query · shape · fusion · loop"]
-    store["Append-only store<br/>SQLite claims · metadata · edges · FTS"]
+    store["Append-only store<br/>claims · metadata · edges · full-text index"]
 
     inputs --> surfaces
     surfaces --> workflows
@@ -100,7 +100,7 @@ current rows without rewriting them.
 
 Claim history is permanent (§9.6). CAVE deliberately has no selective redact
 or forget operation: a local rewrite could not guarantee erasure from FTS,
-SQLite remnants, exports, synced peers, backups, snapshots, or storage media,
+storage remnants, exports, synced peers, backups, snapshots, or storage media,
 and would break row-identity convergence. Secrets and selectively erasable
 personal data must stay outside the store; accidental ingestion is handled by
 quarantining all copies and rebuilding a replacement store from reviewed safe
@@ -359,14 +359,14 @@ shell template. Action hooks run only after the database transaction commits.
 |---|---|---|
 | Domain | `core`, `fusion` | Immutable claim/value types, keys, time, UUIDv7, probabilistic math. |
 | Language | `parser`, `canonical` | CAVE text, diagnostics, inverse/lifecycle registry, canonical claims, emission. |
-| Data | `store`, `query`, `shape` | SQLite persistence, CAVE-Q, resolution, expectations, health and write gates. |
+| Data | `store`, `query`, `shape` | Persistence (SQLite today, behind an explicit adapter), CAVE-Q, resolution, expectations, health and write gates. |
 | Formal reasoning | `solver`, `scenario`, optional `solver-z3` | Portable exact models and backend-neutral results; typed snapshot bindings; explicit immutable result recording; opt-in Z3 search. |
 | Behavior | `rules`, `act`, `automate`, `loop` | Derivation, governed writes, event processing, active reconstruction policies. |
 | Movement | `connect`, `ingest`, `sync` | Deterministic records, agent extraction, and store union. |
 | Integration | `mcp`, `eval` | Agent tool protocol and repeatable quality evaluation. |
 | Presentation | `cli`, `view` | Command dispatch, read-only local HTTP views, and cited reports. |
 | Language tooling | `tree-sitter-cave`, `highlight`, `editors/vscode` | Shared grammar, highlight query, terminal and editor rendering. |
-| Browser | `website` | Documentation and an ephemeral playground using the kernel with SQLite WASM. |
+| Browser | `website` | Documentation and an ephemeral playground running the kernel in the browser on an in-memory store. |
 
 Dependencies point inward toward the domain, language, and data packages.
 Higher-level packages compose lower-level functions; the lower layers do not

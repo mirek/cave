@@ -36,7 +36,7 @@ agents) never enter the store.
   [Language], [`parser`, `canonical`],
     [CAVE text and diagnostics, the inverse and lifecycle registry, canonical claims, emission.],
   [Data], [`store`, `query`, `shape`],
-    [SQLite persistence, CAVE-Q, resolution, expectations, health, write gates.],
+    [Persistence, CAVE-Q, resolution, expectations, health, write gates.],
   [Formal reasoning], [`solver`, `scenario`, optional `solver-z3`],
     [Exact portable models, typed snapshot bindings, opt-in Z3 search (Chapter 27).],
   [Behavior], [`rules`, `act`, `automate`, `loop`],
@@ -50,7 +50,7 @@ agents) never enter the store.
   [Language tooling], [`tree-sitter-cave`, `highlight`, the VS Code extension],
     [One grammar and highlight query for terminal and editors.],
   [Browser], [`website`],
-    [Documentation and a playground running the kernel on SQLite WebAssembly.],
+    [Documentation and a playground running the kernel in the browser on an in-memory store.],
 )
 
 Dependencies point inward, toward domain, language, and data. Higher

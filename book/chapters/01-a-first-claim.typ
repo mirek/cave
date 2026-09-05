@@ -35,7 +35,7 @@ match.
 
 == The tool
 
-The `cave` command reads claims, stores them in a local SQLite file, and
+The `cave` command reads claims, keeps them in a local store, and
 answers questions about them. Install it once:
 
 ```shell
@@ -84,5 +84,5 @@ a browser, a long-running server, or the optional Z3 solver package. When
 the output changes, the book changes with it.
 
 #recap[A claim is `subject VERB object`. `cave parse` lints, `cave add`
-appends to a SQLite store, and `cave query` asks with `?variables`. Nothing is
+appends to a store, and `cave query` asks with `?variables`. Nothing is
 ever edited in place.]

@@ -23,7 +23,7 @@ territory.
   [`cave act`], [Execute, `--declare`, `--list`, or `--retract` actions; `--hooks`, `--dry-run`, `--no-check`.], [18],
   [`cave automate`], [The event loop; `--once`, `--declare`, `--list`, `--retract`, `--hooks`, `--agent`.], [19],
   [`cave check`], [Knowledge health report; exit 1 on violations; `--stale`, `--json`.], [13],
-  [`cave backup`], [Exact verified SQLite snapshot; `--verify`, `--sha256`.], [8],
+  [`cave backup`], [Exact verified store snapshot; `--verify`, `--sha256`.], [8],
   [`cave restore`], [Verify and atomically restore a snapshot; `--force`.], [8],
   [`cave generate`], [Versioned TypeScript client from `EXPECTS` claims.], [13],
   [`cave suggest-alias`], [Propose same-entity candidates; `--min`, `--agent`, `--write`.], [12],

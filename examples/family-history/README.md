@@ -42,7 +42,7 @@ helena/father IS war-1920-veteran @ 60% ; family lore, no papers
 piotr/branch IS related-family @src:dna-test @ 88%
 ```
 
-Save that block as `notes.cave`, lint it, then load it into a SQLite store:
+Save that block as `notes.cave`, lint it, then load it into a store:
 
 ```
 $ cave parse notes.cave

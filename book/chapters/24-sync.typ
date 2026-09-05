@@ -103,7 +103,7 @@ grown from it merges back without duplication.
 == The store under git
 
 Because the annotated export is a complete replica, the text can be the
-store. Commit `knowledge.cave`, never the SQLite file, regenerated before
+store. Commit `knowledge.cave`, never the store file, regenerated before
 every commit and never edited by hand. A branch is a git branch plus a
 private store file, rebuilt from the text as plumbing. Take the laptop as
 the live store and open a branch that adds a supplier:
@@ -167,7 +167,7 @@ the other way, as a checkout.
 Costs, stated plainly: a branch is a full copy of the store, with no shared
 structure, and divergence between the committed text and anyone's live
 store is bounded by the next sync, not prevented. Both are the right trade
-at CAVE's scale, one machine and one SQLite file, with plain text as the
+at CAVE's scale, one machine and one store file, with plain text as the
 escape hatch. Sync is deliberately not an MCP tool: store files are
 machine-local paths, and distribution is the operator's concern.
 

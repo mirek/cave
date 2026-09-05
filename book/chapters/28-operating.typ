@@ -9,8 +9,8 @@ an installation.
 
 == Habits
 
-- *Keep canonical text under version control and treat SQLite as a working
-  index.* The annotated export is a complete replica; a store can be
+- *Keep canonical text under version control and treat the store as a
+  working index.* The annotated export is a complete replica; a store can be
   rebuilt from it on any machine (Chapter 24).
 - *Declare domain verbs and their inverses in a small prelude* that every
   file starts from, and keep extensions rare.
@@ -46,7 +46,7 @@ and a lower ceiling is a view, never a sanitizer.
 
 == Performance
 
-Everything is designed for local SQLite scale: one file, one machine,
+Everything is designed for local scale: one store, one machine,
 indexes on every field a pattern can touch, and full-text search for the
 rest. Ordinary claim reads and appends are fast well past a hundred
 thousand rows. The costs that grow faster are transitive queries over deep
