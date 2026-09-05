@@ -621,3 +621,33 @@ test('the CLI takes an inline --map and --sql over a CSV source', async () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a declared watch watches a mapping file whose name looks inline', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const controller = new AbortController()
+  let running: Promise<number> | undefined
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people,v2.cave'), '?name IS person\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/people HAS path: people.csv\nsource/people HAS map: people,v2.cave\nsource/people HAS key: id')
+    seed.close()
+    const watchedFor: string[] = []
+    const stdout = new Capture()
+    running = runConnect(['--db', db, '--watch'], {
+      stdout,
+      stderr: new Capture(),
+      signal: controller.signal,
+      watch: (path, _listener) => { watchedFor.push(path); return { close: () => {} } },
+      schedule: () => ({}),
+      cancelScheduled: () => {}
+    })
+    await until(() => stdout.value.includes('watching'), 'watch setup')
+    assert.equal(watchedFor.length, 2, 'the source and the comma-named mapping file are both watched')
+  } finally {
+    controller.abort()
+    if (running !== undefined) await running
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -590,7 +590,10 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
     }
     for (const target of new Set(declared.flatMap(source => [
       ...Source.isUrl(source.path) ? [] : [Declared.resolvePath(source.path, dir)],
-      ...source.map === undefined || Template.isInline(source.map) ? [] : [Declared.resolvePath(source.map, dir)]
+      // A map is a file when it resolves to one, as the loader decides; only
+      // otherwise is it inline and nothing to watch.
+      ...source.map === undefined || (Template.isInline(source.map) && !existsSync(Declared.resolvePath(source.map, dir))) ?
+        [] : [Declared.resolvePath(source.map, dir)]
     ]))) {
       if (watched.has(target)) continue
       watched.set(target, watch(dirname(target), (_event, filename) => {

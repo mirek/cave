@@ -208,13 +208,12 @@ const sqliteValue = (value: unknown): unknown =>
     (Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()) :
     value
 
-/** The SQLite representation of a record field: scalars as they are, booleans as 0/1, anything structured as JSON text. */
-const sqlValue = (value: unknown): null | number | string =>
+/** The SQLite representation of a record field: scalars as they are (bigints exact), booleans as 0/1, anything structured as JSON text. */
+const sqlValue = (value: unknown): null | number | bigint | string =>
   value === undefined || value === null ? null :
-    typeof value === 'number' || typeof value === 'string' ? value :
+    typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint' ? value :
       typeof value === 'boolean' ? (value ? 1 : 0) :
-        typeof value === 'bigint' ? Number(value) :
-          JSON.stringify(value)
+        JSON.stringify(value)
 
 /**
  * Runs `sql` over the records loaded from a text format: the records
