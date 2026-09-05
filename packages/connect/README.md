@@ -64,9 +64,11 @@ cave connect people.csv --map '?name IS person, ?name WORKS-AT ?company' --key i
 
 `--sql` reshapes any tabular source before the mapping: for csv, tsv, json,
 and jsonl the records load into a temporary in-memory SQLite table
-(`records`, or `--table`), structured values as JSON text, and the query's
-rows are the records — projection, filtering, and derived columns in SQL,
-no expression language of its own (`Source.queryRecords`).
+(`records`, or `--table`), the source's columns first and values exactly as
+parsed — CSV cells are text, so cast for arithmetic — structured values as
+JSON text, and the query's rows are the records — projection, filtering,
+and derived columns in SQL, no expression language of its own
+(`Source.queryRecords`).
 
 ## Records, digests, provenance (§23.2)
 

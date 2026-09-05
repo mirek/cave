@@ -31,9 +31,10 @@ export type Options = {
   readonly table?: string
   /**
    * SQLite query — the alternative to `table`. For any other format the
-   * parsed records are loaded into a temporary in-memory SQLite table and
-   * the query's rows become the records (spec §23.1): one mechanism for
-   * projecting, filtering, and reshaping, no expression language.
+   * parsed records are loaded into a temporary in-memory SQLite table,
+   * values exactly as parsed (CSV cells are text; cast for arithmetic),
+   * and the query's rows become the records (spec §23.1): one mechanism
+   * for projecting, filtering, and reshaping, no expression language.
    */
   readonly sql?: string
   /** Dot path to the record array inside a JSON document. */
@@ -49,6 +50,8 @@ export type Loaded = {
   readonly format: Format
   /** Record-aligned source line spans when the format has stable lines. */
   readonly spans?: readonly LineSpan[]
+  /** The source's own column order when it declares one (a CSV header), records or none. */
+  readonly columns?: readonly string[]
 }
 
 export const isUrl = (source: string): boolean =>
@@ -95,7 +98,7 @@ export const nameOf = (source: string): string => {
  * RFC 4180 CSV: quoted fields (with `""` escapes) may contain delimiters and
  * newlines; records split on LF or CRLF. The first row names the fields.
  */
-const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[] } => {
+const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[], columns: string[] } => {
   const rows: { cells: string[], span: LineSpan }[] = []
   let row: string[] = []
   let field = ''
@@ -147,10 +150,11 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
   const [headerRow, ...dataRows] = rows
   const header = headerRow?.cells
   if (header === undefined) {
-    return { records: [], spans: [] }
+    return { records: [], spans: [], columns: [] }
   }
   const present = dataRows.filter(row_ => row_.cells.length > 1 || row_.cells[0] !== '')
   return {
+    columns: header,
     records: present.map(row_ => Object.fromEntries(
       header.map((name, at) => [name.trim(), row_.cells[at] ?? ''])
     )),
@@ -221,13 +225,16 @@ const sqlValue = (value: unknown): null | number | string =>
 export const queryRecords = (
   records: readonly Record<string, unknown>[],
   sql: string,
-  table = 'records'
+  table = 'records',
+  schema?: readonly string[]
 ): Record<string, unknown>[] => {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
     throw new Error(`--table ${JSON.stringify(table)} is not a plain identifier`)
   }
-  const columns: string[] = []
-  const known = new Set<string>()
+  // The source's own columns first (a CSV header survives an empty file),
+  // then any field the records add.
+  const columns: string[] = [...schema ?? []]
+  const known = new Set<string>(columns)
   for (const record of records) {
     for (const key of Object.keys(record)) {
       if (!known.has(key)) {
@@ -239,9 +246,10 @@ export const queryRecords = (
   const db = new DatabaseSync(':memory:')
   try {
     const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
-    // NUMERIC affinity: a CSV cell "2" compares as the number 2 and a JSON
-    // number stays one, while anything else stays text.
-    db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value NUMERIC' : columns.map(column => `${quoted(column)} NUMERIC`).join(', ')})`)
+    // No affinity: a value is exactly what the source gave — a CSV cell is
+    // text ("00123" stays "00123"), a JSON number is a number — and a query
+    // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
+    db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value' : columns.map(quoted).join(', ')})`)
     if (columns.length > 0 && records.length > 0) {
       const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
       for (const record of records) {
@@ -303,10 +311,10 @@ export const loadSync = (source: string, options: Options = {}): Loaded => {
 
 /** Applies `sql`, when given, to records of a text format — the spans no longer align, so they go. */
 const queried = (
-  parsed: { records: Record<string, unknown>[], spans?: LineSpan[] },
+  parsed: { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] },
   options: Options
-): { records: Record<string, unknown>[], spans?: LineSpan[] } =>
-  options.sql === undefined ? parsed : { records: queryRecords(parsed.records, options.sql, options.table) }
+): { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] } =>
+  options.sql === undefined ? parsed : { records: queryRecords(parsed.records, options.sql, options.table, parsed.columns) }
 
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
 export const load = async (source: string, options: Options = {}): Promise<Loaded> => {
@@ -329,7 +337,7 @@ const parseLocated = (
   text: string,
   source: string,
   options: Options
-): { records: Record<string, unknown>[], spans?: LineSpan[] } => {
+): { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] } => {
   switch (format) {
     case 'csv':
       return parseCsvLocated(text, options.delimiter ?? ',')

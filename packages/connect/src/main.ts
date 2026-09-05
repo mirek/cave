@@ -59,7 +59,9 @@ Options:
                        the temporary table --sql runs against (records)
   --sql <query>        SQLite query (alternative to --table); for csv, tsv,
                        json and jsonl the records load into a temporary
-                       in-memory table and the query's rows are the records
+                       in-memory table, values as parsed (CSV cells are
+                       text: cast for arithmetic), and the query's rows are
+                       the records
   --records <path>     dot path to the record array inside a JSON document
   --force              re-map records whose digest is unchanged
   --prune              retract claims of records that disappeared from the source

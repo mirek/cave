@@ -232,9 +232,12 @@ either. An inline mapping has no prelude.
 **Reshaping with SQL.** `--sql` (or the `sql` attribute) applies to every
 tabular source, not only SQLite: for csv, tsv, json, and jsonl the parsed
 records are loaded into a temporary in-memory SQLite table — `records`,
-or the `--table`/`table` name — one column per field in first-seen order,
-scalars as they are, booleans as `0`/`1`, structured values as JSON text
-(`json_extract` reaches into them) — and the query's rows are the records
+or the `--table`/`table` name — the source's own columns first (a CSV
+header, so an empty file still has them) and then any field the records
+add, values exactly as parsed: a CSV cell is text (`00123` stays
+`00123`; cast for arithmetic, `CAST(kg AS REAL) > 10`), a JSON number is
+a number, a boolean is `0`/`1`, a structured value is JSON text
+(`json_extract` reaches into it) — and the query's rows are the records
 the mapping sees. Projection, filtering, joins, `lower()`, `substr()`,
 date arithmetic, and derived columns therefore need no expression
 language of their own (§19.5): SQL before the mapping, rules (§24) after

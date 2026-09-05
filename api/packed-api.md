@@ -2370,6 +2370,7 @@ export type Loaded = {
     readonly records: readonly Record<string, unknown>[];
     readonly format: Format;
     readonly spans?: readonly LineSpan[];
+    readonly columns?: readonly string[];
 };
 ```
 
@@ -2418,7 +2419,7 @@ export declare const parseCsv: (text: string, delimiter?: string) => Record<stri
 Kind: value.
 
 ```ts
-export declare const queryRecords: (records: readonly Record<string, unknown>[], sql: string, table?: string) => Record<string, unknown>[];
+export declare const queryRecords: (records: readonly Record<string, unknown>[], sql: string, table?: string, schema?: readonly string[]) => Record<string, unknown>[];
 ```
 
 ### `Template`
@@ -10343,7 +10344,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a54395904b587a7c09318258378718693c473e632c7255b0ba90d69a2b873739`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `85249a81287ac394e0b61d6633c0f1b139e36c87aff8828f2e46b5f83c149fd4`
-- `@cavelang/cli/dist/internal/connect/source.d.ts` — `fc1a27a2c3f6181349df2d82b9a654a8dd1c484acee3aea3cfc144a5f0032867`
+- `@cavelang/cli/dist/internal/connect/source.d.ts` — `638cd767ebb0656058ca376b583bf9f3083e8527123087c4b9f730dcae138329`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c41e8780a5434ed0a2acd359d356e7ee5c6a8731f73f7ed2675f089e863862d3`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`
 - `@cavelang/cli/dist/internal/eval/judge.d.ts` — `237ab4139a721b6aa824dc94a3688b47f481c3b51757460a445a1aa182852bbd`

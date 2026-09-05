@@ -159,8 +159,9 @@ A mapping short enough to type can be given inline: a comma-separated list
 of claim lines, the same convention action effects use. And when the data
 needs reshaping before it is mapped, `--sql` runs a query over the parsed
 records first, whatever the file format — the rows land in a temporary
-SQLite table called `records`, and the query's rows are what the mapping
-sees:
+SQLite table called `records`, cells exactly as the file had them (so a
+CSV number is text until you cast it), and the query's rows are what the
+mapping sees:
 
 ```sh
 $ cave connect stock.csv --map '?lot HAS stock: ?kg kg' --key lot --db roastery.db --query '?lot HAS stock: ?kg'
@@ -168,7 +169,7 @@ $ cave connect stock.csv --map '?lot HAS stock: ?kg kg' --key lot --db roastery.
 ?lot = lot/huila-26  ?kg = 6 kg
 ?lot = lot/santa-ana-26  ?kg = 15 kg
 
-$ cave connect stock.csv --sql 'SELECT lot, kg FROM records WHERE kg > 10' --map '?lot IS well-stocked' --key lot --dry-run
+$ cave connect stock.csv --sql 'SELECT lot FROM records WHERE CAST(kg AS REAL) > 10' --map '?lot IS well-stocked' --key lot --dry-run
 ; --- record 1
 
 lot/yirgacheffe-26 IS well-stocked
