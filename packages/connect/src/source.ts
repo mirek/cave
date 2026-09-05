@@ -225,6 +225,22 @@ const inferColumns = (reference: string): string[] => {
   return segments.map((_, at) => segments.slice(at).join('.'))
 }
 
+/**
+ * The column a SQLite diagnostic says is missing, or `undefined` for any
+ * other error. The hint SQLite appends to a double-quoted identifier is a
+ * fixed phrase and appears only after a leading quote, so it is stripped
+ * exactly and only there — a bare name that happens to end in the phrase
+ * is the name. A `JOIN … USING` column arrives with its own fixed suffix.
+ */
+const missingColumn = (message: string): string | undefined => {
+  const hint = ' - should this be a string literal in single-quotes?'
+  const column = /no such column: (.+)$/.exec(message)?.[1]
+  if (column !== undefined) {
+    return column.startsWith('"') && column.endsWith(hint) ? column.slice(0, -hint.length) : column
+  }
+  return /cannot join using column (.+) - column not present in both tables$/.exec(message)?.[1]
+}
+
 /** The SQLite representation of a record field: scalars as they are (bigints exact), booleans as 0/1, anything structured as JSON text. */
 const sqlValue = (value: unknown): null | number | bigint | string =>
   value === undefined || value === null ? null :
@@ -317,11 +333,7 @@ export const queryRecords = (
       // Only a schemaless, empty input infers: a header-bearing source keeps
       // SQLite's own validation, so a typo stays a typo. A column named in
       // `JOIN … USING` gets its own diagnostic.
-      const missing = records.length === 0 && schemaless ?
-        /(?:no such column: (.+?)(?: - should this be .*)?|cannot join using column (.+?) - column not present in both tables)$/
-          .exec(error instanceof Error ? error.message : '') :
-        null
-      const reference = missing === null ? undefined : (missing[1] ?? missing[2])!.trim()
+      const reference = records.length === 0 && schemaless && error instanceof Error ? missingColumn(error.message)?.trim() : undefined
       const names = reference === undefined ? [] : inferColumns(reference).filter(name => name !== '' && !known.has(name))
       if (names.length === 0) {
         throw error
