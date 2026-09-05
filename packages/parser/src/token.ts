@@ -115,3 +115,47 @@ const txLineRe = /^\s*;@\s+(\S+)\s*$/
  */
 export const txOfLine = (raw: string): undefined | string =>
   txLineRe.exec(raw)?.[1]
+
+/**
+ * Positions of `needle` occurrences outside `"…"` and `` `…` `` literals —
+ * where a rule line splits on `=>` and `,` (spec §24.1), an action body on
+ * `,` (§25.1), and an inline mapping on `,` (§23.1): a separator inside a
+ * quoted term never splits.
+ */
+export const topLevel = (text: string, needle: string): number[] => {
+  if (needle === '') {
+    throw new Error('topLevel: the separator must not be empty')
+  }
+  const positions: number[] = []
+  let quote: undefined | string
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]!
+    if (quote !== undefined) {
+      if (char === quote) {
+        quote = undefined
+      }
+      continue
+    }
+    if (char === '"' || char === '`') {
+      quote = char
+      continue
+    }
+    if (text.startsWith(needle, i)) {
+      positions.push(i)
+      i += needle.length - 1
+    }
+  }
+  return positions
+}
+
+/** Splits `text` at every top-level `needle`, trimming the parts. */
+export const splitTopLevel = (text: string, needle: string): string[] => {
+  const parts: string[] = []
+  let start = 0
+  for (const at of topLevel(text, needle)) {
+    parts.push(text.slice(start, at).trim())
+    start = at + needle.length
+  }
+  parts.push(text.slice(start).trim())
+  return parts
+}

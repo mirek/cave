@@ -100,3 +100,9 @@ test('txOfLine recognizes §28.4 annotations only', () => {
   assert.equal(Token.txOfLine(';@'), undefined)
   assert.equal(Token.txOfLine(';@ two tokens'), undefined)
 })
+
+test('topLevel splits outside literals and refuses an empty separator', () => {
+  assert.deepEqual(Token.topLevel('a, "b, c", `d, e`, f', ','), [1, 9, 17])
+  assert.deepEqual(Token.splitTopLevel('a, "b, c", f', ','), ['a', '"b, c"', 'f'])
+  assert.throws(() => Token.topLevel('abc', ''), /must not be empty/)
+})

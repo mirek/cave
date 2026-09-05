@@ -22,7 +22,7 @@
  * same declarations against a SQLite store, URLs included.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
 import { LocateError, open } from '@cavelang/store'
@@ -45,7 +45,7 @@ export type Declared = {
   readonly name: string
   /** File path (relative to the store's directory) or URL. */
   readonly path: string
-  /** Mapping template path; a `.cave` source needs none. */
+  /** Mapping template path, or an inline template (`?name IS person, …`); a `.cave` source needs none. */
   readonly map?: string
   readonly key?: string
   /** `csv | tsv | json | jsonl | sqlite`, or `cave`; by extension when omitted. */
@@ -74,6 +74,17 @@ const sourceRows = (store: Store): Row.t[] =>
 
 
 
+/**
+ * A stored attribute value as declared: the store keeps a literal's
+ * delimiters (`"SELECT …"`, `` `?name IS person, …` ``), and a path, a
+ * query, or an inline mapping is the text inside them.
+ */
+export const unwrap = (value: string): string =>
+  (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+  (value.startsWith('`') && value.endsWith('`') && value.length >= 2) ?
+    value.slice(1, -1) :
+    value
+
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
   // Several belief series may speak about one attribute (the root file
@@ -91,7 +102,7 @@ export const deltasOf = (store: Store): Delta[] => {
     const fields = byName.get(name) ?? {}
     const seen = fields[row.attribute]
     if (seen === undefined || seen.tx < row.tx) {
-      fields[row.attribute] = { value: row.value_text, tx: row.tx }
+      fields[row.attribute] = { value: unwrap(row.value_text), tx: row.tx }
     }
     byName.set(name, fields)
   }
@@ -157,14 +168,24 @@ export const resolvePath = (path: string, dir: string): string =>
 export const isCave = (declared: Declared): boolean =>
   declared.format === 'cave' || (declared.format === undefined && extname(declared.path).toLowerCase() === '.cave')
 
+/**
+ * A value as a POSIX shell argument: bare when it is only word characters
+ * and path punctuation, otherwise double-quoted with the four characters
+ * a double-quoted shell word still interprets (`"`, `\\`, `$`, `` ` ``)
+ * escaped — so a listed invocation pastes back whatever the path or SQL
+ * carries.
+ */
+const argument = (value: string): string =>
+  /^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `"${value.replace(/["\\$`]/g, char => `\\${char}`)}"`
+
 /** The declaration as the equivalent `cave connect` invocation, for listings. */
 export const describe = (declared: Declared): string => {
-  const parts = [declared.path]
+  const parts = [argument(declared.path)]
   for (const attribute of attributes) {
     if (attribute === 'path') continue
     const value = declared[attribute]
     if (value !== undefined) {
-      parts.push(`--${attribute} ${/[\s"]/.test(value) ? JSON.stringify(value) : value}`)
+      parts.push(`--${attribute} ${argument(value)}`)
     }
   }
   return `${declared.name}: ${parts.join(' ')}`
@@ -279,7 +300,12 @@ const mappingSync = (declared: Declared, dir: string): { mapping: Template.Mappi
     }
     return { mapping: parseTemplate(readFileSync(resolvePath(declared.path, dir), 'utf8'), caveLabel), cave: true }
   }
-  return { mapping: parseTemplate(readFileSync(resolvePath(declared.map!, dir), 'utf8'), `mapping ${declared.map}`), cave: false }
+  // A file that exists is the mapping, whatever its name looks like; only
+  // otherwise is the text read as an inline template.
+  const mapPath = resolvePath(declared.map!, dir)
+  return !existsSync(mapPath) && Template.isInline(declared.map!) ?
+    { mapping: parseTemplate(Template.inlineDocument(declared.map!), 'inline mapping'), cave: false } :
+    { mapping: parseTemplate(readFileSync(mapPath, 'utf8'), `mapping ${declared.map}`), cave: false }
 }
 
 const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<{ mapping: Template.Mapping, cave: boolean }> => {

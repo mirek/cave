@@ -37,6 +37,9 @@ test('declared sources are current source/<name> claims with a path; retracting 
       { name: 'verbs', path: 'verbs.cave' }
     ])
     assert.equal(Declared.describe(Declared.declaredSources(store)[0]!), 'people: data/people.csv --map people.map.cave --key id')
+    assert.equal(Declared.describe({ name: 'staff', path: 'data/my people.csv', map: 'staff.map.cave' }), 'staff: "data/my people.csv" --map staff.map.cave', 'a path with whitespace is quoted so the listing pastes back')
+    assert.equal(Declared.describe({ name: 'odd', path: 'data/a;backup.csv', map: 'x.cave', sql: 'SELECT "a" AS b, $1, `c` FROM records' }),
+      'odd: "data/a;backup.csv" --map x.cave --sql "SELECT \\"a\\" AS b, \\$1, \\`c\\` FROM records"', 'shell punctuation is quoted, and what a double-quoted word still interprets is escaped')
     assert.equal(Declared.isCave({ name: 'verbs', path: 'verbs.cave' }), true)
     assert.equal(Declared.isCave({ name: 'x', path: 'x.txt', format: 'cave' }), true)
     assert.equal(Declared.isCave({ name: 'people', path: 'people.csv' }), false)
@@ -735,6 +738,43 @@ test('a transition whose replacement fails to ingest keeps the last good data', 
       const current = store.currentBeliefs().filter(row => row.conf > 0 && ['fact', 'ann'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`)
       assert.deepEqual(current, ['fact IS old'], 'the former prelude is not retired when its replacement fails')
       assert.equal(Declared.recordedDeclaration(store, 'b'), Declared.declarationDigest({ name: 'b', path: 'facts.cave' }), 'the recorded declaration is still the old one')
+    } finally {
+      store.close()
+    }
+  })
+})
+
+test('a declared source may carry its mapping inline and reshape its records with sql', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n2,bob,globex\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, [
+      'source/people HAS path: people.csv',
+      'source/people HAS map: `?name IS person, ?name WORKS-AT ?company`',
+      'source/people HAS sql: "SELECT name, lower(company) AS company FROM records WHERE id = \'1\'"',
+      'source/people HAS key: name'
+    ].join('\n'))
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const claims = store.currentBeliefs().filter(row => row.conf > 0 && ['ann', 'bob'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`).sort()
+      assert.deepEqual(claims, ['ann IS person', 'ann WORKS-AT acme'])
+      assert.equal(Declared.describe(Declared.declaredSources(store)[0]!), 'people: people.csv --map "?name IS person, ?name WORKS-AT ?company" --key name --sql "SELECT name, lower(company) AS company FROM records WHERE id = \'1\'"')
+    } finally {
+      store.close()
+    }
+  })
+})
+
+test('a declared map naming an existing file is read as a file even when its name contains a comma', () => {
+  withDir(dir => {
+    mkdirSync(join(dir, 'maps'))
+    writeFileSync(join(dir, 'maps', 'people,v2.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/people HAS path: people.csv\nsource/people HAS map: maps/people,v2.cave\n')
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      assert.equal(store.currentBeliefs().some(row => row.conf > 0 && row.subject === 'ann' && row.object === 'person'), true)
     } finally {
       store.close()
     }

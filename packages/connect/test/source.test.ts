@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -129,4 +129,60 @@ test('formatOf infers from extension, nameOf names the source (spec §23.2)', ()
   assert.equal(Source.formatOf('data.xml', { format: 'json' }), 'json')
   assert.equal(Source.nameOf('/tmp/dir/people.csv'), 'people')
   assert.equal(Source.nameOf('https://x.example/exports/people v2.json'), 'people-v2')
+})
+
+test('--sql reshapes text-format records through a temporary SQLite table (spec §23.1)', () => {
+  const records = [
+    { id: 1, name: 'ann', active: true, address: { city: 'Oslo' } },
+    { id: 2, name: 'bob', active: false, address: { city: 'Riga' } },
+    { id: 3, name: 'cy', tags: ['x', 'y'] }
+  ]
+  const rows = Source.queryRecords(records, "SELECT upper(name) AS shout, json_extract(address, '$.city') AS city, active FROM records WHERE id < 3 ORDER BY id")
+  assert.deepEqual(rows, [{ shout: 'ANN', city: 'Oslo', active: 1 }, { shout: 'BOB', city: 'Riga', active: 0 }])
+  assert.deepEqual(Source.queryRecords([{ id: '00123' }, { id: '123' }], 'SELECT id, typeof(id) AS t FROM records ORDER BY rowid'),
+    [{ id: '00123', t: 'text' }, { id: '123', t: 'text' }], 'text stays text — identifiers keep their zeros')
+  assert.deepEqual(Source.queryRecords([], 'SELECT id, name FROM records', 'records', ['id', 'name']), [], 'a header-only source still has its columns')
+  assert.deepEqual(Source.queryRecords([{}, {}], 'SELECT count(*) AS n FROM records'), [{ n: 2 }], 'field-less records are still rows')
+  assert.deepEqual(Source.queryRecords([], 'SELECT id, name FROM records WHERE CAST(id AS INTEGER) > 1 ORDER BY records.name'), [], 'a schemaless source that became empty still answers the columns its query names')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r.id, "name", `tag`, [note] FROM records AS r WHERE r.id IS NOT NULL'), [], 'qualified and quoted references resolve to their column')
+  assert.deepEqual(Source.queryRecords([], 'SELECT "first.name", r."last.name" FROM records AS r'), [], 'a quoted identifier keeps its dots')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r.id, "r.id" FROM records AS r'), [], 'a qualified name and a quoted dotted column coexist')
+  assert.throws(() => Source.queryRecords([{ id: 1 }], 'SELECT nope FROM records'), /no such column/, 'with records present a missing column is the mistake it is')
+  assert.throws(() => Source.queryRecords([], 'SELECT nmae FROM records', 'records', ['id', 'name']), /no such column: nmae/, 'a header-bearing source keeps its validation even when empty')
+  assert.deepEqual(Source.queryRecords([], 'SELECT id FROM records', 'records', []), [], 'a CSV cleared to nothing has no header: an empty schema infers like no schema')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r.id, s.name FROM records r JOIN records s USING(id, "first.name")'), [], 'a column named only in JOIN … USING is staged from its own diagnostic')
+  assert.deepEqual(Source.queryRecords([], 'SELECT "x - should this be y", `y - should this be a string literal in single-quotes?`, "a""b" FROM records'), [], "SQLite's hint is stripped exactly and only after a quoted name")
+  assert.deepEqual(Source.queryRecords([], 'SELECT * FROM records r JOIN records s USING("x - column not present in both tables")'), [], 'a USING column keeps its own suffix-like text')
+  assert.deepEqual(Source.queryRecords([], 'SELECT ` first ` AS a, [ last ] AS b, " both " AS c, r.` first ` AS d FROM records r'), [], 'edge spaces in a delimited name are part of the field')
+  assert.deepEqual(Source.queryRecords([], 'SELECT `[id]` AS a, "`id`" AS b, `"x"` AS c, r."[y]" AS d FROM records r'), [], 'brackets and backticks SQLite already stripped are part of the field; a quoted name is staged both ways')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r."first\nname" AS name FROM records r JOIN records s USING("a\nb")'), [], 'a name spanning lines is inferred whole')
+  assert.deepEqual(Source.queryRecords([], 'SELECT "" AS value FROM records'), [], 'the empty name is a column SQLite accepts, so it is staged too')
+  assert.deepEqual(Source.queryRecords([{ id: 9223372036854775808n, neg: -9223372036854775809n }], 'SELECT id, typeof(id) AS t, neg FROM records'),
+    [{ id: '9223372036854775808', t: 'text', neg: '-9223372036854775809' }], 'a bigint beyond SQLite\'s 64-bit integer binds as its exact decimal text')
+  const wide = Array.from({ length: 100 }, (_, at) => `c${at}`)
+  assert.deepEqual(Source.queryRecords([], `SELECT ${wide.join(', ')} FROM records WHERE ${wide.map(name => `${name} IS NULL`).join(' AND ')}`), [], 'inference is not capped: every column a wide query names is staged')
+  assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
+    [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
+  assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')
+  assert.deepEqual(Source.queryRecords([{ id: '2' }], 'SELECT id FROM records', 'records', ['id', 'id']), [{ id: '2' }], 'a repeated header is one column')
+  assert.throws(() => Source.queryRecords([{ id: 1, ID: 2 }], 'SELECT id FROM records'), /fields "id" and "ID" differ only in case/, 'SQLite cannot tell them apart, and merging would lose data')
+  assert.deepEqual(Source.queryRecords([{ 'Ä': 1, 'ä': 2 }], 'SELECT "Ä" AS upper, "ä" AS lower FROM records'), [{ upper: 1, lower: 2 }], 'SQLite folds ASCII only, so non-ASCII case pairs are distinct columns')
+  assert.deepEqual(Source.queryRecords(records, 'SELECT count(*) AS n FROM people', 'people'), [{ n: 3 }], 'the table can be named')
+  assert.throws(() => Source.queryRecords(records, 'SELECT 1', 'bad name'), /not a plain identifier/)
+  assert.deepEqual(Source.queryRecords([], 'SELECT count(*) AS n FROM records'), [{ n: 0 }], 'no records is an empty table')
+  const dir = mkdtempSync(join(tmpdir(), 'cave-source-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+    const loaded = Source.loadSync(join(dir, 'people.csv'), { sql: "SELECT name || '-' || id AS slug FROM records WHERE CAST(id AS INTEGER) = 2" })
+    assert.deepEqual(loaded.records, [{ slug: 'bob-2' }])
+    assert.equal(loaded.spans, undefined, 'line spans do not survive a query')
+    writeFileSync(join(dir, 'dup.csv'), 'id,id\n1,2\n')
+    assert.deepEqual(Source.loadSync(join(dir, 'dup.csv'), { sql: 'SELECT id FROM records' }).records, [{ id: '2' }], 'the later cell wins, as without sql')
+    writeFileSync(join(dir, 'empty.csv'), ' id , name \n')
+    assert.deepEqual(Source.loadSync(join(dir, 'empty.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'the header survives an empty file, trimmed as record keys are')
+    writeFileSync(join(dir, 'cleared.csv'), '')
+    assert.deepEqual(Source.loadSync(join(dir, 'cleared.csv'), { sql: 'SELECT id, name FROM records' }).records, [], 'a file cleared to nothing still answers the columns its query names')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

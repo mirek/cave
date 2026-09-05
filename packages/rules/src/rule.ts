@@ -62,28 +62,8 @@ export const digestOf = (content: string): string =>
  * Shared with `@cavelang/act`, whose action bodies split the same way
  * (spec §25.1).
  */
-export const topLevel = (text: string, needle: string): number[] => {
-  const positions: number[] = []
-  let quote: undefined | string
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]!
-    if (quote !== undefined) {
-      if (char === quote) {
-        quote = undefined
-      }
-      continue
-    }
-    if (char === '"' || char === '`') {
-      quote = char
-      continue
-    }
-    if (text.startsWith(needle, i)) {
-      positions.push(i)
-      i += needle.length - 1
-    }
-  }
-  return positions
-}
+export const topLevel = (text: string, needle: string): number[] =>
+  Token.topLevel(text, needle)
 
 /** @returns `true` when the line contains a top-level `=>` — a rule line. */
 export const isRuleLine = (line: string): boolean =>

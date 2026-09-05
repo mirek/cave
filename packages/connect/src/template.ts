@@ -138,6 +138,38 @@ export const parse = (text: string): { mapping?: Mapping, problems: readonly str
   }
 }
 
+/**
+ * Whether a mapping is written inline (spec §23.1): one line, a
+ * comma-separated list of claim lines in the §25.1 effect-template
+ * convention — `?name IS person, ?name WORKS-AT ?company` — recognized by
+ * a `?variable` token or a top-level comma. A path never has either.
+ */
+export const isInline = (text: string): boolean => {
+  if (text.includes('\n')) {
+    return false
+  }
+  const head = Token.splitComment(text).head
+  return Token.topLevel(head, ',').length > 0 || Token.tokenize(head).some(isVariable)
+}
+
+/**
+ * An inline mapping as the document it stands for: one claim line per
+ * top-level comma of the claim text; a trailing `; comment` belongs to the
+ * last line, commas and all.
+ */
+export const inlineDocument = (text: string): string => {
+  const { head, comment } = Token.splitComment(text)
+  const lines = Token.splitTopLevel(head, ',').filter(part => part !== '')
+  if (comment !== undefined && lines.length > 0) {
+    lines[lines.length - 1] = Token.joinComment(lines[lines.length - 1]!, comment)
+  }
+  return `${lines.join('\n')}\n`
+}
+
+/** Parses a mapping written as a document or inline (spec §23.1). */
+export const parseAny = (text: string): { mapping?: Mapping, problems: readonly string[] } =>
+  parse(isInline(text) ? inlineDocument(text) : text)
+
 const safeAtomRe = /^[A-Za-z0-9][A-Za-z0-9._/+-]*$/
 
 /**

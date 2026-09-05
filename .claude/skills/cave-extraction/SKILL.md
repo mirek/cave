@@ -214,6 +214,43 @@ Formatting never invents names: values are inserted exactly or quoted
 exactly. If entities need kebab-case identity, shape them in the source
 (a slug column, or a `--sql` projection).
 
+**Inline mappings.** A short mapping MAY be written on one line as a
+comma-separated list of claim lines — the §25.1 effect-template
+convention — wherever a mapping is named: `--map` on the command line,
+or the `map` attribute of a declared source (§23.4):
+
+```cave
+source/people HAS map: `?name IS person, ?name WORKS-AT ?company, ?name HAS email: ?email`
+```
+
+The list splits at commas outside `"…"` and `` `…` `` literals, each part
+is one line of the document the mapping stands for, and the result parses
+exactly as the file would. A value is inline when it contains a
+`?variable` token or a top-level comma and no newline; a path never has
+either. An inline mapping has no prelude.
+
+**Reshaping with SQL.** `--sql` (or the `sql` attribute) applies to every
+tabular source, not only SQLite: for csv, tsv, json, and jsonl the parsed
+records are loaded into a temporary in-memory SQLite table — `records`,
+or the `--table`/`table` name — the source's own columns first (a CSV
+header, so an empty file still has them) and then any field the records
+add, values exactly as parsed: a CSV cell is text (`00123` stays
+`00123`; cast for arithmetic, `CAST(kg AS REAL) > 10`), a JSON number is
+a number, a boolean is `0`/`1`, a structured value is JSON text
+(`json_extract` reaches into it) — and the query's rows are the records
+the mapping sees. Two fields whose names differ only in case cannot both
+be staged (SQLite column names are case-insensitive) and are an error
+rather than a silent merge. A schemaless source (JSON, JSONL) that
+became empty has no columns of its own, and a CSV cleared to nothing
+has lost its header too; for an empty, schemaless input the query's own
+column references (including the columns a `JOIN … USING` names) are
+staged, so it answers zero rows as it would over a header-only CSV and
+a pruning pass still runs, while a source with a header keeps SQLite's
+validation of the query. Projection, filtering, joins, `lower()`, `substr()`,
+date arithmetic, and derived columns therefore need no expression
+language of their own (§19.5): SQL before the mapping, rules (§24) after
+it. Source line spans (§9.8) do not survive a query.
+
 ### 23.2 Records, digests, and record provenance
 
 Each record gets a stable identity `connect/<name>/<key>`, where `<name>`
@@ -291,7 +328,9 @@ share, so a nested name is refused. A source is declared by a current
 positive `path`; the other attributes
 mirror the options one-to-one — `map`, `key`, `format`, `delimiter`,
 `table`, `sql`, `records` — and are read from the same entity's current
-beliefs. A `.cave` path (or `format: cave`) is a **mapping-free source**:
+beliefs. `map` is a template path or an inline template (§23.1); `sql`
+reshapes any tabular source before the mapping, with `table` naming the
+temporary table for non-SQLite formats. A `.cave` path (or `format: cave`) is a **mapping-free source**:
 the file is its own template, all prelude, and it is treated as a
 lifecycle unit, so claims it no longer says are retracted when it changes.
 Retracting the `path` (`… @ 0%`) removes the source; superseding it moves

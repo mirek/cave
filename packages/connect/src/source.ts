@@ -24,9 +24,18 @@ export type Options = {
   readonly format?: Format
   /** CSV delimiter (default `,`; `\t` for tsv). */
   readonly delimiter?: string
-  /** SQLite table to read (`SELECT *`). */
+  /**
+   * SQLite table to read (`SELECT *`); for any other format, the name of
+   * the temporary table `sql` runs against (default `records`).
+   */
   readonly table?: string
-  /** SQLite query — the alternative to `table`. */
+  /**
+   * SQLite query — the alternative to `table`. For any other format the
+   * parsed records are loaded into a temporary in-memory SQLite table,
+   * values exactly as parsed (CSV cells are text; cast for arithmetic),
+   * and the query's rows become the records (spec §23.1): one mechanism
+   * for projecting, filtering, and reshaping, no expression language.
+   */
   readonly sql?: string
   /** Dot path to the record array inside a JSON document. */
   readonly records?: string
@@ -41,6 +50,8 @@ export type Loaded = {
   readonly format: Format
   /** Record-aligned source line spans when the format has stable lines. */
   readonly spans?: readonly LineSpan[]
+  /** The source's own column order when it declares one (a CSV header), records or none. */
+  readonly columns?: readonly string[]
 }
 
 export const isUrl = (source: string): boolean =>
@@ -87,7 +98,7 @@ export const nameOf = (source: string): string => {
  * RFC 4180 CSV: quoted fields (with `""` escapes) may contain delimiters and
  * newlines; records split on LF or CRLF. The first row names the fields.
  */
-const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[] } => {
+const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[], columns: string[] } => {
   const rows: { cells: string[], span: LineSpan }[] = []
   let row: string[] = []
   let field = ''
@@ -139,10 +150,11 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
   const [headerRow, ...dataRows] = rows
   const header = headerRow?.cells
   if (header === undefined) {
-    return { records: [], spans: [] }
+    return { records: [], spans: [], columns: [] }
   }
   const present = dataRows.filter(row_ => row_.cells.length > 1 || row_.cells[0] !== '')
   return {
+    columns: header.map(cell => cell.trim()),
     records: present.map(row_ => Object.fromEntries(
       header.map((name, at) => [name.trim(), row_.cells[at] ?? ''])
     )),
@@ -196,6 +208,155 @@ const sqliteValue = (value: unknown): unknown =>
     (Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()) :
     value
 
+/**
+ * The columns a missing-column diagnostic may refer to. SQLite strips
+ * backticks and brackets before reporting, keeps the double quotes of a
+ * plain quoted identifier, and drops them from a qualified reference, so
+ * `r."last.name"` arrives as `r.last.name`, which could be column
+ * `last.name` of `r` or column `r.last.name` of the table, and `"x"`
+ * could be the column `x` or a field literally named `"x"`. Over an empty
+ * table an extra column costs nothing, so every reading is staged and the
+ * query resolves whichever it meant.
+ */
+const inferColumns = (reference: string): string[] => {
+  const quoted = /^"([^]*)"$/.exec(reference)
+  if (quoted !== null) {
+    return [reference, quoted[1]!]
+  }
+  const segments = reference.split('.')
+  return segments.map((_, at) => segments.slice(at).join('.'))
+}
+
+/**
+ * The column a SQLite diagnostic says is missing, or `undefined` for any
+ * other error. The hint SQLite appends to a double-quoted identifier is a
+ * fixed phrase and appears only after a leading quote, so it is stripped
+ * exactly and only there — a bare name that happens to end in the phrase
+ * is the name. A `JOIN … USING` column arrives with its own fixed suffix.
+ */
+const missingColumn = (message: string): string | undefined => {
+  const hint = ' - should this be a string literal in single-quotes?'
+  // A quoted name may span lines, so the capture does too.
+  const column = /no such column: ([^]+)$/.exec(message)?.[1]
+  if (column !== undefined) {
+    return column.startsWith('"') && column.endsWith(hint) ? column.slice(0, -hint.length) : column
+  }
+  return /cannot join using column ([^]+) - column not present in both tables$/.exec(message)?.[1]
+}
+
+/**
+ * The SQLite representation of a record field: scalars as they are
+ * (a bigint exact while SQLite's signed 64-bit integer holds it, its
+ * decimal text beyond), booleans as 0/1, anything structured as JSON text.
+ */
+const sqlValue = (value: unknown): null | number | bigint | string =>
+  value === undefined || value === null ? null :
+    typeof value === 'number' || typeof value === 'string' ? value :
+      typeof value === 'bigint' ? (value >= -(2n ** 63n) && value < 2n ** 63n ? value : value.toString()) :
+        typeof value === 'boolean' ? (value ? 1 : 0) :
+          JSON.stringify(value)
+
+/**
+ * Runs `sql` over the records loaded from a text format: the records
+ * become one temporary in-memory table (`records`, or `table`), one column
+ * per field in first-seen order, and the query's rows are the records
+ * that reach the mapping (spec §23.1). Line spans do not survive a query.
+ */
+export const queryRecords = (
+  records: readonly Record<string, unknown>[],
+  sql: string,
+  table = 'records',
+  schema?: readonly string[]
+): Record<string, unknown>[] => {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
+    throw new Error(`--table ${JSON.stringify(table)} is not a plain identifier`)
+  }
+  // The source's own columns first (a CSV header survives an empty file;
+  // a repeated header is one column, as it is one record field), then any
+  // field the records add.
+  const columns: string[] = [...new Set(schema ?? [])]
+  const known = new Set<string>(columns)
+  for (const record of records) {
+    for (const key of Object.keys(record)) {
+      if (!known.has(key)) {
+        known.add(key)
+        columns.push(key)
+      }
+    }
+  }
+  // SQLite column names are case-insensitive — for ASCII letters only, as
+  // its own folding is — so two fields that differ only in ASCII case
+  // cannot both be staged, and merging them would lose data.
+  const fold = (name: string): string => name.replace(/[A-Z]/g, letter => letter.toLowerCase())
+  const folded = new Map<string, string>()
+  for (const column of columns) {
+    const other = folded.get(fold(column))
+    if (other !== undefined) {
+      throw new Error(`fields ${JSON.stringify(other)} and ${JSON.stringify(column)} differ only in case, which SQLite cannot tell apart — rename one in the source before --sql`)
+    }
+    folded.set(fold(column), column)
+  }
+  const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
+  const stage = (): Record<string, unknown>[] => {
+    const db = new DatabaseSync(':memory:')
+    try {
+      // No affinity: a value is exactly what the source gave — a CSV cell is
+      // text ("00123" stays "00123"), a JSON number is a number — and a query
+      // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
+      db.exec(`CREATE TABLE ${quoted(table)} (${columns.length === 0 ? 'value' : columns.map(quoted).join(', ')})`)
+      if (columns.length > 0) {
+        const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
+        for (const record of records) {
+          insert.run(...columns.map(column => sqlValue(record[column])))
+        }
+      } else {
+        // Records without any field are still records: one row each, so a
+        // count or a constant projection sees them.
+        const insert = db.prepare(`INSERT INTO ${quoted(table)} DEFAULT VALUES`)
+        for (let i = 0; i < records.length; i += 1) insert.run()
+      }
+      const statement = db.prepare(sql)
+      // Integers beyond the safe range arrive as bigints and become text in
+      // `sqliteValue`, instead of throwing out of range.
+      statement.setReadBigInts(true)
+      const rows = statement.all() as Record<string, unknown>[]
+      return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
+    } finally {
+      db.close()
+    }
+  }
+  // A schemaless source (JSON, JSONL) that became empty has no columns to
+  // offer, yet the query names the ones it expects: for an empty input
+  // only, learn them from SQLite's own complaint and retry, so the query
+  // answers with zero rows exactly as it would over a header-only CSV.
+  // A CSV cleared to nothing has no header either: an empty schema is no
+  // schema, not a header of zero columns.
+  const schemaless = schema === undefined || schema.length === 0
+  // Every retry stages at least one column it did not know, so the loop
+  // ends when SQLite stops naming new ones — however wide the query.
+  for (;;) {
+    try {
+      return stage()
+    } catch (error) {
+      // Only a schemaless, empty input infers: a header-bearing source keeps
+      // SQLite's own validation, so a typo stays a typo. A column named in
+      // `JOIN … USING` gets its own diagnostic.
+      // The name arrives exactly as SQLite parsed it, edge spaces included:
+      // `\` first \`` is the field " first ".
+      const reference = records.length === 0 && schemaless && error instanceof Error ? missingColumn(error.message) : undefined
+      // The empty name is a column too: SQLite accepts `""`.
+      const names = reference === undefined ? [] : inferColumns(reference).filter(name => !known.has(name))
+      if (names.length === 0) {
+        throw error
+      }
+      for (const name of names) {
+        known.add(name)
+        columns.push(name)
+      }
+    }
+  }
+}
+
 const readSqlite = (path: string, options: Options): Record<string, unknown>[] => {
   if ((options.table === undefined) === (options.sql === undefined)) {
     throw new Error(`${path}: a SQLite source needs exactly one of --table or --sql`)
@@ -239,8 +400,15 @@ export const loadSync = (source: string, options: Options = {}): Loaded => {
   if (format === 'sqlite') {
     return { records: readSqlite(source, options), format }
   }
-  return { ...parseLocated(format, readFileSync(source, 'utf8'), source, options), format }
+  return { ...queried(parseLocated(format, readFileSync(source, 'utf8'), source, options), options), format }
 }
+
+/** Applies `sql`, when given, to records of a text format — the spans no longer align, so they go. */
+const queried = (
+  parsed: { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] },
+  options: Options
+): { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] } =>
+  options.sql === undefined ? parsed : { records: queryRecords(parsed.records, options.sql, options.table, parsed.columns) }
 
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
 export const load = async (source: string, options: Options = {}): Promise<Loaded> => {
@@ -253,7 +421,7 @@ export const load = async (source: string, options: Options = {}): Promise<Loade
     if (format === 'sqlite') {
       throw new Error(`${source}: SQLite sources must be local files`)
     }
-    return { ...parseLocated(format, text, source, options), format }
+    return { ...queried(parseLocated(format, text, source, options), options), format }
   }
   return loadSync(source, options)
 }
@@ -263,7 +431,7 @@ const parseLocated = (
   text: string,
   source: string,
   options: Options
-): { records: Record<string, unknown>[], spans?: LineSpan[] } => {
+): { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] } => {
   switch (format) {
     case 'csv':
       return parseCsvLocated(text, options.delimiter ?? ',')
