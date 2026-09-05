@@ -431,3 +431,15 @@ test('a nested name is refused even when the declaration would be skipped as a U
     assert.throws(() => openAt(root, { intent: 'read', assemble }), /source\/team\/admin \(https:\/\/example\.test\/admin\.cave\): source names are one path segment/)
   })
 })
+
+test('an authored claim under the bookkeeping context does not count as a followed record', () => {
+  const store = open()
+  try {
+    store.ingest('source/remote HAS path: https://example.test/x.cave\nsource/remote/1 HAS note: hello @src:cave-connect')
+    assert.equal(Declared.followed(store, 'remote'), false)
+    store.ingest('source/remote/1 HAS connect-digest: abc @src:cave-connect')
+    assert.equal(Declared.followed(store, 'remote'), true)
+  } finally {
+    store.close()
+  }
+})

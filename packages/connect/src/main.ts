@@ -552,7 +552,10 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
   const refreshWatchers = (): void => {
     let declared: Declared.t[]
     try {
-      declared = selectDeclared(store, values)
+      // A named watch watches the selection and everything it owns.
+      declared = values.name === undefined ?
+        selectDeclared(store, values) :
+        Declared.closure(store, selectDeclared(store, values).map(source => source.name))
     } catch {
       return
     }

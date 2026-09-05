@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, hasDigest, provenanceContext } from './run.ts'
+import { connect, declaredNaming, digestAttribute, hasDigest, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -187,14 +187,33 @@ export const followed = (store: Store, name: string): boolean => {
   if (hasDigest(store, naming.unit())) {
     return true
   }
-  const latest = new Map<string, { conf: number, tx: string, subject: string }>()
+  const latest = new Map<string, { conf: number, tx: string, subject: string, attribute: null | string, negated: number }>()
   for (const row of store.byContext(provenanceContext)) {
+    // Only digest bookkeeping counts: the context is authorable, a digest row is not.
+    if (row.attribute !== digestAttribute || row.negated !== 0) {
+      continue
+    }
     const seen = latest.get(row.claim_key)
     if (seen === undefined || seen.tx < row.tx) {
       latest.set(row.claim_key, row)
     }
   }
   return [...latest.values()].some(row => row.conf > 0 && row.subject.startsWith(naming.recordPrefix))
+}
+
+/** A selection and everything it owns, transitively — what a named watch must watch. */
+export const closure = (store: Store, names: readonly string[]): Declared[] => {
+  const selected = new Set(names)
+  const queue = [...names]
+  for (let owner = queue.shift(); owner !== undefined; owner = queue.shift()) {
+    for (const name of ownedDeclarations(store, owner)) {
+      if (!selected.has(name)) {
+        selected.add(name)
+        queue.push(name)
+      }
+    }
+  }
+  return declaredSources(store).filter(declared => selected.has(declared.name))
 }
 
 const validate = (declared: Declared): void => {

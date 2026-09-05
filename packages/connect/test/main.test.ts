@@ -523,3 +523,38 @@ test('--name keeps the sources a CSV source declares through its records', async
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a named watch watches the files of the sources the selection owns', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const controller = new AbortController()
+  let running: Promise<number> | undefined
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'parent.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    writeFileSync(join(dir, 'other.cave'), 'other IS thing\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/parent HAS path: parent.cave\nsource/other HAS path: other.cave')
+    seed.close()
+    const watchedFor: string[] = []
+    const stdout = new Capture()
+    running = runConnect(['--db', db, '--watch', '--name', 'parent'], {
+      stdout,
+      stderr: new Capture(),
+      signal: controller.signal,
+      watch: (path, _listener) => {
+        watchedFor.push(path)
+        return { close: () => {} }
+      },
+      schedule: () => ({}),
+      cancelScheduled: () => {}
+    })
+    await until(() => stdout.value.includes('watching'), 'watch setup')
+    assert.equal(watchedFor.length, 3, "parent.cave, then the owned child's file and mapping — never other.cave")
+  } finally {
+    controller.abort()
+    if (running !== undefined) await running
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
