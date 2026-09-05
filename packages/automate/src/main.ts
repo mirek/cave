@@ -284,8 +284,10 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
     io.stderr.write(`cave automate: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     return 1
   }
+  // The intent follows the branch order below: declaring writes before
+  // listing is considered.
   const store = openAt(values.db ?? defaultDbPath(), {
-    intent: values.list === true ? 'read' : 'write',
+    intent: values.declare === true ? 'write' : values.list === true ? 'read' : 'write',
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
   try {

@@ -1631,3 +1631,16 @@ test('report, export, and generate refuse --out that aliases a text store', () =
     assert.equal(readFileSync(file, 'utf8'), 'cave IS repo\n', 'the text store survives')
   })
 })
+
+test('act --declare wins over --list and still opens the store for writing', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const actions = join(dir, 'actions.cave')
+    writeFileSync(actions, 'action/note HAS action: `?x => ?x IS noted` ; note a thing\n')
+    const declared = cave(['act', '--db', db, '--declare', actions, '--list'])
+    assert.equal(declared.code, 0, declared.err)
+    assert.match(declared.out, /declared 1 action\(s\)/)
+    const listed = cave(['act', '--db', db, '--list'])
+    assert.match(listed.out, /note/)
+  })
+})

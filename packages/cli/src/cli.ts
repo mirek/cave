@@ -1138,7 +1138,12 @@ export const deriveCommand = (argv: readonly string[]): Output => {
   if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
     return fail(`cave derive: --max-passes expects a positive integer, got ${JSON.stringify(values['max-passes'])}\n`)
   }
-  const store = openDb(values, values['dry-run'] === true ? 'scratch' : values.list === true ? 'read' : 'write')
+  // The intent follows the branch order below: listing reads, retracting
+  // writes, a dry run appends inside a rolled-back transaction.
+  const store = openDb(values,
+    values.list === true ? 'read' :
+      values.retract !== undefined ? 'write' :
+        values['dry-run'] === true ? 'scratch' : 'write')
   try {
     if (values.list === true) {
       const rules = listRules(store)
@@ -1292,7 +1297,14 @@ export const actCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: true
   })
-  const store = openDb(values, values['dry-run'] === true ? 'scratch' : values.list === true ? 'read' : 'write')
+  // The intent follows the branch order below: declaring and retracting
+  // write, listing reads, a dry-run execution appends inside a rolled-back
+  // transaction.
+  const store = openDb(values,
+    values.declare === true ? 'write' :
+      values.list === true ? 'read' :
+        values.retract !== undefined ? 'write' :
+          values['dry-run'] === true ? 'scratch' : 'write')
   try {
     if (values.declare === true) {
       const declaration = declareActions(store, readInput(positionals))

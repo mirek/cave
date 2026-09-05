@@ -1,7 +1,12 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { Writable } from 'node:stream'
 import { open } from '@cavelang/store'
 import { declareAutomations, settle, watchCycle } from '@cavelang/automate'
+import { runAutomate } from '../src/main.ts'
 import type { SettleReport } from '@cavelang/automate'
 
 const maxTxOf = (store: ReturnType<typeof open>): null | string =>
@@ -69,4 +74,29 @@ test('a quiet cycle reports once and returns a stable boundary (spec §29.5)', a
   assert.equal(firedOf(reports[0]!, 'automation/watch'), 0)
   assert.equal(seen, maxTxOf(store))
   store.close()
+})
+
+test('automate --declare wins over --list and still opens the store for writing (spec §13.7)', async () => {
+  class Capture extends Writable {
+    value = ''
+
+    override _write(chunk: Buffer | string, _encoding: BufferEncoding, done: (error?: Error | null) => void): void {
+      this.value += String(chunk)
+      done()
+    }
+  }
+  const capture = (): Capture => new Capture()
+  const dir = mkdtempSync(join(tmpdir(), 'cave-automate-main-'))
+  try {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'automations.cave')
+    writeFileSync(file, 'automation/watch HAS automation: `?x IS hot => hook/log`\n')
+    const stdout = capture()
+    const stderr = capture()
+    const code = await runAutomate(['--db', db, '--declare', file, '--list'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /declared 1 automation\(s\)/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
