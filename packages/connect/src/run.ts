@@ -200,6 +200,10 @@ const retractStale = (store: Store, run: string, keepIds: ReadonlySet<string>): 
   return stale.length
 }
 
+/** Retracts every current claim a lifecycle run owns — a unit whose declaration changed shape is retired whole. */
+export const retireRun = (store: Store, run: string): number =>
+  retractStale(store, run, new Set())
+
 /**
  * One connect pass: prelude (digest-skipped as a unit under
  * `connect/<name>`), then each record (digest-skipped under

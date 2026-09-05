@@ -25,11 +25,11 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
-import { LocateError, open } from '@cavelang/store'
-import type { Store } from '@cavelang/store'
+import { LocateError, QuerySql, open } from '@cavelang/store'
+import type { Row, Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext } from './run.ts'
+import { connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext, retireRun } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -64,15 +64,24 @@ const isAttribute = (name: string): name is Attribute =>
 /** A source's declaration attributes as one text carries them — possibly partial, a delta over what the store knows. */
 export type Delta = { readonly name: string, readonly fields: Partial<Record<Attribute, string>> }
 
+/**
+ * The current, positive `source/…` attribute rows — declarations, policy,
+ * and bookkeeping — read with one indexed range query rather than a scan
+ * of every belief, since discovery reads them after every source.
+ */
+const sourceRows = (store: Store): Row.t[] =>
+  store.db.prepare(
+    `${QuerySql.current()} WHERE c.subject >= ? AND c.subject < ? AND c.verb = 'HAS' AND c.conf > 0 AND c.negated = 0 ORDER BY c.tx`
+  ).all(prefix, `${prefix.slice(0, -1)}0`) as unknown as Row.t[]
+
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
   // Several belief series may speak about one attribute (the root file
   // and a followed source stamp differently): the newest current claim
   // wins, so what was asserted last is what runs.
   const byName = new Map<string, Partial<Record<Attribute, { value: string, tx: string }>>>()
-  for (const row of store.currentBeliefs()) {
-    if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
-      row.value_text === null || !row.subject.startsWith(prefix) || !isAttribute(row.attribute)) {
+  for (const row of sourceRows(store)) {
+    if (row.attribute === null || row.value_text === null || !isAttribute(row.attribute)) {
       continue
     }
     const name = row.subject.slice(prefix.length)
@@ -192,12 +201,8 @@ export const declarationDigest = (declared: Declared): string =>
  * re-declared since — a local file that became a URL, say — is not
  * followed, whatever digests its earlier version left behind.
  */
-export const followed = (store: Store, declared: Declared): boolean => {
-  const expected = declarationDigest(declared)
-  return store.currentBeliefs().some(row =>
-    row.conf > 0 && row.negated === 0 && row.subject === `${prefix}${declared.name}` &&
-    row.attribute === declarationAttribute && row.value_text === expected)
-}
+export const followed = (store: Store, declared: Declared): boolean =>
+  recordedDeclaration(store, declared.name) === declarationDigest(declared)
 
 /** A selection and everything it owns, transitively — what a named watch must watch. */
 export const closure = (store: Store, names: readonly string[]): Declared[] => {
@@ -439,9 +444,8 @@ export const ownedDeclarations = (store: Store, owner: string): string[] =>
  */
 export const ownership = (store: Store): Map<string, Set<string>> => {
   const owners = new Map<string, Set<string>>()
-  for (const row of store.currentBeliefs()) {
-    if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
-      !row.subject.startsWith(prefix) || !isAttribute(row.attribute)) {
+  for (const row of sourceRows(store)) {
+    if (row.attribute === null || !isAttribute(row.attribute)) {
       continue
     }
     for (const run of store.provenanceOf(row)?.runs ?? []) {
@@ -469,8 +473,7 @@ export type RunOptions = {
 
 /** The digest of the declaration a source was last run under, if any. */
 export const recordedDeclaration = (store: Store, name: string): undefined | string =>
-  store.currentBeliefs().find(row =>
-    row.conf > 0 && row.negated === 0 && row.subject === `${prefix}${name}` && row.attribute === declarationAttribute)?.value_text ?? undefined
+  sourceRows(store).find(row => row.subject === `${prefix}${name}` && row.attribute === declarationAttribute)?.value_text ?? undefined
 
 /** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's. */
 const hasAnyDigest = (store: Store, name: string): boolean => {
@@ -501,6 +504,11 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
   const transition = previous === undefined ?
     hasAnyDigest(store, ready.declared.name) :
     previous !== declarationDigest(ready.declared)
+  if (transition && !ready.cave) {
+    // A .cave source that became a record source: its prelude unit is no
+    // longer a lifecycle unit the pass would diff, so it is retired whole.
+    retireRun(store, declaredNaming(ready.declared.name).run())
+  }
   const report = connect(store, ready.mapping, ready.records, {
     name: ready.declared.name,
     naming: declaredNaming(ready.declared.name),

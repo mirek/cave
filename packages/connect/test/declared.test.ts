@@ -623,3 +623,21 @@ test('a followed source without a recorded declaration is treated as changed whe
     }
   })
 })
+
+test('a .cave source re-declared as a record source retires its former prelude', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS old\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: people.csv\nsource/b HAS map: people.map.cave\nsource/b HAS key: id\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/b HAS path: facts.cave\nsource/z HAS path: z.cave\n')
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      const current = store.currentBeliefs().filter(row => row.conf > 0 && ['fact', 'ann'].includes(row.subject)).map(row => `${row.subject} ${row.verb} ${row.object}`)
+      assert.deepEqual(current, ['ann IS person'], "b's former prelude claim is retired along with the .cave declaration")
+    } finally {
+      store.close()
+    }
+  })
+})

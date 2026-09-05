@@ -310,8 +310,10 @@ nothing changes; a source re-declared more than twenty times in one pass
 is a cycle and fails. Every run records the digest of the declaration it
 ran under, and a source whose declaration changed since — another path,
 key, query, or record selector — prunes as it runs, retiring the records
-its previous version produced that the new one does not; a source that
-carries digests but no recorded declaration counts as changed. When several belief series speak about one
+its previous version produced that the new one does not, and a `.cave`
+source that became a record source retires its former prelude whole; a
+source that carries digests but no recorded declaration counts as
+changed. When several belief series speak about one
 attribute — the root file and a followed source stamp differently — the
 newest current claim wins. A retraction inside a followed text retracts
 its own series only (§9.5): to remove a declaration the root made,
