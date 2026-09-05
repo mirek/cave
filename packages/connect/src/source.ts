@@ -292,8 +292,12 @@ export const queryRecords = (
     try {
       return stage()
     } catch (error) {
-      const missing = records.length === 0 && attempt < 64 ? /no such column: (.+)$/.exec(error instanceof Error ? error.message : '') : null
-      const name = missing?.[1]?.trim().replace(/^"(.*)"$/, '$1').replace(new RegExp(`^${table}\\.`), '')
+      const missing = records.length === 0 && attempt < 64 ?
+        /no such column: (.+?)(?: - should this be .*)?$/.exec(error instanceof Error ? error.message : '') :
+        null
+      // The reference as SQLite spells it: possibly qualified by the table
+      // or an alias, possibly quoted; the column is its last bare segment.
+      const name = missing?.[1]?.trim().split('.').at(-1)?.replace(/^["`[](.*)["`\]]$/, '$1')
       if (name === undefined || name === '' || known.has(name)) {
         throw error
       }
