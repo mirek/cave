@@ -1035,6 +1035,9 @@ export const querySourcesCommand = async (
   const store = openDb(values, 'scratch')
   try {
     const ready = await Declared.discover(store, root, {
+      // The overlay applies every source it loads (force), so discovery
+      // simulates that; a text store skips what assembly already followed.
+      force: true,
       ...kindOf(root) === 'text' ? { skipFollowed: true } : {},
       ...runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }
     })

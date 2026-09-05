@@ -292,3 +292,59 @@ test('a nested text that changes one attribute of a known source is a delta: dis
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('discovery keeps the store\'s precedence: an unchanged followed source does not override a newer root declaration', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
+  try {
+    writeFileSync(join(dir, 'old.cave'), 'answer IS old\n')
+    writeFileSync(join(dir, 'new.cave'), 'answer IS new\n')
+    writeFileSync(join(dir, 'newer.cave'), 'answer IS newer\n')
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.cave\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/b HAS path: old.cave\nsource/z HAS path: z.cave', { source: 'cli' })
+      assemble(store, db)
+      assert.equal(Declared.declaredSources(store).find(declared => declared.name === 'b')?.path, 'new.cave', 'the followed source re-declared b')
+      // The root re-declares b later; z is unchanged, so a pass skips it.
+      store.ingest('source/b HAS path: newer.cave', { source: 'cli' })
+      assert.equal(Declared.declaredSources(store).find(declared => declared.name === 'b')?.path, 'newer.cave', 'the newest current claim wins')
+      const ready = await Declared.discover(store, db)
+      assert.equal(ready.find(entry => entry.declared.name === 'b')?.declared.path, 'newer.cave', 'discovery does not re-apply the unchanged text over the newer claim')
+      const forced = await Declared.discover(store, db, { force: true })
+      assert.equal(forced.find(entry => entry.declared.name === 'b')?.declared.path, 'new.cave', 'a forced pass re-applies z, and its claim is then the newest')
+      // A retraction inside a followed text touches its own series only.
+      writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: new.cave @ 0%\n')
+      const retracting = await Declared.discover(store, db)
+      assert.equal(retracting.find(entry => entry.declared.name === 'b')?.declared.path, 'newer.cave', "the root's series is untouched by z's retraction")
+    } finally {
+      store.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('many independent sources are not a cycle; a source re-declared past the cap is', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'fact.cave'), 'x IS y\n')
+    const many = Array.from({ length: 60 }, (_, i) => `source/s${i} HAS path: fact.cave`).join('\n')
+    const root = join(dir, 'many.cave')
+    writeFileSync(root, `${many}\n`)
+    const store = openAt(root, { intent: 'read', assemble })
+    try {
+      assert.equal(Declared.declaredSources(store).length, 60, 'well past the per-source cap, and no cycle')
+    } finally {
+      store.close()
+    }
+    // a and b re-declare each other's path around a four-file ring:
+    // a1 → b2 → a2 → b1 → a1 …, so neither declaration ever settles.
+    writeFileSync(join(dir, 'a1.cave'), 'source/b HAS path: b2.cave\n')
+    writeFileSync(join(dir, 'b2.cave'), 'source/a HAS path: a2.cave\n')
+    writeFileSync(join(dir, 'a2.cave'), 'source/b HAS path: b1.cave\n')
+    writeFileSync(join(dir, 'b1.cave'), 'source/a HAS path: a1.cave\n')
+    const cyclic = join(dir, 'cyclic.cave')
+    writeFileSync(cyclic, 'source/a HAS path: a1.cave\nsource/b HAS path: b1.cave\n')
+    assert.throws(() => openAt(cyclic, { intent: 'read', assemble }), /keeps being re-declared — no fixed point after 20 re-declarations/)
+  })
+})

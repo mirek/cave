@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, hasDigest, provenanceContext } from './run.ts'
+import { connect, declaredNaming, digestOf, hasDigest, isConnected, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -65,7 +65,10 @@ export type Delta = { readonly name: string, readonly fields: Partial<Record<Att
 
 /** Every `source/<name>` attribute claim current in the store, grouped by source — complete or not. */
 export const deltasOf = (store: Store): Delta[] => {
-  const byName = new Map<string, Partial<Record<Attribute, string>>>()
+  // Several belief series may speak about one attribute (the root file
+  // and a followed source stamp differently): the newest current claim
+  // wins, so what was asserted last is what runs.
+  const byName = new Map<string, Partial<Record<Attribute, { value: string, tx: string }>>>()
   for (const row of store.currentBeliefs()) {
     if (row.conf <= 0 || row.negated !== 0 || row.verb !== 'HAS' || row.attribute === null ||
       row.value_text === null || !row.subject.startsWith(prefix) || !isAttribute(row.attribute)) {
@@ -76,10 +79,18 @@ export const deltasOf = (store: Store): Delta[] => {
       continue
     }
     const fields = byName.get(name) ?? {}
-    fields[row.attribute] = row.value_text
+    const seen = fields[row.attribute]
+    if (seen === undefined || seen.tx < row.tx) {
+      fields[row.attribute] = { value: row.value_text, tx: row.tx }
+    }
     byName.set(name, fields)
   }
-  return [...byName].map(([name, fields]) => ({ name, fields })).sort((a, b) => a.name.localeCompare(b.name))
+  return [...byName]
+    .map(([name, fields]) => ({
+      name,
+      fields: Object.fromEntries(Object.entries(fields).map(([attribute, entry]) => [attribute, entry!.value])) as Partial<Record<Attribute, string>>
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** A delta applied over a known declaration; a source without a `path` is not declared. */
@@ -276,6 +287,8 @@ export type DiscoverOptions = {
   readonly fetchImpl?: Source.FetchLike
   /** Only this declared source (and what it declares in turn). */
   readonly only?: string
+  /** Simulate a `--force` pass: every followed text is applied, digest or not. */
+  readonly force?: boolean
   /**
    * Skip sources the store has already followed (they carry a digest claim)
    * — what a text store's overlay needs: assembly followed every local
@@ -284,58 +297,84 @@ export type DiscoverOptions = {
   readonly skipFollowed?: boolean
 }
 
-/**
- * Loads every declared source of the store without appending anything,
- * URLs included: what a followed `.cave` source declares in turn is read
- * from its text (`declaredIn`), so an overlay or a dry run sees the same
- * sources a real pass would follow. Declared order, nested ones after the
- * source that declared them.
- */
-export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
-  const dir = directoryOf(root)
-  const known = new Map(declaredSources(store).map(declared => [declared.name, declared]))
-  if (options.only !== undefined) {
-    const selected = known.get(options.only)
-    if (selected === undefined) {
-      throw new Error(`no declared source/${options.only}` +
-        (known.size === 0 ? ' — the store declares no sources' : ` — declared: ${[...known.keys()].join(', ')}`))
-    }
-    known.clear()
-    known.set(selected.name, selected)
-  }
-  const done = new Map<string, string>()
-  const ready = new Map<string, Prepared>()
-  let steps = 0
-  // A followed .cave source may re-declare a source, its path or mapping
-  // included: the later declaration wins, exactly as it would once
-  // appended, so a source is (re)prepared until its declaration settles.
-  for (;;) {
-    const next = [...known.values()].find(declared => done.get(declared.name) !== signature(declared))
-    if (next === undefined) {
-      return [...ready.values()]
-    }
-    if (++steps > fixedPointSteps) {
-      throw new Error(noFixedPoint)
-    }
-    done.set(next.name, signature(next))
-    if (options.skipFollowed === true && followed(store, next.name)) {
-      continue
-    }
-    const loaded = await prepare(next, dir, options.fetchImpl)
-    ready.set(next.name, loaded)
-    if (loaded.cave) {
-      // Deltas over what is known: a nested text may change one attribute.
-      for (const delta of declarationsIn(loaded.mapping.prelude)) {
-        const merged = merge(known.get(delta.name), delta)
-        if (merged !== undefined) known.set(delta.name, merged)
-      }
+/** How often one source may be re-declared within a pass before it is a cycle, not convergence. */
+const redeclarationLimit = 20
+
+const noFixedPoint = (name: string): string =>
+  `source/${name} keeps being re-declared — no fixed point after ${redeclarationLimit} re-declarations`
+
+/** Counts a source's declaration versions within one pass and refuses a cycle. */
+export const versionCounter = (): (name: string) => void => {
+  const versions = new Map<string, number>()
+  return name => {
+    const count = (versions.get(name) ?? 0) + 1
+    versions.set(name, count)
+    if (count > redeclarationLimit) {
+      throw new Error(noFixedPoint(name))
     }
   }
 }
 
-const fixedPointSteps = 1000
-
-const noFixedPoint = `declared sources keep re-declaring one another — no fixed point after ${fixedPointSteps} steps`
+/**
+ * Loads every declared source of the store without appending anything to
+ * it, URLs included. What a followed `.cave` source declares in turn is
+ * found the way a pass finds it: a scratch store seeded with the store's
+ * current `source/…` claims receives each followed text under the same
+ * stamp, exactly when the pass would append it (digest changed, or
+ * `force`), and the declarations are read back from that scratch store —
+ * so precedence between the root file and followed sources, deltas, and
+ * retractions come out as they would after the pass. Declared order,
+ * nested ones after the source that declared them.
+ */
+export const discover = async (store: Store, root: string, options: DiscoverOptions = {}): Promise<Prepared[]> => {
+  const dir = directoryOf(root)
+  const scratch = open(':memory:', { registry: store.baseRegistry() })
+  try {
+    const seeds = store.currentBeliefs().filter(row => row.conf > 0 && row.subject.startsWith(prefix))
+    if (seeds.length > 0) {
+      scratch.insertResult({
+        claims: seeds.map(row => ({ claim: store.toClaim(row), line: 0 })),
+        edges: [],
+        registry: scratch.registry(),
+        problems: []
+      })
+    }
+    const allowed = options.only === undefined ? undefined : new Set([options.only])
+    if (allowed !== undefined && !declaredSources(scratch).some(declared => declared.name === options.only)) {
+      const names = declaredSources(scratch).map(declared => declared.name)
+      throw new Error(`no declared source/${options.only}` +
+        (names.length === 0 ? ' — the store declares no sources' : ` — declared: ${names.join(', ')}`))
+    }
+    const done = new Map<string, string>()
+    const ready = new Map<string, Prepared>()
+    const version = versionCounter()
+    for (;;) {
+      const next = declaredSources(scratch)
+        .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== signature(declared))
+      if (next === undefined) {
+        return [...ready.values()]
+      }
+      version(next.name)
+      done.set(next.name, signature(next))
+      if (options.skipFollowed === true && followed(store, next.name)) {
+        continue
+      }
+      const loaded = await prepare(next, dir, options.fetchImpl)
+      ready.set(next.name, loaded)
+      if (loaded.cave) {
+        const naming = declaredNaming(next.name)
+        if (allowed !== undefined) {
+          for (const delta of declarationsIn(loaded.mapping.prelude)) allowed.add(delta.name)
+        }
+        if (options.force === true || !isConnected(store, naming.unit(), digestOf(loaded.mapping.prelude))) {
+          scratch.ingest(loaded.mapping.prelude, { source: naming.run(), lifecycle: true })
+        }
+      }
+    }
+  } finally {
+    scratch.close()
+  }
+}
 
 export type RunOptions = {
   readonly force?: boolean
@@ -378,7 +417,7 @@ export const assemble = (store: Store, root: string, options: { readonly force?:
   const done = new Map<string, string>()
   const self = root === ':memory:' || root === '' ? undefined : resolve(root)
   const assembled: Assembled[] = []
-  let steps = 0
+  const version = versionCounter()
   // Declarations are re-read after every followed source: a .cave source
   // may declare a source the root does not, or re-declare one the root
   // does (a newer path, say) — the current declaration is what runs, and a
@@ -389,8 +428,10 @@ export const assemble = (store: Store, root: string, options: { readonly force?:
     if (next === undefined) {
       return assembled
     }
-    if (++steps > fixedPointSteps) {
-      throw new LocateError(noFixedPoint)
+    try {
+      version(next.name)
+    } catch (error) {
+      throw new LocateError(error instanceof Error ? error.message : String(error))
     }
     done.set(next.name, signature(next))
     if (Source.isUrl(next.path) || resolvePath(next.path, dir) === self) {

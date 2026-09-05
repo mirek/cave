@@ -1899,6 +1899,7 @@ Kind: type.
 export type DiscoverOptions = {
     readonly fetchImpl?: Source.FetchLike;
     readonly only?: string;
+    readonly force?: boolean;
     readonly skipFollowed?: boolean;
 };
 ```
@@ -2007,6 +2008,14 @@ Kind: type.
 
 ```ts
 export type t = Declared;
+```
+
+#### `versionCounter`
+
+Kind: value.
+
+```ts
+export declare const versionCounter: () => (name: string) => void;
 ```
 
 ### `declaredNaming`
@@ -10123,7 +10132,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `e09d73e28cf506ab053a63d66c7c8b9186fb4f0ca8cbe8a7669255e54ca48db0`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `337b569eb52e67a7e1a1f7eb98733cc0e4d37534ff95e44648d35194903b37cf`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`

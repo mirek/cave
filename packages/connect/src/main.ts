@@ -407,16 +407,14 @@ const declaredPass = async (
   // may declare new sources or re-declare existing ones, and the current
   // declaration is what runs, until nothing changes — as `assemble` does.
   const allowed = values.name === undefined ? undefined : new Set(selectDeclared(store, values).map(declared => declared.name))
-  let steps = 0
+  const version = Declared.versionCounter()
   for (;;) {
     const next = Declared.declaredSources(store)
       .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== Declared.signature(declared))
     if (next === undefined) {
       return failed > 0 ? 1 : 0
     }
-    if (++steps > 1000) {
-      throw new Error('declared sources keep re-declaring one another — no fixed point after 1000 steps')
-    }
+    version(next.name)
     done.set(next.name, Declared.signature(next))
     try {
       const ready = await Declared.prepare(next, dir, context.fetchImpl)
@@ -435,9 +433,10 @@ const declaredPass = async (
   }
 }
 
-const discoverOptions = (values: Values, context: RunContext): Declared.DiscoverOptions => ({
+const discoverOptions = (values: Values, context: RunContext, force = values.force === true): Declared.DiscoverOptions => ({
   ...values.name === undefined ? {} : { only: values.name },
-  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl }
+  ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl },
+  force
 })
 
 /** Previews every declared source, nested declarations included, without touching the store. */
@@ -471,7 +470,8 @@ const rollback = Symbol('cave-connect declared query rollback')
  * that rolls back after the query.
  */
 const declaredQuery = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
-  const ready = await Declared.discover(store, root, discoverOptions(values, context))
+  // The overlay applies every source (force), so discovery simulates that.
+  const ready = await Declared.discover(store, root, discoverOptions(values, context, true))
   let matches: undefined | readonly Match[]
   let failed = 0
   try {

@@ -306,8 +306,16 @@ just a new mapping or key, a delta over the current declaration; the
 declarations are re-read after every followed source, the
 current declaration is what runs, and a source whose declaration changed
 runs again (its earlier claims retracted by the ordinary diff), until
-nothing changes. An overlay or dry run applies the same rule to what it
-discovers, so a preview agrees with the pass.
+nothing changes; a source re-declared more than twenty times in one pass
+is a cycle and fails. When several belief series speak about one
+attribute — the root file and a followed source stamp differently — the
+newest current claim wins. A retraction inside a followed text retracts
+its own series only (§9.5): to remove a declaration the root made,
+restate it with the root's context, `source/b HAS path: old.csv @src:cli
+@ 0%`. An overlay or dry run discovers declarations the way a pass would
+find them — a scratch store seeded with the current `source/…` claims
+receives each followed text under its stamp exactly when the pass would
+append it — so a preview agrees with the pass.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under
