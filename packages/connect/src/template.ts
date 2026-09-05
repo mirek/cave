@@ -11,13 +11,19 @@
  * tokens inside `"…"` and `` `…` `` literals are never substituted. A claim
  * line whose record lacks a referenced field is dropped together with its
  * indented children — optional fields simply yield fewer claims.
+ *
+ * A comment block directly above a block's first line is that line's
+ * comment (spec §6.4), so it belongs to the block it sits above and is
+ * instantiated with it; a blank line after a comment leaves it in the
+ * prelude as documentary text. A dropped line takes the comment block
+ * above it along, so the block cannot fall onto the next claim.
  */
 
 import { Value, Verb } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 
 export type Mapping = {
-  /** Variable-free blocks plus leading comments, joined — appended once per run. */
+  /** Variable-free blocks plus documentary comments, joined — appended once per run. */
   readonly prelude: string
   /** Record templates: raw lines of each variable-bearing top-level block. */
   readonly templates: readonly (readonly string[])[]
@@ -54,6 +60,16 @@ const isStructural = (line: string): boolean => {
   return body !== '' && !body.startsWith(';')
 }
 
+const isComment = (line: string): boolean =>
+  line.trim().startsWith(';')
+
+/** Drops the comment run at the end of `pending` — the block above a line that is not emitted. */
+const dropCommentRun = (pending: string[]): void => {
+  while (pending.length > 0 && isComment(pending[pending.length - 1]!)) {
+    pending.pop()
+  }
+}
+
 const lineVariables = (line: string): string[] =>
   Token.tokenize(Token.splitComment(line).head)
     .filter(isVariable)
@@ -86,7 +102,14 @@ export const parse = (text: string): { mapping?: Mapping, problems: readonly str
   const preamble: string[] = []
   for (const line of rawLines) {
     if (isStructural(line) && indentOf(line) === 0) {
-      blocks.push([line])
+      // The comment run directly above (no blank line between) is this
+      // line's comment block (§6.4): it moves with the line it belongs to.
+      const previous = blocks.length === 0 ? preamble : blocks[blocks.length - 1]!
+      const carried: string[] = []
+      while (previous.length > 0 && isComment(previous[previous.length - 1]!)) {
+        carried.unshift(previous.pop()!)
+      }
+      blocks.push([...carried, line])
     } else if (blocks.length === 0) {
       preamble.push(line)
     } else {
@@ -221,7 +244,8 @@ const substituteLine = (line: string, lookup: (name: string) => unknown): Substi
 
 /**
  * Instantiates every template block for one record. Lines without variables
- * pass through verbatim; a dropped line takes its indented children with it.
+ * pass through verbatim; a dropped line takes its indented children, and
+ * the comment block directly above it (§6.4), with it.
  */
 export const instantiate = (
   templates: readonly (readonly string[])[],
@@ -232,19 +256,25 @@ export const instantiate = (
   let dropped = 0
   for (const block of templates) {
     let skipDeeperThan: undefined | number
+    /** Blank and comment lines waiting for the structural line they precede. */
+    const pending: string[] = []
+    const emit = (line: string): void => {
+      out.push(...pending.splice(0), line)
+    }
     for (const line of block) {
       if (!isStructural(line)) {
-        out.push(line)
+        pending.push(line)
         continue
       }
       const indent = indentOf(line)
       if (skipDeeperThan !== undefined && indent > skipDeeperThan) {
         dropped += 1
+        dropCommentRun(pending)
         continue
       }
       skipDeeperThan = undefined
       if (lineVariables(line).length === 0) {
-        out.push(line)
+        emit(line)
         continue
       }
       const substituted = substituteLine(line, lookup)
@@ -252,15 +282,19 @@ export const instantiate = (
         case 'dropped':
           dropped += 1
           skipDeeperThan = indent
+          dropCommentRun(pending)
           break
         case 'problem':
           problems.push(substituted.message)
           skipDeeperThan = indent
+          dropCommentRun(pending)
           break
         default:
-          out.push(substituted.line)
+          emit(substituted.line)
       }
     }
+    // Trailing blank and documentary comment lines keep the block's shape.
+    out.push(...pending)
   }
   const body = out.join('\n').trim()
   return { text: body === '' ? '' : `${out.join('\n').trimEnd()}\n`, dropped, problems }
