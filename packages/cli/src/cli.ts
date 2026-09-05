@@ -41,9 +41,9 @@ import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
+import { backup as backupStore, defaultDbPath, kindOf, LocateError, openAt, restoreBackup, Sensitivity, verifyBackup } from '@cavelang/store'
 import type { OpenIntent, Store } from '@cavelang/store'
-import { assemble as assembleSources } from '@cavelang/connect'
+import { Declared, assemble as assembleSources } from '@cavelang/connect'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -811,15 +811,21 @@ const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenInt
 const sourcesRollback = Symbol('cave query --sources rollback')
 
 /**
- * Runs `body` with the store's declared sources overlaid (spec §23.4):
- * assembled inside a transaction that always rolls back, so external data
- * is consulted at query time and nothing persists, digests included.
+ * Runs `body` with the store's declared sources overlaid (spec §23.4): the
+ * sources, loaded beforehand (URLs included), append inside a transaction
+ * that always rolls back, so external data is consulted at query time and
+ * nothing persists, digests included.
  */
-const withSources = <T>(store: Store, root: string, body: () => T): T => {
+const withSources = <T>(store: Store, ready: readonly Declared.Prepared[], body: () => T): T => {
   let result: undefined | { value: T }
   try {
     store.transaction(() => {
-      assembleSources(store, root)
+      for (const source of ready) {
+        const report = Declared.run(store, source, { force: true })
+        if (report.failures.length > 0) {
+          throw new LocateError(`source/${source.declared.name}: ${report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('; ')}`)
+        }
+      }
       result = { value: body() }
       throw sourcesRollback
     })
@@ -960,46 +966,118 @@ export const addCommand = ingestCommand('add')
  */
 export const importCommand = ingestCommand('import')
 
-export const queryCommand = (argv: readonly string[]): Output => {
-  const { values, positionals } = parseArgs({
-    args: [...argv],
-    options: {
-      db: { type: 'string' },
-      json: { type: 'boolean' },
-      all: { type: 'boolean' },
-      aliases: { type: 'boolean' },
-      'as-of': { type: 'string' },
-      at: { type: 'string' },
-      resolve: { type: 'boolean' },
-      sources: { type: 'boolean' },
-      limit: { type: 'string' },
-      cursor: { type: 'string' },
-      'no-prelude': { type: 'boolean' }
-    },
-    allowPositionals: true
-  })
+const queryOptions = {
+  db: { type: 'string' },
+  json: { type: 'boolean' },
+  all: { type: 'boolean' },
+  aliases: { type: 'boolean' },
+  'as-of': { type: 'string' },
+  at: { type: 'string' },
+  resolve: { type: 'boolean' },
+  sources: { type: 'boolean' },
+  limit: { type: 'string' },
+  cursor: { type: 'string' },
+  'no-prelude': { type: 'boolean' }
+} as const
+
+type QueryValues = {
+  db?: string
+  json?: boolean
+  all?: boolean
+  aliases?: boolean
+  'as-of'?: string
+  at?: string
+  resolve?: boolean
+  sources?: boolean
+  limit?: string
+  cursor?: string
+  'no-prelude'?: boolean
+}
+
+const parseQuery = (argv: readonly string[]): { values: QueryValues, pattern: string } | { failure: Output } => {
+  const { values, positionals } = parseArgs({ args: [...argv], options: queryOptions, allowPositionals: true })
   if (positionals.length === 0) {
-    return fail('cave query: a pattern is required (spec §12.1)\n')
+    return { failure: fail('cave query: a pattern is required (spec §12.1)\n') }
   }
-  const pattern = positionals.join('\n')
   if (values.sources === true && values.cursor !== undefined) {
-    return fail('cave query: --cursor cannot continue a --sources overlay — it is assembled per invocation and rolled back\n')
+    return { failure: fail('cave query: --cursor cannot continue a --sources overlay — it is assembled per invocation and rolled back\n') }
   }
+  return { values, pattern: positionals.join('\n') }
+}
+
+/**
+ * `cave query --sources` — the page over the store with its declared
+ * sources overlaid (spec §23.4). Asynchronous because the sources load
+ * first, URLs included, before the overlay appends inside a transaction
+ * that rolls back; the dispatcher routes `--sources` here. A text store
+ * followed its sources on open and is queried as it is.
+ */
+export const querySourcesCommand = async (argv: readonly string[]): Promise<Output> => {
+  const parsed = parseQuery(argv)
+  if ('failure' in parsed) {
+    return parsed.failure
+  }
+  const { values, pattern } = parsed
+  if (values.sources !== true) {
+    return queryCommand(argv)
+  }
+  const root = values.db ?? defaultDbPath()
   // The overlay appends inside a transaction it rolls back: writable, but
   // never creating or migrating (spec §13.7).
-  const store = openDb(values, values.sources === true ? 'scratch' : 'read')
+  const store = openDb(values, 'scratch')
   try {
-    const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
-    const page = (): ReturnType<typeof caveQueryPage> => caveQueryPage(store, pattern, {
-      all: values.all === true,
-      aliases: values.aliases === true,
-      resolve: values.resolve === true,
-      limit,
-      ...values.cursor === undefined ? {} : { cursor: values.cursor },
-      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
-      ...values.at === undefined ? {} : { at: values.at }
-    })
-    const result = values.sources === true ? withSources(store, values.db ?? defaultDbPath(), page) : page()
+    if (kindOf(root) === 'text') {
+      return renderQueryPage(store, values, pattern, () => queryPage(store, values, pattern))
+    }
+    const ready = await Declared.discover(store, root)
+    return renderQueryPage(store, values, pattern, () => withSources(store, ready, () => queryPage(store, values, pattern)))
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+export const queryCommand = (argv: readonly string[]): Output => {
+  const parsed = parseQuery(argv)
+  if ('failure' in parsed) {
+    return parsed.failure
+  }
+  const { values, pattern } = parsed
+  if (values.sources === true) {
+    // Loading sources cannot be synchronous: the in-process entry for the
+    // overlay is `querySourcesCommand`, which the dispatcher uses.
+    return fail('cave query: --sources loads the declared sources first and runs asynchronously — use querySourcesCommand\n')
+  }
+  const store = openDb(values, 'read')
+  try {
+    return renderQueryPage(store, values, pattern, () => queryPage(store, values, pattern))
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+const queryPage = (store: Store, values: QueryValues, pattern: string): ReturnType<typeof caveQueryPage> =>
+  caveQueryPage(store, pattern, {
+    all: values.all === true,
+    aliases: values.aliases === true,
+    resolve: values.resolve === true,
+    limit: values.limit === undefined ? defaultQueryLimit : Number(values.limit),
+    ...values.cursor === undefined ? {} : { cursor: values.cursor },
+    ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
+    ...values.at === undefined ? {} : { at: values.at }
+  })
+
+const renderQueryPage = (
+  store: Store,
+  values: QueryValues,
+  pattern: string,
+  page: () => ReturnType<typeof caveQueryPage>
+): Output => {
+  {
+    const result = page()
     if (values.json === true) {
       return ok(`${JSON.stringify(result, undefined, 2)}\n`)
     }
@@ -1028,10 +1106,6 @@ export const queryCommand = (argv: readonly string[]): Output => {
         line
     })
     return ok(`${lines.join('\n')}\n${result.next === undefined ? '' : `next: ${result.next}\n`}`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
   }
 }
 

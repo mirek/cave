@@ -380,3 +380,25 @@ test('watching declared sources picks up the files a followed .cave source decla
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('--name follows what the selected source declares in turn, and nothing else', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'verbs.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    writeFileSync(join(dir, 'other.cave'), 'other IS thing\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/verbs HAS path: verbs.cave\nsource/other HAS path: other.cave')
+    seed.close()
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--name', 'verbs'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /^source\/verbs: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    assert.doesNotMatch(stdout.value, /source\/other/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

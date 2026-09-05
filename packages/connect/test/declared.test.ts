@@ -168,3 +168,24 @@ test('assembly skips URL sources and follows one file under several names; decla
     assert.deepEqual(Declared.declaredIn('x IS y\nsource/a HAS path: a.cave\nsource/b HAS map: only.cave\n'), [{ name: 'a', path: 'a.cave' }])
   })
 })
+
+test('a .cave source that becomes empty retracts everything it owned', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'facts.cave'), 'x IS old\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      store.ingest('source/facts HAS path: facts.cave')
+      assemble(store, db)
+      const current = (): string[] => store.currentBeliefs().filter(row => row.conf > 0).map(row => `${row.subject} ${row.verb} ${row.object ?? ''}`.trim())
+      assert.ok(current().includes('x IS old'))
+      writeFileSync(join(dir, 'facts.cave'), '')
+      const emptied = assemble(store, db)
+      assert.equal(emptied.find(entry => entry.declared.name === 'facts')?.report.retracted, 1)
+      assert.ok(!current().includes('x IS old'), 'an empty source says nothing, so its claims retract')
+      assert.deepEqual(assemble(store, db).find(entry => entry.declared.name === 'facts')?.report.notes, ['prelude unchanged, skipped'], 'and the empty state is remembered')
+    } finally {
+      store.close()
+    }
+  })
+})

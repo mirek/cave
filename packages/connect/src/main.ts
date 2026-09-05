@@ -402,10 +402,13 @@ const declaredPass = async (
   const dir = Declared.directoryOf(root)
   let failed = 0
   const done = new Set<string>()
-  // A followed .cave source may declare sources of its own: keep going
-  // until no undeclared-so-far source is left, as `assemble` does.
+  // `--name` selects one declaration and what it declares in turn; a
+  // followed .cave source may declare sources of its own, so keep going
+  // until nothing new is left, as `assemble` and `discover` do.
+  const allowed = values.name === undefined ? undefined : new Set(selectDeclared(store, values).map(declared => declared.name))
   for (;;) {
-    const pending = selectDeclared(store, values).filter(declared => !done.has(declared.name))
+    const pending = Declared.declaredSources(store)
+      .filter(declared => !done.has(declared.name) && (allowed === undefined || allowed.has(declared.name)))
     if (pending.length === 0) {
       return failed > 0 ? 1 : 0
     }
@@ -413,6 +416,9 @@ const declaredPass = async (
       done.add(declared.name)
       try {
         const ready = await Declared.prepare(declared, dir, context.fetchImpl)
+        if (ready.cave && allowed !== undefined) {
+          for (const nested of Declared.declaredIn(ready.mapping.prelude)) allowed.add(nested.name)
+        }
         const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
         io.stdout.write(`source/${declared.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
         if (report.failures.length > 0) failed += 1
@@ -497,6 +503,7 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
   let running = false
   let queued = false
   let timer: unknown
+  let active: undefined | Promise<void>
   const fire = async (): Promise<void> => {
     if (running) {
       queued = true
@@ -521,7 +528,12 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
     if (timer !== undefined) cancelScheduled(timer)
     timer = schedule(async () => {
       timer = undefined
-      await fire()
+      // Retained so shutdown waits for a pass in flight (a URL fetch, say)
+      // instead of closing the store under it.
+      const pass = fire()
+      active = pass
+      await pass
+      if (active === pass) active = undefined
     }, 200)
   }
   // Every local declared file and mapping; URL sources only run on file
@@ -562,6 +574,7 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
   } finally {
     if (timer !== undefined) cancelScheduled(timer)
     for (const watcher of watched.values()) watcher.close()
+    if (active !== undefined) await active
   }
 }
 

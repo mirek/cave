@@ -240,7 +240,9 @@ export const connect = (
     })
   }
 
-  if (mapping.prelude !== '') {
+  // A lifecycle prelude that became empty is still an update: the unit now
+  // says nothing, and every claim it owned retracts.
+  if (mapping.prelude !== '' || options.preludeLifecycle === true) {
     const unit = naming.unit()
     const digest = digestOf(mapping.prelude)
     if (force || !isConnected(store, unit, digest)) {

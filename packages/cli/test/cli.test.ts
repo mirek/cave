@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
-import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, querySourcesCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open, Schema } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -1645,8 +1645,9 @@ test('act --declare wins over --list and still opens the store for writing', () 
   })
 })
 
-test('a text store follows its declared sources and query --sources overlays them on a SQLite store (spec §23.4)', () => {
-  withDir(dir => {
+test('a text store follows its declared sources and query --sources overlays them on a SQLite store (spec §23.4)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-cli-'))
+  try {
     writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n')
     writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n?name WORKS-AT ?company\n')
     const notes = join(dir, 'notes.cave')
@@ -1657,18 +1658,25 @@ test('a text store follows its declared sources and query --sources overlays the
     const db = join(dir, 'k.db')
     assert.equal(cave(['import', '--db', db, notes]).code, 0)
     assert.equal(cave(['query', '--db', db, '?who WORKS-AT acme']).out, 'no matches\n')
-    assert.equal(cave(['query', '--db', db, '?who WORKS-AT acme', '--sources']).out, '?who = ann\n')
+    assert.equal((await querySourcesCommand(['--db', db, '?who WORKS-AT acme', '--sources'])).out, '?who = ann\n')
     assert.equal(cave(['query', '--db', db, '?who WORKS-AT acme']).out, 'no matches\n', 'the overlay rolled back')
-    const paged = cave(['query', '--db', db, '?who WORKS-AT acme', '--sources', '--cursor', 'x'])
+    const paged = await querySourcesCommand(['--db', db, '?who WORKS-AT acme', '--sources', '--cursor', 'x'])
     assert.equal(paged.code, 1)
     assert.match(paged.err, /--cursor cannot continue a --sources overlay/)
+    const synchronous = cave(['query', '--db', db, '?who WORKS-AT acme', '--sources'])
+    assert.equal(synchronous.code, 1)
+    assert.match(synchronous.err, /runs asynchronously — use querySourcesCommand/)
+    assert.equal((await querySourcesCommand(['--db', db, '?who WORKS-AT acme'])).out, 'no matches\n', 'without --sources it is the plain query')
+    assert.equal((await querySourcesCommand(['--db', notes, '?who WORKS-AT acme', '--sources'])).out, '?who = ann\n', 'a text store is queried as assembled')
 
     const broken = join(dir, 'broken.cave')
     writeFileSync(broken, 'source/people HAS path: nope.csv\nsource/people HAS map: people.map.cave\n')
     const failed = cave(['query', '--db', broken, '?x IS ?y'])
     assert.equal(failed.code, 1)
     assert.match(failed.err, /^cave query: source\/people \(nope\.csv\): /)
-  })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('doctor recognizes a CAVE text store and its declared sources', () => {

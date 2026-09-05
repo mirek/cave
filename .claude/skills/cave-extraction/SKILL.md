@@ -296,6 +296,9 @@ it. Paths resolve against the **store's directory** (the SQLite file's, or
 the text file's; the working directory for `:memory:`), never the working
 directory: a store and its sources travel together.
 
+A `.cave` source that becomes empty still says something — nothing — and
+every claim it owned retracts.
+
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under
 `source/<name>/<key>` and `source/<name>`, instead of the ad-hoc
@@ -311,7 +314,8 @@ lifecycle run is the stamp.
 
 - `cave connect [--db <path>]` with no source runs one pass over every
   declared source, sources declared by a followed `.cave` source included,
-  until none is left; `--name <n>` selects one; `--force`, `--prune`,
+  until none is left; `--name <n>` selects one together with what it
+  declares in turn; `--force`, `--prune`,
   `--dry-run`, `--watch` (every declared local file and mapping, the set
   refreshed after each pass) and `--query` (an overlay of all of them,
   §23.3) apply as for a single source. The overlay and the dry run load
@@ -331,8 +335,8 @@ lifecycle run is the stamp.
   errors — fetching cannot be synchronous — and `cave connect` follows
   them, a `.cave` URL included.
 - `cave query --sources` overlays a SQLite store's declared sources inside
-  a transaction that rolls back (§23.3); a text store needs no flag. The
-  overlay cannot be paged with `--cursor`.
+  a transaction that rolls back (§23.3), loading them first, URLs included;
+  a text store needs no flag. The overlay cannot be paged with `--cursor`.
 - Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,
   `Declared.prepare`/`prepareSync`, `Declared.run`, `assemble(store, root)`
   (the `openAt` assembler), and `declaredNaming(name)`.

@@ -826,6 +826,14 @@ Kind: value.
 export declare const queryCommand: (argv: readonly string[]) => Output;
 ```
 
+### `querySourcesCommand`
+
+Kind: value.
+
+```ts
+export declare const querySourcesCommand: (argv: readonly string[]) => Promise<Output>;
+```
+
 ### `reconstructCommand`
 
 Kind: value.
@@ -10102,11 +10110,11 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `75cfff7de087cd75db7cad212c691665402134e819a104acd13939b7bacf9fdd`
+- `@cavelang/cli/dist/src/cli.d.ts` — `41878f9d14b394c4023d2ba68b7d41332862f43c37f7182ca3eb0e5d184b77c9`
 - `@cavelang/cli/dist/src/commands.d.ts` — `3ee3255de25c70a1a7f17550ca8e942e992936a8c9be4a067da837f1816066ad`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
 - `@cavelang/cli/dist/src/doctor.d.ts` — `12e186bfd1e6db3e52658bea0d0ca042bbbd967ebcbcf06f5c36f5ee61ab78ac`
-- `@cavelang/cli/dist/src/index.d.ts` — `dd1e705241ac91930170c8a511c2788b0440c729716edf34f876558991a580ea`
+- `@cavelang/cli/dist/src/index.d.ts` — `16b623fc03187932bc93c40b12cfa3f55c6f36b8d220f739612b469edfc165ce`
 - `@cavelang/core/dist/src/claim.d.ts` — `aaf35bf598486be9edfeef5ff4ef4f4b6196d18789e80df8d859e332f8308db1`
 - `@cavelang/core/dist/src/confidence.d.ts` — `d67ec940afbe75fc4028dc825e4d720f8f3ec38eb1d9d5a28f842c555f213694`
 - `@cavelang/core/dist/src/context.d.ts` — `57c44c0613aebb617c1f81c0d067ed4c33488a32564856cad0f05c9371961507`
