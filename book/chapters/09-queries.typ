@@ -218,8 +218,9 @@ claim records.
 `--db` names a store by what is in the file, not by the file's name. A
 SQLite file opens as usual; any other file is read as CAVE text and replayed
 into an in-memory store before the command runs, holding exactly the claims
-`cave import` would have stored. The file this chapter started from answers
-questions without ever having been added anywhere:
+`cave import` would have stored, plus whatever sources the file declares
+(Chapter 14). The file this chapter started from answers questions without
+ever having been added anywhere:
 
 ```sh
 $ cave query --db roastery.cave '?lot HAS process: ?how'

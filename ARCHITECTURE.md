@@ -315,7 +315,11 @@ shell template. Action hooks run only after the database transaction commits.
   maps CSV, TSV, JSON, JSONL, SQLite, or URL records through templates, tracks
   per-record digests, and retracts stale output from changed or removed
   records. Federated queries temporarily append mapped rows inside a
-  transaction and then roll it back.
+  transaction and then roll it back. Sources declared in-band as
+  `source/<name>` claims run the same pass without arguments, and the
+  package's `assemble` is what the CLI, MCP, serve, automate, and ingest
+  surfaces hand to `openAt` so a CAVE text file used as a store follows the
+  sources it declares.
 - **`@cavelang/ingest`** orchestrates unstructured extraction. Files and web
   pages are batched, optional store context is included in the prompt, and a
   headless agent writes through MCP or returns CAVE text. Source digests are

@@ -393,6 +393,7 @@ export declare const commandRegistry: readonly [
             "--as-of",
             "--at",
             "--resolve",
+            "--sources",
             "--no-prelude"
         ];
     },
@@ -592,6 +593,7 @@ export declare const commandRegistry: readonly [
             "--prune",
             "--query",
             "--dry-run",
+            "--list",
             "--no-prelude"
         ];
         readonly delegated: true;
@@ -733,7 +735,7 @@ export type DoctorReport = {
     readonly configuration: {
         readonly database: {
             readonly source: 'flag' | 'environment' | 'default';
-            readonly kind: 'memory' | 'file';
+            readonly kind: 'memory' | 'file' | 'text';
             readonly exists: boolean;
             readonly schemaVersion?: number;
             readonly claims?: number;
@@ -822,6 +824,16 @@ Kind: value.
 
 ```ts
 export declare const queryCommand: (argv: readonly string[]) => Output;
+```
+
+### `querySourcesCommand`
+
+Kind: value.
+
+```ts
+export declare const querySourcesCommand: (argv: readonly string[], runtime?: {
+    readonly fetchImpl?: Declared.DiscoverOptions["fetchImpl"];
+}) => Promise<Output>;
 ```
 
 ### `reconstructCommand`
@@ -1685,6 +1697,24 @@ export declare const watermarkAttribute = "automate-watermark";
 
 ## `@cavelang/cli/connect`
 
+### `adHocNaming`
+
+Kind: value.
+
+```ts
+export declare const adHocNaming: (name: string) => Naming;
+```
+
+### `assemble`
+
+Kind: value.
+
+```ts
+export declare const assemble: (store: Store, root: string, options?: {
+    readonly force?: boolean;
+}) => Assembled[];
+```
+
 ### `connect`
 
 Kind: value.
@@ -1700,6 +1730,8 @@ Kind: type.
 ```ts
 export type ConnectOptions = {
     readonly name: string;
+    readonly naming?: Naming;
+    readonly preludeLifecycle?: boolean;
     readonly key?: string;
     readonly source?: string;
     readonly spans?: readonly LineSpan[];
@@ -1722,6 +1754,216 @@ export type RunContext = {
     readonly schedule?: ScheduleLike;
     readonly cancelScheduled?: (handle: unknown) => void;
 };
+```
+
+### `Declared`
+
+Kind: value, namespace.
+
+#### `assemble`
+
+Kind: value.
+
+```ts
+export declare const assemble: (store: Store, root: string, options?: {
+    readonly force?: boolean;
+}) => Assembled[];
+```
+
+#### `Assembled`
+
+Kind: type.
+
+```ts
+export type Assembled = {
+    readonly declared: Declared;
+    readonly report: Report;
+};
+```
+
+#### `Attribute`
+
+Kind: type.
+
+```ts
+export type Attribute = typeof attributes[number];
+```
+
+#### `attributes`
+
+Kind: value.
+
+```ts
+export declare const attributes: readonly [
+    "path",
+    "map",
+    "key",
+    "format",
+    "delimiter",
+    "table",
+    "sql",
+    "records"
+];
+```
+
+#### `Declared`
+
+Kind: type.
+
+```ts
+export type Declared = {
+    readonly name: string;
+    readonly path: string;
+    readonly map?: string;
+    readonly key?: string;
+    readonly format?: string;
+    readonly delimiter?: string;
+    readonly table?: string;
+    readonly sql?: string;
+    readonly records?: string;
+};
+```
+
+#### `declaredIn`
+
+Kind: value.
+
+```ts
+export declare const declaredIn: (text: string) => Declared[];
+```
+
+#### `declaredSources`
+
+Kind: value.
+
+```ts
+export declare const declaredSources: (store: Store) => Declared[];
+```
+
+#### `describe`
+
+Kind: value.
+
+```ts
+export declare const describe: (declared: Declared) => string;
+```
+
+#### `directoryOf`
+
+Kind: value.
+
+```ts
+export declare const directoryOf: (root: string) => string;
+```
+
+#### `discover`
+
+Kind: value.
+
+```ts
+export declare const discover: (store: Store, root: string, options?: DiscoverOptions) => Promise<Prepared[]>;
+```
+
+#### `DiscoverOptions`
+
+Kind: type.
+
+```ts
+export type DiscoverOptions = {
+    readonly fetchImpl?: Source.FetchLike;
+    readonly only?: string;
+    readonly skipFollowed?: boolean;
+};
+```
+
+#### `isCave`
+
+Kind: value.
+
+```ts
+export declare const isCave: (declared: Declared) => boolean;
+```
+
+#### `prefix`
+
+Kind: value.
+
+```ts
+export declare const prefix = "source/";
+```
+
+#### `prepare`
+
+Kind: value.
+
+```ts
+export declare const prepare: (declared: Declared, dir: string, fetchImpl?: Source.FetchLike) => Promise<Prepared>;
+```
+
+#### `Prepared`
+
+Kind: type.
+
+```ts
+export type Prepared = {
+    readonly declared: Declared;
+    readonly mapping: Template.Mapping;
+    readonly records: readonly Record<string, unknown>[];
+    readonly spans?: NonNullable<Source.Loaded['spans']>;
+    readonly source?: string;
+    readonly cave: boolean;
+};
+```
+
+#### `prepareSync`
+
+Kind: value.
+
+```ts
+export declare const prepareSync: (declared: Declared, dir: string) => Prepared;
+```
+
+#### `resolvePath`
+
+Kind: value.
+
+```ts
+export declare const resolvePath: (path: string, dir: string) => string;
+```
+
+#### `run`
+
+Kind: value.
+
+```ts
+export declare const run: (store: Store, ready: Prepared, options?: RunOptions) => Report;
+```
+
+#### `RunOptions`
+
+Kind: type.
+
+```ts
+export type RunOptions = {
+    readonly force?: boolean;
+    readonly prune?: boolean;
+};
+```
+
+#### `t`
+
+Kind: type.
+
+```ts
+export type t = Declared;
+```
+
+### `declaredNaming`
+
+Kind: value.
+
+```ts
+export declare const declaredNaming: (name: string) => Naming;
 ```
 
 ### `digestAttribute`
@@ -1770,12 +2012,32 @@ Kind: value.
 export declare const federatedQuery: (store: Store, mapping: Template.Mapping, records: readonly Record<string, unknown>[], options: ConnectOptions, pattern: string, queryOptions?: QueryOptions) => FederatedOutcome;
 ```
 
+### `hasDigest`
+
+Kind: value.
+
+```ts
+export declare const hasDigest: (store: Store, subject: string) => boolean;
+```
+
 ### `isConnected`
 
 Kind: value.
 
 ```ts
 export declare const isConnected: (store: Store, subject: string, digest: string) => boolean;
+```
+
+### `Naming`
+
+Kind: type.
+
+```ts
+export type Naming = {
+    readonly unit: (key?: string) => string;
+    readonly run: (key?: string) => string;
+    readonly recordPrefix: string;
+};
 ```
 
 ### `provenanceContext`
@@ -1832,6 +2094,17 @@ Kind: type.
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 ```
 
+#### `fetchText`
+
+Kind: value.
+
+```ts
+export declare const fetchText: (url: string, options: Options) => Promise<{
+    text: string;
+    contentType: string;
+}>;
+```
+
 #### `Format`
 
 Kind: type.
@@ -1846,6 +2119,14 @@ Kind: value.
 
 ```ts
 export declare const formatOf: (source: string, options?: Options) => Format;
+```
+
+#### `formats`
+
+Kind: value.
+
+```ts
+export declare const formats: readonly Format[];
 ```
 
 #### `isUrl`
@@ -1874,6 +2155,14 @@ export type Loaded = {
     readonly format: Format;
     readonly spans?: readonly LineSpan[];
 };
+```
+
+#### `loadSync`
+
+Kind: value.
+
+```ts
+export declare const loadSync: (source: string, options?: Options) => Loaded;
 ```
 
 #### `nameOf`
@@ -8475,6 +8764,14 @@ export type AppendOptions = {
 };
 ```
 
+### `Assemble`
+
+Kind: type.
+
+```ts
+export type Assemble = (store: Store, root: string) => void;
+```
+
 ### `backup`
 
 Kind: value.
@@ -8574,6 +8871,7 @@ Kind: type.
 ```ts
 export type LocateOptions = Omit<OpenOptions, 'access'> & {
     readonly intent?: Intent;
+    readonly assemble?: Assemble;
 };
 ```
 
@@ -8614,7 +8912,9 @@ export type Intent = 'read' | 'scratch' | 'write';
 Kind: value.
 
 ```ts
-export declare const openText: (path: string, options?: Omit<OpenOptions, "access">) => Store;
+export declare const openText: (path: string, options?: Omit<OpenOptions, "access"> & {
+    readonly assemble?: Assemble;
+}) => Store;
 ```
 
 ### `Provenance`
@@ -9772,10 +10072,11 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/index.d.ts` — `e20c4bf0b48cad6b5541a1954c90d4beddf210b1d11f7b6fa6b8d80e9cc66347`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `5b4d9fca7a500c0f73bcea79410c9ba2abb6d0fb02ee9ea6f75c43757e72acc6`
+- `@cavelang/cli/dist/internal/connect/index.d.ts` — `a801fa58f2ad8c15da47275d31c5541c42b3d719d1dcba061327e8a7b712a413`
 - `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
-- `@cavelang/cli/dist/internal/connect/run.d.ts` — `5a983510be2c602d53457413bba96b7c30d804ac9edcc76b2e201eb9abf7f016`
-- `@cavelang/cli/dist/internal/connect/source.d.ts` — `fd2b6ec0e5258f156ac408d087aca70c0f6805d89400b5b3d8a298d4e0ef9fde`
+- `@cavelang/cli/dist/internal/connect/run.d.ts` — `5c8ca26caf0effc7a71c308d980247d1e0a0ccdee88a9cec44fc47709a4cc4f7`
+- `@cavelang/cli/dist/internal/connect/source.d.ts` — `00a14e59ac74e4430ec554253576bdfccadd54055cfa5f46c512a950d752c157`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c2be1aa54a74d3509bafc01930d9953525a386b737c51e88a14ee9cf13e2dc41`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`
 - `@cavelang/cli/dist/internal/eval/judge.d.ts` — `237ab4139a721b6aa824dc94a3688b47f481c3b51757460a445a1aa182852bbd`
@@ -9820,11 +10121,11 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`
 - `@cavelang/cli/dist/internal/view/server.d.ts` — `4d206aa9e4e68265ffdff580bf857d34a1ff1b739d26ac5dce05b91ffe94cc11`
-- `@cavelang/cli/dist/src/cli.d.ts` — `75cfff7de087cd75db7cad212c691665402134e819a104acd13939b7bacf9fdd`
-- `@cavelang/cli/dist/src/commands.d.ts` — `1b285e187db8f48372ef811cb7544a941af3b33ac11f8846af66401956c9ae7f`
+- `@cavelang/cli/dist/src/cli.d.ts` — `231c7a8f8e4b42cf0deae2916aae1c97ae8b62e5bf044073fdabd432768b9e0a`
+- `@cavelang/cli/dist/src/commands.d.ts` — `3ee3255de25c70a1a7f17550ca8e942e992936a8c9be4a067da837f1816066ad`
 - `@cavelang/cli/dist/src/dispatch.d.ts` — `ba9f6e5cf582c00381df057435639396ad4ad60a87c20d6cea1814430a6c9c97`
-- `@cavelang/cli/dist/src/doctor.d.ts` — `ee5d939ff3bd8b93c9f63488a19d6def879df9dc4df764e9722db5bf6ba9aedf`
-- `@cavelang/cli/dist/src/index.d.ts` — `dd1e705241ac91930170c8a511c2788b0440c729716edf34f876558991a580ea`
+- `@cavelang/cli/dist/src/doctor.d.ts` — `12e186bfd1e6db3e52658bea0d0ca042bbbd967ebcbcf06f5c36f5ee61ab78ac`
+- `@cavelang/cli/dist/src/index.d.ts` — `16b623fc03187932bc93c40b12cfa3f55c6f36b8d220f739612b469edfc165ce`
 - `@cavelang/core/dist/src/claim.d.ts` — `aaf35bf598486be9edfeef5ff4ef4f4b6196d18789e80df8d859e332f8308db1`
 - `@cavelang/core/dist/src/confidence.d.ts` — `d67ec940afbe75fc4028dc825e4d720f8f3ec38eb1d9d5a28f842c555f213694`
 - `@cavelang/core/dist/src/context.d.ts` — `57c44c0613aebb617c1f81c0d067ed4c33488a32564856cad0f05c9371961507`
@@ -9880,8 +10181,8 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/adapter-entry.d.ts` — `0c74dcd8323b25aa37bd4888214c69b48f0ef3010ccbede828706a6cc46d428a`
 - `@cavelang/store/dist/src/adapter.d.ts` — `ac1a4c44abcb0ce5bc81f4880052927e7542e95c4b13fa53e762a7be42b557c3`
 - `@cavelang/store/dist/src/backup.d.ts` — `bf3b6c51f627b3e32d99ce867a8917b005d73f66e371376c5a72fc7612935455`
-- `@cavelang/store/dist/src/index.d.ts` — `87636442d951b0d6a761573928755530c700a4531984b9c1267eb0e9907be1a8`
-- `@cavelang/store/dist/src/locate.d.ts` — `7d4c47964cdc8d7f9929a67f8c11a4f898fe31dfdf226d60d14a46069f8c4830`
+- `@cavelang/store/dist/src/index.d.ts` — `e4aabd5466179c1bdbf02b06dc3aeaaf4f3f5d6e887500520d61a20a43b070fd`
+- `@cavelang/store/dist/src/locate.d.ts` — `ba89862cbd3a5bcb53e549c2820f08a7690a5223e5ae12f579fe0d2344139398`
 - `@cavelang/store/dist/src/node-adapter-entry.d.ts` — `caa3e62eae43a241439666faadb32bfe6e37b63e383008dfc10f49c7fc9fda07`
 - `@cavelang/store/dist/src/node-adapter.d.ts` — `a1da5678ae06fdda86856834f7f2a75fc329c4202801ece383890f6d3d7429e8`
 - `@cavelang/store/dist/src/open.d.ts` — `842d7f35311ce7b46bb7337a74247ba268ff9e5241e0dbb57bd9c11cc9afa08f`

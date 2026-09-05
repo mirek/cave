@@ -3,7 +3,7 @@
   "version": "0.34.0",
   "private": true,
   "type": "module",
-  "description": "CAVE engine as an MCP server — stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
+  "description": "CAVE engine as an MCP server \u2014 stdio JSON-RPC exposing add/query/search/reconstruct tools over a knowledge database.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {
@@ -49,6 +49,7 @@
   "devDependencies": {
     "@cavelang/act": "workspace:*",
     "@cavelang/canonical": "workspace:*",
+    "@cavelang/connect": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/fusion": "workspace:*",
     "@cavelang/loop": "workspace:*",

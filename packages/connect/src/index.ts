@@ -20,7 +20,9 @@
 
 export * as Source from './source.ts'
 export * as Template from './template.ts'
-export { connect, digestAttribute, digestOf, federatedQuery, isConnected, provenanceContext } from './run.ts'
-export type { ConnectOptions, Failure, FederatedOutcome, Report } from './run.ts'
+export * as Declared from './declared.ts'
+export { assemble } from './declared.ts'
+export { adHocNaming, connect, declaredNaming, digestAttribute, digestOf, federatedQuery, hasDigest, isConnected, provenanceContext } from './run.ts'
+export type { ConnectOptions, Failure, FederatedOutcome, Naming, Report } from './run.ts'
 export { runConnect } from './main.ts'
 export type { RunContext as ConnectRunContext, ScheduleLike, WatchLike } from './main.ts'

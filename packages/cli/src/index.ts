@@ -4,7 +4,7 @@
  * and `runCli` expose the shared awaited command lifecycle.
  */
 
-export { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand, usage, versionCommand } from './cli.ts'
+export { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, exportCommand, generateCommand, helpCommand, highlightCommand, importCommand, parseCommand, queryCommand, querySourcesCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand, usage, versionCommand } from './cli.ts'
 export { dispatch, runCli } from './dispatch.ts'
 export type { CommandRuntime } from './dispatch.ts'
 export { commandRegistry } from './commands.ts'

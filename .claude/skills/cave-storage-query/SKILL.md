@@ -708,7 +708,10 @@ header, never by extension — MUST replay the file into a fresh in-memory
 store with `cave import` semantics (no actor stamp, §9.5, so the assembled
 claims are exactly those importing the file would store) and serve the read
 from it. A line that fails to parse fails the load: the file *is* the
-database, and a store silently missing rows is worse than an error.
+database, and a store silently missing rows is worse than an error. The
+file's declared sources (§23.4) are followed on every open — a text file
+and the sources it declares are one store — and a source that fails to
+load fails the open the same way.
 
 Text stores are read-only. Nothing appended in memory outlives the process,
 so a surface that appends MUST refuse a text file and name the
@@ -1336,6 +1339,11 @@ source/rule HAS precedence: 1
 source/scanner-a HAS reliability: 60%     ; discount one scanner
 source/ingest HAS reliability: 80%        ; discount all LLM ingestion
 ```
+
+A declared source (§23.4) lives on this same entity — `source/people HAS
+path: people.csv` beside `source/people HAS reliability: 80%` — and stamps
+`@src:people/<key>`, so the policy applies to what it yields with no
+further mapping between names.
 
 **Matching is by path prefix, most specific declaration wins** — the
 §9.4 "context" dimension made concrete: a context `src:agent/claude`

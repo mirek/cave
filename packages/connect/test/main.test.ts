@@ -259,3 +259,146 @@ test('watch startup, debounce, retry, pruning and explicit-source lifecycle are 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('cave connect without a source runs, lists, previews, and overlays the declared sources (spec §23.4)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n?name WORKS-AT ?company\n')
+    writeFileSync(join(dir, 'verbs.cave'), 'WORKS-AT IS verb\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    store.ingest('source/verbs HAS path: verbs.cave')
+    store.close()
+
+    const listed = await captured(['--db', db, '--list'])
+    assert.equal(listed.code, 0, listed.err)
+    assert.equal(listed.out, 'verbs: verbs.cave\n', 'before any pass only the root declaration exists')
+
+    const rejected = await captured(['--db', db, '--map', 'people.map.cave'])
+    assert.equal(rejected.code, 1)
+    assert.match(rejected.err, /--map describe a source argument/)
+
+    const overlay = await captured(['--db', db, '--query', '?who WORKS-AT ?co'])
+    assert.equal(overlay.code, 0, overlay.err)
+    assert.equal(overlay.out, '?who = ann  ?co = acme\n', 'the overlay follows the nested declaration too')
+    const untouched = open(db)
+    assert.equal(untouched.currentBeliefs().length, 1, 'nothing persisted from the overlay')
+    untouched.close()
+
+    const pass = await captured(['--db', db])
+    assert.equal(pass.code, 0, pass.err)
+    assert.match(pass.out, /^source\/verbs: 0 record\(s\).*\+4 claim\(s\)\nsource\/people: 1 record\(s\): 1 mapped.*\+2 claim\(s\)\n$/)
+    const listedAfter = await captured(['--db', db, '--list'])
+    assert.equal(listedAfter.out, 'people: people.csv --map people.map.cave --key id\nverbs: verbs.cave\n')
+
+    const only = await captured(['--db', db, '--name', 'people'])
+    assert.equal(only.code, 0, only.err)
+    assert.match(only.out, /^source\/people: 1 record\(s\): 0 mapped, 1 skipped/)
+    const unknown = await captured(['--db', db, '--name', 'nope'])
+    assert.equal(unknown.code, 1)
+    assert.match(unknown.err, /no declared source\/nope — declared: people, verbs/)
+
+    const dry = await captured(['--db', db, '--dry-run', '--name', 'people'])
+    assert.equal(dry.code, 0, dry.err)
+    assert.match(dry.out, /^; === source\/people \(people\.csv\)\n\n; --- record 1\n\nann IS person\nann WORKS-AT acme\n$/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a declared .cave URL is fetched, and overlays and dry runs discover nested declarations without writing', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n?name WORKS-AT ?company\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/verbs HAS path: https://example.test/verbs.cave')
+    seed.close()
+    const fetched: string[] = []
+    const fetchImpl = async (requested: string): Promise<Response> => {
+      fetched.push(requested)
+      return new Response('WORKS-AT IS verb\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n',
+        { status: 200, headers: { 'content-type': 'text/plain' } })
+    }
+    const run = async (argv: readonly string[]): Promise<Captured> => {
+      const stdout = new Capture()
+      const stderr = new Capture()
+      const code = await runConnect(argv, { stdout, stderr, fetchImpl })
+      return { code, out: stdout.value, err: stderr.value }
+    }
+    const dry = await run(['--db', db, '--dry-run'])
+    assert.equal(dry.code, 0, dry.err)
+    assert.match(dry.out, /; === source\/verbs \(https:\/\/example\.test\/verbs\.cave\)[\s\S]*; === source\/people \(people\.csv\)[\s\S]*ann WORKS-AT acme/, 'the dry run previews the nested source too')
+    const overlay = await run(['--db', db, '--query', '?who WORKS-AT ?co'])
+    assert.equal(overlay.code, 0, overlay.err)
+    assert.equal(overlay.out, '?who = ann  ?co = acme\n')
+    const untouched = open(db)
+    assert.equal(untouched.currentBeliefs().length, 1, 'neither the dry run nor the overlay persisted anything')
+    untouched.close()
+    const pass = await run(['--db', db])
+    assert.equal(pass.code, 0, pass.err)
+    assert.match(pass.out, /^source\/verbs: 0 record\(s\).*\+4 claim\(s\)\nsource\/people: 1 record\(s\): 1 mapped/)
+    assert.equal(fetched.length, 3, 'the .cave URL was fetched once per invocation')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('watching declared sources picks up the files a followed .cave source declares', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const controller = new AbortController()
+  let running: Promise<number> | undefined
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'verbs.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/verbs HAS path: verbs.cave')
+    seed.close()
+    const watchedFor: string[] = []
+    const stdout = new Capture()
+    const stderr = new Capture()
+    running = runConnect(['--db', db, '--watch'], {
+      stdout,
+      stderr,
+      signal: controller.signal,
+      watch: (path, _listener) => {
+        watchedFor.push(path)
+        return { close: () => {} }
+      },
+      schedule: () => ({}),
+      cancelScheduled: () => {}
+    })
+    await until(() => stdout.value.includes('watching'), 'watch setup')
+    assert.equal(watchedFor.length, 3, 'verbs.cave first, then the nested source file and its mapping after the initial pass')
+  } finally {
+    controller.abort()
+    if (running !== undefined) await running
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--name follows what the selected source declares in turn, and nothing else', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  try {
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    writeFileSync(join(dir, 'verbs.cave'), 'source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\n')
+    writeFileSync(join(dir, 'other.cave'), 'other IS thing\n')
+    const db = join(dir, 'k.db')
+    const seed = open(db)
+    seed.ingest('source/verbs HAS path: verbs.cave\nsource/other HAS path: other.cave')
+    seed.close()
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--name', 'verbs'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /^source\/verbs: .*\nsource\/people: 1 record\(s\): 1 mapped/)
+    assert.doesNotMatch(stdout.value, /source\/other/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

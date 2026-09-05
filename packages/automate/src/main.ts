@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { shellComplete } from '@cavelang/loop'
 import { defaultDbPath, openAt } from '@cavelang/store'
+import { assemble } from '@cavelang/connect'
 import type { Store } from '@cavelang/store'
 import { declareAutomations, listAutomations, retractAutomation } from './declare.ts'
 import { defaultAgentTimeoutSeconds, defaultMaxPasses, settle, settled } from './engine.ts'
@@ -288,6 +289,7 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
   // listing is considered.
   const store = openAt(values.db ?? defaultDbPath(), {
     intent: values.declare === true ? 'write' : values.list === true ? 'read' : 'write',
+    assemble,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
   try {

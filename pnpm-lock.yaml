@@ -84,6 +84,9 @@ importers:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
@@ -246,6 +249,9 @@ importers:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
@@ -291,6 +297,9 @@ importers:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
@@ -430,6 +439,9 @@ importers:
       '@cavelang/canonical':
         specifier: workspace:*
         version: link:../canonical
+      '@cavelang/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core

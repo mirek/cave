@@ -1,6 +1,6 @@
 /** One promise-based command dispatcher and process lifecycle for every command. */
 
-import { cave, highlightCommand, reconstructCommand, suggestAliasCommand } from './cli.ts'
+import { cave, highlightCommand, querySourcesCommand, reconstructCommand, suggestAliasCommand } from './cli.ts'
 import { delegatedCommandNames } from './commands.ts'
 import type { Output } from './cli.ts'
 
@@ -78,6 +78,12 @@ const execute = async (raw: readonly string[], runtime: CommandRuntime): Promise
       const { runServe } = await import('@cavelang/view')
       return await runServe(rest, context)
     }
+    case 'q':
+    case 'query':
+      if (rest.includes('--sources')) {
+        return await runOutput(runtime, argv, querySourcesCommand)
+      }
+      break
     case 'reconstruct':
       return await runOutput(runtime, argv,
         args => reconstructCommand(args, { ...runtime.signal === undefined ? {} : { signal: runtime.signal } }))

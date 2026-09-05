@@ -13,6 +13,9 @@ import { fieldOf } from './template.ts'
 
 export type Format = 'csv' | 'tsv' | 'json' | 'jsonl' | 'sqlite'
 
+/** Every record format, in `--format` order. */
+export const formats: readonly Format[] = ['csv', 'tsv', 'json', 'jsonl', 'sqlite']
+
 /** Injection point for tests; the built-in fetch otherwise. */
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
 
@@ -207,7 +210,8 @@ const readSqlite = (path: string, options: Options): Record<string, unknown>[] =
   }
 }
 
-const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
+/** Fetches a URL's body; the transport is injectable for tests. */
+export const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
   const response = await (options.fetchImpl ?? fetch)(url, {
     headers: {
       'user-agent': 'cave-connect',
@@ -220,6 +224,22 @@ const fetchText = async (url: string, options: Options): Promise<{ text: string,
     throw new Error(`${url}: HTTP ${response.status}`)
   }
   return { text: await response.text(), contentType: response.headers.get('content-type') ?? '' }
+}
+
+/**
+ * Loads a local source synchronously — what assembling a text store needs
+ * (spec §23.4); a URL source is refused, since fetching it cannot be
+ * synchronous: `cave connect` follows URLs.
+ */
+export const loadSync = (source: string, options: Options = {}): Loaded => {
+  if (isUrl(source)) {
+    throw new Error(`${source}: URL sources are followed by cave connect, not when assembling a text store`)
+  }
+  const format = formatOf(source, options)
+  if (format === 'sqlite') {
+    return { records: readSqlite(source, options), format }
+  }
+  return { ...parseLocated(format, readFileSync(source, 'utf8'), source, options), format }
 }
 
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
@@ -235,11 +255,7 @@ export const load = async (source: string, options: Options = {}): Promise<Loade
     }
     return { ...parseLocated(format, text, source, options), format }
   }
-  const format = formatOf(source, options)
-  if (format === 'sqlite') {
-    return { records: readSqlite(source, options), format }
-  }
-  return { ...parseLocated(format, readFileSync(source, 'utf8'), source, options), format }
+  return loadSync(source, options)
 }
 
 const parseLocated = (

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { defaultDbPath, kindOf, openAt } from '@cavelang/store'
+import { assemble } from '@cavelang/connect'
 import { serve, serverInfo } from './server.ts'
 import { scopedTools, type Permission, type Scope } from './tools.ts'
 
@@ -150,6 +151,7 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
   // nothing appended in memory could outlive the process.
   const store = openAt(db, {
     intent: values['read-only'] === true && kindOf(db) !== 'missing' ? 'read' : 'write',
+    assemble,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
   const scopeNote = [

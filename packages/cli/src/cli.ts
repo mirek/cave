@@ -41,8 +41,9 @@ import { parseArgs } from 'node:util'
 import { Version } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { LocateError, Sensitivity, backup as backupStore, defaultDbPath, openAt, restoreBackup, verifyBackup } from '@cavelang/store'
+import { backup as backupStore, defaultDbPath, kindOf, LocateError, openAt, restoreBackup, Sensitivity, verifyBackup } from '@cavelang/store'
 import type { OpenIntent, Store } from '@cavelang/store'
+import { Declared, assemble as assembleSources } from '@cavelang/connect'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
 import {
   check as caveCheck, defaultMinScore, defaultStaleDays, gatedIngest, judgePrompt, parseJudgeReply,
@@ -252,7 +253,7 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--sources] [--no-prelude]
 
 Options:
   ${dbHelp}
@@ -278,6 +279,12 @@ Options:
                  collapse to the row the resolution policy picks
                  (precedence class, reliability-weighted confidence, tx);
                  incompatible with --all
+  --sources      overlay the store's declared sources (spec §23.4) inside a
+                 rolled-back transaction — federation-lite: external data is
+                 consulted at query time, nothing persists. The answer is
+                 whole (no --cursor, --limit is not a page size); a text
+                 store followed its local sources on open, so only URL
+                 sources are loaded here
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
@@ -297,6 +304,7 @@ Examples:
   cave query --db k.db 'revenue IS' --at 2026-07
   cave query --db k.db 'alice WORKS-AT ?org' --at 2021
   cave query --db k.db 'service HAS owner: ?who' --resolve
+  cave query --db k.db '?who WORKS-AT acme' --sources
   cave query --db k.db '?x ?verb ?y @production' --json`,
 
   search: `cave search — full-text search over claims and comments (spec §13.2)
@@ -797,8 +805,39 @@ const readStdin = (): string => {
 const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenIntent): Store =>
   openAt(values.db ?? defaultDbPath(), {
     intent,
+    // A text store follows its declared sources on open (spec §23.4).
+    assemble: assembleSources,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
+
+const sourcesRollback = Symbol('cave query --sources rollback')
+
+/**
+ * Runs `body` with the store's declared sources overlaid (spec §23.4): the
+ * sources, loaded beforehand (URLs included), append inside a transaction
+ * that always rolls back, so external data is consulted at query time and
+ * nothing persists, digests included.
+ */
+const withSources = <T>(store: Store, ready: readonly Declared.Prepared[], body: () => T): T => {
+  let result: undefined | { value: T }
+  try {
+    store.transaction(() => {
+      for (const source of ready) {
+        const report = Declared.run(store, source, { force: true })
+        if (report.failures.length > 0) {
+          throw new LocateError(`source/${source.declared.name}: ${report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('; ')}`)
+        }
+      }
+      result = { value: body() }
+      throw sourcesRollback
+    })
+  } catch (error) {
+    if (error !== sourcesRollback) {
+      throw error
+    }
+  }
+  return result!.value
+}
 
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?
@@ -929,39 +968,141 @@ export const addCommand = ingestCommand('add')
  */
 export const importCommand = ingestCommand('import')
 
-export const queryCommand = (argv: readonly string[]): Output => {
-  const { values, positionals } = parseArgs({
-    args: [...argv],
-    options: {
-      db: { type: 'string' },
-      json: { type: 'boolean' },
-      all: { type: 'boolean' },
-      aliases: { type: 'boolean' },
-      'as-of': { type: 'string' },
-      at: { type: 'string' },
-      resolve: { type: 'boolean' },
-      limit: { type: 'string' },
-      cursor: { type: 'string' },
-      'no-prelude': { type: 'boolean' }
-    },
-    allowPositionals: true
-  })
+const queryOptions = {
+  db: { type: 'string' },
+  json: { type: 'boolean' },
+  all: { type: 'boolean' },
+  aliases: { type: 'boolean' },
+  'as-of': { type: 'string' },
+  at: { type: 'string' },
+  resolve: { type: 'boolean' },
+  sources: { type: 'boolean' },
+  limit: { type: 'string' },
+  cursor: { type: 'string' },
+  'no-prelude': { type: 'boolean' }
+} as const
+
+type QueryValues = {
+  db?: string
+  json?: boolean
+  all?: boolean
+  aliases?: boolean
+  'as-of'?: string
+  at?: string
+  resolve?: boolean
+  sources?: boolean
+  limit?: string
+  cursor?: string
+  'no-prelude'?: boolean
+}
+
+const parseQuery = (argv: readonly string[]): { values: QueryValues, pattern: string } | { failure: Output } => {
+  const { values, positionals } = parseArgs({ args: [...argv], options: queryOptions, allowPositionals: true })
   if (positionals.length === 0) {
-    return fail('cave query: a pattern is required (spec §12.1)\n')
+    return { failure: fail('cave query: a pattern is required (spec §12.1)\n') }
   }
-  const pattern = positionals.join('\n')
+  if (values.sources === true && values.cursor !== undefined) {
+    return { failure: fail('cave query: --cursor does not apply to --sources — the overlay exists for one invocation and is answered whole\n') }
+  }
+  return { values, pattern: positionals.join('\n') }
+}
+
+/**
+ * `cave query --sources` — the store with its declared sources overlaid
+ * (spec §23.4). Asynchronous because the sources load first, URLs
+ * included, before the overlay appends inside a transaction that rolls
+ * back; the dispatcher routes `--sources` here. A text store followed its
+ * local sources on open, so only what assembly could not follow — URL
+ * sources and what they declare — is loaded. The overlay exists for this
+ * invocation alone, so the answer is whole: pages are followed inside the
+ * transaction and no cursor is handed out.
+ */
+export const querySourcesCommand = async (
+  argv: readonly string[],
+  runtime: { readonly fetchImpl?: Declared.DiscoverOptions['fetchImpl'] } = {}
+): Promise<Output> => {
+  const parsed = parseQuery(argv)
+  if ('failure' in parsed) {
+    return parsed.failure
+  }
+  const { values, pattern } = parsed
+  if (values.sources !== true) {
+    return queryCommand(argv)
+  }
+  const root = values.db ?? defaultDbPath()
+  // The overlay appends inside a transaction it rolls back: writable, but
+  // never creating or migrating (spec §13.7).
+  const store = openDb(values, 'scratch')
+  try {
+    const ready = await Declared.discover(store, root, {
+      ...kindOf(root) === 'text' ? { skipFollowed: true } : {},
+      ...runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }
+    })
+    return renderQueryPage(store, values, pattern, () => withSources(store, ready, () => wholeQuery(store, values, pattern)))
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+export const queryCommand = (argv: readonly string[]): Output => {
+  const parsed = parseQuery(argv)
+  if ('failure' in parsed) {
+    return parsed.failure
+  }
+  const { values, pattern } = parsed
+  if (values.sources === true) {
+    // Loading sources cannot be synchronous: the in-process entry for the
+    // overlay is `querySourcesCommand`, which the dispatcher uses.
+    return fail('cave query: --sources loads the declared sources first and runs asynchronously — use querySourcesCommand\n')
+  }
   const store = openDb(values, 'read')
   try {
-    const limit = values.limit === undefined ? defaultQueryLimit : Number(values.limit)
-    const result = caveQueryPage(store, pattern, {
-      all: values.all === true,
-      aliases: values.aliases === true,
-      resolve: values.resolve === true,
-      limit,
-      ...values.cursor === undefined ? {} : { cursor: values.cursor },
-      ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
-      ...values.at === undefined ? {} : { at: values.at }
-    })
+    return renderQueryPage(store, values, pattern, () => queryPage(store, values, pattern))
+  } catch (error) {
+    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+  } finally {
+    store.close()
+  }
+}
+
+/** Every match of the overlay: the pages are followed here, inside the transaction that holds it. */
+const wholeQuery = (store: Store, values: QueryValues, pattern: string): ReturnType<typeof caveQueryPage> => {
+  const matches: ReturnType<typeof caveQueryPage>['matches'][number][] = []
+  let first: undefined | ReturnType<typeof caveQueryPage>
+  let cursor: undefined | string
+  for (;;) {
+    const page = queryPage(store, { ...values, limit: '1000', ...cursor === undefined ? {} : { cursor } }, pattern)
+    first ??= page
+    matches.push(...page.matches)
+    if (page.next === undefined) {
+      const { next: _next, ...rest } = first
+      return { ...rest, matches }
+    }
+    cursor = page.next
+  }
+}
+
+const queryPage = (store: Store, values: QueryValues, pattern: string): ReturnType<typeof caveQueryPage> =>
+  caveQueryPage(store, pattern, {
+    all: values.all === true,
+    aliases: values.aliases === true,
+    resolve: values.resolve === true,
+    limit: values.limit === undefined ? defaultQueryLimit : Number(values.limit),
+    ...values.cursor === undefined ? {} : { cursor: values.cursor },
+    ...values['as-of'] === undefined ? {} : { asOf: values['as-of'] },
+    ...values.at === undefined ? {} : { at: values.at }
+  })
+
+const renderQueryPage = (
+  store: Store,
+  values: QueryValues,
+  pattern: string,
+  page: () => ReturnType<typeof caveQueryPage>
+): Output => {
+  {
+    const result = page()
     if (values.json === true) {
       return ok(`${JSON.stringify(result, undefined, 2)}\n`)
     }
@@ -990,10 +1131,6 @@ export const queryCommand = (argv: readonly string[]): Output => {
         line
     })
     return ok(`${lines.join('\n')}\n${result.next === undefined ? '' : `next: ${result.next}\n`}`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
   }
 }
 
@@ -1482,7 +1619,7 @@ export const backupCommand = (argv: readonly string[]): Output => {
     if (sameFile(dbPath, values.out)) {
       return fail(`cave backup: --out '${values.out}' is the source database — refusing to overwrite it\n`)
     }
-    const store = openAt(dbPath, { intent: 'read' })
+    const store = openAt(dbPath, { intent: 'read', assemble: assembleSources })
     try {
       return ok(snapshotLine('created', backupStore(store, values.out, { force: values.force === true })))
     } finally {

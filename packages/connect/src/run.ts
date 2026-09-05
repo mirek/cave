@@ -44,6 +44,12 @@ const digestKey = (subject: string): string =>
     contexts: [provenanceContext]
   }))
 
+/** @returns `true` when the unit has been connected at all — a current digest claim of any value. */
+export const hasDigest = (store: Store, subject: string): boolean => {
+  const known = store.currentBelief(digestKey(subject))
+  return known !== undefined && known.conf > 0
+}
+
 /** @returns `true` when the unit's current digest claim matches `digest`. */
 export const isConnected = (store: Store, subject: string, digest: string): boolean => {
   const known = store.currentBelief(digestKey(subject))
@@ -54,9 +60,46 @@ const recordDigest = (store: Store, subject: string, digest: string): void => {
   store.ingest(`${subject} HAS ${digestAttribute}: ${digest} @${provenanceContext}`)
 }
 
+/**
+ * How a pass names its units (spec §23.2, §23.4). `unit` is the digest
+ * bookkeeping entity of the prelude (no key) or a record; `run` is the
+ * lifecycle run and `@src:` stamp of the same unit; `recordPrefix` is what
+ * `--prune` scans for. An ad-hoc `cave connect <source>` uses
+ * `connect/<name>` for both; a declared `source/<name>` keeps its digests
+ * under its own entity and stamps `@src:<name>/<key>`, so the stamp and
+ * the entity that describes the source mirror each other (§26.3).
+ */
+export type Naming = {
+  readonly unit: (key?: string) => string
+  readonly run: (key?: string) => string
+  readonly recordPrefix: string
+}
+
+/** Naming of an ad-hoc `cave connect <source>` pass: `connect/<name>[/<key>]` throughout. */
+export const adHocNaming = (name: string): Naming => ({
+  unit: key => key === undefined ? `connect/${name}` : `connect/${name}/${key}`,
+  run: key => key === undefined ? `connect/${name}` : `connect/${name}/${key}`,
+  recordPrefix: `connect/${name}/`
+})
+
+/** Naming of a declared `source/<name>` (spec §23.4): digests under `source/<name>[/<key>]`, stamps `@src:<name>[/<key>]`. */
+export const declaredNaming = (name: string): Naming => ({
+  unit: key => key === undefined ? `source/${name}` : `source/${name}/${key}`,
+  run: key => key === undefined ? name : `${name}/${key}`,
+  recordPrefix: `source/${name}/`
+})
+
 export type ConnectOptions = {
   /** Source name for record identity (spec §23.2): `connect/<name>/<key>`. */
   readonly name: string
+  /** Unit naming; ad-hoc `connect/<name>` naming when omitted. */
+  readonly naming?: Naming
+  /**
+   * Treat the prelude as a lifecycle unit: claims it no longer yields are
+   * retracted when it changes, as for a record. A declared `.cave` source is
+   * all prelude, and its file is data that changes (spec §23.4).
+   */
+  readonly preludeLifecycle?: boolean
   /** Record key field; unkeyed records are content-addressed by digest. */
   readonly key?: string
   /** Underlying file/URL identity attached to generated record claims. */
@@ -176,6 +219,7 @@ export const connect = (
   if (name === undefined) {
     throw new Error(`cave connect: unusable source name ${JSON.stringify(options.name)} — pass --name`)
   }
+  const naming = options.naming ?? adHocNaming(name)
   const failures: Failure[] = []
   const notes: string[] = []
   const seen = new Set<string>()
@@ -186,10 +230,10 @@ export const connect = (
   let pruned = 0
   let dropped = 0
 
-  const ingestUnit = (subject: string, text: string, digest: string, sourceContext?: string): void => {
+  const ingestUnit = (unit: string, run: string, text: string, digest: string, sourceContext?: string): void => {
     store.transaction(() => {
       const result = store.ingest(text, {
-        source: subject,
+        source: run,
         lifecycle: true,
         ...sourceContext === undefined ? {} : { contexts: [sourceContext] }
       })
@@ -197,25 +241,38 @@ export const connect = (
         failRecord(result.problems.map(problem => `line ${problem.line}: ${problem.message}`))
       }
       added += result.ids.length
-      retracted += retractStale(store, subject, new Set(result.ids))
-      recordDigest(store, subject, digest)
+      retracted += retractStale(store, run, new Set(result.ids))
+      recordDigest(store, unit, digest)
     })
   }
 
-  if (mapping.prelude !== '') {
-    const subject = `connect/${name}`
+  // A lifecycle prelude that became empty is still an update: the unit now
+  // says nothing, and every claim it owned retracts.
+  if (mapping.prelude !== '' || options.preludeLifecycle === true) {
+    const unit = naming.unit()
     const digest = digestOf(mapping.prelude)
-    if (force || !isConnected(store, subject, digest)) {
-      store.transaction(() => {
-        const result = store.ingest(mapping.prelude, { source: subject })
-        if (result.problems.length > 0) {
-          // The prelude was linted with the mapping; a problem here aborts the run.
-          const detail = result.problems.map(problem => `prelude line ${problem.line}: ${problem.message}`).join('\n')
-          throw new Error(`cave connect: prelude failed to ingest\n${detail}`)
+    if (force || !isConnected(store, unit, digest)) {
+      if (options.preludeLifecycle === true) {
+        try {
+          ingestUnit(unit, naming.run(), mapping.prelude, digest)
+        } catch (error) {
+          if (!isRecordError(error)) {
+            throw error
+          }
+          throw new Error(`cave connect: prelude failed to ingest\n${error.problems.map(problem => `prelude ${problem}`).join('\n')}`)
         }
-        added += result.ids.length
-        recordDigest(store, subject, digest)
-      })
+      } else {
+        store.transaction(() => {
+          const result = store.ingest(mapping.prelude, { source: naming.run() })
+          if (result.problems.length > 0) {
+            // The prelude was linted with the mapping; a problem here aborts the run.
+            const detail = result.problems.map(problem => `prelude line ${problem.line}: ${problem.message}`).join('\n')
+            throw new Error(`cave connect: prelude failed to ingest\n${detail}`)
+          }
+          added += result.ids.length
+          recordDigest(store, unit, digest)
+        })
+      }
     } else {
       notes.push('prelude unchanged, skipped')
     }
@@ -241,7 +298,7 @@ export const connect = (
       failures.push({ record: `record ${at + 1} (${key})`, problems: instantiation.problems })
       return
     }
-    const subject = `connect/${name}/${key}`
+    const subject = naming.unit(key)
     const sourceContext = options.source === undefined ? undefined :
       SourceSpan.context(options.source, options.spans?.[at])
     const digest = digestOf(`${instantiation.text}\0${sourceContext ?? ''}`)
@@ -250,7 +307,7 @@ export const connect = (
       return
     }
     try {
-      ingestUnit(subject, instantiation.text, digest, sourceContext)
+      ingestUnit(subject, naming.run(key), instantiation.text, digest, sourceContext)
       mapped += 1
     } catch (error) {
       if (!isRecordError(error)) {
@@ -261,7 +318,7 @@ export const connect = (
   })
 
   if (options.prune === true) {
-    const prefix = `connect/${name}/`
+    const prefix = naming.recordPrefix
     const latest = new Map<string, Row.t>()
     for (const row of store.byContext(provenanceContext)) {
       const current = latest.get(row.claim_key)
@@ -270,11 +327,13 @@ export const connect = (
       }
     }
     for (const row of latest.values()) {
-      if (row.conf <= 0 || !row.subject.startsWith(prefix) || seen.has(row.subject.slice(prefix.length))) {
+      const key = row.subject.slice(prefix.length)
+      if (row.conf <= 0 || !row.subject.startsWith(prefix) || seen.has(key)) {
         continue
       }
       store.transaction(() => {
-        retracted += retractStale(store, row.subject, new Set())
+        // The digest entity names the record; its claims are found by run.
+        retracted += retractStale(store, naming.run(key), new Set())
         store.insertResult({
           claims: [{ claim: { ...store.toClaim(row), conf: 0, raw: '', comment: 'retracted: record left the source' }, line: 0 }],
           edges: [],

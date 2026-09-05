@@ -18,6 +18,23 @@ incomplete; explicitly confirm the review when no documentation edit is needed.
 Historical changelogs, changesets, durable decision records, authorship, and
 license records remain point-in-time records.
 
+**Persist conclusions.** Any material finding or conclusion — a review
+finding's rationale, an accepted or rejected alternative, a boundary a
+command deliberately keeps, an operational gotcha, a decision reached in
+conversation — is written into the relevant live document in the same
+change: the specification skill it belongs to, a package README,
+`ARCHITECTURE.md`/`IMPLEMENTATION.md`, `PROJECT-BOUNDARIES.md`, or the
+workflow skill. Skills are live documents; a conclusion that lives only in
+a chat, a PR thread, or a commit message is lost.
+
+## Pull requests
+
+The branch, changeset, review, CI, and merge workflow is
+`.claude/skills/pull-requests/SKILL.md`. In short: fix or answer every Codex
+finding with a test, reply on the thread and **resolve it**, request
+`@codex review` again, and merge (squash, the only allowed method) only when
+CI is green and a review comes back with no finding.
+
 ## Versioning — changesets
 
 All `@cavelang/*` packages release together at one version (a changesets

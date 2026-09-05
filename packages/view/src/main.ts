@@ -6,6 +6,7 @@
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { Sensitivity, defaultDbPath, openAt } from '@cavelang/store'
+import { assemble } from '@cavelang/connect'
 import { defaultHost, defaultPort, serve } from './server.ts'
 
 const usage = `cave serve — browse a CAVE store in the browser (spec §30)
@@ -84,7 +85,7 @@ export const runServe = async (argv: readonly string[], context: RunContext = {}
     return 1
   }
   const dbPath = values.db ?? defaultDbPath()
-  const store = openAt(dbPath, { intent: 'read', ...values['no-prelude'] === true ? { registry: Registry.empty } : {} })
+  const store = openAt(dbPath, { intent: 'read', assemble, ...values['no-prelude'] === true ? { registry: Registry.empty } : {} })
   let handle: Awaited<ReturnType<typeof serve>> | undefined
   try {
     handle = await serve(store, {
