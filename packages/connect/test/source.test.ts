@@ -154,6 +154,8 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([], 'SELECT "x - should this be y", `y - should this be a string literal in single-quotes?`, "a""b" FROM records'), [], "SQLite's hint is stripped exactly and only after a quoted name")
   assert.deepEqual(Source.queryRecords([], 'SELECT * FROM records r JOIN records s USING("x - column not present in both tables")'), [], 'a USING column keeps its own suffix-like text')
   assert.deepEqual(Source.queryRecords([], 'SELECT ` first ` AS a, [ last ] AS b, " both " AS c, r.` first ` AS d FROM records r'), [], 'edge spaces in a delimited name are part of the field')
+  assert.deepEqual(Source.queryRecords([], 'SELECT `[id]` AS a, "`id`" AS b, `"x"` AS c, r."[y]" AS d FROM records r'), [], 'brackets and backticks SQLite already stripped are part of the field; a quoted name is staged both ways')
+  assert.deepEqual(Source.queryRecords([], 'SELECT r."first\nname" AS name FROM records r JOIN records s USING("a\nb")'), [], 'a name spanning lines is inferred whole')
   const wide = Array.from({ length: 100 }, (_, at) => `c${at}`)
   assert.deepEqual(Source.queryRecords([], `SELECT ${wide.join(', ')} FROM records WHERE ${wide.map(name => `${name} IS NULL`).join(' AND ')}`), [], 'inference is not capped: every column a wide query names is staged')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),

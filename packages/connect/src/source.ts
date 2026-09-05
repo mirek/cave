@@ -209,17 +209,19 @@ const sqliteValue = (value: unknown): unknown =>
     value
 
 /**
- * The columns a missing-column diagnostic may refer to. SQLite keeps the
- * quotes of a plain quoted identifier and drops them from a qualified
- * reference, so `r."last.name"` arrives as `r.last.name`, which could be
- * column `last.name` of `r` or column `r.last.name` of the table. Over an
- * empty table an extra column costs nothing, so every dotted suffix is
- * staged and the query resolves whichever it meant.
+ * The columns a missing-column diagnostic may refer to. SQLite strips
+ * backticks and brackets before reporting, keeps the double quotes of a
+ * plain quoted identifier, and drops them from a qualified reference, so
+ * `r."last.name"` arrives as `r.last.name`, which could be column
+ * `last.name` of `r` or column `r.last.name` of the table, and `"x"`
+ * could be the column `x` or a field literally named `"x"`. Over an empty
+ * table an extra column costs nothing, so every reading is staged and the
+ * query resolves whichever it meant.
  */
 const inferColumns = (reference: string): string[] => {
-  const unquote = (text: string): string => text.replace(/^["`[](.*)["`\]]$/, '$1')
-  if (unquote(reference) !== reference) {
-    return [unquote(reference)]
+  const quoted = /^"([^]*)"$/.exec(reference)
+  if (quoted !== null) {
+    return [reference, quoted[1]!]
   }
   const segments = reference.split('.')
   return segments.map((_, at) => segments.slice(at).join('.'))
@@ -234,11 +236,12 @@ const inferColumns = (reference: string): string[] => {
  */
 const missingColumn = (message: string): string | undefined => {
   const hint = ' - should this be a string literal in single-quotes?'
-  const column = /no such column: (.+)$/.exec(message)?.[1]
+  // A quoted name may span lines, so the capture does too.
+  const column = /no such column: ([^]+)$/.exec(message)?.[1]
   if (column !== undefined) {
     return column.startsWith('"') && column.endsWith(hint) ? column.slice(0, -hint.length) : column
   }
-  return /cannot join using column (.+) - column not present in both tables$/.exec(message)?.[1]
+  return /cannot join using column ([^]+) - column not present in both tables$/.exec(message)?.[1]
 }
 
 /** The SQLite representation of a record field: scalars as they are (bigints exact), booleans as 0/1, anything structured as JSON text. */

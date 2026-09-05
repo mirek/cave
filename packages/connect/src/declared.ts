@@ -168,14 +168,17 @@ export const resolvePath = (path: string, dir: string): string =>
 export const isCave = (declared: Declared): boolean =>
   declared.format === 'cave' || (declared.format === undefined && extname(declared.path).toLowerCase() === '.cave')
 
+/** A value as a shell argument: quoted when it carries whitespace or quotes, as the path may. */
+const argument = (value: string): string => /[\s"]/.test(value) ? JSON.stringify(value) : value
+
 /** The declaration as the equivalent `cave connect` invocation, for listings. */
 export const describe = (declared: Declared): string => {
-  const parts = [declared.path]
+  const parts = [argument(declared.path)]
   for (const attribute of attributes) {
     if (attribute === 'path') continue
     const value = declared[attribute]
     if (value !== undefined) {
-      parts.push(`--${attribute} ${/[\s"]/.test(value) ? JSON.stringify(value) : value}`)
+      parts.push(`--${attribute} ${argument(value)}`)
     }
   }
   return `${declared.name}: ${parts.join(' ')}`

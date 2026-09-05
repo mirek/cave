@@ -37,6 +37,7 @@ test('declared sources are current source/<name> claims with a path; retracting 
       { name: 'verbs', path: 'verbs.cave' }
     ])
     assert.equal(Declared.describe(Declared.declaredSources(store)[0]!), 'people: data/people.csv --map people.map.cave --key id')
+    assert.equal(Declared.describe({ name: 'staff', path: 'data/my people.csv', map: 'staff.map.cave' }), 'staff: "data/my people.csv" --map staff.map.cave', 'a path with whitespace is quoted so the listing pastes back')
     assert.equal(Declared.isCave({ name: 'verbs', path: 'verbs.cave' }), true)
     assert.equal(Declared.isCave({ name: 'x', path: 'x.txt', format: 'cave' }), true)
     assert.equal(Declared.isCave({ name: 'people', path: 'people.csv' }), false)
