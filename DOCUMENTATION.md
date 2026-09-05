@@ -40,10 +40,10 @@ in the repository.
 | Entry points | `README.md`, `DOCUMENTATION.md` | Step-by-step tutorial (backed by `examples/monorepo/` and `examples/market/`), specification index, and this maintenance map. |
 | Project references | `PROJECT-BOUNDARIES.md`, `RETIRED-ROADMAP.md`, `DEPENDENCY-MAINTENANCE.md` | Permanent non-goals, historical roadmap resolution, and dependency triage policy. |
 | System design | `ARCHITECTURE.md`, `IMPLEMENTATION.md` | Boundaries, flows, package map, toolchain, and implementation decisions. |
-| Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md` | Required repository and PR workflow. |
+| Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md`, `.claude/skills/pull-requests/SKILL.md` | Required repository and PR workflow: changesets, documentation review, the review loop (every finding fixed or answered, every addressed thread resolved), CI and the bot PDF commit, the `main` ruleset, and the rule that material conclusions are persisted in live documents. |
 | Normative specification skills | `.claude/skills/cave-design/SKILL.md`, `.claude/skills/cave-writing/SKILL.md`, `.claude/skills/cave-extraction/SKILL.md`, `.claude/skills/cave-storage-query/SKILL.md` | Numbered CAVE specification sections. |
 | Installable Agent Skill | `skills/cave/SKILL.md`, `skills/cave/references/usage.md`, `skills/cave/agents/openai.yaml` | Portable task guidance for CAVE users; defer to the connected server's version-matched `cave_help` tool. |
-| Supporting skills | `.claude/skills/typst/SKILL.md`, `.claude/skills/verify/SKILL.md` | Book production and end-to-end verification guidance. |
+| Supporting skills | `.claude/skills/typst/SKILL.md`, `.claude/skills/verify/SKILL.md`, `.claude/skills/pull-requests/SKILL.md` | Book production, end-to-end verification, and the pull-request workflow. |
 | Book source | `book/README.md`, `book/cave.typ`, `book/style.typ`, `book/chapters/*.typ`, `book/fixtures/*` | The book: one chapter per file, the shared fixtures its sessions load, and the build and example-test instructions. |
 | Book artifact | `website/public/cave-book.pdf` | Generated PDF; must change with its Typst source. |
 | Package reference | `packages/*/README.md`, `packages/solver/MINIZINC-EVALUATION.md`, `packages/solver/HIGHS-EVALUATION.md`, `packages/solver-z3/BENCHMARK.md` | Public package contracts, examples, solver measurements, and backend decisions. |
