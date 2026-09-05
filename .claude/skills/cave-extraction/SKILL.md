@@ -310,7 +310,8 @@ nothing changes; a source re-declared more than twenty times in one pass
 is a cycle and fails. Every run records the digest of the declaration it
 ran under, and a source whose declaration changed since — another path,
 key, query, or record selector — prunes as it runs, retiring the records
-its previous version produced that the new one does not. When several belief series speak about one
+its previous version produced that the new one does not; a source that
+carries digests but no recorded declaration counts as changed. When several belief series speak about one
 attribute — the root file and a followed source stamp differently — the
 newest current claim wins. A retraction inside a followed text retracts
 its own series only (§9.5): to remove a declaration the root made,
@@ -321,8 +322,8 @@ discovered, the declarations are read from the copy as they then stand,
 and the copy is discarded — and it keeps the exact run sequence, a
 re-declared source appearing again later; the overlay then replays that
 sequence in the real store's rolled-back transaction. Nothing is
-simulated, so a preview agrees with the pass, and the real database holds
-no lock while sources load.
+simulated, so a preview agrees with the pass, the real database holds no
+lock while sources load, and a dry run only reads the store.
 
 **Naming.** A declared source stamps `@src:<name>/<key>` on record claims
 and `@src:<name>` on its prelude, and keeps its digests under

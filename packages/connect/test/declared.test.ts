@@ -602,3 +602,24 @@ test('a source re-declared to another path retires the records its previous vers
     }
   })
 })
+
+test('a followed source without a recorded declaration is treated as changed when it runs again', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'old.csv'), 'id,name\n1,ann\n')
+    writeFileSync(join(dir, 'new.csv'), 'id,name\n2,bob\n')
+    writeFileSync(join(dir, 'people.map.cave'), '?name IS person\n')
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try {
+      Declared.run(store, Declared.prepareSync({ name: 'b', path: 'old.csv', map: 'people.map.cave', key: 'id' }, dir))
+      // A store followed before declarations were recorded: digests, no marker.
+      store.ingest(`source/b HAS ${Declared.declarationAttribute}: ${Declared.recordedDeclaration(store, 'b')} @src:cave-connect @ 0%`)
+      assert.equal(Declared.recordedDeclaration(store, 'b'), undefined)
+      Declared.run(store, Declared.prepareSync({ name: 'b', path: 'new.csv', map: 'people.map.cave', key: 'id' }, dir))
+      const people = store.currentBeliefs().filter(row => row.conf > 0 && row.verb === 'IS' && row.object === 'person').map(row => row.subject)
+      assert.deepEqual(people, ['bob'], 'the old record is retired although no declaration was recorded')
+    } finally {
+      store.close()
+    }
+  })
+})

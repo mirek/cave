@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { Writable } from 'node:stream'
@@ -584,6 +584,26 @@ test('--name still runs a parent\'s recorded descendants when the parent itself 
     assert.match(broken.err, /source\/parent \(parent\.cave\)/)
     assert.match(broken.out, /source\/people: 2 record\(s\): 1 mapped/, 'its recorded descendant still runs')
   } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a declared dry run only reads the store and works on a write-protected one', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-connect-declared-'))
+  const db = join(dir, 'k.db')
+  try {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS true\n')
+    const seed = open(db)
+    seed.ingest('source/facts HAS path: facts.cave')
+    seed.close()
+    chmodSync(db, 0o444)
+    const stdout = new Capture()
+    const stderr = new Capture()
+    const code = await runConnect(['--db', db, '--dry-run'], { stdout, stderr })
+    assert.equal(code, 0, stderr.value)
+    assert.match(stdout.value, /; === source\/facts \(facts\.cave\)[\s\S]*fact IS true/)
+  } finally {
+    chmodSync(db, 0o644)
     rmSync(dir, { recursive: true, force: true })
   }
 })

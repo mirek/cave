@@ -620,9 +620,9 @@ const runDeclared = async (values: Values, io: IO, context: RunContext): Promise
       }
     }
     if (values['dry-run'] === true || values.query !== undefined) {
-      // Discovery replays the pass inside rolled-back transactions, so the
-      // dry run opens writable too (never creating or migrating).
-      const store = openAt(db, { intent: 'scratch', assemble: Declared.assemble, ...registryOf(values) })
+      // Discovery works on a private snapshot, so the dry run only reads;
+      // the overlay appends into the store's own rolled-back transaction.
+      const store = openAt(db, { intent: values.query === undefined ? 'read' : 'scratch', assemble: Declared.assemble, ...registryOf(values) })
       try {
         return values.query === undefined ?
           await declaredDry(store, db, values, io, context) :

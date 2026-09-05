@@ -29,7 +29,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, digestOf, provenanceContext } from './run.ts'
+import { connect, declaredNaming, digestAttribute, digestOf, hasDigest, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -472,16 +472,35 @@ export const recordedDeclaration = (store: Store, name: string): undefined | str
   store.currentBeliefs().find(row =>
     row.conf > 0 && row.negated === 0 && row.subject === `${prefix}${name}` && row.attribute === declarationAttribute)?.value_text ?? undefined
 
+/** @returns `true` when any digest bookkeeping exists for the source — its prelude's or a record's. */
+const hasAnyDigest = (store: Store, name: string): boolean => {
+  const naming = declaredNaming(name)
+  if (hasDigest(store, naming.unit())) {
+    return true
+  }
+  const latest = new Map<string, { conf: number, tx: string, subject: string }>()
+  for (const row of store.byContext(provenanceContext)) {
+    if (row.attribute !== digestAttribute || row.negated !== 0) continue
+    const seen = latest.get(row.claim_key)
+    if (seen === undefined || seen.tx < row.tx) latest.set(row.claim_key, row)
+  }
+  return [...latest.values()].some(row => row.conf > 0 && row.subject.startsWith(naming.recordPrefix))
+}
+
 /**
  * One pass of a prepared declared source under `declaredNaming` (spec
  * §23.4), recording the declaration it ran under. A source whose
  * declaration changed since its last run — another path, key, query, or
  * record selector — prunes as it runs: records the new version does not
- * produce are retired, since the per-record diff never visits them.
+ * produce are retired, since the per-record diff never visits them. A
+ * source that was followed without a recorded declaration (digests, no
+ * marker) is treated as changed, conservatively.
  */
 export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report => {
   const previous = recordedDeclaration(store, ready.declared.name)
-  const transition = previous !== undefined && previous !== declarationDigest(ready.declared)
+  const transition = previous === undefined ?
+    hasAnyDigest(store, ready.declared.name) :
+    previous !== declarationDigest(ready.declared)
   const report = connect(store, ready.mapping, ready.records, {
     name: ready.declared.name,
     naming: declaredNaming(ready.declared.name),
