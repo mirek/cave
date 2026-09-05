@@ -725,15 +725,16 @@ files and nothing else, and it never changes the database file itself; an
 `immutable` open would avoid them only by risking stale or torn reads while
 a writer is active, so CAVE does not use one. Only appending surfaces initialize a missing
 SQLite store or migrate an older one. Mixed commands decide by what the
-invocation does: `--list` and `suggest-alias` without `--write` read, while
-a dry run (`derive`, `act`, `sync --dry-run`, `connect --query`) appends
-inside a rolled-back transaction and therefore opens writable but still
-creates and migrates nothing. Two
+invocation does: `--list`, `suggest-alias` without `--write`, and
+`ingest --plan`/`--dry-run` read, while a dry run that appends inside a
+rolled-back transaction (`derive`, `act`, `sync --dry-run`, `connect
+--query`) opens writable but still creates and migrates nothing. Two
 long-lived surfaces are deliberate exceptions: `cave mcp` initializes its
 store on first start even under `--read-only`, because the file is an
 agent's memory and may not exist yet, and serves a text file only under
-`--read-only`; `cave connect --query` over a missing path queries the
-mapped source alone (§23.3).
+`--read-only`; `cave connect --query` and `cave ingest --plan`/`--dry-run`
+over a missing path work against an empty in-memory store, so a source can
+be federated or planned before any store exists (§23.3).
 
 ---
 

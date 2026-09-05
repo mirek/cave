@@ -87,7 +87,8 @@ error rather than a fresh empty database, and a read never migrates an older
 store — it names the writing command that does (spec §13.7). Dry runs
 (`derive --dry-run`, `act --dry-run`, `sync --dry-run`, `connect --query`)
 append inside a rolled-back transaction, so they open writable but likewise
-create and migrate nothing.
+create and migrate nothing; `ingest --plan` and `--dry-run` only read, and
+plan against an empty in-memory store when no store exists yet.
 
 All commands—synchronous, asynchronous, and long-running—enter through one
 promise-based dispatcher. It owns argument-exception formatting, stdout and

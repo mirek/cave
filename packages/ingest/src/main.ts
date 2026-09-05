@@ -6,7 +6,8 @@
 
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
-import { defaultDbPath, openAt } from '@cavelang/store'
+import { LocateError, defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
+import type { Store } from '@cavelang/store'
 import { promptFor, run, selectBatches, writeMcpConfig } from './run.ts'
 
 const usage = `cave ingest — LLM-driven ingestion of files and web pages
@@ -101,7 +102,21 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
     return 1
   }
   const noPrelude = values['no-prelude'] === true
-  const store = openAt(db, { intent: 'write', ...noPrelude ? { registry: Registry.empty } : {} })
+  const registry = noPrelude ? { registry: Registry.empty } : {}
+  // Planning only reads the store (stored digests decide which sources are
+  // unchanged), so it must not create or migrate one (spec §13.7); a plan
+  // before any store exists is legitimate and runs against an empty
+  // in-memory store.
+  let store: Store
+  try {
+    store = !planning ? openAt(db, { intent: 'write', ...registry }) :
+      kindOf(db) === 'missing' ? open(':memory:', registry) :
+        openAt(db, { intent: 'read', ...registry })
+  } catch (error) {
+    if (!(error instanceof LocateError)) throw error
+    stderr.write(`cave ingest: ${error.message}\n`)
+    return 1
+  }
   try {
     const options = {
       db,

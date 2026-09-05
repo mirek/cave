@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Writable } from 'node:stream'
@@ -65,6 +65,34 @@ test('CLI strict and lenient modes expose atomic exit codes and complete JSON ma
     assert.equal(help.code, 0)
     assert.match(help.out, /--lenient\s+commit accepted batches and continue after failures/)
     assert.match(help.out, /--json\s+print the complete machine-readable result manifest/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--plan and --dry-run never create or migrate the store (spec §13.7)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-main-'))
+  try {
+    const source = join(dir, 'source.md')
+    writeFileSync(source, 'source material\n')
+    const missing = join(dir, 'missing.db')
+    const planned = await invoke([source, '--db', missing, '--plan'])
+    assert.equal(planned.code, 0, planned.err)
+    assert.equal(JSON.parse(planned.out.trim().split('\n')[0]!).files.length, 1, 'one planned batch with the source')
+    assert.equal(existsSync(missing), false, 'a plan runs against an empty in-memory store instead of creating one')
+    const dry = await invoke([source, '--db', missing, '--dry-run'])
+    assert.equal(dry.code, 0, dry.err)
+    assert.equal(existsSync(missing), false)
+
+    const legacy = join(dir, 'legacy.db')
+    const store = open(legacy)
+    store.db.exec('PRAGMA user_version = 0')
+    store.close()
+    const bytes = readFileSync(legacy)
+    const refused = await invoke([source, '--db', legacy, '--dry-run'])
+    assert.equal(refused.code, 1)
+    assert.match(refused.err, /legacy\.db: schema version 0 needs migration/)
+    assert.deepEqual(readFileSync(legacy), bytes, 'the dry run left the older store untouched')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
