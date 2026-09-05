@@ -249,8 +249,8 @@ test('discover applies nested re-declarations and treats record-only sources as 
       const ready = await Declared.discover(store, db)
       assert.deepEqual(ready.map(entry => [entry.declared.name, entry.declared.path]), [['b', 'old.cave'], ['people', 'people.csv'], ['z', 'z.cave'], ['b', 'new.cave']], 'the run sequence: b runs under the old path, z re-declares it, b runs again under the new one')
       Declared.run(store, Declared.prepareSync({ name: 'people', path: 'people.csv', map: 'people.map.cave', key: 'id' }, dir))
-      assert.equal(Declared.followed(store, 'people'), true, 'record digests count — the mapping has no prelude')
-      assert.equal(Declared.followed(store, 'b'), false)
+      assert.equal(Declared.followed(store, { name: 'people', path: 'people.csv', map: 'people.map.cave', key: 'id' }), true, 'the run recorded its declaration — the mapping has no prelude')
+      assert.equal(Declared.followed(store, { name: 'b', path: 'old.cave' }), false)
       const left = await Declared.discover(store, db, { skipFollowed: true })
       assert.deepEqual(left.map(entry => entry.declared.name), ['b', 'z', 'b'], 'people is skipped; b runs, z re-declares it, b runs again')
     } finally {
@@ -408,7 +408,7 @@ test('a text store overlay loads a followed source again when a URL source re-de
     writeFileSync(root, 'source/people HAS path: people.csv\nsource/people HAS map: as-person.map.cave\nsource/remote HAS path: https://example.test/remap.cave\n')
     const store = openAt(root, { intent: 'scratch', assemble })
     try {
-      assert.equal(Declared.followed(store, 'people'), true)
+      assert.equal(Declared.followed(store, { name: 'people', path: 'people.csv', map: 'as-person.map.cave' }), true)
       const fetchImpl = async (): Promise<Response> =>
         new Response('source/people HAS map: as-staff.map.cave\n', { status: 200, headers: { 'content-type': 'text/plain' } })
       const sequence = await Declared.discover(store, root, { skipFollowed: true, force: true, fetchImpl })
@@ -432,14 +432,36 @@ test('a nested name is refused even when the declaration would be skipped as a U
   })
 })
 
-test('an authored claim under the bookkeeping context does not count as a followed record', () => {
-  const store = open()
+test('followed means followed under this very declaration, not merely digests left by an earlier version', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
   try {
-    store.ingest('source/remote HAS path: https://example.test/x.cave\nsource/remote/1 HAS note: hello @src:cave-connect')
-    assert.equal(Declared.followed(store, 'remote'), false)
-    store.ingest('source/remote/1 HAS connect-digest: abc @src:cave-connect')
-    assert.equal(Declared.followed(store, 'remote'), true)
+    const remote = { name: 'remote', path: 'https://example.test/x.cave' }
+    const store = open()
+    try {
+      store.ingest('source/remote HAS path: https://example.test/x.cave\nsource/remote/1 HAS note: hello @src:cave-connect\nsource/remote/1 HAS connect-digest: abc @src:cave-connect')
+      assert.equal(Declared.followed(store, remote), false, 'digests and authored bookkeeping claims prove nothing about this declaration')
+      store.ingest(`source/remote HAS connect-declaration: ${Declared.declarationDigest(remote)} @src:cave-connect`)
+      assert.equal(Declared.followed(store, remote), true)
+      assert.equal(Declared.followed(store, { ...remote, map: 'x.map.cave' }), false, 'a different declaration is a different source version')
+    } finally {
+      store.close()
+    }
+    // A text store assembles b as a local file, then a later text re-declares
+    // b as a URL: assembly skips the URL, and the overlay must fetch it.
+    writeFileSync(join(dir, 'people.csv'), people)
+    writeFileSync(join(dir, 'people.map.cave'), peopleMap)
+    writeFileSync(join(dir, 'z.cave'), 'source/b HAS path: https://example.test/b.cave\nsource/b HAS map: people.map.cave @ 0%\n')
+    const root = join(dir, 'notes.cave')
+    writeFileSync(root, 'source/b HAS path: people.csv\nsource/b HAS map: people.map.cave\nsource/z HAS path: z.cave\n')
+    const text = openAt(root, { intent: 'scratch', assemble })
+    try {
+      assert.equal(Declared.declaredSources(text).find(declared => declared.name === 'b')?.path, 'https://example.test/b.cave')
+      const sequence = await Declared.discover(text, root, { skipFollowed: true, force: true, fetchImpl: async () => new Response('b IS remote\n', { status: 200 }) })
+      assert.deepEqual(sequence.map(entry => entry.declared.name), ['b'], 'the URL version of b is fetched, its local digests notwithstanding')
+    } finally {
+      text.close()
+    }
   } finally {
-    store.close()
+    rmSync(dir, { recursive: true, force: true })
   }
 })

@@ -358,10 +358,11 @@ lifecycle run is the stamp.
   them, a `.cave` URL included.
 - `cave query --sources` overlays the store's declared sources inside a
   transaction that rolls back (§23.3), loading them first, URLs included.
-  A text store followed its local sources on open — a source counts as
-  followed when its prelude or any of its records carries a digest — so
-  only what assembly could not follow, URL sources and what they declare,
-  is loaded. The
+  A text store followed its local sources on open — every run records the
+  digest of the declaration it ran under on the source entity
+  (`source/<name> HAS connect-declaration: …`), and a source counts as
+  followed only under that same declaration — so only what assembly could
+  not follow, URL sources and what they declare, is loaded. The
   overlay exists for one invocation, so the answer is whole: pages are
   followed inside the transaction and `--cursor` does not apply.
 - Programmatic: `@cavelang/connect` — `Declared.declaredSources(store)`,

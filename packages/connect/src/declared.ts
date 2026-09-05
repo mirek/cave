@@ -28,7 +28,7 @@ import { LocateError, open } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, declaredNaming, digestAttribute, hasDigest, provenanceContext } from './run.ts'
+import { connect, declaredNaming, digestOf, provenanceContext } from './run.ts'
 import type { Report } from './run.ts'
 
 /** Entity prefix of source declarations and policy (spec §26.3). */
@@ -177,28 +177,25 @@ const sourceOptions = (declared: Declared, fetchImpl?: Source.FetchLike): Source
 export const signature = (declared: Declared): string =>
   JSON.stringify(attributes.map(attribute => declared[attribute] ?? null))
 
+/** Bookkeeping attribute recording which declaration a source was last run under. */
+export const declarationAttribute = 'connect-declaration'
+
+/** Digest of a declaration — what a run records, and what `followed` compares. */
+export const declarationDigest = (declared: Declared): string =>
+  digestOf(signature(declared))
+
 /**
- * @returns `true` when the store has followed the source at all: its
- * prelude digest, or any current record digest under `source/<name>/`.
- * A record-only mapping (no variable-free block) writes no prelude digest.
+ * @returns `true` when the store followed the source under exactly this
+ * declaration: every run records the declaration's digest on the source
+ * entity (`source/<name> HAS connect-declaration: …`), so a source
+ * re-declared since — a local file that became a URL, say — is not
+ * followed, whatever digests its earlier version left behind.
  */
-export const followed = (store: Store, name: string): boolean => {
-  const naming = declaredNaming(name)
-  if (hasDigest(store, naming.unit())) {
-    return true
-  }
-  const latest = new Map<string, { conf: number, tx: string, subject: string, attribute: null | string, negated: number }>()
-  for (const row of store.byContext(provenanceContext)) {
-    // Only digest bookkeeping counts: the context is authorable, a digest row is not.
-    if (row.attribute !== digestAttribute || row.negated !== 0) {
-      continue
-    }
-    const seen = latest.get(row.claim_key)
-    if (seen === undefined || seen.tx < row.tx) {
-      latest.set(row.claim_key, row)
-    }
-  }
-  return [...latest.values()].some(row => row.conf > 0 && row.subject.startsWith(naming.recordPrefix))
+export const followed = (store: Store, declared: Declared): boolean => {
+  const expected = declarationDigest(declared)
+  return store.currentBeliefs().some(row =>
+    row.conf > 0 && row.negated === 0 && row.subject === `${prefix}${declared.name}` &&
+    row.attribute === declarationAttribute && row.value_text === expected)
 }
 
 /** A selection and everything it owns, transitively — what a named watch must watch. */
@@ -401,9 +398,9 @@ export const discover = async (store: Store, root: string, options: DiscoverOpti
     done.set(next.name, signature(next))
     // The name rule holds for every declaration, skipped ones included.
     validate(next)
-    // Only the baseline declaration counts as followed: a version a replayed
-    // source produced is new, whatever the store followed before.
-    if (options.skipFollowed === true && baseline.get(next.name) === signature(next) && followed(store, next.name)) {
+    // Followed means followed under this very declaration: a version a
+    // replayed source produced, or one assembly replaced, is new.
+    if (options.skipFollowed === true && followed(store, next)) {
       continue
     }
     sequence.push(await prepare(next, dir, options.fetchImpl))
@@ -445,9 +442,9 @@ export type RunOptions = {
   readonly prune?: boolean
 }
 
-/** One pass of a prepared declared source under `declaredNaming` (spec §23.4). */
-export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report =>
-  connect(store, ready.mapping, ready.records, {
+/** One pass of a prepared declared source under `declaredNaming` (spec §23.4), recording the declaration it ran under. */
+export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report => {
+  const report = connect(store, ready.mapping, ready.records, {
     name: ready.declared.name,
     naming: declaredNaming(ready.declared.name),
     // A .cave source is data that changes: claims it no longer yields retract.
@@ -458,6 +455,11 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
     force: options.force === true,
     prune: options.prune === true
   })
+  if (!followed(store, ready.declared)) {
+    store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)
+  }
+  return report
+}
 
 export type Assembled = {
   readonly declared: Declared

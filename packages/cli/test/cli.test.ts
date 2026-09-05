@@ -1687,7 +1687,7 @@ test('doctor recognizes a CAVE text store and its declared sources', () => {
     writeFileSync(notes, 'acme IS company\nsource/people HAS path: people.csv\nsource/people HAS map: people.map.cave\n')
     const report = JSON.parse(doctorCommand(['--db', notes, '--json']).out)
     assert.equal(report.configuration.database.kind, 'text')
-    assert.equal(report.configuration.database.claims, 5, 'the root claim, the two declaration claims, the mapped record, and its digest')
+    assert.equal(report.configuration.database.claims, 6, 'the root claim, the two declaration claims, the mapped record, its digest, and the declaration the run recorded')
     assert.match(report.checks.find((entry: { id: string }) => entry.id === 'store.database').summary, /text store assembled in memory/)
     writeFileSync(notes, 'source/people HAS path: nope.csv\nsource/people HAS map: people.map.cave\n')
     const broken = JSON.parse(doctorCommand(['--db', notes, '--json']).out)
