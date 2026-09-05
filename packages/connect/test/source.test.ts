@@ -148,6 +148,7 @@ test('--sql reshapes text-format records through a temporary SQLite table (spec 
   assert.deepEqual(Source.queryRecords([], 'SELECT "first.name", r."last.name" FROM records AS r'), [], 'a quoted identifier keeps its dots')
   assert.deepEqual(Source.queryRecords([], 'SELECT r.id, "r.id" FROM records AS r'), [], 'a qualified name and a quoted dotted column coexist')
   assert.throws(() => Source.queryRecords([{ id: 1 }], 'SELECT nope FROM records'), /no such column/, 'with records present a missing column is the mistake it is')
+  assert.throws(() => Source.queryRecords([], 'SELECT nmae FROM records', 'records', ['id', 'name']), /no such column: nmae/, 'a header-bearing source keeps its validation even when empty')
   assert.deepEqual(Source.queryRecords([{ id: '9007199254740993' }], 'SELECT CAST(id AS INTEGER) AS big, CAST(id AS INTEGER) + 0 AS same FROM records'),
     [{ big: '9007199254740993', same: '9007199254740993' }], 'an integer beyond the safe range comes back as exact text, not an error')
   assert.deepEqual(Source.queryRecords([{ id: 9007199254740993n }], 'SELECT id FROM records'), [{ id: '9007199254740993' }], 'a bigint field is bound exactly')

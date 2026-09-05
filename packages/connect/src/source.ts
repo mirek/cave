@@ -309,7 +309,9 @@ export const queryRecords = (
     try {
       return stage()
     } catch (error) {
-      const missing = records.length === 0 && attempt < 64 ?
+      // Only a schemaless, empty input infers: a header-bearing source keeps
+      // SQLite's own validation, so a typo stays a typo.
+      const missing = records.length === 0 && schema === undefined && attempt < 64 ?
         /no such column: (.+?)(?: - should this be .*)?$/.exec(error instanceof Error ? error.message : '') :
         null
       const names = missing === null ? [] : inferColumns(missing[1]!.trim()).filter(name => name !== '' && !known.has(name))
