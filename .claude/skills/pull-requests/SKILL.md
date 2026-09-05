@@ -22,6 +22,14 @@ description: How a change lands in this repo — branch, changeset, documentatio
   with `gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`.
 - Merging main into a branch conflicts on `website/public/cave-book.pdf`
   whenever both sides rebuilt it: take either side, CI regenerates it.
+- **A conflicting PR gets no CI at all.** GitHub creates no `pull_request`
+  workflow run while the PR has a merge conflict — no held run, no check,
+  nothing on the Actions tab — and nothing on the branch (pushes, an empty
+  commit, close and reopen) changes that. The signature is "checks stopped
+  appearing" right after main moved; `gh pr view N --json mergeable`
+  reports `CONFLICTING`. Resolve the conflict and the runs appear at once.
+  A release merge on main rebuilds the book PDF, so a branch that CI gave
+  its own PDF commit conflicts the moment the release lands.
 
 ## The review loop
 
