@@ -1,5 +1,14 @@
 # @cavelang/canonical
 
+## 0.35.0
+
+### Patch Changes
+
+- Updated dependencies [d64cad8]
+- Updated dependencies [15c38bf]
+  - @cavelang/core@0.35.0
+  - @cavelang/parser@0.35.0
+
 ## 0.34.0
 
 ### Patch Changes
