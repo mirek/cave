@@ -94,15 +94,17 @@ main rather than once per merged PR:
    `editors/vscode/package.json` and
    `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
    every public package `CHANGELOG.md` and `editors/vscode/CHANGELOG.md`
-   carry a `## <version>` heading; `website/package.json` deliberately
+   carry a `## <version>` heading (private workspaces get no changelog
+   entry and the preflight does not ask for one); `website/package.json` deliberately
    does not move. One pass over the branch:
 
    ```sh
-   v=$(git show origin/changeset-release/main:package.json | jq -r .version)
-   for f in $(git ls-tree -r --name-only origin/changeset-release/main | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
-     git show origin/changeset-release/main:$f | jq -e --arg v "$v" '.version == $v' >/dev/null || echo "version drift: $f"; done
-   for f in $(git ls-tree -r --name-only origin/changeset-release/main | grep -E '^(packages/[^/]+|editors/vscode)/CHANGELOG.md$'); do
-     git show origin/changeset-release/main:$f | grep -q "^## $v\$" || echo "no $v entry: $f"; done
+   b=origin/changeset-release/main; v=$(git show $b:package.json | jq -r .version)
+   for f in $(git ls-tree -r --name-only $b | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
+     m=$(git show $b:$f); jq -e --arg v "$v" '.version == $v' <<<"$m" >/dev/null || echo "version drift: $f"
+     case $f in editors/vscode/*) ;; *) jq -e '.private == true' <<<"$m" >/dev/null && continue ;; esac
+     git show $b:${f%package.json}CHANGELOG.md | grep -q "^## $v\$" || echo "no $v entry: ${f%package.json}CHANGELOG.md"
+   done
    ```
 
    Running `release-validate.mjs --mode=version-pr` locally on the branch
