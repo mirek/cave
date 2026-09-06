@@ -123,7 +123,11 @@ main rather than once per merged PR:
    repeat step 1 immediately before the squash merge: if `main` moved
    during the wait, the branch no longer carries every pending changeset,
    so wait for the action to refresh it and start over rather than merge
-   an older bump. Squash-merge, then watch the Publish run on `main`. A
+   an older bump. If `main` moved and no pending changeset is left on it,
+   another session merged the release PR meanwhile; the obligation is met,
+   and no refresh is coming (the Publish workflow publishes in that state
+   instead of opening a version PR), so stop. Otherwise squash-merge, then
+   watch the Publish run on `main`. A
    publish that fails after some "✅ Published" lines is rerun at the same
    commit (`gh run rerun <id>`); published packages are skipped and the
    `v<version>` tag repaired.
