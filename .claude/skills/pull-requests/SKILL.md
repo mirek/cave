@@ -119,8 +119,11 @@ main rather than once per merged PR:
    dependency advisories), held in `action_required` because the author is
    a bot. Approve them
    (`gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`; list with
-   `gh run list --branch changeset-release/main`), wait for green,
-   squash-merge, then watch the Publish run on `main`. A
+   `gh run list --branch changeset-release/main`), wait for green, then
+   repeat step 1 immediately before the squash merge: if `main` moved
+   during the wait, the branch no longer carries every pending changeset,
+   so wait for the action to refresh it and start over rather than merge
+   an older bump. Squash-merge, then watch the Publish run on `main`. A
    publish that fails after some "✅ Published" lines is rerun at the same
    commit (`gh run rerun <id>`); published packages are skipped and the
    `v<version>` tag repaired.
