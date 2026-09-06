@@ -1,5 +1,12 @@
 # @cavelang/core
 
+## 0.35.0
+
+### Patch Changes
+
+- d64cad8: Add the `pull-requests` skill: the branch, changeset, Codex review loop (fix or answer every finding, resolve every addressed thread), CI and book-PDF commit, and `main` ruleset workflow, plus the instruction that every material finding or conclusion is persisted in a live document rather than left in a conversation.
+- 15c38bf: The pull-requests skill and `CLAUDE.md` state that the session which merges a changeset-carrying PR also verifies and merges the resulting `chore(release): version packages` PR before it ends, with the staleness, completeness, derived-manifest and CI checklist that verification runs through.
+
 ## 0.34.0
 
 ## 0.33.0
