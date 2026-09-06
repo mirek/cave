@@ -83,8 +83,9 @@ main rather than once per merged PR:
 1. Not stale: the merge-base of `changeset-release/main` and `main` is the
    `main` head. If it is not, the action has not caught up yet — wait for
    its run on `main` to finish rather than merging an older bump.
-2. Complete: every `.changeset/*.md` on `main` is deleted in the PR, the
-   bump matches the highest pending level (any `minor` → `0.X.0`), and each
+2. Complete: every pending changeset on `main` (`.changeset/*.md` except
+   `README.md`, which the action keeps, as `ci.yml` and
+   `release-validate.mjs` do) is deleted in the PR, the bump matches the highest pending level (any `minor` → `0.X.0`), and each
    fixed-group `CHANGELOG.md` carries the new heading with the entries.
 3. Derived manifests: the root `package.json`, `editors/vscode/package.json`
    and `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
@@ -92,9 +93,13 @@ main rather than once per merged PR:
    `scripts/release-validate.mjs --mode=version-pr` locally on the branch
    fails with "not reachable from origin/main" before the merge — expected,
    CI runs it in the merged context.
-4. CI: the branch is bot-pushed, so its runs sit in `action_required`;
-   approve them (`gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`),
-   wait for green, squash-merge, then watch the Publish run on `main`. A
+4. CI: the action pushes the branch with `GITHUB_TOKEN`, so no `push`
+   run is created, but the PR still gets `pull_request` runs (CI and the
+   dependency advisories), held in `action_required` because the author is
+   a bot. Approve them
+   (`gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`; list with
+   `gh run list --branch changeset-release/main`), wait for green,
+   squash-merge, then watch the Publish run on `main`. A
    publish that fails after some "✅ Published" lines is rerun at the same
    commit (`gh run rerun <id>`); published packages are skipped and the
    `v<version>` tag repaired.
