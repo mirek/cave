@@ -87,10 +87,25 @@ main rather than once per merged PR:
    `README.md`, which the action keeps, as `ci.yml` and
    `release-validate.mjs` do) is deleted in the PR, the bump matches the highest pending level (any `minor` → `0.X.0`), and each
    fixed-group `CHANGELOG.md` carries the new heading with the entries.
-3. Derived manifests: the root `package.json`, `editors/vscode/package.json`
-   and `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
-   `website/package.json` deliberately does not. Running
-   `scripts/release-validate.mjs --mode=version-pr` locally on the branch
+3. Derived files, the same set the post-merge publish preflight
+   (`scripts/release-validate.mjs --mode=publish`) rejects a release over:
+   every `packages/*/package.json`, private workspaces such as
+   `@cavelang/mcp` included, the root `package.json`,
+   `editors/vscode/package.json` and
+   `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
+   every public package `CHANGELOG.md` and `editors/vscode/CHANGELOG.md`
+   carry a `## <version>` heading; `website/package.json` deliberately
+   does not move. One pass over the branch:
+
+   ```sh
+   v=$(git show origin/changeset-release/main:package.json | jq -r .version)
+   for f in $(git ls-tree -r --name-only origin/changeset-release/main | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
+     git show origin/changeset-release/main:$f | jq -e --arg v "$v" '.version == $v' >/dev/null || echo "version drift: $f"; done
+   for f in $(git ls-tree -r --name-only origin/changeset-release/main | grep -E '^(packages/[^/]+|editors/vscode)/CHANGELOG.md$'); do
+     git show origin/changeset-release/main:$f | grep -q "^## $v\$" || echo "no $v entry: $f"; done
+   ```
+
+   Running `release-validate.mjs --mode=version-pr` locally on the branch
    fails with "not reachable from origin/main" before the merge — expected,
    CI runs it in the merged context.
 4. CI: the action pushes the branch with `GITHUB_TOKEN`, so no `push`
