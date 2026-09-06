@@ -80,8 +80,10 @@ every `@cavelang/*` package to npm and the VS Code extension to Marketplace,
 so verify before merging, and merge once the branch reflects everything on
 main rather than once per merged PR:
 
-1. Not stale: the merge-base of `changeset-release/main` and `main` is the
-   `main` head. If it is not, the action has not caught up yet — wait for
+1. Not stale: fetch first, since neither `gh pr merge` nor the action's
+   run refreshes local refs (`git fetch origin main changeset-release/main`),
+   then the merge-base of `origin/changeset-release/main` and `origin/main`
+   is the `origin/main` head. If it is not, the action has not caught up yet — wait for
    its run on `main` to finish rather than merging an older bump.
 2. Complete: every pending changeset on `main` (`.changeset/*.md` except
    `README.md`, which the action keeps, as `ci.yml` and
@@ -99,7 +101,9 @@ main rather than once per merged PR:
    does not move. One pass over the branch:
 
    ```sh
+   git fetch origin main changeset-release/main
    b=origin/changeset-release/main; v=$(git show $b:package.json | jq -r .version)
+   [ "$(git show $b:packages/tree-sitter-cave/tree-sitter.json | jq -r .metadata.version)" = "$v" ] || echo "version drift: packages/tree-sitter-cave/tree-sitter.json"
    for f in $(git ls-tree -r --name-only $b | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
      m=$(git show $b:$f); jq -e --arg v "$v" '.version == $v' <<<"$m" >/dev/null || echo "version drift: $f"
      case $f in editors/vscode/*) ;; *) jq -e '.private == true' <<<"$m" >/dev/null && continue ;; esac
