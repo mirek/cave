@@ -1,6 +1,6 @@
 ---
 name: pull-requests
-description: How a change lands in this repo — branch, changeset, documentation review, the Codex review loop (fix or answer every finding, then resolve its thread), CI and the bot's book-PDF commit, the main ruleset, and the rule that every material finding or conclusion is persisted in a live document, never left in a conversation.
+description: How a change lands in this repo — branch, changeset, documentation review, the Codex review loop (fix or answer every finding, then resolve its thread), CI and the bot's book-PDF commit, the main ruleset, the release PR that every session merges before it ends, and the rule that every material finding or conclusion is persisted in a live document, never left in a conversation.
 ---
 
 # Landing a change
@@ -68,6 +68,71 @@ green CI and no open finding.
    files; converge by fixing, not by arguing.
 5. Refresh `api/packed-api.md` (`UPDATE_PACKED_API=1 make smoke`) after any
    export-signature or usage-text change, or the smoke job fails.
+
+## The release PR
+
+Every merge that carries a changeset makes the changesets action open or
+refresh `chore(release): version packages` on `changeset-release/main`.
+**Merging that PR is part of the session that produced it, not a separate
+request**: a session that merges any changeset-carrying PR ends by
+verifying and merging the release PR, without asking. Merging it publishes
+every `@cavelang/*` package to npm and the VS Code extension to Marketplace,
+so verify before merging, and merge once the branch reflects everything on
+main rather than once per merged PR:
+
+1. Not stale: fetch first, since neither `gh pr merge` nor the action's
+   run refreshes local refs (`git fetch origin main changeset-release/main`),
+   then the merge-base of `origin/changeset-release/main` and `origin/main`
+   is the `origin/main` head. If it is not, the action has not caught up yet — wait for
+   its run on `main` to finish rather than merging an older bump.
+2. Complete: every pending changeset on `main` (`.changeset/*.md` except
+   `README.md`, which the action keeps, as `ci.yml` and
+   `release-validate.mjs` do) is deleted in the PR, the bump matches the highest pending level (any `minor` → `0.X.0`), and each
+   fixed-group `CHANGELOG.md` carries the new heading with the entries.
+3. Derived files, the same set the post-merge publish preflight
+   (`scripts/release-validate.mjs --mode=publish`) rejects a release over:
+   every `packages/*/package.json`, private workspaces such as
+   `@cavelang/mcp` included, the root `package.json`,
+   `editors/vscode/package.json` and
+   `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
+   every public package `CHANGELOG.md` and `editors/vscode/CHANGELOG.md`
+   carry a `## <version>` heading (private workspaces get no changelog
+   entry and the preflight does not ask for one); `website/package.json` deliberately
+   does not move. One pass over the branch, which exits nonzero on any
+   mismatch so a session keyed on its status fails closed:
+
+   ```sh
+   git fetch origin main changeset-release/main
+   b=origin/changeset-release/main; v=$(git show $b:package.json | jq -r .version); bad=
+   [ "$(git show $b:packages/tree-sitter-cave/tree-sitter.json | jq -r .metadata.version)" = "$v" ] || { echo "version drift: packages/tree-sitter-cave/tree-sitter.json"; bad=1; }
+   for f in $(git ls-tree -r --name-only $b | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
+     m=$(git show $b:$f); jq -e --arg v "$v" '.version == $v' <<<"$m" >/dev/null || { echo "version drift: $f"; bad=1; }
+     case $f in editors/vscode/*) ;; *) jq -e '.private == true' <<<"$m" >/dev/null && continue ;; esac
+     git show $b:${f%package.json}CHANGELOG.md | grep -q "^## $v\$" || { echo "no $v entry: ${f%package.json}CHANGELOG.md"; bad=1; }
+   done
+   [ -z "$bad" ] && echo "release branch complete at $v" || { echo "release branch incomplete, do not merge"; false; }
+   ```
+
+   Running `release-validate.mjs --mode=version-pr` locally on the branch
+   fails with "not reachable from origin/main" before the merge — expected,
+   CI runs it in the merged context.
+4. CI: the action pushes the branch with `GITHUB_TOKEN`, so no `push`
+   run is created, but the PR still gets `pull_request` runs (CI and the
+   dependency advisories), held in `action_required` because the author is
+   a bot. Approve them
+   (`gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`; list with
+   `gh run list --branch changeset-release/main`), wait for green, then
+   repeat step 1 immediately before the squash merge: if `main` moved
+   during the wait, the branch no longer carries every pending changeset,
+   so wait for the action to refresh it and start over rather than merge
+   an older bump. If `main` moved and no pending changeset is left on it,
+   another session merged the release PR meanwhile; the obligation is met,
+   and no refresh is coming (the Publish workflow publishes in that state
+   instead of opening a version PR), so stop. Otherwise squash-merge, then
+   watch the Publish run on `main`. A
+   publish that fails after some "✅ Published" lines is rerun at the same
+   commit (`gh run rerun <id>`); published packages are skipped and the
+   `v<version>` tag repaired.
 
 ## Persist conclusions
 

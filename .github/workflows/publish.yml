@@ -87,13 +87,16 @@ jobs:
           path: ~/.cache/cave/grammar-toolchain/downloads
           key: grammar-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/grammar-toolchain.json') }}
 
-      # Note: the version packages PR is opened with GITHUB_TOKEN, so CI
-      # does not run on it automatically (GitHub suppresses workflows for
-      # events created by the default token). Its diff is only version
-      # fields; CI runs on main after merge, and the publish path below
-      # builds and tests before anything ships. If branch protection ever
-      # requires checks on that PR, give this step a PAT or GitHub App
-      # token instead.
+      # Note: the version packages PR is opened with GITHUB_TOKEN, so its
+      # branch push creates no `push` run (GitHub suppresses workflows for
+      # events created by the default token). The PR itself still gets
+      # `pull_request` runs, held in `action_required` until a maintainer
+      # approves them (`gh api -X POST .../actions/runs/<id>/approve`);
+      # the pull-requests skill's release-PR checklist does that before
+      # merging. CI also runs on main after merge, and the publish path
+      # below builds and tests before anything ships. If branch protection
+      # ever requires those checks without manual approval, give this step
+      # a PAT or GitHub App token instead.
       - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
           version: pnpm run version-packages
