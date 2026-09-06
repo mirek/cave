@@ -33,7 +33,9 @@ The branch, changeset, review, CI, and merge workflow is
 `.claude/skills/pull-requests/SKILL.md`. In short: fix or answer every Codex
 finding with a test, reply on the thread and **resolve it**, request
 `@codex review` again, and merge (squash, the only allowed method) only when
-CI is green and a review comes back with no finding.
+CI is green and a review comes back with no finding. A session that merges
+a changeset-carrying PR also verifies and merges the resulting
+`chore(release): version packages` PR before it ends — nobody has to ask.
 
 ## Versioning — changesets
 

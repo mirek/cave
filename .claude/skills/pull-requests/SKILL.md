@@ -1,6 +1,6 @@
 ---
 name: pull-requests
-description: How a change lands in this repo — branch, changeset, documentation review, the Codex review loop (fix or answer every finding, then resolve its thread), CI and the bot's book-PDF commit, the main ruleset, and the rule that every material finding or conclusion is persisted in a live document, never left in a conversation.
+description: How a change lands in this repo — branch, changeset, documentation review, the Codex review loop (fix or answer every finding, then resolve its thread), CI and the bot's book-PDF commit, the main ruleset, the release PR that every session merges before it ends, and the rule that every material finding or conclusion is persisted in a live document, never left in a conversation.
 ---
 
 # Landing a change
@@ -68,6 +68,36 @@ green CI and no open finding.
    files; converge by fixing, not by arguing.
 5. Refresh `api/packed-api.md` (`UPDATE_PACKED_API=1 make smoke`) after any
    export-signature or usage-text change, or the smoke job fails.
+
+## The release PR
+
+Every merge that carries a changeset makes the changesets action open or
+refresh `chore(release): version packages` on `changeset-release/main`.
+**Merging that PR is part of the session that produced it, not a separate
+request**: a session that merges any changeset-carrying PR ends by
+verifying and merging the release PR, without asking. Merging it publishes
+every `@cavelang/*` package to npm and the VS Code extension to Marketplace,
+so verify before merging, and merge once the branch reflects everything on
+main rather than once per merged PR:
+
+1. Not stale: the merge-base of `changeset-release/main` and `main` is the
+   `main` head. If it is not, the action has not caught up yet — wait for
+   its run on `main` to finish rather than merging an older bump.
+2. Complete: every `.changeset/*.md` on `main` is deleted in the PR, the
+   bump matches the highest pending level (any `minor` → `0.X.0`), and each
+   fixed-group `CHANGELOG.md` carries the new heading with the entries.
+3. Derived manifests: the root `package.json`, `editors/vscode/package.json`
+   and `packages/tree-sitter-cave/tree-sitter.json` carry the new version;
+   `website/package.json` deliberately does not. Running
+   `scripts/release-validate.mjs --mode=version-pr` locally on the branch
+   fails with "not reachable from origin/main" before the merge — expected,
+   CI runs it in the merged context.
+4. CI: the branch is bot-pushed, so its runs sit in `action_required`;
+   approve them (`gh api -X POST repos/mirek/cave/actions/runs/<id>/approve`),
+   wait for green, squash-merge, then watch the Publish run on `main`. A
+   publish that fails after some "✅ Published" lines is rerun at the same
+   commit (`gh run rerun <id>`); published packages are skipped and the
+   `v<version>` tag repaired.
 
 ## Persist conclusions
 
