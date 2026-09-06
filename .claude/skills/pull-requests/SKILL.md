@@ -98,17 +98,19 @@ main rather than once per merged PR:
    every public package `CHANGELOG.md` and `editors/vscode/CHANGELOG.md`
    carry a `## <version>` heading (private workspaces get no changelog
    entry and the preflight does not ask for one); `website/package.json` deliberately
-   does not move. One pass over the branch:
+   does not move. One pass over the branch, which exits nonzero on any
+   mismatch so a session keyed on its status fails closed:
 
    ```sh
    git fetch origin main changeset-release/main
-   b=origin/changeset-release/main; v=$(git show $b:package.json | jq -r .version)
-   [ "$(git show $b:packages/tree-sitter-cave/tree-sitter.json | jq -r .metadata.version)" = "$v" ] || echo "version drift: packages/tree-sitter-cave/tree-sitter.json"
+   b=origin/changeset-release/main; v=$(git show $b:package.json | jq -r .version); bad=
+   [ "$(git show $b:packages/tree-sitter-cave/tree-sitter.json | jq -r .metadata.version)" = "$v" ] || { echo "version drift: packages/tree-sitter-cave/tree-sitter.json"; bad=1; }
    for f in $(git ls-tree -r --name-only $b | grep -E '^(packages/[^/]+|editors/vscode)/package.json$'); do
-     m=$(git show $b:$f); jq -e --arg v "$v" '.version == $v' <<<"$m" >/dev/null || echo "version drift: $f"
+     m=$(git show $b:$f); jq -e --arg v "$v" '.version == $v' <<<"$m" >/dev/null || { echo "version drift: $f"; bad=1; }
      case $f in editors/vscode/*) ;; *) jq -e '.private == true' <<<"$m" >/dev/null && continue ;; esac
-     git show $b:${f%package.json}CHANGELOG.md | grep -q "^## $v\$" || echo "no $v entry: ${f%package.json}CHANGELOG.md"
+     git show $b:${f%package.json}CHANGELOG.md | grep -q "^## $v\$" || { echo "no $v entry: ${f%package.json}CHANGELOG.md"; bad=1; }
    done
+   [ -z "$bad" ] && echo "release branch complete at $v" || { echo "release branch incomplete, do not merge"; false; }
    ```
 
    Running `release-validate.mjs --mode=version-pr` locally on the branch
