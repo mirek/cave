@@ -864,30 +864,68 @@ test('repeated article section links restore focus and retain native new-tab beh
   } finally { await tab.close() }
 })
 
-test('repeated documentation navigation restores the article heading', async ({ page, context }) => {
+test.describe('repeated documentation navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const events: unknown[] = []
+      Object.assign(window, { caveNativeNavigationEvents: events })
+      for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'auxclick', 'keydown', 'keyup', 'focusin']) {
+        for (const capture of [true, false]) document.addEventListener(type, event => {
+          const target = event.target instanceof Element ? event.target : undefined
+          const link = target?.closest('a')
+          const bounds = link?.getBoundingClientRect()
+          events.push({
+            type, phase: capture ? 'capture' : 'bubble', time: performance.now(),
+            target: target?.tagName, href: link?.getAttribute('href'),
+            defaultPrevented: event.defaultPrevented,
+            button: event instanceof MouseEvent ? event.button : undefined,
+            point: event instanceof MouseEvent ? [event.clientX, event.clientY] : undefined,
+            key: event instanceof KeyboardEvent ? event.key : undefined,
+            scroll: [window.scrollX, window.scrollY],
+            bounds: bounds && { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+          })
+          if (events.length > 64) events.shift()
+        }, capture)
+      }
+    })
+  })
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus) return
+    const evidence = await page.evaluate(() => ({
+      url: location.href, viewport: [innerWidth, innerHeight],
+      events: (window as unknown as { caveNativeNavigationEvents?: unknown[] }).caveNativeNavigationEvents
+    })).catch(error => ({ unavailable: String(error) }))
+    await testInfo.attach('native-navigation-input', {
+      body: JSON.stringify(evidence, null, 2), contentType: 'application/json'
+    })
+  })
+
   for (const width of [1280, 390]) for (const entry of ['docs/overview', 'docs', 'docs/']) {
-    await page.setViewportSize({ width, height: 900 })
-    await page.goto('./#/home')
-    await page.goto(`./#/${entry}`)
-    const heading = page.locator('.docs-article h1')
-    const link = page.getByRole('navigation', { name: 'Documentation', exact: true }).locator('[aria-current="page"]')
-    await expect(heading).toBeFocused()
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-    await expect(heading).not.toBeInViewport()
-    await link.click()
-    await expect(page).toHaveURL(/#\/docs\/overview$/)
-    await expect(heading).toBeFocused()
-    await expect(heading).toBeInViewport()
-    await link.focus()
-    await link.press('Enter')
-    await expect(heading).toBeFocused()
-    const opened = context.waitForEvent('page')
-    await link.click({ button: 'middle' })
-    const tab = await opened
-    try {
-      await expect(tab).toHaveURL(/#\/docs\/overview$/)
-      await expect(tab.locator('.docs-article h1')).toBeVisible()
-    } finally { await tab.close() }
+    test(`restores the article heading and opens a native tab from ${entry} at ${width}px`, async ({ page, context }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('./#/home')
+      await page.goto(`./#/${entry}`)
+      const heading = page.locator('.docs-article h1')
+      const link = page.getByRole('navigation', { name: 'Documentation', exact: true }).locator('[aria-current="page"]')
+      await expect(heading).toBeFocused()
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+      await expect(heading).not.toBeInViewport()
+      await link.click()
+      await expect(page).toHaveURL(/#\/docs\/overview$/)
+      await expect(heading).toBeFocused()
+      await expect(heading).toBeInViewport()
+      await link.focus()
+      await link.press('Enter')
+      await expect(heading).toBeFocused()
+      const opened = context.waitForEvent('page')
+      await link.click({ button: 'middle' })
+      const tab = await opened
+      try {
+        await expect(tab).toHaveURL(/#\/docs\/overview$/)
+        await expect(tab.locator('.docs-article h1')).toBeVisible()
+      } finally { await tab.close() }
+    })
   }
 })
 
