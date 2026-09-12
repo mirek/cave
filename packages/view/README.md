@@ -425,6 +425,11 @@ released.
 The library's `handle.close()` instead uses graceful HTTP server shutdown and
 leaves ownership of the supplied store with its caller.
 Store failures during a request return HTTP 500 with a JSON error message.
+JSON serialization finishes before response headers are committed. A value
+that JSON cannot encode, such as a BigInt returned by an adapter, therefore
+also produces the ordinary HTTP 500 diagnostic instead of escaping the request
+handler. GET and HEAD retain their normal error headers; HEAD has no body.
+Repairing the adapter permits subsequent requests on the same server to succeed.
 Structured claim views require a canonical UUIDv7 row ID equal to its transaction
 value and a stored claim key matching the decoded claim and contexts. These
 checks also apply at the restricted ceiling, where reads use the source store
