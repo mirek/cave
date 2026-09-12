@@ -1,5 +1,17 @@
 # @cavelang/mcp
 
+## 0.36.0
+
+### Patch Changes
+
+- b3f5de7: Detect historical rows and lineage added below a pagination cutoff, rejecting
+  stale cursors and changes during page construction with a restart instruction.
+  Preserve continuation across wholly future appends. Version opaque cursors to
+  include a bounded append revision; keep the public page envelope unchanged.
+- b3f5de7: Preserve MCP operation and cleanup failures when thrown values cannot be
+  formatted. Use a stable diagnostic fallback without replacing original errors,
+  and cover source-token rejection through the CLI before database startup.
+
 ## 0.29.0
 
 ### Minor Changes
