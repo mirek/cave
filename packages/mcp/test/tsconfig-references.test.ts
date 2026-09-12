@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -484,4 +484,11 @@ test('retired package names are private and built into documented CLI subpaths',
     assert.ok(subpath && cli.publishConfig?.exports?.[subpath], `${surface.replacement} must ship emitted code`)
     assert.equal(cli.devDependencies?.[name], 'workspace:*', `${name} must remain a workspace build boundary`)
   }
+})
+
+
+test('generated grammar Wasm is non-executable for version PR commits', () => {
+  const wasm = join(packagesDir, 'tree-sitter-cave', 'tree-sitter-cave.wasm')
+  assert.equal(statSync(wasm).mode & 0o111, 0,
+    'the grammar module is loaded as data; executable mode prevents the Changesets API commit')
 })
