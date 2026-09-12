@@ -677,6 +677,33 @@ covered item for a concrete counterexample, changed API contract or materially
 different workload. Intermediate expression arithmetic, validation text costs,
 linear classification, native deadlines and other system areas remain active.
 
+## Compound fraction arithmetic disposition
+
+The mixed-expression review now includes large denominator compositions, beyond
+isolated sum/product cases. At baseline `1053897725255199060d9988ad1c823b93cce3b2`,
+inspection covered `explain.ts`, `fraction-sum.ts`, `fraction-product.ts`,
+`explanation-budget.ts` and linear constant evaluation. The
+[version 3 Python Fraction oracle](../scripts/explanation-tree-oracle.mjs) adds
+80 trees using equal, shared-factor, coprime and unequal-scale denominators at
+350 and 2,000 scale digits, positive/negative terms, scaled sums, quotients,
+exact cancellation and computed zero divisors.
+
+| Requirement | Evidence and disposition |
+|---|---|
+| Preserve exact values through composed arithmetic | All 341 oracle trees agree with independent Python Fraction outcomes on Node 24.21.0 and 26.5.0. The added families reach multiple arithmetic operations in one tree, rather than deriving expected values from CAVE's own Exact helpers. |
+| Keep computed zero and undefined division distinct | Cancelling expressions evaluate to exact zero; using them as divisors remains indeterminate with division-by-zero diagnostics. Linear constant-divisor classification accepts exactly the defined nonzero added cases. |
+| Recover after an explanation work-budget failure | Each of the 80 added trees is retried with a work allowance of 1, checks both constraint statuses/reasons, then succeeds or retains its original division error with fresh default limits. The restored outcome equals the original outcome. |
+| Preserve existing ordering and budget contracts | Both 225-test solver suites pass, including cancellation/undefined operands, sign and fraction normalization, shared-expression behavior and the separate explanation bit/work tests. No runtime change was justified by this corpus. |
+
+[Recorded results](../benchmarks/compound-fraction-oracle-review.json) retain
+1,162 counted checks per major, 65 division-indeterminate trees, matching fixture
+hashes and selected source hashes. This closes the listed composed-arithmetic
+correctness and fresh-budget retry cases; it is not a timing trial, an exhaustive
+proof or a general resource cap. Existing workload measurements keep their
+original source scope. Reopen these cases for a counterexample or changed
+arithmetic contract; other validation, formatting, resource and system review
+boundaries remain in scope.
+
 ## Linear-classification disposition
 
 Reviewed `linear.ts`, `constant-sign.ts` and `evaluate-expression.ts` against the

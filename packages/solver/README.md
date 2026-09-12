@@ -957,13 +957,26 @@ operands. Five explicit cases additionally select or skip division by zero in
 both branch directions and reject a failing condition before branch selection.
 Each tree checks equality and inequality against the independent exact result;
 division-by-zero cases must retain indeterminate evaluations and diagnostics,
-including zero multiplied by undefined arithmetic. Version 2 passes 522 outcome
+including zero multiplied by undefined arithmetic. Version 2 passed 522 outcome
 checks across 261 trees on both supported Node majors, with 49 indeterminate
 trees and matching fixture hashes. This is a correctness audit, not a timing
 benchmark or an exhaustive proof for every expression.
-`benchmarks/conditional-expression-tree-review.json` retains current results and
+`benchmarks/conditional-expression-tree-review.json` retains those results and
 solver source hashes. The [earlier arithmetic-only results](../../benchmarks/explanation-arithmetic-oracle-review.json)
 retain their original corpus and the companion wide-arithmetic oracle.
+
+Version 3 adds 80 compound trees with equal, shared-factor, coprime and
+unequal-scale denominators at 350 and 2,000 scale digits. Positive and negative
+terms flow through sums, scaled products, quotients, exact cancellation and
+computed zero divisors. Each added tree also checks failure with an explanation
+work allowance of 1 and an identical outcome after retry with fresh default
+limits. Constant-divisor classification is checked against Python's defined,
+nonzero result. The [recorded compound audit](../../benchmarks/compound-fraction-oracle-review.json)
+passes 1,162 checks across all 341 trees on Node 24.21.0 and 26.5.0, with 65
+division-indeterminate trees and matching fixture hashes. Python's integer-text
+conversion allowance is raised to 20,000 digits for these controlled fixtures.
+This adds correctness and retry evidence, not a solver runtime dependency,
+performance measurement or universal arithmetic bound.
 
 ### Balanced n-ary explanation products
 

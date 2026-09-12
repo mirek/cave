@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { Adapter, Explain, Model } from '../packages/solver/src/index.ts'
+import { Adapter, Explain, Linear, Model } from '../packages/solver/src/index.ts'
 
 const generator = String.raw`
-import json, platform, random
+import json, platform, random, sys
 from fractions import Fraction
+if hasattr(sys, "set_int_max_str_digits"): sys.set_int_max_str_digits(20000)
 rng = random.Random(20260911)
 def literal(n, d=1):
     return {"kind":"literal", "sort":"real", "value":{"numerator":str(n), "denominator":str(d)}}
@@ -76,14 +77,36 @@ try:
     raise AssertionError("invalid condition must fail before branch selection")
 except ZeroDivisionError: pass
 cases.append({"expression":expression, "assignment":{}, "expected":None})
+# Large denominator families cross addition, multiplication and division in
+# one tree; cancellation makes a zero divisor depend on computed arithmetic.
+for digits in [350, 2000]:
+    n = 10**digits + 1
+    for family, b, d in [("shared", 13*n, 21*n), ("coprime", n, n+1),
+                         ("unequal-scale", n*n+1, n+1), ("equal", n, n)]:
+        for sign in [-1, 1]:
+            a, c = literal(sign, b), literal(3, d)
+            added = {"kind":"add", "operands":[a,c]}
+            scaled = {"kind":"multiply", "operands":[added,literal(b*d)]}
+            cancelled = {"kind":"subtract", "left":scaled, "right":literal(sign*d+3*b)}
+            for operation, expression in [("sum", added), ("scaled", scaled),
+                ("quotient", {"kind":"divide", "left":added, "right":a}),
+                ("cancelled", cancelled),
+                ("zero-divisor", {"kind":"divide", "left":literal(1), "right":cancelled})]:
+                try:
+                    result = evaluate(expression,{})
+                    expected = {"numerator":str(result.numerator), "denominator":str(result.denominator)}
+                except ZeroDivisionError: expected = None
+                cases.append({"expression":expression, "assignment":{}, "expected":expected,
+                    "family":family, "digits":digits, "sign":sign, "operation":operation})
 print(json.dumps({"python":platform.python_version(),"cases":cases}))
 `
 const child = spawnSync('python3', ['-c', generator], { encoding: 'utf8', timeout: 30000, maxBuffer: 16 * 1024 * 1024 })
 assert.equal(child.error, undefined)
 assert.equal(child.status, 0, child.stderr)
 const { python, cases } = JSON.parse(child.stdout)
-assert.equal(cases.length, 261)
+assert.equal(cases.length, 341)
 let indeterminate = 0
+let compoundChecks = 0
 for (const [index, fixture] of cases.entries()) {
   const right = { kind: 'literal', sort: 'real', value: fixture.expected ?? { numerator: '0', denominator: '1' } }
   const model = { schema: Model.schema, variables: ['x', 'y', 'z'].map(id => ({ id, sort: 'real' })),
@@ -97,9 +120,28 @@ for (const [index, fixture] of cases.entries()) {
     indeterminate++
     for (const constraint of report.outcome.hardConstraints) assert.match(constraint.evaluationReason, /division by zero/, `case ${index}`)
   }
+  if (fixture.family !== undefined) {
+    const result = { status: 'satisfied', assignment: fixture.assignment,
+      backend: { name: 'python-fraction-oracle', version: '1' }, diagnostics: [], elapsedMs: 0 }
+    const limited = Explain.report(model, result, { ...Adapter.defaultLimits, maxExplanationWork: 1 })
+    assert.deepEqual(limited.outcome.hardConstraints.map(value => value.evaluation), ['indeterminate', 'indeterminate'])
+    for (const constraint of limited.outcome.hardConstraints) assert.match(constraint.evaluationReason, /maxExplanationWork/)
+    const repaired = Explain.report(model, result, Adapter.defaultLimits)
+    assert.deepEqual(repaired.outcome, report.outcome, `fresh budget: case ${index}`)
+    const classification = Linear.model({ schema: Model.schema, variables: [{ id: 'v', sort: 'real' }], constraints: [],
+      objectives: [{ id: 'ratio', direction: 'minimize', expression: {
+        kind: 'divide', left: { kind: 'variable', id: 'v' }, right: fixture.expression
+      } }] })
+    assert.equal(classification.linear, fixture.expected !== null && fixture.expected.numerator !== '0', `constant divisor: case ${index}`)
+    compoundChecks += 6 // two budget statuses, two reasons, retry outcome, classification
+  }
 }
-const paths = ['scripts/explanation-tree-oracle.mjs', 'packages/solver/src/explain.ts', 'packages/solver/src/fraction-product.ts', 'packages/solver/src/fraction-sum.ts']
-console.log(JSON.stringify({ format: 'cave.explanation-tree-oracle', version: 2, node: process.version, python,
-  seed: 20260911, cases: cases.length, checks: cases.length * 2, indeterminate,
+const paths = ['scripts/explanation-tree-oracle.mjs', 'packages/solver/src/explain.ts', 'packages/solver/src/fraction-product.ts',
+  'packages/solver/src/fraction-sum.ts', 'packages/solver/src/linear.ts', 'packages/solver/src/constant-sign.ts',
+  'packages/solver/src/explanation-budget.ts', 'packages/solver/src/exact.ts', 'packages/solver/src/integer-gcd.ts']
+console.log(JSON.stringify({ format: 'cave.explanation-tree-oracle', version: 3, node: process.version, python,
+  seed: 20260911, cases: cases.length, checks: cases.length * 2 + compoundChecks, indeterminate,
+  compound: { cases: 80, scaleDigits: [350, 2000], families: ['shared', 'coprime', 'unequal-scale', 'equal'],
+    operations: ['sum', 'scaled', 'quotient', 'cancelled', 'zero-divisor'], checks: compoundChecks },
   fixtureSha256: createHash('sha256').update(child.stdout).digest('hex'),
   sources: Object.fromEntries(paths.map(path => [path, createHash('sha256').update(readFileSync(path)).digest('hex')])) }, null, 2))

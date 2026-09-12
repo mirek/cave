@@ -23,6 +23,9 @@ measure performance or add a Python dependency to the solver runtime.
 The [conditional tree audit](conditional-expression-tree-review.json) extends the
 tree generator with nested conditionals and explicit skipped/selected invalid
 branches: 261 trees and 522 outcome checks per supported Node major.
+The [compound fraction audit](compound-fraction-oracle-review.json) extends that
+driver to 341 trees and 1,162 checks per major, adding large denominator
+compositions, constant-divisor classification and fresh-budget retry checks.
 The wide arithmetic oracle also compares explanation size estimates with Python
 integer bit lengths; [recorded bounds checks](explanation-budget-bounds-review.json)
 cover signed values, zeros, cancellation and unreduced fraction inputs.
