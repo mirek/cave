@@ -35,6 +35,7 @@ test('CI names exact runtimes and supported operating systems', () => {
   const runtimeJob = runtime.slice(0, runtime.indexOf('\n    steps:'))
   const jobMinutes = Number(/timeout-minutes: (\d+)/.exec(runtimeJob)?.[1])
   const stressMinutes = Number(/name: Verify Z3 cleanup under forced garbage collection\s+timeout-minutes: (\d+)/.exec(runtime)?.[1])
+  assert.ok(stressMinutes >= 20, 'stress step must leave at least six minutes beyond the 14-minute cumulative solve budgets for compilation and cleanup')
   assert.ok(Number.isFinite(jobMinutes) && Number.isFinite(stressMinutes) && jobMinutes >= stressMinutes + 15,
     'runtime job must reserve at least 15 minutes around the complete stress-step budget for setup and other suites')
   const bootstrap = runtime.indexOf('node --test packages/mcp/test/bootstrap-native.test.ts')

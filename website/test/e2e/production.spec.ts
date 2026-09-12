@@ -1209,6 +1209,29 @@ for (const width of [320, 390, 1280]) {
   })
 
   test(`Down Arrow browses documentation matches without navigating at ${width}px`, async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const events: unknown[] = []
+      Object.assign(window, { __caveScrollTrace: events })
+      const record = (kind: string, details?: unknown) => {
+        events.push({ kind, details, time: performance.now(), x: scrollX, y: scrollY,
+          active: document.activeElement?.outerHTML.slice(0, 200),
+          behavior: document.documentElement && getComputedStyle(document.documentElement).scrollBehavior })
+        if (events.length > 200) events.shift()
+      }
+      const scroll = window.scrollTo
+      window.scrollTo = function (...args: Parameters<typeof scroll>) {
+        record('scrollTo', args)
+        return Reflect.apply(scroll, window, args)
+      }
+      const reveal = Element.prototype.scrollIntoView
+      Element.prototype.scrollIntoView = function (...args: Parameters<typeof reveal>) {
+        record('scrollIntoView', { args, target: this.outerHTML.slice(0, 200) })
+        return Reflect.apply(reveal, this, args)
+      }
+      window.addEventListener('scroll', () => record('scroll'), true)
+      window.addEventListener('keydown', event => record('keydown', { key: event.key, ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey, shift: event.shiftKey }), true)
+      window.addEventListener('keyup', event => record('keyup', { key: event.key }), true)
+    })
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./#/docs/overview')
     const filter = page.getByRole('textbox', { name: 'Filter documentation', exact: true })
@@ -1238,6 +1261,7 @@ for (const width of [320, 390, 1280]) {
           sidebar: element.closest('aside')?.getBoundingClientRect().toJSON(),
           nav: element.closest('nav')?.getBoundingClientRect().toJSON(),
           focused: document.activeElement === element,
+          events: (window as typeof window & { __caveScrollTrace?: unknown[] }).__caveScrollTrace,
         }))),
       })
       throw error

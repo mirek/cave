@@ -125,8 +125,8 @@ jobs:
             os: ubuntu-24.04
             node: 26.8.2
     runs-on: ${{ matrix.os }}
-    # Allow the 15-minute stress step plus setup, native suites, and CLI tests.
-    timeout-minutes: 35
+    # Allow the 20-minute stress step plus setup, native suites, and CLI tests.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -167,7 +167,7 @@ jobs:
         run: pnpm --filter @cavelang/solver --filter @cavelang/solver-z3 test
 
       - name: Verify Z3 cleanup under forced garbage collection
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: pnpm --filter @cavelang/solver-z3 test:memory-stress --large
 
       - name: Build the consolidated CLI package layout

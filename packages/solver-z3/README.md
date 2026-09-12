@@ -323,8 +323,10 @@ results, preserving evidence of whether the same runtime remains usable.
 The runtime CI matrix runs the large diagnostic on each configured runtime/OS
 entry. Each large solve has a 120-second budget and each recovery solve has a
 30-second budget; the CI step has a
-15-minute timeout to bound native hangs across all three cycles. The enclosing
-runtime job allows 35 minutes for that step plus setup, native suites and CLI
+20-minute timeout to bound native hangs across all three cycles. Its solve
+budgets total up to 14 minutes, leaving at least six minutes for initialization,
+validation, compilation, forced GC, logging and cleanup. The enclosing
+runtime job allows 40 minutes for that step plus setup, native suites and CLI
 checks; a runtime-policy test keeps at least 15 minutes outside the stress step. The larger
 budget accommodates shared-runner performance: Windows CI exceeded the previous
 30-second feasibility deadline while the following optimization and recovery
