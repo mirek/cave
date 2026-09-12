@@ -343,3 +343,8 @@ A [post-fix native recovery checkpoint](../../benchmarks/z3-cleanup-recovery-rev
 passes three large cycles on each supported Node major under forced garbage
 collection, retaining the 75,000-variable checks and exact recovery optimum.
 It verifies this workload and clean process exit, not arbitrary native failures.
+
+Process lifecycle tests launch fixtures using native paths converted with
+`fileURLToPath`, so Windows drive letters and percent-encoded checkout names
+reach Node correctly. These tests exercise worker shutdown and runtime reopening
+in a separate process.

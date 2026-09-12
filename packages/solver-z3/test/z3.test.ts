@@ -2,6 +2,7 @@ import { after, test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import { Adapter, Canonical, Model, Solve, Workflow } from '@cavelang/solver'
 import { create } from '@cavelang/solver-z3'
 
@@ -456,7 +457,7 @@ test('maps Z3 memory exhaustion to the portable resource-limit result', async ()
 test('a short-lived process terminates workers cleanly', async () => {
   const result = await run(process.execPath, [
     '--disable-warning=ExperimentalWarning',
-    new URL('./short-lived.ts', import.meta.url).pathname
+    fileURLToPath(new URL('./short-lived.ts', import.meta.url))
   ], { timeout: 10_000 })
   assert.equal(result.stderr, '')
 })
@@ -464,7 +465,7 @@ test('a short-lived process terminates workers cleanly', async () => {
 test('creation during shutdown waits for one usable replacement runtime', async () => {
   const result = await run(process.execPath, [
     '--disable-warning=ExperimentalWarning',
-    new URL('./reopen.ts', import.meta.url).pathname
+    fileURLToPath(new URL('./reopen.ts', import.meta.url))
   ], { timeout: 10_000 })
   assert.equal(result.stderr, '')
 })
