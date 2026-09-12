@@ -65,6 +65,7 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
   const id = store.ingest('broken IS service #sensitivity:restricted').ids[0]!
   store.ingest('healthy IS service #sensitivity:public')
   const key = store.currentBeliefs().find(row => row.id === id)!.claim_key
+  const originalLine = store.currentBeliefs().find(row => row.id === id)!.raw_line
   const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
   const publicHandle = await serve(store, { port: 0, maxSensitivity: 'public' })
   try {
@@ -78,7 +79,8 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
     for (const [field, value] of [
       ['negated', -1], ['importance', 'false'], ['value_approx', -1], ['value_text', '42'],
       ['value_num', 42], ['value_unit', 'private-value-unit'], ['value_approx', 1],
-      ['delta_num', 2], ['delta_unit', 'private-delta-unit']
+      ['delta_num', 2], ['delta_unit', 'private-delta-unit'],
+      ['raw_line', new Uint8Array()], ['comment', new TextEncoder().encode('private-comment')]
     ] as const) {
       store.db.prepare(`UPDATE cave_claim SET ${field} = ? WHERE id = ?`).run(value, id)
       const before = JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all())
@@ -90,8 +92,8 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
           const body = await response.text()
           if (method === 'HEAD') assert.equal(body, '')
           else {
-            assert.match(JSON.parse(body).error, /stored claim.*(payload|negated|importance|value_approx|value_num|value_unit|delta_num|delta_unit)/)
-            assert.doesNotMatch(body, /private-value-unit|private-delta-unit/)
+            assert.match(JSON.parse(body).error, /stored claim.*(payload|negated|importance|value_approx|value_num|value_unit|delta_num|delta_unit|raw_line|comment)/)
+            assert.doesNotMatch(body, /private-value-unit|private-delta-unit|private-comment/)
           }
         }
       }
@@ -103,6 +105,7 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
       }
       assert.equal(JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all()), before)
       store.db.prepare('UPDATE cave_claim SET negated = 0, importance = 0, value_approx = 0, value_text = NULL, value_num = NULL, value_unit = NULL, delta_num = NULL, delta_unit = NULL WHERE id = ?').run(id)
+      store.db.prepare('UPDATE cave_claim SET raw_line = ?, comment = NULL WHERE id = ?').run(originalLine, id)
       const recovered = await fetch(`${handle.url}api/entity?name=broken`)
       assert.equal(recovered.status, 200)
     }

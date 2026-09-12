@@ -125,6 +125,18 @@ export const toClaim = (
   contexts: readonly string[],
   tags: readonly { key: string, value: null | string }[]
 ): Claim.t => {
+  // SQLite TEXT affinity permits blobs. Check the decoded column types before
+  // parsing or constructing a claim, including text not used in its key.
+  for (const field of ['subject', 'verb', 'raw_line'] as const) {
+    if (typeof row[field] !== 'string') {
+      throw new TypeError(`stored claim ${field} must be a string`)
+    }
+  }
+  for (const field of ['object', 'attribute', 'value_text', 'delta_text', 'comment'] as const) {
+    if (row[field] !== null && typeof row[field] !== 'string') {
+      throw new TypeError(`stored claim ${field} must be a string or null`)
+    }
+  }
   for (const field of ['negated', 'importance', 'value_approx'] as const) {
     if (row[field] !== 0 && row[field] !== 1) {
       throw new TypeError(`stored claim ${field} must be 0 or 1`)
