@@ -339,6 +339,8 @@ reviewed public API check; source tests do not prove installed resolution.
   root version and the new fixed-group version, the synchronizer retitles its
   leading changelog entry to the actual lockstep release. Its detailed notes
   stay intact; entries at or below the old root version remain history.
+  These comparisons use semver precedence, including prerelease identifiers
+  and ignoring build metadata.
   Each alignment changelog is written before its manifest version advances.
   A changelog failure therefore leaves that workspace eligible for a retry,
   with the original release severity; successful earlier workspace writes may

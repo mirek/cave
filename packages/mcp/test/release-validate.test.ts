@@ -187,7 +187,11 @@ test('installed Changesets versions the real workspace before derived version sy
 test('version synchronization attributes provisional private notes to the lockstep release', () => {
   for (const [previous, provisional, next] of [
     ['0.35.0', '0.35.1', '0.36.0'],
-    ['1.9.0', '1.10.0', '2.0.0']
+    ['1.9.0', '1.10.0', '2.0.0'],
+    ['1.0.0-beta.1', '1.0.0-beta.2', '1.0.0-beta.3'],
+    ['1.0.0-beta.9', '1.0.0-beta.10', '1.0.0'],
+    ['1.0.0-alpha', '1.0.0-beta', '1.0.0-rc.1'],
+    ['1.0.0+old', '1.0.1+private', '1.1.0+lockstep']
   ] as const) {
     const root = mkdtempSync(join(tmpdir(), 'cave-private-notes-'))
     try {

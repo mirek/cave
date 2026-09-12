@@ -13,6 +13,7 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { gt as after } from 'semver'
 
 const root = resolve(process.env.CAVE_RELEASE_ROOT ?? join(import.meta.dirname, '..'))
 
@@ -33,12 +34,6 @@ const version = read(join(root, 'packages/core/package.json')).version
 // lockstep release even after individual private packages have been bumped.
 const rootManifestPath = join(root, 'package.json')
 const rootManifest = read(rootManifestPath)
-const after = (left, right) => {
-  const a = left.split('.').map(Number)
-  const b = right.split('.').map(Number)
-  const differing = a.findIndex((value, index) => value !== b[index])
-  return differing >= 0 && a[differing] > b[differing]
-}
 
 // The action reads a changelog entry for every version-changed workspace,
 // including private packages advanced only by this synchronizer.
