@@ -208,7 +208,8 @@ surface never reinterprets them:
   incomplete explanation never renders as complete. Claim views are cached by
   row ID within one lineage request, so shared evidence reuses context, tag and
   edge-count reads while retaining every repeated branch. Later requests build
-  fresh views; depth and repeat behavior are unchanged;
+  fresh views; the four metadata statements are prepared once per request and
+  reused across distinct rows. Depth and repeat behavior are unchanged;
 - **search** — the store's FTS5 over subjects, objects, values,
   comments and raw lines. The search box names its phrase-matching behavior.
   Matches include superseded revisions and retractions, each with its own row
@@ -227,6 +228,24 @@ the whole store is reachable by clicking.
 beside the delta as `(3σ)`, for example. An omitted level means the semantic
 default of 2, matching the store's claim mapping; authored lines retain their
 original spelling. Entity, history and other claim views share this renderer.
+
+Run `node scripts/view-lineage-bench.mjs` alone to measure complete lineage reads
+on wide graphs whose branches each cite a shared premise. Every row has a
+distinct context and tag. Reusing metadata statements within the request gave
+the following medians on darwin-arm64:
+
+| Branches | Node 24.21.0 before → after (ms) | Node 26.5.0 before → after (ms) |
+|---:|---:|---:|
+| 100 | 5.85 → 4.65 | 6.20 → 4.48 |
+| 1,000 | 54.65 → 45.75 | 56.88 → 45.29 |
+
+[Raw samples](../../benchmarks/view-lineage-statements-review.json) retain one
+warmup and five measured calls per case. Assertions check branch order, repeated
+evidence, counts and per-row metadata; normalized output hashes agree before
+and after. Hashing replaces generated IDs with subjects and omits transaction
+timestamps, outside the timed region. These sequential single-process runs use
+an in-memory store at the restricted ceiling; they do not measure projection
+construction, HTTP, browser rendering, deep graphs or a universal speedup.
 
 Run `node scripts/view-search-bench.mjs` alone from the repository root to
 measure complete search view construction with numeric or 2,048-character text
