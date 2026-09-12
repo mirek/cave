@@ -1,5 +1,11 @@
 # @cavelang/fusion
 
+## 0.36.4
+
+### Patch Changes
+
+- @cavelang/core@0.36.4
+
 ## 0.36.3
 
 ### Patch Changes

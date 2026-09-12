@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/loop",
-  "version": "0.36.3",
+  "version": "0.36.4",
   "private": true,
   "type": "module",
   "description": "cave-loop — active-reconstruction agent layer over the CAVE graph (spec §18, non-normative).",
