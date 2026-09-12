@@ -12,7 +12,7 @@
     "directory": "packages/view"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -47,6 +47,9 @@
     "@cavelang/core": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/shape": "workspace:*",
-    "@cavelang/store": "workspace:*"
+    "@cavelang/store": "workspace:*",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm-footnote": "2.1.0",
+    "micromark-extension-gfm-footnote": "2.1.0"
   }
 }

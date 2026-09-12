@@ -1,0 +1,34 @@
+{
+  "format": "cave.linear-product-oracle-review/v1",
+  "method": "Python Fraction supplies exact two- and four-factor product references. Linear analysis classifies a variable divided by (product - reference) as nonlinear for zero offset and linear for a one-unit offset. Existing normalization/comparison and explanation checks are retained.",
+  "limits": "Correctness audit only; parent runs can overlap and no timing claims are made. Python child: 30 seconds, 64 MiB output, 25000 decimal conversion digits.",
+  "reports": [
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    },
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    }
+  ],
+  "sourceSha256": {
+    "scripts/exact-oracle-check.mjs": "31fa26193a3ba1c3a2d1c7fee65c881afa5f76eecae2837c7cb9ef316292855a",
+    "packages/solver/src/linear.ts": "870a7441ef879ada95af93f68873bc3c7c259f4c9e745ac155095e394fb0012b",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5"
+  }
+}

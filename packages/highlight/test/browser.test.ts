@@ -7,12 +7,13 @@ import { createBrowserHighlighter } from '@cavelang/highlight/browser'
 const resolvePath = (specifier: string): string =>
   fileURLToPath(import.meta.resolve(specifier))
 
-test('browser entry loads emitted WASM assets and the shared query', async () => {
+test('browser entry loads emitted WASM assets and the shared query', async t => {
   const highlighter = await createBrowserHighlighter({
     parserWasmUrl: resolvePath('web-tree-sitter/web-tree-sitter.wasm'),
     languageWasmUrl: resolvePath('@cavelang/tree-sitter-cave/wasm'),
     querySource: readFileSync(resolvePath('@cavelang/tree-sitter-cave/highlights'), 'utf8'),
   })
+  t.after(() => highlighter.close())
   const source = 'server IS NOT compromised @ 90% #security'
   const captures = new Map(highlighter.spans(source).map(span => [
     `${span.capture}:${source.slice(span.start, span.end)}`,

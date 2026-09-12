@@ -143,13 +143,16 @@ has its own chapter: `--as-of` reconstructs belief at a past moment (Chapter
 7), `--at` anchors in valid time (Chapter 10), `--resolve` keeps only the
 winners among contested facts (Chapter 11), and `--aliases` widens names
 through alias links (Chapter 12). They compose: a resolved, alias-aware read
-as of last month is one command.
+as of last month is one command. Historical vocabulary also excludes later
+qualifier parents: attaching one today cannot hide yesterday's declaration.
 
 == Paging and JSON
 
 A query page holds a hundred matches by default and at most a thousand. When
 there are more, the human output ends with a `next:` token, and `--cursor`
-continues the same frozen snapshot:
+continues the same frozen snapshot. Empty stores and historical snapshots still
+validate query syntax and time options; invalid requests fail rather than
+returning an empty page:
 
 ```sh
 $ cave query --db roastery.db '?lot IS lot' --limit 2
@@ -157,6 +160,11 @@ $ cave query --db roastery.db '?lot IS lot' --limit 2
 ?lot = lot/huila-26
 next: <token>
 ```
+
+If sync adds older rows or lineage touching them, the cursor fails with a
+restart instruction. Start again without `--cursor`; later local appends and
+wholly future lineage remain compatible. Each page checks for historical
+changes before and after reading, so a concurrent change cannot mix its results.
 
 `--json` emits a versioned `cave.query-page` object whose matches carry
 the bindings and the full claim record, including its canonical line, id,

@@ -26,7 +26,10 @@ DEPENDS-ON REVERSE SUPPLIES-FOR
 ```
 
 Lines with `=>` are rules; everything else in the file is prelude that is
-ingested first. Premises evaluate left to right over current, positive,
+validated and ingested first. An invalid prelude appends nothing and declares
+no rules, even on a cached retry; correct it before retrying. Declaration errors
+make `cave derive` exit nonzero, though already-stored rules still derive.
+Premises evaluate left to right over current, positive,
 non-retracted beliefs, each binding narrowing the next pattern, so inverse
 verbs and transitive hops cost nothing extra. A constraint (`?s >= 86`)
 tests a variable an earlier premise bound; numeric comparison applies when
@@ -129,11 +132,22 @@ derived: +0 appended, 0 updated, 0 retracted, 0 unchanged (1 pass(es))
 Two mechanisms make that true. A conclusion equal to its current belief is
 skipped, so a loop never accretes identical rows. And each rule records a
 *watermark*, the highest transaction it accounted for; a later run re-fires
-a rule only when some newer row could extend one of its premises, judged by
-shape and deliberately ignoring confidence, so a retraction re-fires the
-rules its claim used to feed. `--full` ignores watermarks.
+a rule when some newer row could change one of its premises, judged by
+shape and deliberately ignoring mutable values, tags and confidence, so a
+replacement or retraction re-fires the rules its claim used to feed.
+A companion vocabulary fingerprint also wakes rules when qualifier edges
+change the active declarations without adding claim rows. It also captures
+alias matching and the confidence floor: changing either re-evaluates support.
+Old watermarks without that complete fingerprint are re-evaluated once. Vocabulary changes during a
+run restart support calculation within the pass budget. `--full` ignores
+watermarks.
 
-Support is recomputed on every firing. A conclusion the rule no longer
+Derivation reserves its write transaction before selecting rules or reading
+watermarks and refreshes vocabulary inside it. Another writer's committed rule
+revocations and inverse declarations therefore apply even when the derivation
+connection was already open.
+
+Support is recomputed on every firing. An ordinary conclusion the rule no longer
 reaches is retracted at zero confidence, and while a rule re-establishes its
 derivations they are invisible to premise matching, so a retracted premise
 retracts the dependent chain across rules and two derivations cannot keep
@@ -162,8 +176,13 @@ $ cave query --db roastery.db '?lot NEEDS reorder'
 no matches
 ```
 
-`cave derive --retract <rule>` retracts a rule together with everything it
-derived; `--dry-run` reports inside a rolled-back transaction; `--aliases`
+`cave derive --retract <rule>` retracts a rule and its ordinary conclusions.
+Vocabulary declarations (`IS verb`, `REVERSE`, `RENAMED-TO`) remain additive:
+losing their supporting premise or retracting the producing rule does not
+remove them from the registry. Retraction selects all current declaration
+contexts and checks digest-prefix ambiguity inside its write transaction;
+an ambiguous prefix changes nothing.
+`--dry-run` reports inside a rolled-back transaction; `--aliases`
 lets premises match through the alias closure. The MCP `cave_derive` tool
 has the same semantics, so an agent can declare rules with an ordinary
 append and fire them without leaving the protocol.

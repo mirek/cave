@@ -3,6 +3,7 @@
 
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { checkRuntimeDependencies } from '../../../scripts/check-runtime-dependencies.mjs'
 
 const packageDir = join(import.meta.dirname, '..')
 const packagesDir = join(packageDir, '..')
@@ -36,3 +37,4 @@ const rewrite = (directory) => {
 
 rewrite(join(packageDir, 'dist', 'src'))
 rewrite(outputDir)
+checkRuntimeDependencies(packageDir)

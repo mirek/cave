@@ -30,3 +30,6 @@
 (tag ":" @punctuation.delimiter)
 (tag_key) @tag
 (tag_value) @constant
+
+; Explicit full-claim disambiguation; trailing @claim remains context.
+(claim_marker) @keyword

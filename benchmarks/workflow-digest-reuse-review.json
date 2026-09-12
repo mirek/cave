@@ -1,0 +1,369 @@
+{
+  "format": "cave.workflow-digest-reuse-review",
+  "version": 1,
+  "date": "2026-09-09",
+  "method": "Same sensitivity-batch-bench.mjs workload as the referenced baseline, run sequentially without concurrent tests after reusing explanation digests. One warmup and five timed calls per case. CPU-profile timings are excluded. No solver search.",
+  "before": "sensitivity-batch-runtime-review.json",
+  "after": [
+    {
+      "format": "cave.sensitivity-batch-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five timed complete workflow calls per case; fixture construction and assertions excluded. Immediate unknown adapter: no solver search. Timings include preflight, per-run validation and report construction.",
+      "measurements": [
+        {
+          "constraints": 0,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 0.46833300000002964,
+          "samplesMs": [
+            0.46325000000001637,
+            0.3532079999999951,
+            0.7002080000000319,
+            0.5564999999999714,
+            0.46833300000002964
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 1.9667499999999905,
+          "samplesMs": [
+            2.1217909999999733,
+            2.0522080000000074,
+            1.9667499999999905,
+            1.7120419999999967,
+            1.654875000000004
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 5.865957999999978,
+          "samplesMs": [
+            6.956625000000031,
+            6.278750000000002,
+            5.411625000000015,
+            5.865957999999978,
+            5.47645799999998
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 0.09100000000000819,
+          "samplesMs": [
+            0.09333399999997027,
+            0.06766699999997172,
+            0.09637499999996635,
+            0.09100000000000819,
+            0.06933300000002873
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 3.1790829999999914,
+          "samplesMs": [
+            3.374500000000012,
+            3.612583000000029,
+            3.1790829999999914,
+            3.080792000000031,
+            2.8828750000000127
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 35.22695799999997,
+          "samplesMs": [
+            36.23558400000002,
+            34.847500000000025,
+            34.970500000000015,
+            36.59974999999997,
+            35.22695799999997
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 134.01070900000013,
+          "samplesMs": [
+            137.39441699999998,
+            131.67704200000003,
+            133.83120799999995,
+            134.01070900000013,
+            138.57950000000005
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 0.8019580000000133,
+          "samplesMs": [
+            0.8019580000000133,
+            0.7622079999998732,
+            1.0461660000000848,
+            1.054208000000017,
+            0.7547919999999522
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 26.060208000000102,
+          "samplesMs": [
+            26.240374999999858,
+            26.22354100000007,
+            25.87850000000003,
+            25.692291999999952,
+            26.060208000000102
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 334.91891699999996,
+          "samplesMs": [
+            332.8575840000001,
+            331.95395800000006,
+            336.0599579999998,
+            334.91891699999996,
+            337.995625
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 1289.7350420000002,
+          "samplesMs": [
+            1329.4953330000008,
+            1289.7350420000002,
+            1287.6861250000002,
+            1280.6084589999991,
+            1345.571249999999
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 6.932583000001614,
+          "samplesMs": [
+            6.800124999999753,
+            7.1802499999994325,
+            6.932583000001614,
+            6.770708000000013,
+            6.977833000000828
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.sensitivity-batch-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five timed complete workflow calls per case; fixture construction and assertions excluded. Immediate unknown adapter: no solver search. Timings include preflight, per-run validation and report construction.",
+      "measurements": [
+        {
+          "constraints": 0,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 0.33629200000001447,
+          "samplesMs": [
+            0.5387910000000034,
+            0.33629200000001447,
+            0.6186669999999594,
+            0.32620800000000827,
+            0.2585830000000442
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 1.817292000000009,
+          "samplesMs": [
+            1.8725000000000023,
+            1.817292000000009,
+            1.91862500000002,
+            1.591041999999959,
+            1.562250000000006
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 5.7918750000000045,
+          "samplesMs": [
+            6.822374999999965,
+            6.151416999999981,
+            5.7918750000000045,
+            5.482542000000024,
+            4.931958000000009
+          ]
+        },
+        {
+          "constraints": 0,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 0.06749999999999545,
+          "samplesMs": [
+            0.08620800000005602,
+            0.06749999999999545,
+            0.061332999999990534,
+            0.06062499999995907,
+            0.16183300000000145
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 2.8910829999999805,
+          "samplesMs": [
+            2.9927920000000086,
+            3.00329099999999,
+            2.6159999999999854,
+            2.588415999999995,
+            2.8910829999999805
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 33.149167000000034,
+          "samplesMs": [
+            33.82816700000001,
+            33.149167000000034,
+            32.65308300000004,
+            33.14266600000002,
+            33.207874999999945
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 126.74637499999994,
+          "samplesMs": [
+            126.74637499999994,
+            125.92975000000001,
+            125.65537499999994,
+            134.469791,
+            127.55979199999979
+          ]
+        },
+        {
+          "constraints": 100,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 0.6858749999998963,
+          "samplesMs": [
+            0.6812499999998636,
+            0.6858749999998963,
+            0.7270000000000891,
+            0.6658750000001419,
+            0.7797080000000278
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 1,
+          "outcome": "unknown",
+          "backendCalls": 1,
+          "medianMs": 24.241833000000042,
+          "samplesMs": [
+            26.22162500000013,
+            24.116209000000026,
+            24.024291999999832,
+            24.241833000000042,
+            25.581875000000082
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 16,
+          "outcome": "unknown",
+          "backendCalls": 16,
+          "medianMs": 315.97770900000023,
+          "samplesMs": [
+            314.02591699999994,
+            312.97166700000025,
+            315.97770900000023,
+            319.0663340000001,
+            319.5383750000001
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 64,
+          "outcome": "unknown",
+          "backendCalls": 64,
+          "medianMs": 1207.016541,
+          "samplesMs": [
+            1201.0070409999998,
+            1202.7446250000003,
+            1207.016541,
+            1245.2326250000006,
+            1247.2185419999987
+          ]
+        },
+        {
+          "constraints": 1000,
+          "samples": 2,
+          "outcome": "model-limit-before-backend",
+          "backendCalls": 0,
+          "medianMs": 6.295667000000321,
+          "samplesMs": [
+            6.199707999998282,
+            6.8474999999998545,
+            6.295667000000321,
+            6.589041999999608,
+            6.176959000000352
+          ]
+        }
+      ]
+    }
+  ]
+}

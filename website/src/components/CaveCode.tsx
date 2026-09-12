@@ -3,6 +3,7 @@ import { createBrowserHighlighter, type Highlighter, type Span } from '@cavelang
 import caveLanguageWasmUrl from '@cavelang/tree-sitter-cave/wasm?url'
 import caveQuerySource from '@cavelang/tree-sitter-cave/highlights?raw'
 import treeSitterWasmUrl from 'web-tree-sitter/web-tree-sitter.wasm?url'
+import { firstSpanEndingAfter } from '../lib/highlight-range.ts'
 
 let highlighterPromise: Promise<Highlighter> | undefined
 
@@ -11,6 +12,9 @@ const loadHighlighter = (): Promise<Highlighter> =>
     parserWasmUrl: treeSitterWasmUrl,
     languageWasmUrl: caveLanguageWasmUrl,
     querySource: caveQuerySource,
+  }).catch(error => {
+    highlighterPromise = undefined
+    throw error
   })
 
 const captureClass = (capture: string): string =>
@@ -24,8 +28,8 @@ const renderRange = (
 ): ReactNode[] => {
   const nodes: ReactNode[] = []
   let at = start
-  for (const span of spans) {
-    if (span.end <= start) continue
+  for (let index = firstSpanEndingAfter(spans, start); index < spans.length; index++) {
+    const span = spans[index]!
     if (span.start >= end) break
     const spanStart = Math.max(span.start, start)
     const spanEnd = Math.min(span.end, end)
@@ -47,7 +51,7 @@ const useCaveSpans = (source: string): readonly Span[] => {
         if (current) setHighlight({ source, spans: highlighter.spans(source) })
       })
       // Highlighting is progressive enhancement: plain source remains visible
-      // if a browser cannot initialize WebAssembly.
+      // if loading fails. A later mount or source change can retry the load.
       .catch(() => undefined)
     return () => { current = false }
   }, [source])
@@ -66,7 +70,7 @@ export const CaveCode = ({ code, lineNumbers = false }: { code: string, lineNumb
     offset = end + 1
     return (
       <span className="code-line" key={index}>
-        <i>{String(index + 1).padStart(2, '0')}</i>
+        <i aria-hidden="true">{String(index + 1).padStart(2, '0')}</i>
         {renderRange(code, spans, start, end)}
         {line.length === 0 ? ' ' : null}
       </span>

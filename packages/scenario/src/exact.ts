@@ -17,32 +17,34 @@ type Parsed = {
   readonly approximate: boolean
 }
 
-const reduce = (numerator: bigint, denominator: bigint): ExactNumber => {
-  const divisor = (() => {
-    let left = numerator < 0n ? -numerator : numerator
-    let right = denominator < 0n ? -denominator : denominator
-    while (right !== 0n) [left, right] = [right, left % right]
-    return left
-  })()
-  const sign = denominator < 0n ? -1n : 1n
-  return {
-    numerator: String((numerator / divisor) * sign),
-    denominator: String((denominator / divisor) * sign)
-  }
-}
+const reduce = Exact.fromBigInts
 
 const multiply = (left: ExactNumber, right: ExactNumber): ExactNumber =>
   reduce(BigInt(left.numerator) * BigInt(right.numerator), BigInt(left.denominator) * BigInt(right.denominator))
 
-export const add = (left: ExactNumber, right: ExactNumber): ExactNumber =>
-  reduce(
-    BigInt(left.numerator) * BigInt(right.denominator) + BigInt(right.numerator) * BigInt(left.denominator),
-    BigInt(left.denominator) * BigInt(right.denominator)
-  )
+export const add = (left: ExactNumber, right: ExactNumber): ExactNumber => {
+  const a = BigInt(left.numerator), b = BigInt(left.denominator)
+  const c = BigInt(right.numerator), d = BigInt(right.denominator)
+  return b === d ? reduce(a + c, b) : reduce(a * d + c * b, b * d)
+}
 
-export const compare = (left: ExactNumber, right: ExactNumber): number =>
-  BigInt(left.numerator) * BigInt(right.denominator) < BigInt(right.numerator) * BigInt(left.denominator) ? -1 :
-    BigInt(left.numerator) * BigInt(right.denominator) > BigInt(right.numerator) * BigInt(left.denominator) ? 1 : 0
+export const compare = (left: ExactNumber, right: ExactNumber): number => {
+  const a = BigInt(left.numerator), b = BigInt(left.denominator)
+  const c = BigInt(right.numerator), d = BigInt(right.denominator)
+  if (b > 0n && d > 0n) {
+    if (b === d || a === 0n || c === 0n || (a < 0n) !== (c < 0n)) {
+      return a < c ? -1 : a > c ? 1 : 0
+    }
+    if (a === c) return (b < d) === (a > 0n) ? 1 : -1
+    if ((a < c) === (a > 0n ? b > d : b < d)) return a < c ? -1 : 1
+  }
+  // Scenario values are normalized with positive denominators. Other fraction
+  // forms need the sign of the cross-products' common denominator as well.
+  const difference = b === d && b > 0n ? a - c : a * d - c * b
+  if (difference === 0n) return 0
+  const order = difference < 0n ? -1 : 1
+  return (b < 0n) !== (d < 0n) ? -order : order
+}
 
 const rational = (value: Model.Rational): ExactNumber => Exact.rational(value)
 
@@ -65,7 +67,7 @@ export const parse = (authored: string, bindingId: string): Parsed => {
   }
   const base = rational(digits)
   return {
-    exact: reduce(BigInt(base.numerator) * factor, BigInt(base.denominator)),
+    exact: factor === 1n ? base : reduce(BigInt(base.numerator) * factor, BigInt(base.denominator)),
     ...(unit === undefined ? {} : { unit }),
     approximate
   }

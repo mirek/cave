@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build CAVE extension",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["build"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "group": "build"
+    }
+  ]
+}

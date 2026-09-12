@@ -1,0 +1,343 @@
+{
+  "format": "cave.pagination-review",
+  "version": 1,
+  "description": "Sequential current-runtime baseline; unchanged pagination benchmark fixtures and assertions.",
+  "runs": [
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 6.948292000000038,
+          "samplesMs": [
+            11.333166000000006,
+            8.142583000000002,
+            6.792291999999975,
+            6.636333000000036,
+            6.948292000000038
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 69.44900000000001,
+          "samplesMs": [
+            69.44900000000001,
+            69.87604200000004,
+            67.13483299999996
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 5.772000000000048,
+          "samplesMs": [
+            5.772000000000048,
+            5.424832999999921,
+            5.949542000000065,
+            5.655750000000012,
+            7.476167000000032
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 63.198083,
+          "samplesMs": [
+            62.426624999999945,
+            63.198083,
+            63.4396670000001
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.326291999999967,
+          "samplesMs": [
+            24.285666999999876,
+            25.420292000000018,
+            25.249791999999843,
+            25.326291999999967,
+            25.575667000000067
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3146.0989579999996,
+          "samplesMs": [
+            3163.0035000000003,
+            3146.0989579999996,
+            3084.1276670000007
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.25329099999908,
+          "samplesMs": [
+            25.422082999999475,
+            25.166541000000507,
+            25.168125000000146,
+            25.284959000000526,
+            25.25329099999908
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3209.9326249999995,
+          "samplesMs": [
+            3209.9326249999995,
+            3222.2182080000002,
+            3097.6394169999985
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.735999999997148,
+          "samplesMs": [
+            2.7384579999998095,
+            2.760874999999942,
+            2.735999999997148,
+            2.7252079999998386,
+            2.7113750000025902
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 30.838999999999942,
+          "samplesMs": [
+            30.60637499999939,
+            30.838999999999942,
+            32.263999999999214
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 22.18170800000007,
+          "samplesMs": [
+            20.52991699999984,
+            22.141833000001498,
+            22.58991700000115,
+            22.199625000001106,
+            22.18170800000007
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2771.739666999998,
+          "samplesMs": [
+            2771.739666999998,
+            2862.452333000001,
+            2730.0064170000005
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 7.414458000000025,
+          "samplesMs": [
+            12.813333999999998,
+            7.869082999999989,
+            6.701208000000008,
+            7.414458000000025,
+            6.828374999999994
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 66.78616600000004,
+          "samplesMs": [
+            66.78616600000004,
+            67.85087499999997,
+            63.867875000000026
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 5.791666999999961,
+          "samplesMs": [
+            5.791666999999961,
+            5.7934999999999945,
+            5.630167000000029,
+            5.568540999999982,
+            7.34050000000002
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 61.204875000000015,
+          "samplesMs": [
+            61.618832999999995,
+            59.00262500000008,
+            61.204875000000015
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.49591700000019,
+          "samplesMs": [
+            24.742500000000064,
+            26.273083999999926,
+            25.470000000000027,
+            27.505292000000054,
+            25.49591700000019
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3109.355166,
+          "samplesMs": [
+            3109.355166,
+            3121.9915419999998,
+            3065.4859579999993
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.0870419999992,
+          "samplesMs": [
+            25.39166699999987,
+            25.167207999998936,
+            25.0870419999992,
+            24.90887499999917,
+            25.027625000000626
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3114.2235419999997,
+          "samplesMs": [
+            3145.4835839999996,
+            3114.2235419999997,
+            3113.5992499999993
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.789082999999664,
+          "samplesMs": [
+            2.9163750000006985,
+            2.867000000002008,
+            2.789082999999664,
+            2.759582999999111,
+            2.747624999999971
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 30.88012499999968,
+          "samplesMs": [
+            30.88012499999968,
+            30.85741599999892,
+            30.908916000000318
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 22.131124999999884,
+          "samplesMs": [
+            20.426125000001775,
+            22.26445800000147,
+            22.102708000002167,
+            22.191666000002442,
+            22.131124999999884
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2746.445125000002,
+          "samplesMs": [
+            2746.445125000002,
+            2825.2256250000028,
+            2736.019791999999
+          ]
+        }
+      ]
+    }
+  ]
+}

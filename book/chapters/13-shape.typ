@@ -26,7 +26,9 @@ cafe EXPECTS STOCKS
 
 An entity is an instance of `lot` when it has a current positive `IS lot`
 claim, or an `IS` claim into a type that `EXTENDS+` into `lot`. The taxonomy
-is the only widening mechanism; there are no name globs. An attribute
+is the only widening mechanism; there are no name globs. Binding follows
+every reachable type without a depth cutoff. Cycles terminate, and multiple
+paths do not duplicate an instance check. An attribute
 expectation is met by a current positive `HAS attr:` claim; a relation
 expectation by a current positive claim with that verb on the side the verb
 reads from, so `SUPPLIED-BY` is satisfied by a stored `SUPPLIES` row that
@@ -37,6 +39,10 @@ Two tags narrow an expectation without a second schema language.
 for relations, since an attribute already has at most one current value per
 series. `#unit:USD/kg` requires the current value's normalized unit to be
 exactly that; no conversion is attempted and a unitless value fails.
+Runtime checks and generated clients reject malformed constraint tags, including
+unknown cardinalities, repeated values, and units on relation expectations.
+A gate rolls back newly introduced malformed declarations. Existing malformed
+declarations need an ungated correction or retraction before checked writes resume.
 
 Expectations evolve like every claim: retract one with `@ 0%`, and a negated
 declaration documents a deliberate non-expectation. They never constrain
@@ -76,18 +82,22 @@ coverage: 39 row(s), 39 fact(s) — 39 current, 0 retracted, 0 negated; avg conf
 
 The command exits with status 1 while a violation remains, so it works as a
 CI gate. The other sections are advisory: *stale* current beliefs older than
-a horizon (`--stale <days>`, default 90), *review candidates* with
+a horizon (`--stale <days>`, default 90; finite and non-negative, with
+fractional days allowed), *review candidates* with
 confidence between 30 and 70 percent, and *alias disagreements*, where two
 names in one alias group carry different current values or opposite
-polarity for the same fact. The coverage line is the intrinsic measure of a
+polarity for the same fact. Alias groups follow the complete chain of links;
+long chains do not consume the call stack or require a SQL parameter for
+every member. The coverage line is the intrinsic measure of a
 store's quality: how much is typed, how much is retracted, how confident
 the current beliefs are on average.
 
 == The write gate
 
-The same check can run inside an append. `cave add --check` appends, checks,
-and rolls back if the append *introduced* violations that were not there
-before:
+The same check can run inside an append. `cave add --check` reserves the
+write transaction before reading baseline violations, then appends, checks,
+and rolls back if the append *introduced* violations. Concurrent repairs
+committed before the reservation are part of that baseline:
 
 ```sh
 $ echo 'lot/tolima-27 IS lot' | cave add --db roastery.db --check

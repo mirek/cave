@@ -1,3 +1,4 @@
+import { booleanOption } from './options.ts'
 /**
  * Declared sources (spec §23.4) — a `cave connect` invocation persisted
  * in-band as ordinary attribute claims on a `source/<name>` entity:
@@ -22,7 +23,9 @@
  * same declarations against a SQLite store, URLs included.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { errorMessage } from './error-message.ts'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { readText } from './utf8.ts'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
 import { LocateError, open } from '@cavelang/store'
@@ -89,7 +92,8 @@ export const unwrap = (value: string): string =>
 export const deltasOf = (store: Store): Delta[] => {
   // Several belief series may speak about one attribute (the root file
   // and a followed source stamp differently): the newest current claim
-  // wins, so what was asserted last is what runs.
+  // wins among surviving positive claims. A retraction removes only its
+  // own series and can expose another source's older declaration again.
   const byName = new Map<string, Partial<Record<Attribute, { value: string, tx: string }>>>()
   for (const row of sourceRows(store)) {
     if (row.attribute === null || row.value_text === null || !isAttribute(row.attribute)) {
@@ -123,8 +127,9 @@ export const merge = (known: undefined | Declared, delta: Delta): undefined | De
 /**
  * The store's declared sources: every `source/<name>` whose current belief
  * carries a positive `path`, with the other declaration attributes that
- * are current alongside it. Retracting the `path` (`… @ 0%`) removes the
- * source; superseding it moves it.
+ * are current alongside it. Retracting a `path` (`… @ 0%`) removes that
+ * series; the source disappears only when no positive path series remains.
+ * Superseding the newest positive path moves it.
  */
 export const declaredSources = (store: Store): Declared[] =>
   deltasOf(store).flatMap(delta => {
@@ -152,12 +157,20 @@ export const declaredIn = (text: string): Declared[] =>
  */
 export const declarationsIn = (text: string): Delta[] => {
   const scratch = open()
+  let result: Delta[]
   try {
     scratch.ingest(text)
-    return deltasOf(scratch)
-  } finally {
-    scratch.close()
+    result = deltasOf(scratch)
+  } catch (error) {
+    try { scratch.close() } catch (closeError) {
+      const messages = [error, closeError].map(errorMessage)
+      throw new AggregateError([error, closeError],
+        `declaration read failed: ${messages[0]}; scratch store close also failed: ${messages[1]}`, { cause: error })
+    }
+    throw error
   }
+  scratch.close()
+  return result
 }
 
 /** Where a declared path points: URLs as they are, files against the store's directory. */
@@ -195,13 +208,14 @@ export const describe = (declared: Declared): string => {
 export const directoryOf = (root: string): string =>
   root === ':memory:' || root === '' ? process.cwd() : dirname(resolve(root))
 
-const sourceOptions = (declared: Declared, fetchImpl?: Source.FetchLike): Source.Options => ({
+const sourceOptions = (declared: Declared, fetchImpl?: Source.FetchLike, signal?: AbortSignal): Source.Options => ({
   ...declared.format === undefined || declared.format === 'cave' ? {} : { format: declared.format as Source.Format },
   ...declared.delimiter === undefined ? {} : { delimiter: declared.delimiter },
   ...declared.table === undefined ? {} : { table: declared.table },
   ...declared.sql === undefined ? {} : { sql: declared.sql },
   ...declared.records === undefined ? {} : { records: declared.records },
-  ...fetchImpl === undefined ? {} : { fetchImpl }
+  ...fetchImpl === undefined ? {} : { fetchImpl },
+  ...signal === undefined ? {} : { signal }
 })
 
 /** The declaration's content, for change detection between passes of one run. */
@@ -229,8 +243,9 @@ export const followed = (store: Store, declared: Declared): boolean =>
 export const closure = (store: Store, names: readonly string[]): Declared[] => {
   const owners = ownership(store)
   const selected = new Set(names)
-  const queue = [...names]
-  for (let owner = queue.shift(); owner !== undefined; owner = queue.shift()) {
+  const queue = [...selected]
+  for (let at = 0; at < queue.length; at++) {
+    const owner = queue[at]!
     for (const name of owners.get(owner) ?? []) {
       if (!selected.has(name)) {
         selected.add(name)
@@ -298,27 +313,42 @@ const mappingSync = (declared: Declared, dir: string): { mapping: Template.Mappi
     if (Source.isUrl(declared.path)) {
       throw urlRefused(declared.path)
     }
-    return { mapping: parseTemplate(readFileSync(resolvePath(declared.path, dir), 'utf8'), caveLabel), cave: true }
+    return { mapping: parseTemplate(readText(resolvePath(declared.path, dir)), caveLabel), cave: true }
   }
   // A file that exists is the mapping, whatever its name looks like; only
   // otherwise is the text read as an inline template.
   const mapPath = resolvePath(declared.map!, dir)
   return !existsSync(mapPath) && Template.isInline(declared.map!) ?
     { mapping: parseTemplate(Template.inlineDocument(declared.map!), 'inline mapping'), cave: false } :
-    { mapping: parseTemplate(readFileSync(mapPath, 'utf8'), `mapping ${declared.map}`), cave: false }
+    { mapping: parseTemplate(readText(mapPath), `mapping ${declared.map}`), cave: false }
 }
 
-const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<{ mapping: Template.Mapping, cave: boolean }> => {
+const mappingAsync = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike, signal?: AbortSignal): Promise<{ mapping: Template.Mapping, cave: boolean }> => {
   if (isCave(declared) && Source.isUrl(declared.path)) {
     validate(declared)
-    const { text } = await Source.fetchText(declared.path, sourceOptions(declared, fetchImpl))
+    const { text } = await Source.fetchText(declared.path, sourceOptions(declared, fetchImpl, signal))
     return { mapping: parseTemplate(text, caveLabel), cave: true }
   }
   return mappingSync(declared, dir)
 }
 
+const captureDeclaration = (declared: Declared): Declared => {
+  const { name, path, map, key, format, delimiter, table, sql, records } = declared
+  return {
+    name, path,
+    ...map === undefined ? {} : { map },
+    ...key === undefined ? {} : { key },
+    ...format === undefined ? {} : { format },
+    ...delimiter === undefined ? {} : { delimiter },
+    ...table === undefined ? {} : { table },
+    ...sql === undefined ? {} : { sql },
+    ...records === undefined ? {} : { records }
+  }
+}
+
 /** Loads a declared source synchronously — local files only (`assemble`); a URL is refused. */
 export const prepareSync = (declared: Declared, dir: string): Prepared => {
+  declared = captureDeclaration(declared)
   if (Source.isUrl(declared.path)) {
     throw urlRefused(declared.path)
   }
@@ -327,12 +357,18 @@ export const prepareSync = (declared: Declared, dir: string): Prepared => {
 }
 
 /** Loads a declared source, URLs included — a `.cave` URL is fetched and parsed as the template (`cave connect`). */
-export const prepare = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike): Promise<Prepared> => {
-  const { mapping, cave } = await mappingAsync(declared, dir, fetchImpl)
-  return prepared(declared, dir, mapping, cave ? undefined : await Source.load(resolvePath(declared.path, dir), sourceOptions(declared, fetchImpl)))
+export const prepare = async (declared: Declared, dir: string, fetchImpl?: Source.FetchLike, signal?: AbortSignal): Promise<Prepared> => {
+  signal?.throwIfAborted()
+  declared = captureDeclaration(declared)
+  const { mapping, cave } = await mappingAsync(declared, dir, fetchImpl, signal)
+  signal?.throwIfAborted()
+  const loaded = cave ? undefined : await Source.load(resolvePath(declared.path, dir), sourceOptions(declared, fetchImpl, signal))
+  signal?.throwIfAborted()
+  return prepared(declared, dir, mapping, loaded)
 }
 
 export type DiscoverOptions = {
+  readonly signal?: AbortSignal
   readonly fetchImpl?: Source.FetchLike
   /** Only this declared source (and what it declares in turn). */
   readonly only?: string
@@ -397,7 +433,7 @@ export type Discovery = {
 export const declarationState = (store: Store): Map<string, string> =>
   new Map(currentRowsUnder(store, prefix).map(row => [row.claim_key, row.id]))
 
-/** Whether two declaration snapshots agree, name by name. */
+/** Compare keyed declaration signatures or claim-row identities without ignoring ownership changes. */
 export const sameDeclarations = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean =>
   a.size === b.size && [...a].every(([name, signature]) => b.get(name) === signature)
 
@@ -409,12 +445,24 @@ export const staleOverlay = (): Error =>
 
 /** `discover`, also returning the declarations the snapshot started from. */
 export const discovery = async (origin: Store, root: string, options: DiscoverOptions = {}): Promise<Discovery> => {
+  const signal = options.signal
+  signal?.throwIfAborted()
+  options = {
+    signal,
+    fetchImpl: options.fetchImpl,
+    only: options.only,
+    force: options.force,
+    prune: options.prune,
+    skipFollowed: options.skipFollowed
+  }
+  for (const key of ['force', 'prune', 'skipFollowed'] as const) booleanOption(options[key], key)
   const dir = directoryOf(root)
   // Everything runs against a private snapshot of the store: the real
   // database holds no lock while sources load (a URL may take a minute),
   // and the copy is simply discarded. The baseline and the selection come
   // from that same snapshot, so they agree with each other.
   const { store, dispose } = snapshot(origin)
+  const errors: unknown[] = []
   try {
     const baseline = declarationState(store)
     const names = declaredSources(store).map(declared => declared.name)
@@ -444,31 +492,55 @@ export const discovery = async (origin: Store, root: string, options: DiscoverOp
       }
       version(next.name)
       done.set(next.name, signature(next))
-      // The name rule holds for every declaration, skipped ones included.
-      validate(next)
-      // Followed means followed under this very declaration: a version a
-      // replayed source produced, or one assembly replaced, is new. A source
-      // already loaded in this discovery is never skipped again — a
-      // declaration that went away and came back must run again, after the
-      // intervening version.
-      if (options.skipFollowed === true && !sequence.some(ready => ready.declared.name === next.name) && followed(store, next)) {
-        continue
-      }
-      const loaded = await prepare(next, dir, options.fetchImpl)
-      sequence.push(loaded)
-      run(store, loaded, { force: options.force === true, prune: options.prune === true })
-      if (allowed !== undefined) {
-        // Ownership only changes when a source runs: one pass for this one.
-        for (const name of ownedDeclarations(store, loaded.declared.name)) allowed.add(name)
+      try {
+        // The name rule holds for every declaration, skipped ones included.
+        validate(next)
+        // Followed means followed under this very declaration: a version a
+        // replayed source produced, or one assembly replaced, is new. A source
+        // already loaded in this discovery is never skipped again — a
+        // declaration that went away and came back must run again, after the
+        // intervening version.
+        if (options.skipFollowed === true && !sequence.some(ready => ready.declared.name === next.name) && followed(store, next)) {
+          continue
+        }
+        options.signal?.throwIfAborted()
+        const loaded = await prepare(next, dir, options.fetchImpl, options.signal)
+        options.signal?.throwIfAborted()
+        sequence.push(loaded)
+        run(store, loaded, { force: options.force === true, prune: options.prune === true })
+        if (allowed !== undefined) {
+          // Ownership only changes when a source runs: one pass for this one.
+          for (const name of ownedDeclarations(store, loaded.declared.name)) allowed.add(name)
+        }
+      } catch (error) {
+        // Preserve cancellation identity, including combined transport failures.
+        if (options.signal?.aborted) throw error
+        throw new LocateError(`${prefix}${next.name} (${next.path}): ${errorMessage(error)}`, { cause: error })
       }
     }
+  } catch (error) {
+    errors.push(error)
+    throw error
   } finally {
-    dispose()
+    dispose(errors)
+  }
+}
+
+/** Attempt every owned cleanup step, preserving failures in occurrence order. */
+const cleanupSnapshot = (errors: unknown[], steps: (() => void)[]): void => {
+  for (const step of steps) {
+    try { step() } catch (error) { errors.push(error) }
+  }
+  if (errors.length === 1) throw errors[0]
+  if (errors.length > 1) {
+    throw new AggregateError(errors,
+      `discovery snapshot failed: ${errors.map(errorMessage).join('; ')}`,
+      { cause: errors[0] })
   }
 }
 
 /** A private, disposable copy of a store — an exact snapshot in a temporary file, opened writable. */
-const snapshot = (origin: Store): { store: Store, dispose: () => void } => {
+const snapshot = (origin: Store): { store: Store, dispose: (errors: unknown[]) => void } => {
   const capability = origin.adapter.capabilities.backup
   if (capability === undefined) {
     throw new Error(`cave connect: SQLite adapter ${JSON.stringify(origin.adapter.name)} cannot snapshot a store for discovery`)
@@ -480,14 +552,14 @@ const snapshot = (origin: Store): { store: Store, dispose: () => void } => {
     const store = open(path, { registry: origin.baseRegistry(), access: 'no-migrate' })
     return {
       store,
-      dispose: () => {
-        store.close()
-        rmSync(dir, { recursive: true, force: true })
-      }
+      dispose: errors => cleanupSnapshot(errors, [
+        () => store.close(),
+        () => rmSync(dir, { recursive: true, force: true })
+      ])
     }
   } catch (error) {
-    // A failed copy must not leave a database-sized directory behind.
-    rmSync(dir, { recursive: true, force: true })
+    // Attempt removal even when creation failed, preserving both failures.
+    cleanupSnapshot([error], [() => rmSync(dir, { recursive: true, force: true })])
     throw error
   }
 }
@@ -558,11 +630,12 @@ const hasAnyDigest = (store: Store, name: string): boolean => {
  * source that was followed without a recorded declaration (digests, no
  * marker) is treated as changed, conservatively.
  */
-export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report =>
+export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Report => {
+  options = { force: booleanOption(options.force, 'force'), prune: booleanOption(options.prune, 'prune') }
   // One transaction: a transition that retires the former unit and then
   // fails to ingest its replacement (a prelude the registry refuses, say)
   // rolls the retirement back, keeping the last good data.
-  store.transaction(() => {
+  return store.transaction(() => {
     const previous = recordedDeclaration(store, ready.declared.name)
     const transition = previous === undefined ?
       hasAnyDigest(store, ready.declared.name) :
@@ -584,11 +657,19 @@ export const run = (store: Store, ready: Prepared, options: RunOptions = {}): Re
       prune: options.prune === true || transition
     })
     const report = retired === 0 ? passed : { ...passed, retracted: passed.retracted + retired }
+    if (transition && report.failures.length > 0) {
+      // A new declaration can change record identity. Keeping only successful
+      // records would retire old data without a complete replacement and mark
+      // that incomplete transition as finished, preventing a faithful retry.
+      throw new Error(`cave connect: source/${ready.declared.name} replacement failed\n` +
+        report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('\n'))
+    }
     if (!followed(store, ready.declared)) {
       store.ingest(`${prefix}${ready.declared.name} HAS ${declarationAttribute}: ${declarationDigest(ready.declared)} @${provenanceContext}`)
     }
     return report
   })
+}
 
 export type Assembled = {
   readonly declared: Declared
@@ -608,6 +689,7 @@ export type Assembled = {
  * as with a text file that does not parse.
  */
 export const assemble = (store: Store, root: string, options: { readonly force?: boolean } = {}): Assembled[] => {
+  const force = booleanOption(options.force, 'force')
   const dir = directoryOf(root)
   const done = new Map<string, string>()
   const self = root === ':memory:' || root === '' ? undefined : resolve(root)
@@ -626,26 +708,26 @@ export const assemble = (store: Store, root: string, options: { readonly force?:
     try {
       version(next.name)
     } catch (error) {
-      throw new LocateError(error instanceof Error ? error.message : String(error))
+      throw new LocateError(errorMessage(error), { cause: error })
     }
     done.set(next.name, signature(next))
     try {
       // The name rule holds for every declaration, skipped ones included.
       validate(next)
     } catch (error) {
-      throw new LocateError(`${prefix}${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}`)
+      throw new LocateError(`${prefix}${next.name} (${next.path}): ${errorMessage(error)}`, { cause: error })
     }
     if (Source.isUrl(next.path) || resolvePath(next.path, dir) === self) {
       continue
     }
     try {
-      const report = run(store, prepareSync(next, dir), { force: options.force === true })
+      const report = run(store, prepareSync(next, dir), { force })
       if (report.failures.length > 0) {
         throw new Error(report.failures.map(failure => `${failure.record}: ${failure.problems.join('; ')}`).join('\n'))
       }
       assembled.push({ declared: next, report })
     } catch (error) {
-      throw new LocateError(`${prefix}${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}`)
+      throw new LocateError(`${prefix}${next.name} (${next.path}): ${errorMessage(error)}`, { cause: error })
     }
   }
 }

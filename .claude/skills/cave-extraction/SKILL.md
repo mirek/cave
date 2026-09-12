@@ -151,18 +151,38 @@ The same store can be asked through committed CAVE-Q patterns:
 
 LLM extraction (§14–§15) is for prose; structured data deserves exact,
 repeatable, token-free conversion. `cave connect` maps records — CSV/TSV
-rows, JSON/JSONL objects, SQLite rows, JSON/CSV URLs — through a **mapping
+rows, JSON/JSONL objects, SQLite rows, JSON/JSONL/CSV URLs — through a **mapping
 template** into ordinary claims, with no LLM in the loop. The same input
 and mapping always produce the same claims. No new syntax: templates reuse
 the CAVE-Q `?x` variable form (§12.1) inside ordinary CAVE lines, and
 every produced claim flows through the standard parse → canonicalize →
 append pipeline.
 
+CSV/TSV source loading MUST reject an unterminated quoted field, reporting the
+physical line where it opened, before mapping or pruning starts. A truncated
+quoted record is a source error, not evidence that other records disappeared.
+Unquoted fields MUST NOT contain double quotes, and a closing field quote MUST
+be followed by a delimiter, an LF or CRLF line ending, or end-of-input. Violations report the
+physical line and fail source loading before mapping or pruning.
+CSV/TSV header names MUST be unique after trimming whitespace, using
+case-sensitive comparison. Duplicate names are source errors even for
+header-only inputs and before SQL staging; a later cell MUST NOT silently
+replace an earlier cell under the same record key.
+Data rows MUST NOT contain more cells than header columns. Excess cells are a
+source error at the record's starting physical line, before mapping or pruning.
+Missing trailing cells in shorter rows become empty strings.
+Custom CSV/TSV delimiters MUST be one character other than a double quote,
+carriage return or line feed. Invalid delimiters are rejected even for empty
+sources, before mapping or pruning.
+
 ### 23.1 Mapping templates
 
 A mapping is an ordinary CAVE document in which `?field` variables stand
 for record fields (CSV columns, JSON keys — dotted names like
-`?address.city` traverse nested JSON):
+`?address.city` traverse nested JSON). Lookup checks exact own keys before dotted
+paths and follows only own properties at each step; inherited JavaScript
+properties are not source fields. Explicit JSON keys, including `constructor`
+and `__proto__`, remain ordinary data:
 
 ```cave
 ; people.map.cave
@@ -238,7 +258,9 @@ add, values exactly as parsed: a CSV cell is text (`00123` stays
 `00123`; cast for arithmetic, `CAST(kg AS REAL) > 10`), a JSON number is
 a number, a boolean is `0`/`1`, a structured value is JSON text
 (`json_extract` reaches into it) — and the query's rows are the records
-the mapping sees. Two fields whose names differ only in case cannot both
+the mapping sees. Non-finite numeric inputs, including nested values, are
+rejected before staging instead of being converted to NULL.
+Two fields whose names differ only in case cannot both
 be staged (SQLite column names are case-insensitive) and are an error
 rather than a silent merge. A schemaless source (JSON, JSONL) that
 became empty has no columns of its own, and a CSV cleared to nothing
@@ -257,6 +279,13 @@ Each record gets a stable identity `connect/<name>/<key>`, where `<name>`
 names the source (`--name`, defaulting to the file basename) and `<key>`
 is the `--key <field>` value — or, unkeyed, the content digest of the
 record's instantiated claims.
+Explicit keys MUST be strings, finite numbers, booleans, or programmatic bigints
+that remain non-empty after sanitization. Other values are unusable identities;
+the record fails and the unidentified-failure pruning safeguard applies.
+
+Before appending a record or prelude, digest skipping is checked again inside
+the write transaction so a concurrent identical refresh is not appended twice.
+`--force` bypasses that digest check as well as the initial skip check.
 
 Two conventions make re-runs incremental and attributable, both reusing
 §9.5 provenance mechanics:
@@ -287,6 +316,15 @@ Two conventions make re-runs incremental and attributable, both reusing
 
 Records that fail to format (rule 4 above, or a missing `--key` field)
 are reported and skipped; they never poison the rest of the run.
+An identifiable failed record counts as present for pruning. If a failed
+record has no usable key, or an unkeyed record fails formatting or ingestion,
+its former identity is unknown: disappearance pruning is skipped for that
+pass with a diagnostic note, while valid records still update. A later
+successful `--prune` pass reconciles disappeared records normally, including
+an empty source.
+The pruning phase reads the source's current digest set and retracts vanished
+records within one write transaction. A failed pruning phase rolls back its
+retirements; earlier successful record updates retain their per-record commits.
 Retraction never touches vocabulary declaration claims (`X IS verb`,
 `REVERSE`, or `RENAMED-TO`): registry history is additive (§5.4, §5.5,
 §5.8), even when a connector record that introduced a declaration changes.
@@ -352,7 +390,12 @@ key, query, or record selector — prunes as it runs, retiring the records
 its previous version produced that the new one does not, and a `.cave`
 source that became a record source retires its former prelude whole; a
 source that carries digests but no recorded declaration counts as
-changed. When several belief series speak about one
+changed. A transition is atomic: if any replacement record fails, all writes
+for that source roll back, including retirement and declaration bookkeeping.
+The error reports the failed records, and a corrected retry still compares
+against the last successfully recorded declaration. Unchanged declarations
+retain the ordinary per-record failure isolation of §23.2.
+When several belief series speak about one
 attribute — the root file and a followed source stamp differently — the
 newest current claim wins. A retraction inside a followed text retracts
 its own series only (§9.5): to remove a declaration the root made,

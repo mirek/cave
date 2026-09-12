@@ -66,6 +66,11 @@ The ordering is the invariant the rest of the system rests on:
 have converged on the primary form before the key is computed, or one fact
 would fork into several series.
 
+Ingestion reserves its transaction before canonicalizing. Registry access and
+inverse reads also refresh vocabulary after peer commits, including on read-only
+connections. Unchanged data reuses the cache; rollback restores it and its
+data-version marker.
+
 == Inverses are views
 
 The store holds one row per fact. A forward read uses the subject index; a
@@ -102,8 +107,10 @@ JOIN (SELECT claim_key, MAX(tx) AS max_tx FROM cave_claim
 == Schema versions
 
 Every store records an integer schema version in `PRAGMA user_version`.
-Version 0 is the unversioned legacy format and version 1 is the current
-schema. Opening a store reads the version before anything else. An older
+Version 0 is the unversioned legacy format and version 2 is the current
+schema. Version 2 adds an index led by transaction id, speeding head reads
+and single-claim appends without rewriting stored knowledge. Opening a store
+reads the version before anything else. An older
 supported store gets each forward migration in ascending order, and each
 migration's DDL, data backfill, structural validation, and version advance
 share one immediate transaction, so an interruption leaves either the old

@@ -41,10 +41,18 @@ module.exports = grammar({
 
     comment_line: $ => $.comment,
 
-    claim_line: $ => seq(
-      field('subject', choice($._term, alias($.verb, $.entity))),
-      $._body
+    claim_line: $ => choice(
+      seq(field('subject', choice($._term, alias($.verb, $.entity))), $._body),
+      $._explicit_claim
     ),
+
+    _explicit_claim: $ => prec.right(1, seq(
+      $.claim_marker,
+      field('subject', choice($._term, alias($.verb, $.entity), alias($.qualifier_verb, $.entity), alias($.negation, $.entity), alias($.number, $.entity))),
+      $._body
+    )),
+
+    claim_marker: () => '@claim',
 
     // Bare relational verb; the subject is inherited from the parent (§8.3).
     continuation_line: $ => prec.dynamic(-1, $._body),
@@ -53,8 +61,9 @@ module.exports = grammar({
     // Indentation and prefix expansion remain consumer responsibilities;
     // this permissive fallback keeps every fragment highlightable while the
     // complete line rules above retain precedence.
-    shorthand_line: $ => prec.dynamic(-2, seq(
-      repeat1(choice(
+    shorthand_line: $ => prec.dynamic(-2, choice(
+      prec(2, seq($.claim_marker, optional($.comment))),
+      seq(repeat1(choice(
         $.verb,
         $.attribute,
         $._term,
@@ -63,7 +72,7 @@ module.exports = grammar({
         $._meta,
         '->'
       )),
-      optional($.comment)
+      optional($.comment))
     )),
 
     _body: $ => choice(
@@ -120,6 +129,7 @@ module.exports = grammar({
 
     // Qualifier payload (§8.2): comparison, nested claim, or bare condition.
     _qualifier_payload: $ => choice(
+      $._explicit_claim,
       $.comparison,
       seq(field('subject', $._term), $._body),
       $._term
@@ -137,6 +147,7 @@ module.exports = grammar({
 
     _meta: $ => choice(
       $.context,
+      alias($.claim_marker, $.context),
       $.confidence,
       $.tag,
       $.uncertainty,

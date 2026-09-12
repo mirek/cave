@@ -3,8 +3,12 @@
 The fixtures behind [Tutorial II in the root README](../../README.md#tutorial-ii--a-market-watchlist):
 fictional companies, the themes that move them, news read by an LLM, rules
 that turn theme exposure into per-company pressure, governed decisions, and
-an automation that reacts. Run from this directory with `cave` on the path
-and no `market.db` yet.
+an automation that reacts. Run from this directory with no `market.db` yet.
+Use globally installed `cave`, or replace `cave` with `pnpm exec cave` after
+repository setup. See [Run the fixtures](../README.md#run-the-fixtures) for
+setup and working-directory conventions. The checked-in news below lets you
+follow the tutorial without configuring an agent; live ingestion requires a
+separately installed and configured agent command.
 
 | Step | File | Adds |
 |---|---|---|

@@ -21,16 +21,22 @@
  * reflects what earlier batches recorded.
  */
 
+import { cleanup, throwIfCancelled } from './cleanup.ts'
+import { errorMessage } from './error-message.ts'
+import { booleanOption, sourceList, sourcePath } from './options.ts'
+
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { decodeText, digestBytes, sourceLabel, withSourceError } from './content.ts'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as Canonical from '@cavelang/canonical'
 import { Registry } from '@cavelang/canonical'
-import { open, type Store } from '@cavelang/store'
-import { syncDb, syncText } from '@cavelang/sync'
+import { backup, open, type Store } from '@cavelang/store'
+import { syncDb } from '@cavelang/sync'
 import { ProcessFailure, runProcess, shellCommand } from '@cavelang/loop'
 import * as Files from './files.ts'
+import { agentTimeoutMs } from './timeout.ts'
 import * as Web from './web.ts'
 import * as Context from './context.ts'
 import * as Prompt from './prompt.ts'
@@ -41,6 +47,8 @@ export type Agent =
   | ((prompt: string, files: readonly string[], context: AgentContext) => Promise<string>)
 
 export type AgentContext = {
+  /** Cooperative cancellation for an in-process agent. */
+  readonly signal?: AbortSignal
   /** Database selected for this run; strict mode points at an isolated stage. */
   readonly db: string
   /** Generated MCP client configuration when the run requested one. */
@@ -69,8 +77,9 @@ export type Options = {
   readonly force?: boolean
   /** Open generated MCP servers without the standard prelude registry. */
   readonly noPrelude?: boolean
+  /** Shell-agent limit in whole milliseconds: 0.001..2147483.647 seconds. */
   readonly timeoutSeconds?: number
-  /** Cancel an active shell-agent process tree. */
+  /** Cancel source fetching, agent work and publication of pending results. */
   readonly signal?: AbortSignal
   readonly cwd?: string
   /** Injection point for URL fetching in tests. */
@@ -83,6 +92,8 @@ export type Options = {
 export type BatchReport = {
   readonly files: readonly string[]
   readonly ok: boolean
+  /** Valid stdout claims were accepted despite parse problems in lenient mode. */
+  readonly partial?: boolean
   /** Claims produced by this batch; strict failures may discard this staged delta. */
   readonly added: number
   readonly problems: readonly string[]
@@ -94,6 +105,7 @@ export type SourceStatus = 'accepted' | 'rejected' | 'skipped' | 'not-run'
 
 export type SourceReport = {
   readonly path: string
+  /** Batch outcome; accepted strict-stage work is committed only when Report.applied is true. */
   readonly status: SourceStatus
   readonly batch?: number
   readonly problems: readonly string[]
@@ -115,6 +127,7 @@ export type Report = {
   readonly sources: readonly SourceReport[]
   /** Claims committed to the requested store (digest bookkeeping excluded). */
   readonly added: number
+  /** Unsuccessful batches plus failed URL selections, not the number of rejected sources. */
   readonly failed: number
 }
 
@@ -128,27 +141,49 @@ export const writeMcpConfig = (
   db: string,
   options: { noPrelude?: boolean, dir?: string } = {}
 ): string => {
-  const dir = options.dir ?? mkdtempSync(join(tmpdir(), 'cave-ingest-'))
-  const server = fileURLToPath(import.meta.resolve('@cavelang/mcp/bin'))
-  const path = join(dir, 'cave-mcp.json')
-  writeFileSync(path, `${JSON.stringify({
-    mcpServers: {
-      cave: {
-        command: process.execPath,
-        args: [server, '--db', resolve(db), ...options.noPrelude === true ? ['--no-prelude'] : []]
+  const noPrelude = booleanOption(options.noPrelude, 'noPrelude')
+  const suppliedDir = options.dir
+  const dir = suppliedDir ?? mkdtempSync(join(tmpdir(), 'cave-ingest-'))
+  try {
+    // The consolidated CLI exports the MCP module; its executable is a sibling.
+    const mcpEntry = import.meta.resolve('@cavelang/mcp')
+    const server = fileURLToPath(new URL(`./bin${extname(mcpEntry)}`, mcpEntry))
+    const path = join(dir, 'cave-mcp.json')
+    writeFileSync(path, `${JSON.stringify({
+      mcpServers: {
+        cave: {
+          command: process.execPath,
+          args: [server, '--db', resolve(db), ...noPrelude ? ['--no-prelude'] : []]
+        }
       }
-    }
-  }, undefined, 2)}\n`)
-  return path
+    }, undefined, 2)}\n`)
+    return path
+  } catch (error) {
+    if (suppliedDir === undefined || suppliedDir === null) cleanup([error], () => rmSync(dir, { recursive: true, force: true }))
+    throw error
+  }
 }
 
-const promptFiles = (files: readonly Files.Selected[], embed: boolean, cwd: string) =>
+/** Path-reading agents must not certify a visibly changed selection. */
+const sourceProblems = (files: readonly Files.Selected[], cwd: string): string[] =>
+  files.flatMap(file => {
+    if (file.content !== undefined) return []
+    try {
+      const current = digestBytes(readFileSync(resolve(cwd, file.path)))
+      return current === file.digest ? [] : [`${sourceLabel(file.path)}: source changed since selection; retry ingestion`]
+    } catch (error) {
+      const message = errorMessage(error)
+      return [`${sourceLabel(file.path)}: cannot read selected source: ${sourceLabel(message)}`]
+    }
+  })
+
+const promptFiles = (files: readonly Pick<Files.Selected, 'path' | 'content'>[], embed: boolean, cwd: string) =>
   files.map(file => ({
     path: file.path,
-    // URL sources carry their extracted text and are always embedded —
-    // the agent has no other way to read them readability-cleaned.
+    // Selected URL/embedded-file content must match the recorded digest.
+    // URL text is always embedded because agents cannot read its cleaned form.
     ...file.content !== undefined ? { content: file.content } :
-      embed ? { content: readFileSync(resolve(cwd, file.path), 'utf8') } : {}
+      embed ? { content: decodeText(withSourceError(file.path, 'read source', () => readFileSync(resolve(cwd, file.path))), file.path) } : {}
   }))
 
 /** Builds the prompt for one batch against the store's *current* state. */
@@ -157,13 +192,15 @@ export const promptFor = (
   files: readonly Files.Selected[],
   options: Pick<Options, 'instructions' | 'embed' | 'mode' | 'cwd'>
 ): string => {
-  const cwd = options.cwd ?? process.cwd()
-  const context = Context.contextFor(store, files.map(file => file.path))
+  const { cwd: inputCwd, instructions, embed, mode } = options
+  const cwd = inputCwd ?? process.cwd()
+  const selected = files.map(({ path, content }) => ({ path, content }))
+  const context = Context.contextFor(store, selected.map(file => file.path))
   return Prompt.buildPrompt({
-    files: promptFiles(files, options.embed === true, cwd),
-    ...options.instructions === undefined ? {} : { instructions: Prompt.readInstructions(options.instructions)! },
+    files: promptFiles(selected, embed === true, cwd),
+    ...instructions === undefined ? {} : { instructions: Prompt.readInstructions(instructions)! },
     ...context === undefined ? {} : { context },
-    mode: options.mode ?? 'mcp'
+    mode: mode ?? 'mcp'
   })
 }
 
@@ -172,23 +209,40 @@ export const selectBatches = async (
   store: Store,
   options: Options
 ): Promise<{ selection: Files.Selection & { failures: readonly Web.Failure[] }, batches: Files.Selected[][] }> => {
-  const urls = options.patterns.filter(Web.isUrl)
-  const expanded = Files.expand(options.patterns.filter(pattern => !Web.isUrl(pattern)), options.cwd)
-  const paths = [...new Set([...expanded, ...options.files ?? []])].sort()
+  const signal = options.signal
+  signal?.throwIfAborted()
+  const timeoutSeconds = options.timeoutSeconds
+  agentTimeoutMs(timeoutSeconds === undefined ? 600 : timeoutSeconds)
+  const suppliedBatchSize = options.batchSize
+  const batchSize = suppliedBatchSize === undefined ? 8 : suppliedBatchSize
+  // Validate with the shared batching contract before reading any sources.
+  Files.batch([], batchSize)
+  const patterns = sourceList(options.patterns, 'patterns')
+  const suppliedFiles = options.files
+  const files = suppliedFiles === undefined ? [] : sourceList(suppliedFiles, 'files')
+  const { cwd, force, embed, fetchImpl } = options
+  const forceSelected = booleanOption(force, 'force')
+  const embedContent = booleanOption(embed, 'embed')
+  const urls = patterns.filter(Web.isUrl)
+  const expanded = Files.expand(patterns.filter(pattern => !Web.isUrl(pattern)), cwd)
+  const paths = [...new Set([...expanded, ...files])].sort()
   const local = Files.select(store, paths, {
-    force: options.force === true,
-    ...options.cwd === undefined ? {} : { cwd: options.cwd }
+    force: forceSelected,
+    embed: embedContent,
+    ...cwd === undefined ? {} : { cwd }
   })
   const remote = await Web.select(store, urls, {
-    force: options.force === true,
-    ...options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }
+    force: forceSelected,
+    ...signal === undefined ? {} : { signal },
+    ...fetchImpl === undefined ? {} : { fetchImpl }
   })
+  signal?.throwIfAborted()
   const selection = {
     files: [...local.files, ...remote.files],
     skipped: [...local.skipped, ...remote.skipped],
     failures: remote.failures
   }
-  return { selection, batches: Files.batch(selection.files, options.batchSize ?? 8) }
+  return { selection, batches: Files.batch(selection.files, batchSize) }
 }
 
 const claimCount = (store: Store): number =>
@@ -215,13 +269,18 @@ export const runShellAgent = (
   cwd: string,
   processOptions: ShellAgentProcessOptions = {}
 ): Promise<{ code: number | null, stdout: string, error?: string }> => {
+  if (/[\uD800-\uDFFF]/u.test(prompt)) {
+    return Promise.resolve({ code: null, stdout: '', error: 'agent prompt must contain well-formed Unicode' })
+  }
+  const { signal, maxStdoutBytes, maxStderrBytes } = processOptions
   return runProcess(shellCommand(template, substitutions), {
     cwd,
     input: prompt,
-    timeoutMs: timeoutSeconds * 1000,
-    ...processOptions.signal === undefined ? {} : { signal: processOptions.signal },
-    ...processOptions.maxStdoutBytes === undefined ? {} : { maxStdoutBytes: processOptions.maxStdoutBytes },
-    ...processOptions.maxStderrBytes === undefined ? {} : { maxStderrBytes: processOptions.maxStderrBytes }
+    strictStdoutUtf8: true,
+    timeoutMs: agentTimeoutMs(timeoutSeconds, true),
+    ...signal === undefined ? {} : { signal },
+    ...maxStdoutBytes === undefined ? {} : { maxStdoutBytes },
+    ...maxStderrBytes === undefined ? {} : { maxStderrBytes }
   }).then(result => ({ code: result.code, stdout: result.stdout })).catch((error: unknown) => {
     if (error instanceof ProcessFailure) {
       return { code: null, stdout: error.result.stdout, error: error.message }
@@ -230,10 +289,25 @@ export const runShellAgent = (
   })
 }
 
-/** Extracts CAVE text from stdout-mode agent output (```cave fences win). */
+/** Extracts complete CAVE or unlabelled fenced blocks, falling back to raw output. */
 export const caveTextOf = (output: string): string => {
-  const fences = [...output.matchAll(/```(?:cave)?\n([\s\S]*?)```/g)].map(match => match[1]!)
-  return fences.length > 0 ? fences.join('\n') : output
+  const blocks: string[] = []
+  let open: { marker: string, start: number, selected: boolean } | undefined
+  for (const line of output.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)) {
+    const text = line[0].replace(/(?:\r\n|\r|\n)$/, '')
+    const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text)
+    if (fence === null) continue
+    const marker = fence[1]!, info = fence[2]!
+    if (open !== undefined) {
+      if (marker[0] === open.marker[0] && marker.length >= open.marker.length && /^[ \t]*$/.test(info)) {
+        if (open.selected) blocks.push(output.slice(open.start, line.index))
+        open = undefined
+      }
+    } else if (marker[0] !== '`' || !info.includes('`')) {
+      open = { marker, start: line.index + line[0].length, selected: info.trim() === '' || info.trim() === 'cave' }
+    }
+  }
+  return blocks.length > 0 ? blocks.join('\n') : output
 }
 
 /** Runs batches against one mutable store. Strict callers provide a stage. */
@@ -242,14 +316,15 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
   const cwd = options.cwd ?? process.cwd()
   const mode = options.mode ?? 'mcp'
   const policy = options.policy
-  const timeoutSeconds = options.timeoutSeconds ?? 600
+  const timeoutSeconds = options.timeoutSeconds === undefined ? 600 : options.timeoutSeconds
   const { selection, batches } = await selectBatches(store, options)
   const reports: BatchReport[] = []
-  const mcpConfig = typeof options.agent === 'string' && options.agent.includes('{mcp-config}') ?
-    writeMcpConfig(options.db, { noPrelude: options.noPrelude === true }) :
-    undefined
   const promptDir = mkdtempSync(join(tmpdir(), 'cave-prompt-'))
+  const promptFailures: unknown[] = []
   try {
+    const mcpConfig = typeof options.agent === 'string' && options.agent.includes('{mcp-config}') ?
+      writeMcpConfig(options.db, { noPrelude: options.noPrelude === true, dir: promptDir }) :
+      undefined
     // Strict input validation is fail-fast before the first paid call. The
     // complete source manifest below still marks healthy selected inputs as
     // not-run and each failed URL as rejected.
@@ -277,8 +352,15 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
       }
     }
     for (const [index, files] of batches.entries()) {
-      const prompt = promptFor(store, files, { ...options, mode })
+      options.signal?.throwIfAborted()
       const paths = files.map(file => file.path)
+      const inputProblems = sourceProblems(files, cwd)
+      if (inputProblems.length > 0) {
+        reports.push({ files: paths, ok: false, added: 0, problems: inputProblems })
+        if (policy === 'strict') break
+        continue
+      }
+      const prompt = promptFor(store, files, { ...options, mode })
       if (options.agent === undefined) {
         reports.push({ files: paths, ok: false, added: 0, problems: [], note: 'no agent configured' })
         if (policy === 'strict') break
@@ -289,17 +371,20 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
       let output: string
       if (typeof options.agent === 'function') {
         try {
-          output = await options.agent(prompt, paths, {
+          output = await options.agent(prompt, [...paths], {
             db: options.db,
+            ...options.signal === undefined ? {} : { signal: options.signal },
             ...mcpConfig === undefined ? {} : { mcpConfig }
           })
+          options.signal?.throwIfAborted()
           ok = true
         } catch (error) {
+          throwIfCancelled(options.signal, error)
           output = ''
           ok = false
           reports.push({
             files: paths, ok, added: claimCount(store) - before, problems: [],
-            note: error instanceof Error ? error.message : String(error)
+            note: errorMessage(error)
           })
           if (policy === 'strict') break
           continue
@@ -314,6 +399,7 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
         }, timeoutSeconds, cwd, {
           ...options.signal === undefined ? {} : { signal: options.signal }
         })
+        options.signal?.throwIfAborted()
         ok = result.code === 0
         output = result.stdout
         if (!ok) {
@@ -325,6 +411,12 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
           continue
         }
       }
+      const changedSources = sourceProblems(files, cwd)
+      if (changedSources.length > 0) {
+        reports.push({ files: paths, ok: false, added: claimCount(store) - before, problems: changedSources })
+        if (policy === 'strict') break
+        continue
+      }
       if (mode === 'stdout') {
         // Actor provenance (spec §9.5): mcp-mode appends are stamped by the
         // MCP server; here the orchestrator appends, so it stamps — with the
@@ -335,14 +427,15 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
         const canonical = Canonical.canonicalizeText(caveTextOf(output), store.registry())
         const problems = canonical.problems.map(problem => `line ${problem.line}: ${problem.message}`)
         if (policy === 'strict' && problems.length > 0) {
-          reports.push({ files: paths, ok: false, added: 0, problems })
+          reports.push({ files: paths, ok: false, added: claimCount(store) - before, problems })
           break
         }
         const ingested = store.insertResult(canonical, { source: 'ingest' })
         reports.push({
           files: paths,
           ok: problems.length === 0,
-          added: ingested.ids.length,
+          ...problems.length > 0 && ingested.ids.length > 0 ? { partial: true } : {},
+          added: claimCount(store) - before,
           problems
         })
         if (problems.length > 0) {
@@ -351,7 +444,7 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
           continue
         }
       } else {
-        const note = output.trim().split('\n').at(-1) ?? ''
+        const note = output.trim().split(/\r\n|\r|\n/).at(-1) ?? ''
         reports.push({
           files: paths,
           ok: true,
@@ -362,17 +455,23 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
       }
       Files.recordDigests(store, files)
     }
+  } catch (error) {
+    promptFailures.push(error)
+    throw error
   } finally {
-    rmSync(promptDir, { recursive: true, force: true })
-    if (mcpConfig !== undefined) {
-      rmSync(dirname(mcpConfig), { recursive: true, force: true })
+    cleanup(promptFailures, () => rmSync(promptDir, { recursive: true, force: true }))
+  }
+  const batchByPath = new Map<string, number>()
+  for (const [index, report] of reports.entries()) {
+    for (const path of report.files) {
+      if (!batchByPath.has(path)) batchByPath.set(path, index)
     }
   }
   const sources: SourceReport[] = [
     ...selection.skipped.map(path => ({ path, status: 'skipped' as const, problems: [] })),
     ...selection.files.map(file => {
-      const batch = reports.findIndex(report => report.files.includes(file.path))
-      if (batch < 0) return { path: file.path, status: 'not-run' as const, problems: [] }
+      const batch = batchByPath.get(file.path)
+      if (batch === undefined) return { path: file.path, status: 'not-run' as const, problems: [] }
       const report = reports[batch]!
       return {
         path: file.path,
@@ -415,33 +514,72 @@ const runMutable = async (options: Options & { policy: Policy }): Promise<Report
  * them. The returned source manifest accounts for every matched input.
  */
 export const run = async (options: Options): Promise<Report> => {
-  const policy = options.policy ?? 'strict'
+  const signal = options.signal
+  signal?.throwIfAborted()
+  const patterns = options.patterns
+  const files = options.files
+  options = {
+    signal,
+    db: options.db,
+    store: options.store,
+    patterns: sourceList(patterns, 'patterns'),
+    files: files === undefined ? undefined : sourceList(files, 'files'),
+    instructions: options.instructions,
+    agent: options.agent,
+    mode: options.mode,
+    batchSize: options.batchSize,
+    embed: options.embed,
+    force: options.force,
+    noPrelude: options.noPrelude,
+    timeoutSeconds: options.timeoutSeconds,
+    cwd: options.cwd,
+    fetchImpl: options.fetchImpl,
+    policy: options.policy
+  }
+  if (options.cwd !== undefined) sourcePath(options.cwd, 'cwd')
+  for (const key of ['force', 'embed', 'noPrelude'] as const) booleanOption(options[key], key)
+  agentTimeoutMs(options.timeoutSeconds === undefined ? 600 : options.timeoutSeconds)
+  Files.batch([], options.batchSize === undefined ? 8 : options.batchSize)
+  const policy = options.policy === undefined ? 'strict' : options.policy
+  if (policy !== 'strict' && policy !== 'lenient') {
+    throw new TypeError('policy must be strict or lenient')
+  }
+  const mode = options.mode === undefined ? 'mcp' : options.mode
+  if (mode !== 'mcp' && mode !== 'stdout') {
+    throw new TypeError('mode must be mcp or stdout')
+  }
   if (policy === 'lenient') return runMutable({ ...options, policy })
 
   const stageDir = mkdtempSync(join(tmpdir(), 'cave-ingest-stage-'))
   const stageDb = join(stageDir, 'stage.db')
   let staged: Report | undefined
+  const directoryFailures: unknown[] = []
   try {
+    backup(options.store, stageDb)
     const stage = open(stageDb, options.noPrelude === true ? { registry: Registry.empty } : {})
+    const stageFailures: unknown[] = []
     try {
-      const seeded = syncText(stage, options.store.exportText({ tx: true, maxSensitivity: 'restricted' }), {
-        record: false
-      })
-      if (seeded.problems.length > 0) {
-        throw new Error(`could not stage the current store: ${seeded.problems.map(problem =>
-          `line ${problem.line}: ${problem.message}`).join('; ')}`)
-      }
       staged = await runMutable({ ...options, db: stageDb, store: stage, policy })
+    } catch (error) {
+      stageFailures.push(error)
+      throw error
     } finally {
-      stage.close()
+      cleanup(stageFailures, () => stage.close())
     }
 
+    options.signal?.throwIfAborted()
     if (staged.failed > 0 || staged.sources.some(source => source.status === 'not-run')) {
       return { ...staged, applied: false, added: 0 }
     }
-    syncDb(options.store, stageDb, { record: false })
+    const merged = syncDb(options.store, stageDb, { record: false })
+    if (merged.problems.length > 0) {
+      throw new Error(`could not commit the staged ingestion: ${merged.problems.map(problem => problem.message).join('; ')}`)
+    }
     return staged
+  } catch (error) {
+    directoryFailures.push(error)
+    throw error
   } finally {
-    rmSync(stageDir, { recursive: true, force: true })
+    cleanup(directoryFailures, () => rmSync(stageDir, { recursive: true, force: true }))
   }
 }

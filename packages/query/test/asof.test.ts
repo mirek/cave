@@ -86,6 +86,24 @@ test('asOf does not use inverse declarations recorded after the boundary (spec �
   store.close()
 })
 
+test('future qualifier parents cannot remove inverse vocabulary from a historical snapshot', () => {
+  for (const role of ['WHEN', 'VIA', 'BECAUSE']) {
+    const store = open()
+    try {
+      const original = store.ingest('LEADS IS verb\nLEADS REVERSE LED-BY\nteam LEADS project')
+      const before = original.ids[2]!
+      assert.equal(query(store, 'project LED-BY team', { asOf: before }).length, 1)
+      const [parent] = store.ingest('decision IS recorded').ids
+      store.db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
+        .run(parent!, role, original.ids[1]!)
+      store.reloadRegistry()
+      assert.equal(query(store, 'project LED-BY team').length, 0, 'the declaration is now qualified')
+      assert.equal(query(store, 'project LED-BY team', { asOf: before }).length, 1, role)
+      assert.equal(query(store, 'project LED-BY team', { asOf: parent! }).length, 0)
+    } finally { store.close() }
+  }
+})
+
 test('the alias closure reconstructs entity resolution as believed then (spec §12.3, §13.6)', () => {
   const store = open()
   store.ingest('billing USES postgres\nanalytics USES postgresql')

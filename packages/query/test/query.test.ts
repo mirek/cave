@@ -1,7 +1,151 @@
 import { test } from 'node:test'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import * as assert from 'node:assert/strict'
 import { open, type Store } from '@cavelang/store'
-import { query } from '@cavelang/query'
+import { match, Pattern, query } from '@cavelang/query'
+
+test('large metadata patterns require every context and exact flat or valued tag', () => {
+  const store = open()
+  try {
+    const contexts = Array.from({ length: 1500 }, (_, i) => `scope-${i}`)
+    const tags = Array.from({ length: 1500 }, (_, i) => i % 2 ? `tag-${i}:value` : `tag-${i}`)
+    const metadata = contexts.map(value => `@${value}`).concat(tags.map(value => `#${value}`)).join(' ')
+    assert.deepEqual(store.ingest(`complete IS service ${metadata}\nmissing IS service @scope-0 #tag-0`).problems, [])
+    assert.deepEqual(query(store, `?x IS service ${metadata}`).map(row => row.bindings['x']), ['complete'])
+    const pattern = Pattern.parse(`?x IS service ${metadata}`)
+    assert.equal(match(store, { ...pattern, contexts: [...pattern.contexts, 'absent'] }).length, 0)
+    assert.equal(match(store, { ...pattern, tags: [...pattern.tags, { key: 'absent' }] }).length, 0)
+    assert.equal(match(store, { ...pattern, tags: [{ key: 'tag-1' }] }).length, 0)
+    assert.equal(match(store, { ...pattern, tags: [{ key: 'tag-0', value: 'value' }] }).length, 0)
+    assert.equal(match(store, { ...pattern, contexts: [...pattern.contexts, contexts[0]!] }).length, 1)
+  } finally { store.close() }
+})
+
+test('small and JSON-bound metadata retain NUL suffixes and Unicode exactly', () => {
+  const store = open()
+  try {
+    for (const suffix of ['\0tail', '😀', '\\slash']) {
+      const context = `scope:${suffix}`, key = `tag${suffix}`, value = `value${suffix}`
+      assert.deepEqual(store.ingest(`item IS service @${context} #${key}:${value}`).problems, [])
+      for (const size of [1, 16, 17]) {
+        const pattern = { ...Pattern.parse('?x IS service'),
+          contexts: Array.from({ length: size }, () => context),
+          tags: Array.from({ length: size }, () => ({ key, value })) }
+        assert.equal(match(store, pattern).length, 1)
+        assert.equal(match(store, { ...pattern, contexts: [...pattern.contexts, context + 'different'] }).length, 0)
+        assert.equal(match(store, { ...pattern, tags: [...pattern.tags, { key, value: value + 'different' }] }).length, 0)
+        assert.equal(match(store, { ...pattern, tags: [...pattern.tags, { key }] }).length, 0)
+      }
+    }
+  } finally { store.close() }
+})
+
+test('malformed Unicode queries cannot match replacement characters', () => {
+  const store = open()
+  try {
+    store.ingest('api HAS label: "bad�text"\napi IS service @scope:� #note:�\nface HAS label: "café 😀\0tail"')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    for (const bad of ['\ud800', '\udc00']) {
+      assert.throws(() => query(store, `?x HAS label: "bad${bad}text"`), /CAVE-Q line 1: unpaired UTF-16 surrogate/)
+      for (const newline of ['\n', '\r\n']) {
+        assert.throws(() => query(store, ['; heading', '', '?x IS service', `WHERE context = scope:${bad}`].join(newline)), /CAVE-Q line 4: unpaired UTF-16 surrogate/)
+      }
+      const pattern = Pattern.parse('?x HAS label: "bad�text"')
+      assert.throws(() => match(store, { ...pattern, payload: { kind: 'attribute', attribute: 'label', value: { kind: 'term', text: `"bad${bad}text"` } } }), /CAVE-Q: unpaired UTF-16 surrogate/)
+      const hidden = Object.defineProperty({ kind: 'term' as const }, 'text', { value: `"bad${bad}text"` }) as Pattern.Slot
+      assert.throws(() => match(store, { ...pattern, payload: { kind: 'attribute', attribute: 'label', value: hidden } }), /CAVE-Q: unpaired UTF-16 surrogate/)
+      assert.throws(() => match(store, { ...Pattern.parse('?x IS service'), contexts: [`scope:${bad}`] }), /CAVE-Q: unpaired UTF-16 surrogate/)
+    }
+    assert.equal(query(store, '?x HAS label: "bad�text"').length, 1)
+    assert.equal(query(store, '?x HAS label: "café 😀\0tail"')[0]!.bindings['x'], 'face')
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('structured matches reject unnamed variables in every slot', () => {
+  const store = open()
+  try {
+    store.ingest('api IS service\napi HAS count: 42')
+    const relation = Pattern.parse('?entity ?verb ?object')
+    const attribute = Pattern.parse('?entity HAS count: ?value')
+    const unnamed = { kind: 'var' as const, name: '' }
+    const patterns: Pattern.t[] = [
+      { ...relation, subject: unnamed },
+      { ...relation, verb: unnamed },
+      { ...relation, payload: { kind: 'object', object: unnamed } },
+      { ...attribute, payload: { kind: 'attribute', attribute: 'count', value: unnamed } },
+      { ...Pattern.parse('?entity HAS count: 42'), subject: unnamed },
+    ]
+    for (const pattern of patterns) {
+      assert.throws(() => match(store, pattern), /CAVE-Q: variable requires a name.*wildcard/)
+    }
+    assert.deepEqual(match(store, attribute)[0]!.bindings, { entity: 'api', value: '42' })
+    assert.equal(match(store, Pattern.parse('_ IS service')).length, 1)
+  } finally { store.close() }
+})
+
+test('structured matches use one captured value across numeric detection and compilation', () => {
+  const store = open()
+  try {
+    store.ingest('good HAS label: "chosen"\nother HAS label: "changed"\ngood HAS score: 42\nother HAS score: 43')
+    for (const [attribute, chosen, changed] of [['label', '"chosen"', '"changed"'], ['score', '42', '43']] as const) {
+      let reads = 0
+      const pattern: Pattern.t = {
+        ...Pattern.parse(`?x HAS ${attribute}: ${chosen}`),
+        payload: { kind: 'attribute', attribute, value: {
+          kind: 'term', get text() { return ++reads === 1 ? chosen : changed },
+        } },
+      }
+      assert.deepEqual(match(store, pattern).map(row => row.bindings['x']), ['good'])
+      assert.equal(reads, 1)
+    }
+  } finally { store.close() }
+})
+
+test('ordinary query options retain one transaction boundary across registry and row reads', () => {
+  const store = open()
+  try {
+    const before = store.ingest('api HAS label: before').ids[0]!
+    const after = store.ingest('api HAS label: after').ids[0]!
+    for (const structured of [false, true]) {
+      let reads = 0
+      const options = { get asOf() { return ++reads === 1 ? before : after } }
+      const input = 'api HAS label: ?label'
+      const found = structured ? match(store, Pattern.parse(input), options) : query(store, input, options)
+      assert.deepEqual(found.map(row => row.bindings['label']), ['before'])
+      assert.equal(reads, 1)
+    }
+    let limitReads = 0
+    assert.equal(query(store, 'api HAS label: ?label', {
+      all: true, get limit() { return ++limitReads === 1 ? 1 : 10 },
+    }).length, 1)
+    assert.equal(limitReads, 1)
+  } finally { store.close() }
+})
+
+test('prototype-named variables remain own bindings in ordinary and transitive queries', () => {
+  const store = open()
+  try {
+    store.ingest('api IS service\napi HAS owner: platform\napi USES db\ndb USES cache')
+    for (const [pattern, values] of [
+      ['?__proto__ IS service', ['api']],
+      ['api HAS owner: ?__proto__', ['platform']],
+      ['?__proto__ USES+ cache', ['api', 'db']],
+      ['api USES+ ?__proto__', ['cache', 'db']]
+    ] as const) {
+      const matches = query(store, pattern)
+      assert.deepEqual(matches.map(match => match.bindings['__proto__']).sort(), values)
+      for (const match of matches) {
+        assert.ok(Object.hasOwn(match.bindings, '__proto__'))
+        assert.equal(Object.getPrototypeOf(match.bindings), Object.prototype)
+        assert.deepEqual(JSON.parse(JSON.stringify(match.bindings)), match.bindings)
+      }
+    }
+    assert.deepEqual(query(store, '?constructor USES ?toString')[0]!.bindings, { constructor: 'api', toString: 'db' })
+  } finally { store.close() }
+})
 
 const fixture = (): Store => {
   const store = open()
@@ -23,6 +167,28 @@ const fixture = (): Store => {
   ].join('\n'))
   return store
 }
+
+test('live and read-only query connections see vocabulary committed by another writer', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-query-vocabulary-'))
+  const path = join(dir, 'knowledge.db')
+  const writer = open(path)
+  const reader = open(path)
+  const readOnly = open(path, { access: 'read-only' })
+  try {
+    // Populate both readers' caches before the vocabulary exists.
+    reader.registry(); readOnly.registry()
+    writer.ingest('MANAGES IS verb\nMANAGES REVERSE MANAGED-BY\nalice MANAGES service', { strict: true })
+    for (const store of [reader, readOnly]) {
+      assert.equal(store.reverse('service')[0]!.rel, 'MANAGED-BY')
+      assert.deepEqual(query(store, 'service MANAGED-BY ?owner').map(match => match.bindings['owner']), ['alice'])
+      assert.equal(store.registry(), store.registry(), 'unchanged data reuses the registry cache')
+    }
+    writer.ingest('MANAGES RENAMED-TO OPERATES\nbob OPERATES other', { strict: true })
+    for (const store of [reader, readOnly]) {
+      assert.deepEqual(query(store, 'bob MANAGES ?service').map(match => match.bindings['service']), ['other'])
+    }
+  } finally { readOnly.close(); reader.close(); writer.close(); rmSync(dir, { recursive: true, force: true }) }
+})
 
 test('?x USES jwt — all systems using jwt (spec §12.1)', () => {
   const store = fixture()

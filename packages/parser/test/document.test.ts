@@ -331,6 +331,22 @@ test('a comment block directly above a line is its comment, trailing last (spec 
   assert.equal(doc.lines.filter(line => line.kind === 'comment').length, 6, 'comment lines stay in the tree')
 })
 
+test('large empty comment edges preserve evidence paragraphs and expanded source', () => {
+  const empty = ';\n'.repeat(10_000)
+  for (const [source, comment] of [
+    [`${empty}api IS service ;`, undefined],
+    [`${empty}; evidence\n;\n; second paragraph\n${empty}api IS service ; trailing`, 'evidence\n\nsecond paragraph\n' + '\n'.repeat(10_000) + 'trailing'],
+    [`${empty}; evidence\n${empty}api IS service`, 'evidence'],
+  ] as const) {
+    const document = parseDocument(source)
+    assert.deepEqual(document.diagnostics, [])
+    const claim = document.lines.at(-1)
+    assert.ok(claim?.kind === 'claim')
+    assert.equal(claim.claim.meta.comment, comment)
+    assert.equal(claim.expanded, source)
+  }
+})
+
 test('comment blocks: empty edges drop, interior blanks stay, annotations are transparent (spec §6.4, §28.4)', () => {
   const doc = parseDocument([
     ';',

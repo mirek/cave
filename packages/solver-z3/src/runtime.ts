@@ -1,5 +1,10 @@
+import { withDeadline } from './deadline.ts'
+import { withRelease } from './with-release.ts'
+import { errorMessage } from './error-message.ts'
 import { performance } from 'node:perf_hooks'
 import { Adapter, Exact, Model } from '@cavelang/solver'
+import { guardCleanup } from './cleanup.ts'
+import { closeWorkers } from './close-workers.ts'
 import type {
   AnyExpr,
   Arith,
@@ -45,7 +50,7 @@ const backendError = (
   status: 'unknown',
   reason: {
     kind: 'backend-error',
-    message: error instanceof Error ? error.message : String(error)
+    message: errorMessage(error)
   },
   backend,
   diagnostics: [],
@@ -77,6 +82,8 @@ const compiler = (
     domain.id,
     [...domain.values].sort(compareText)
   ] as const))
+  const enumCodes = new Map([...enums].map(([domain, values]) =>
+    [domain, new Map(values.map((value, index) => [value, index]))] as const))
   const variables = new Map<string, Expression>()
   const bounds: Bool<Name>[] = []
 
@@ -110,50 +117,108 @@ const compiler = (
     }
   }
 
-  const compile = (expression: Model.Expression): Expression => {
+  const expressions = new WeakMap<Model.Expression, Expression>()
+  const compiledChild = (expression: Model.Expression): Expression => expressions.get(expression)!
+  const compileBoolean = (kind: 'and' | 'or', operands: readonly Model.Expression[]): Bool<Name> => {
+    const combine = (values: Bool<Name>[]): Bool<Name> => kind === 'and' ? context.And(...values) : context.Or(...values)
+    let values = operands.map(value => asBool(compiledChild(value)))
+    // The binding also spreads arguments internally, including its AstVector
+    // overload. Bound every call and retain all operands through associativity.
+    const width = 1024
+    while (values.length > width) {
+      const groups: Bool<Name>[] = []
+      for (let index = 0; index < values.length; index += width) {
+        groups.push(combine(values.slice(index, index + width)))
+      }
+      values = groups
+    }
+    return combine(values)
+  }
+  const compileNode = (expression: Model.Expression): Expression => {
     switch (expression.kind) {
       case 'literal':
         switch (expression.sort) {
           case 'bool': return context.Bool.val(expression.value)
           case 'int': return context.Int.val(Exact.integer(expression.value))
           case 'real': return context.Real.val(exact(expression.value))
-          case 'enum': return context.Int.val(enums.get(expression.domain)!.indexOf(expression.value))
+          case 'enum': return context.Int.val(enumCodes.get(expression.domain)!.get(expression.value)!)
         }
       case 'variable': return variables.get(expression.id)!
-      case 'not': return asBool(compile(expression.value)).not()
-      case 'and': return context.And(...expression.operands.map(value => asBool(compile(value))))
-      case 'or': return context.Or(...expression.operands.map(value => asBool(compile(value))))
-      case 'implies': return context.Implies(asBool(compile(expression.left)), asBool(compile(expression.right)))
-      case 'eq': return compile(expression.left).eq(compile(expression.right))
-      case 'neq': return compile(expression.left).neq(compile(expression.right))
-      case 'lt': return asArith(compile(expression.left)).lt(asArith(compile(expression.right)))
-      case 'lte': return asArith(compile(expression.left)).le(asArith(compile(expression.right)))
-      case 'gt': return asArith(compile(expression.left)).gt(asArith(compile(expression.right)))
-      case 'gte': return asArith(compile(expression.left)).ge(asArith(compile(expression.right)))
+      case 'not': return asBool(compiledChild(expression.value)).not()
+      case 'and':
+      case 'or': return compileBoolean(expression.kind, expression.operands)
+      case 'implies': return context.Implies(asBool(compiledChild(expression.left)), asBool(compiledChild(expression.right)))
+      case 'eq': return compiledChild(expression.left).eq(compiledChild(expression.right))
+      case 'neq': return compiledChild(expression.left).neq(compiledChild(expression.right))
+      case 'lt': return asArith(compiledChild(expression.left)).lt(asArith(compiledChild(expression.right)))
+      case 'lte': return asArith(compiledChild(expression.left)).le(asArith(compiledChild(expression.right)))
+      case 'gt': return asArith(compiledChild(expression.left)).gt(asArith(compiledChild(expression.right)))
+      case 'gte': return asArith(compiledChild(expression.left)).ge(asArith(compiledChild(expression.right)))
       case 'add': {
-        const [first, ...rest] = expression.operands.map(value => asArith(compile(value)))
+        const [first, ...rest] = expression.operands.map(value => asArith(compiledChild(value)))
         return rest.reduce((left, right) => left.add(right), first!)
       }
       case 'multiply': {
-        const [first, ...rest] = expression.operands.map(value => asArith(compile(value)))
+        const [first, ...rest] = expression.operands.map(value => asArith(compiledChild(value)))
         return rest.reduce((left, right) => left.mul(right), first!)
       }
-      case 'subtract': return asArith(compile(expression.left)).sub(asArith(compile(expression.right)))
+      case 'subtract': return asArith(compiledChild(expression.left)).sub(asArith(compiledChild(expression.right)))
       case 'divide': {
-        const left = asArith(compile(expression.left))
-        const right = asArith(compile(expression.right))
+        const left = asArith(compiledChild(expression.left))
+        const right = asArith(compiledChild(expression.right))
         // Portable division is exact-real division even when both operands are
         // integers; Z3's native Int / Int operation would truncate instead.
         const real = (value: Arith<Name>): Arith<Name> => context.isInt(value) ? context.ToReal(value) : value
         return real(left).div(real(right))
       }
-      case 'negate': return asArith(compile(expression.value)).neg()
+      case 'negate': return asArith(compiledChild(expression.value)).neg()
       case 'if': return context.If(
-        asBool(compile(expression.condition)),
-        compile(expression.then),
-        compile(expression.else)
+        asBool(compiledChild(expression.condition)),
+        compiledChild(expression.then),
+        compiledChild(expression.else)
       ) as Expression
     }
+  }
+
+  function* children(expression: Model.Expression): Generator<Model.Expression> {
+    switch (expression.kind) {
+      case 'literal':
+      case 'variable': return
+      case 'not':
+      case 'negate': yield expression.value; return
+      case 'and':
+      case 'or':
+      case 'add':
+      case 'multiply': yield* expression.operands; return
+      case 'if':
+        yield expression.condition
+        yield expression.then
+        yield expression.else
+        return
+      default:
+        yield expression.left
+        yield expression.right
+    }
+  }
+
+  const compile = (expression: Model.Expression): Expression => {
+    if (expressions.has(expression)) return expressions.get(expression)!
+    const stack = [{ expression, children: children(expression) }]
+    const active = new WeakSet<Model.Expression>([expression])
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!
+      const child = frame.children.next()
+      if (child.done) {
+        expressions.set(frame.expression, compileNode(frame.expression))
+        active.delete(frame.expression)
+        stack.pop()
+      } else if (!expressions.has(child.value)) {
+        if (active.has(child.value)) throw new TypeError('cyclic solver expression')
+        active.add(child.value)
+        stack.push({ expression: child.value, children: children(child.value) })
+      }
+    }
+    return expressions.get(expression)!
   }
 
   return {
@@ -219,23 +284,6 @@ const numericValue = (context: Context<Name>, value: Arith<Name>): Model.Value =
   throw new TypeError(`Z3 returned a non-rational objective value: ${value.sexpr()}`)
 }
 
-const withDeadline = async (
-  context: Context<Name>,
-  timeoutMs: number,
-  check: () => Promise<'sat' | 'unsat' | 'unknown'>
-): Promise<{ readonly status: 'sat' | 'unsat' | 'unknown', readonly interrupted: boolean }> => {
-  let interrupted = false
-  const timer = setTimeout(() => {
-    interrupted = true
-    context.interrupt()
-  }, timeoutMs)
-  timer.unref()
-  try {
-    return { status: await check(), interrupted }
-  } finally {
-    clearTimeout(timer)
-  }
-}
 
 const unknown = (
   backend: Adapter.Backend,
@@ -263,12 +311,13 @@ const addHard = (
   compiled: Compiled,
   track: boolean
 ): ReadonlyMap<number, string> => {
-  solver.add(...compiled.bounds)
+  for (let index = 0; index < compiled.bounds.length; index += 1024) {
+    solver.add(...compiled.bounds.slice(index, index + 1024))
+  }
   const trackers = new Map<number, string>()
   for (const [id, expression] of compiled.constraints) {
     if (track) {
-      const symbol = `cave.constraint.${id}`
-      const tracker = solver.ctx.Bool.const(symbol)
+      const tracker = solver.ctx.Bool.fresh('cave.constraint')
       solver.addAndTrack(expression, tracker)
       trackers.set(tracker.id(), id)
     } else {
@@ -284,7 +333,7 @@ const coreFor = async (
   limits: Adapter.Limits
 ): Promise<readonly string[] | undefined> => {
   const solver = new context.Solver()
-  try {
+  return withRelease<readonly string[] | undefined>(async () => {
     solver.set('timeout', limits.timeoutMs)
     const trackers = addHard(solver, compiled, true)
     if ((await withDeadline(context, limits.timeoutMs, () => solver.check())).status !== 'unsat') return undefined
@@ -292,9 +341,7 @@ const coreFor = async (
       .map(value => trackers.get(value.id()))
       .filter((value): value is string => value !== undefined)
       .sort()
-  } finally {
-    solver.release()
-  }
+  }, () => solver.release())
 }
 
 const limitOutput = (
@@ -322,6 +369,9 @@ const solveModel = async (
   request: Adapter.Request
 ): Promise<Adapter.Result> => {
   const started = performance.now()
+  if (!Number.isSafeInteger(request.limits.timeoutMs) || request.limits.timeoutMs < 1 || request.limits.timeoutMs > 2147483647) {
+    return backendError(backend, started, new TypeError('Z3 timeoutMs must be in 1..2147483647'))
+  }
   try {
     api.setParam('memory_max_size', Math.max(1, Math.floor(request.limits.maxMemoryBytes / 1024 / 1024)))
     const compiled = compiler(context, model)
@@ -329,7 +379,7 @@ const solveModel = async (
 
     if (!optimize) {
       const solver = new context.Solver()
-      try {
+      return await withRelease<Adapter.Result>(async () => {
         solver.set('timeout', request.limits.timeoutMs)
         const trackers = addHard(solver, compiled, request.unsatCore)
         const checked = await withDeadline(context, request.limits.timeoutMs, () => solver.check())
@@ -359,20 +409,17 @@ const solveModel = async (
           diagnostics: [],
           elapsedMs: Math.round(performance.now() - started)
         }, request.limits)
-      } finally {
-        solver.release()
-      }
+      }, () => solver.release())
     }
 
     const optimizer = new context.Optimize()
-    try {
+    return await withRelease<Adapter.Result>(async () => {
       optimizer.set('timeout', request.limits.timeoutMs)
       optimizer.set('priority', 'lex')
       addHard(optimizer, compiled, false)
-      for (const objective of compiled.objectives) {
-        if (objective.direction === 'minimize') optimizer.minimize(objective.expression)
-        else optimizer.maximize(objective.expression)
-      }
+      const handles = compiled.objectives.map(objective => objective.direction === 'minimize'
+        ? optimizer.minimize(objective.expression)
+        : optimizer.maximize(objective.expression))
       // Soft preferences are deliberately the lowest-priority objective. Their
       // weights are explicit model data and never derived from CAVE confidence.
       for (const constraint of compiled.softConstraints) {
@@ -394,6 +441,23 @@ const solveModel = async (
         }, request.limits)
       }
       const z3Model = optimizer.model()
+      const rational = (value: unknown): Model.Rational | undefined => {
+        if (context.isIntVal(value)) return value.value().toString()
+        if (context.isRealVal(value)) return {
+          numerator: value.value().numerator.toString(),
+          denominator: value.value().denominator.toString()
+        }
+        return undefined
+      }
+      for (const [index, objective] of compiled.objectives.entries()) {
+        const lower = rational(optimizer.getLower(handles[index]!))
+        const upper = rational(optimizer.getUpper(handles[index]!))
+        const attained = rational(z3Model.eval(objective.expression, true))
+        if (lower === undefined || upper === undefined || attained === undefined ||
+          Exact.compare(lower, upper) !== 0 || Exact.compare(lower, attained) !== 0) {
+          return unknown(backend, started, `objective ${JSON.stringify(objective.id)} has no proved finite attained optimum`, false)
+        }
+      }
       return limitOutput({
         status: 'optimal',
         assignment: assignment(context, compiled, model, z3Model),
@@ -406,9 +470,7 @@ const solveModel = async (
         diagnostics: [],
         elapsedMs: Math.round(performance.now() - started)
       }, request.limits)
-    } finally {
-      optimizer.release()
-    }
+    }, () => optimizer.release())
   } catch (error) {
     if (api.Z3.get_estimated_alloc_size() > BigInt(request.limits.maxMemoryBytes)) {
       return {
@@ -428,17 +490,19 @@ const solveModel = async (
 }
 
 let singleton: Promise<Runtime> | undefined
+let shutdown: Promise<void> | undefined
 
 const initialize = async (): Promise<Runtime> => {
   const started = performance.now()
   // Keep this as the only runtime import: importing @cavelang/solver-z3 itself
   // must not load the 34 MB Wasm artifact or start worker threads.
   const api = await import('z3-solver').then(module => module.init())
+  guardCleanup(api.Z3)
   const context = api.Context('cave')
   const backend = Object.freeze({ name: 'z3-wasm', version: api.Z3.get_full_version() })
   let tail: Promise<void> = Promise.resolve()
   let closing = false
-  let closed = false
+  let closePromise: Promise<void> | undefined
 
   const enqueue = <T>(work: () => Promise<T>): Promise<T> => {
     const result = tail.then(work, work)
@@ -454,26 +518,24 @@ const initialize = async (): Promise<Runtime> => {
       if (closing) return Promise.resolve(backendError(backend, performance.now(), new Error('Z3 runtime is closed')))
       return enqueue(() => solveModel(api, context, backend, model, request))
     },
-    close: async () => {
-      if (closed) return
+    close: () => {
+      if (closePromise) return closePromise
       closing = true
-      await enqueue(async () => {
-        if (closed) return
-        // Let the completed pthread post its cleanup message before forcibly
-        // terminating the pool. Without this turn, Emscripten can report a
-        // late `cleanupThread` command from a worker we just terminated.
-        await new Promise<void>(resolve => setTimeout(resolve, 0))
-        api.em?.PThread?.terminateAllThreads?.()
-        closed = true
+      closePromise = enqueue(async () => {
+        // Await worker exits before Emscripten discards their message handlers.
+        await closeWorkers(api.em?.PThread)
         singleton = undefined
+        shutdown = undefined
       })
+      shutdown = closePromise
+      return closePromise
     }
   }
   return runtime
 }
 
 /** Lazily initialize and reuse one process-wide Z3 runtime. */
-export const create = (): Promise<Runtime> => singleton ??= initialize().catch(error => {
+export const create = (): Promise<Runtime> => shutdown ? shutdown.then(create) : singleton ??= initialize().catch(error => {
   singleton = undefined
   throw error
 })

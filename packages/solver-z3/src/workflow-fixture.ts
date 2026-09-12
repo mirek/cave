@@ -1,7 +1,8 @@
+import { errorMessage } from './error-message.ts'
 /** Named CLI fixture for the solver workflow API. No raw model input is accepted. */
 
 import { Adapter, Model, Workflow } from '@cavelang/solver'
-import { create } from './runtime.ts'
+import { create, type Runtime } from './runtime.ts'
 
 export type Output = { readonly code: number, readonly out: string, readonly err: string }
 
@@ -18,7 +19,9 @@ Options:
   --deployment-frequency <1..12>      Default: 6
   --from <1..12>                      Sensitivity start; default: 1
   --to <1..12>                        Sensitivity end; default: 12
-  --timeout-ms <positive integer>     Per solver run; default: 10000
+  --timeout-ms <1..2147483647>        Per solver run; default: 10000
+  --max-explanation-bits <integer>    Local evaluation; default: ${Adapter.defaultLimits.maxExplanationBits}
+  --max-explanation-work <integer>    Cumulative local evaluation; default: ${Adapter.defaultLimits.maxExplanationWork}
 
 The fixture is the only selectable model. Inputs are bounded and typed before
 the optional Z3 adapter runs; arbitrary expressions and SMT-LIB are rejected.
@@ -121,6 +124,8 @@ type Parsed = {
   readonly from: number
   readonly to: number
   readonly timeoutMs: number
+  readonly maxExplanationBits: number
+  readonly maxExplanationWork: number
 }
 
 const parseInteger = (name: string, value: string | undefined, min: number, max?: number): number => {
@@ -143,7 +148,7 @@ const parse = (argv: readonly string[]): Parsed | Output => {
   for (let index = 2; index < argv.length; index += 2) {
     const flag = argv[index]
     const value = argv[index + 1]
-    if (flag === undefined || !['--team-size', '--deployment-frequency', '--from', '--to', '--timeout-ms'].includes(flag)) {
+    if (flag === undefined || !['--team-size', '--deployment-frequency', '--from', '--to', '--timeout-ms', '--max-explanation-bits', '--max-explanation-work'].includes(flag)) {
       return fail(`unknown workflow option ${JSON.stringify(flag ?? '')}`)
     }
     if (value === undefined || value.startsWith('--')) return fail(`${flag} needs a value`)
@@ -162,10 +167,12 @@ const parse = (argv: readonly string[]): Parsed | Output => {
       ),
       from,
       to,
-      timeoutMs: parseInteger('--timeout-ms', values.get('--timeout-ms') ?? '10000', 1)
+      timeoutMs: parseInteger('--timeout-ms', values.get('--timeout-ms') ?? '10000', 1, 2147483647),
+      maxExplanationBits: parseInteger('--max-explanation-bits', values.get('--max-explanation-bits') ?? String(Adapter.defaultLimits.maxExplanationBits), 1),
+      maxExplanationWork: parseInteger('--max-explanation-work', values.get('--max-explanation-work') ?? String(Adapter.defaultLimits.maxExplanationWork), 1)
     }
   } catch (error) {
-    return fail(error instanceof Error ? error.message : String(error))
+    return fail(errorMessage(error))
   }
 }
 
@@ -176,11 +183,9 @@ export const runWorkflowFixture = async (
 ): Promise<Output> => {
   const parsed = parse(argv)
   if ('code' in parsed) return parsed
-  const runtime = supplied === undefined ? await create() : undefined
-  const adapter = supplied ?? runtime!
-  const options: Adapter.Options = { limits: { timeoutMs: parsed.timeoutMs } }
+  const options: Adapter.Options = { limits: { timeoutMs: parsed.timeoutMs, maxExplanationBits: parsed.maxExplanationBits, maxExplanationWork: parsed.maxExplanationWork } }
   const context = { snapshot: { transactionTime: null } } as const
-  try {
+  const execute = async (adapter: Adapter.t): Promise<Output> => {
     switch (parsed.operation) {
       case 'feasibility':
         return ok(await Workflow.feasibility(
@@ -219,9 +224,23 @@ export const runWorkflowFixture = async (
         }, options, context))
       }
     }
-  } catch (error) {
-    return { code: 1, out: '', err: `${error instanceof Error ? error.message : String(error)}\n` }
-  } finally {
-    await runtime?.close()
   }
+  let runtime: Runtime | undefined
+  let result: Output
+  try {
+    runtime = supplied === undefined ? await create() : undefined
+    result = await execute(supplied ?? runtime!)
+  } catch (error) {
+    result = { code: 1, out: '', err: `${errorMessage(error)}\n` }
+  }
+  try {
+    await runtime?.close()
+  } catch (error) {
+    result = {
+      code: 1,
+      out: '',
+      err: `${result.err}Z3 shutdown failed: ${errorMessage(error)}\n`
+    }
+  }
+  return result
 }

@@ -1,0 +1,1157 @@
+{
+  "description": "Full-operation rational sum/difference benchmark with analytic magnitude and wrong-value controls.",
+  "execution": "Sequential Node 26 then Node 24 without concurrent builds or tests; fresh child per workload.",
+  "scope": "Timed workloads unchanged from version 1. Untimed expected reciprocal is b*d/(b+d) or b*d/(d-b), independently reduced with Euclid and supplied as an assignment. Post-workload RSS includes these extra controls and is not directly comparable with version 1.",
+  "sources": {
+    "scripts/exact-sum-bench.mjs": "c5991e96e06db25ff1874d7f923f6b63be3bda1a3705433d5f96b22d7a4a5974",
+    "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+    "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+    "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+  },
+  "reports": [
+    {
+      "format": "cave.exact-sum-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+        "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.20979200000002152,
+          "samplesMs": [
+            0.15866700000000833,
+            0.15908300000000963,
+            0.20979200000002152,
+            0.2600410000000011,
+            2.7626249999999857
+          ],
+          "rssBytes": 107347968
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.6230419999999981,
+          "samplesMs": [
+            0.3158329999999978,
+            0.43112499999999443,
+            0.6230419999999981,
+            0.6973330000000004,
+            4.9161670000000015
+          ],
+          "rssBytes": 105201664
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.20758299999999963,
+          "samplesMs": [
+            0.15858400000000472,
+            0.16016700000000128,
+            0.20758299999999963,
+            0.2815829999999977,
+            4.595040999999995
+          ],
+          "rssBytes": 105414656
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.49766700000000696,
+          "samplesMs": [
+            0.33541600000000926,
+            0.39587500000000375,
+            0.49766700000000696,
+            0.6473340000000007,
+            3.569625000000002
+          ],
+          "rssBytes": 104955904
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.24224999999999852,
+          "samplesMs": [
+            0.19299999999999784,
+            0.20437500000001307,
+            0.24224999999999852,
+            0.29170799999999986,
+            2.0193749999999966
+          ],
+          "rssBytes": 105431040
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.727958000000001,
+          "samplesMs": [
+            0.38579099999999755,
+            0.43841700000000117,
+            0.727958000000001,
+            0.9511250000000047,
+            3.4521249999999952
+          ],
+          "rssBytes": 105218048
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.2325000000000017,
+          "samplesMs": [
+            0.17108400000000756,
+            0.18291699999998912,
+            0.2325000000000017,
+            0.2823750000000018,
+            2.2206659999999943
+          ],
+          "rssBytes": 104841216
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.4777080000000069,
+          "samplesMs": [
+            0.296875,
+            0.3581669999999946,
+            0.4777080000000069,
+            0.6305420000000055,
+            3.7105829999999997
+          ],
+          "rssBytes": 104415232
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.2644590000000022,
+          "samplesMs": [
+            0.2007910000000095,
+            0.2046670000000006,
+            0.2644590000000022,
+            0.5162919999999929,
+            2.1095830000000007
+          ],
+          "rssBytes": 105037824
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.4587499999999949,
+          "samplesMs": [
+            0.2787919999999957,
+            0.2966250000000059,
+            0.4587499999999949,
+            0.593790999999996,
+            3.4562500000000114
+          ],
+          "rssBytes": 104906752
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.37820899999999824,
+          "samplesMs": [
+            0.27916700000000105,
+            0.32150000000000034,
+            0.37820899999999824,
+            0.6042499999999933,
+            2.336790999999991
+          ],
+          "rssBytes": 106217472
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.53125,
+          "samplesMs": [
+            0.3734579999999994,
+            0.4974589999999921,
+            0.53125,
+            0.7485840000000081,
+            3.357916000000003
+          ],
+          "rssBytes": 105512960
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.4657499999999999,
+          "samplesMs": [
+            1.3000420000000048,
+            1.3163749999999936,
+            1.4657499999999999,
+            1.5662090000000006,
+            3.3026669999999996
+          ],
+          "rssBytes": 105857024
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.440957999999995,
+          "samplesMs": [
+            2.252583999999999,
+            2.3371250000000003,
+            2.440957999999995,
+            2.4655839999999927,
+            5.727500000000006
+          ],
+          "rssBytes": 107216896
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 1.5982090000000113,
+          "samplesMs": [
+            1.3765000000000072,
+            1.586874999999992,
+            1.5982090000000113,
+            1.7134160000000094,
+            3.267583000000002
+          ],
+          "rssBytes": 106840064
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.6930829999999872,
+          "samplesMs": [
+            2.414332999999999,
+            2.670125000000013,
+            2.6930829999999872,
+            2.7974159999999983,
+            6.390540999999999
+          ],
+          "rssBytes": 107151360
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 2.7539999999999907,
+          "samplesMs": [
+            2.555415999999994,
+            2.6208329999999904,
+            2.7539999999999907,
+            3.191958999999997,
+            4.7847500000000025
+          ],
+          "rssBytes": 106233856
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.623957999999988,
+          "samplesMs": [
+            4.226666000000009,
+            4.491375000000005,
+            4.623957999999988,
+            4.888874999999999,
+            8.146792000000005
+          ],
+          "rssBytes": 107380736
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.7512920000000065,
+          "samplesMs": [
+            1.6347090000000009,
+            1.640166999999991,
+            1.7512920000000065,
+            2.285708999999997,
+            3.700000000000003
+          ],
+          "rssBytes": 105463808
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.3419580000000053,
+          "samplesMs": [
+            2.224041999999997,
+            2.234624999999994,
+            2.3419580000000053,
+            2.6420829999999995,
+            5.955292
+          ],
+          "rssBytes": 106774528
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 2.059665999999993,
+          "samplesMs": [
+            1.9494169999999968,
+            1.9849999999999994,
+            2.059665999999993,
+            2.2336250000000035,
+            3.916375000000002
+          ],
+          "rssBytes": 106528768
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.449708000000001,
+          "samplesMs": [
+            2.233833000000004,
+            2.3665419999999955,
+            2.449708000000001,
+            2.590625000000003,
+            5.890208000000001
+          ],
+          "rssBytes": 106528768
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 4.518332999999998,
+          "samplesMs": [
+            4.336332999999996,
+            4.417833000000002,
+            4.518332999999998,
+            4.751374999999996,
+            6.4125000000000085
+          ],
+          "rssBytes": 106397696
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.424707999999995,
+          "samplesMs": [
+            4.155374999999992,
+            4.2911670000000015,
+            4.424707999999995,
+            4.7202079999999995,
+            7.7527919999999995
+          ],
+          "rssBytes": 106676224
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 3.822917000000004,
+          "samplesMs": [
+            3.5299169999999975,
+            3.645416999999995,
+            3.822917000000004,
+            4.055916999999994,
+            5.712500000000006
+          ],
+          "rssBytes": 107003904
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.045000000000002,
+          "samplesMs": [
+            5.8428750000000065,
+            5.906874999999999,
+            6.045000000000002,
+            6.103833000000009,
+            9.241624999999999
+          ],
+          "rssBytes": 106643456
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 3.5933339999999987,
+          "samplesMs": [
+            3.534499999999994,
+            3.5897920000000028,
+            3.5933339999999987,
+            4.027541999999997,
+            5.900375000000011
+          ],
+          "rssBytes": 106446848
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.563124999999999,
+          "samplesMs": [
+            6.506333000000012,
+            6.517667000000003,
+            6.563124999999999,
+            6.842749999999995,
+            10.117999999999995
+          ],
+          "rssBytes": 107413504
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 7.286042000000009,
+          "samplesMs": [
+            7.244584000000003,
+            7.282792000000001,
+            7.286042000000009,
+            7.982249999999993,
+            9.151542000000006
+          ],
+          "rssBytes": 106823680
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 11.76533400000001,
+          "samplesMs": [
+            11.630749999999992,
+            11.685041999999996,
+            11.76533400000001,
+            12.101124999999996,
+            15.302750000000003
+          ],
+          "rssBytes": 107855872
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 4.756916000000004,
+          "samplesMs": [
+            4.600915999999998,
+            4.657875000000004,
+            4.756916000000004,
+            4.906458000000001,
+            7.022125000000003
+          ],
+          "rssBytes": 106151936
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 5.925042000000005,
+          "samplesMs": [
+            5.60275,
+            5.889208999999994,
+            5.925042000000005,
+            6.048665999999997,
+            9.19449999999999
+          ],
+          "rssBytes": 106496000
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 5.6144999999999925,
+          "samplesMs": [
+            5.5715,
+            5.592083000000002,
+            5.6144999999999925,
+            5.871708000000012,
+            7.72775
+          ],
+          "rssBytes": 106528768
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.057457999999997,
+          "samplesMs": [
+            5.710250000000002,
+            5.961832999999999,
+            6.057457999999997,
+            6.2129170000000045,
+            9.295625000000001
+          ],
+          "rssBytes": 106971136
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 12.810125,
+          "samplesMs": [
+            12.463042000000002,
+            12.574708999999999,
+            12.810125,
+            12.936750000000004,
+            14.735082999999989
+          ],
+          "rssBytes": 107020288
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 12.372500000000002,
+          "samplesMs": [
+            11.749749999999992,
+            12.114500000000007,
+            12.372500000000002,
+            12.560292000000004,
+            15.292541999999997
+          ],
+          "rssBytes": 107757568
+        }
+      ]
+    },
+    {
+      "format": "cave.exact-sum-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+        "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.21120900000001086,
+          "samplesMs": [
+            0.16729199999998912,
+            0.17362500000000125,
+            0.21120900000001086,
+            0.2871250000000032,
+            2.6102499999999935
+          ],
+          "rssBytes": 103776256
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.5137500000000017,
+          "samplesMs": [
+            0.35387500000000216,
+            0.4163340000000062,
+            0.5137500000000017,
+            0.6542089999999945,
+            3.530124999999998
+          ],
+          "rssBytes": 102514688
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.21325000000000216,
+          "samplesMs": [
+            0.1661670000000015,
+            0.1683749999999975,
+            0.21325000000000216,
+            0.32758299999998997,
+            2.2165839999999974
+          ],
+          "rssBytes": 102957056
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.5440420000000046,
+          "samplesMs": [
+            0.38812499999998806,
+            0.4210419999999999,
+            0.5440420000000046,
+            0.9355830000000083,
+            3.5040839999999918
+          ],
+          "rssBytes": 101941248
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.267832999999996,
+          "samplesMs": [
+            0.20899999999998897,
+            0.2132079999999945,
+            0.267832999999996,
+            0.31637499999999363,
+            2.0290000000000106
+          ],
+          "rssBytes": 101597184
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.7788340000000034,
+          "samplesMs": [
+            0.5064589999999924,
+            0.5444169999999957,
+            0.7788340000000034,
+            1.573291999999995,
+            3.701459
+          ],
+          "rssBytes": 102694912
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.23091700000000515,
+          "samplesMs": [
+            0.19370800000000088,
+            0.20108299999999701,
+            0.23091700000000515,
+            0.3514590000000055,
+            2.1894160000000085
+          ],
+          "rssBytes": 102760448
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.4722500000000025,
+          "samplesMs": [
+            0.34141700000000696,
+            0.3854170000000039,
+            0.4722500000000025,
+            0.7497919999999993,
+            3.6072089999999974
+          ],
+          "rssBytes": 102498304
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.33654199999999435,
+          "samplesMs": [
+            0.2515410000000031,
+            0.3306249999999977,
+            0.33654199999999435,
+            0.5768750000000011,
+            2.886459000000002
+          ],
+          "rssBytes": 101433344
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.48075000000000045,
+          "samplesMs": [
+            0.3569169999999957,
+            0.38454199999999616,
+            0.48075000000000045,
+            0.7293750000000045,
+            3.338458000000003
+          ],
+          "rssBytes": 102105088
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.33312499999999545,
+          "samplesMs": [
+            0.28324999999999534,
+            0.2842500000000001,
+            0.33312499999999545,
+            0.41254200000000196,
+            2.2734999999999985
+          ],
+          "rssBytes": 101302272
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.5491250000000036,
+          "samplesMs": [
+            0.3700839999999914,
+            0.45258400000000165,
+            0.5491250000000036,
+            0.9199169999999981,
+            3.392957999999993
+          ],
+          "rssBytes": 101875712
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.5868750000000063,
+          "samplesMs": [
+            1.3927089999999964,
+            1.413375000000002,
+            1.5868750000000063,
+            1.939458000000002,
+            3.4895839999999936
+          ],
+          "rssBytes": 103350272
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.478457999999989,
+          "samplesMs": [
+            2.2786250000000052,
+            2.418790999999999,
+            2.478457999999989,
+            2.8223330000000004,
+            6.310000000000002
+          ],
+          "rssBytes": 103137280
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 1.5706250000000068,
+          "samplesMs": [
+            1.4115829999999931,
+            1.4733750000000043,
+            1.5706250000000068,
+            1.8320829999999972,
+            3.4781250000000057
+          ],
+          "rssBytes": 104382464
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.655791000000008,
+          "samplesMs": [
+            2.529916,
+            2.556332999999995,
+            2.655791000000008,
+            2.883583999999999,
+            6.1244159999999965
+          ],
+          "rssBytes": 103677952
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 3.163499999999999,
+          "samplesMs": [
+            2.7250839999999954,
+            2.780916000000005,
+            3.163499999999999,
+            3.3573340000000087,
+            4.519541999999987
+          ],
+          "rssBytes": 103186432
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.554375000000007,
+          "samplesMs": [
+            4.360332999999997,
+            4.549292000000008,
+            4.554375000000007,
+            4.771374999999992,
+            7.6889579999999995
+          ],
+          "rssBytes": 102744064
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.9405830000000037,
+          "samplesMs": [
+            1.7609999999999957,
+            1.7801249999999982,
+            1.9405830000000037,
+            2.0702500000000015,
+            3.9442090000000007
+          ],
+          "rssBytes": 103022592
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.3659590000000037,
+          "samplesMs": [
+            2.2632499999999993,
+            2.312916999999999,
+            2.3659590000000037,
+            2.8670000000000044,
+            5.638249999999999
+          ],
+          "rssBytes": 103383040
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 2.2536249999999995,
+          "samplesMs": [
+            2.043458000000001,
+            2.1340419999999938,
+            2.2536249999999995,
+            2.6496250000000003,
+            4.129875000000013
+          ],
+          "rssBytes": 103071744
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.548667000000009,
+          "samplesMs": [
+            2.4108329999999967,
+            2.537417000000005,
+            2.548667000000009,
+            2.791250000000005,
+            5.775166999999996
+          ],
+          "rssBytes": 103022592
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 4.604332999999997,
+          "samplesMs": [
+            4.540165999999999,
+            4.5565,
+            4.604332999999997,
+            4.7479589999999945,
+            6.398125000000007
+          ],
+          "rssBytes": 103497728
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.600915999999998,
+          "samplesMs": [
+            4.241040999999996,
+            4.579916999999995,
+            4.600915999999998,
+            4.774917000000002,
+            7.857832999999999
+          ],
+          "rssBytes": 103612416
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 3.9595000000000056,
+          "samplesMs": [
+            3.6593330000000037,
+            3.8305000000000007,
+            3.9595000000000056,
+            4.130250000000004,
+            5.7463750000000005
+          ],
+          "rssBytes": 103645184
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.499209000000008,
+          "samplesMs": [
+            6.0812079999999895,
+            6.274084000000002,
+            6.499209000000008,
+            6.576916999999995,
+            9.793042
+          ],
+          "rssBytes": 103301120
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 3.8846670000000074,
+          "samplesMs": [
+            3.612667000000002,
+            3.678332999999995,
+            3.8846670000000074,
+            3.9367909999999995,
+            5.84670899999999
+          ],
+          "rssBytes": 103268352
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 7.180290999999997,
+          "samplesMs": [
+            6.882207999999991,
+            6.937124999999995,
+            7.180290999999997,
+            7.892832999999996,
+            10.426041999999995
+          ],
+          "rssBytes": 103006208
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 7.54958400000001,
+          "samplesMs": [
+            7.356124999999992,
+            7.513209000000003,
+            7.54958400000001,
+            7.721916999999991,
+            10.033000000000001
+          ],
+          "rssBytes": 103235584
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 12.766208000000006,
+          "samplesMs": [
+            12.458167000000003,
+            12.482957999999996,
+            12.766208000000006,
+            13.493875000000003,
+            16.511790999999988
+          ],
+          "rssBytes": 103530496
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 5.172040999999993,
+          "samplesMs": [
+            4.7485420000000005,
+            4.754082999999994,
+            5.172040999999993,
+            5.47804099999999,
+            7.535332999999994
+          ],
+          "rssBytes": 104349696
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.417665999999997,
+          "samplesMs": [
+            5.7676250000000095,
+            6.16554099999999,
+            6.417665999999997,
+            6.884208000000001,
+            9.563375000000008
+          ],
+          "rssBytes": 104054784
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 5.558749999999989,
+          "samplesMs": [
+            5.4696249999999935,
+            5.483792000000008,
+            5.558749999999989,
+            5.991,
+            8.235
+          ],
+          "rssBytes": 103759872
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.457041000000004,
+          "samplesMs": [
+            6.343208000000004,
+            6.383707999999999,
+            6.457041000000004,
+            6.626208000000005,
+            9.459000000000003
+          ],
+          "rssBytes": 103383040
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 12.554166999999993,
+          "samplesMs": [
+            12.376709000000005,
+            12.418750000000003,
+            12.554166999999993,
+            12.991042000000007,
+            15.220875000000007
+          ],
+          "rssBytes": 103792640
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 12.06545899999999,
+          "samplesMs": [
+            11.567208999999991,
+            11.745417000000003,
+            12.06545899999999,
+            12.469833000000008,
+            15.398166000000003
+          ],
+          "rssBytes": 103497728
+        }
+      ]
+    }
+  ]
+}

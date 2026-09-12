@@ -1,0 +1,191 @@
+{
+  "description": "Repeated squaring of a shared assigned rational under default model limits. Results are correct; input limits do not bound intermediate size or explanation runtime. Sequential isolated child trials; these are measurements, not runtime guarantees.",
+  "runs": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "8339cc748772ff1ca59d1404ebaa05525c27969c8d38efd7d2ce2183addc3e4b",
+        "packages/solver/src/explain.ts": "731c4dec631ea7cbb5963ff00d778c1884d38e6d9550c49665dd20801b17c5b8",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "depth": 8,
+          "distinctExpressionNodes": 11,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 513,
+            "expressionDepth": 10
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            53.461166000000006,
+            43.159167,
+            42.79454199999998,
+            41.580291999999986
+          ],
+          "medianMs": 42.79454199999998
+        },
+        {
+          "depth": 10,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2049,
+            "expressionDepth": 12
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            529.5398749999999,
+            519.7411250000001,
+            517.1515000000002,
+            542.7706249999999
+          ],
+          "medianMs": 519.7411250000001
+        },
+        {
+          "depth": 12,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8193,
+            "expressionDepth": 14
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            7163.413834,
+            7124.443541999999,
+            7160.570667000002,
+            7127.376708
+          ],
+          "medianMs": 7127.376708
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "8339cc748772ff1ca59d1404ebaa05525c27969c8d38efd7d2ce2183addc3e4b",
+        "packages/solver/src/explain.ts": "731c4dec631ea7cbb5963ff00d778c1884d38e6d9550c49665dd20801b17c5b8",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "depth": 8,
+          "distinctExpressionNodes": 11,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 513,
+            "expressionDepth": 10
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            60.10033299999999,
+            43.6575,
+            43.1695,
+            42.124832999999995
+          ],
+          "medianMs": 43.1695
+        },
+        {
+          "depth": 10,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2049,
+            "expressionDepth": 12
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            517.926459,
+            502.71841599999993,
+            516.765208,
+            517.4222500000001
+          ],
+          "medianMs": 516.765208
+        },
+        {
+          "depth": 12,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8193,
+            "expressionDepth": 14
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            6976.8885,
+            6897.470958,
+            6923.401083000001,
+            6974.918750000001
+          ],
+          "medianMs": 6923.401083000001
+        }
+      ]
+    }
+  ]
+}

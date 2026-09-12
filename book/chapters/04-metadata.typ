@@ -130,6 +130,10 @@ practical purposes. The scale is meant to be used coarsely:
   [`@ 0%`], [Rejected. Also how a claim is retracted (Chapter 7).],
 )
 
+Canonical exports preserve the full stored confidence, even when that requires
+a long decimal percentage. For example, `@ 50.0001%` remains `@ 50.0001%`
+after export and import. Display rounding must not change the stored belief.
+
 Confidence filters queries with a `WHERE` line, passed as a second argument:
 
 ```sh

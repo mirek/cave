@@ -107,8 +107,9 @@ export const parse = (text: string): { mapping?: Mapping, problems: readonly str
       const previous = blocks.length === 0 ? preamble : blocks[blocks.length - 1]!
       const carried: string[] = []
       while (previous.length > 0 && isComment(previous[previous.length - 1]!)) {
-        carried.unshift(previous.pop()!)
+        carried.push(previous.pop()!)
       }
+      carried.reverse()
       blocks.push([...carried, line])
     } else if (blocks.length === 0) {
       preamble.push(line)
@@ -122,7 +123,7 @@ export const parse = (text: string): { mapping?: Mapping, problems: readonly str
   for (const block of blocks) {
     const names = block.flatMap(lineVariables)
     if (names.length === 0) {
-      preludeParts.push(...block)
+      for (const line of block) preludeParts.push(line)
     } else {
       names.forEach(name => variables.add(name))
       templates.push(block)
@@ -217,16 +218,16 @@ export const formatValue = (value: unknown, position: 'subject' | 'payload'): Fo
 }
 
 /**
- * Resolves a field by name: exact key first, then a dot path into nested
- * JSON (`address.city`, `items.0.sku`).
+ * Resolves a field by name: exact own key first, then a dot path through own
+ * properties in nested JSON (`address.city`, `items.0.sku`).
  */
 export const fieldOf = (record: unknown, name: string): unknown => {
-  if (record !== null && typeof record === 'object' && name in (record as object)) {
+  if (record !== null && typeof record === 'object' && Object.hasOwn(record, name)) {
     return (record as Record<string, unknown>)[name]
   }
   let current: unknown = record
   for (const part of name.split('.')) {
-    if (current === null || typeof current !== 'object') {
+    if (current === null || typeof current !== 'object' || !Object.hasOwn(current, part)) {
       return undefined
     }
     current = (current as Record<string, unknown>)[part]
@@ -254,6 +255,14 @@ const substituteLine = (line: string, lookup: (name: string) => unknown): Substi
   const indent = line.slice(0, indentOf(line))
   const { head, comment } = Token.splitComment(line)
   const tokens = Token.tokenize(head)
+  // Qualifiers start with an entity, comparison left side or full claim.
+  // Their optional negation and explicit-claim marker precede that entity.
+  let subjectAt = 0
+  if (tokens[0]?.kind === 'word' && Verb.isQualifier(tokens[0].text)) {
+    subjectAt = 1
+    if (tokens[subjectAt]?.kind === 'word' && tokens[subjectAt]!.text === 'NOT') subjectAt += 1
+  }
+  if (tokens[subjectAt]?.kind === 'word' && tokens[subjectAt]!.text === '@claim') subjectAt += 1
   const parts: string[] = []
   for (const [at, token] of tokens.entries()) {
     if (!isVariable(token)) {
@@ -261,7 +270,7 @@ const substituteLine = (line: string, lookup: (name: string) => unknown): Substi
       continue
     }
     const name = token.text.slice(1)
-    const formatted = formatValue(lookup(name), at === 0 ? 'subject' : 'payload')
+    const formatted = formatValue(lookup(name), at === subjectAt ? 'subject' : 'payload')
     switch (formatted.kind) {
       case 'missing':
         return { kind: 'dropped' }
@@ -291,7 +300,9 @@ export const instantiate = (
     /** Blank and comment lines waiting for the structural line they precede. */
     const pending: string[] = []
     const emit = (line: string): void => {
-      out.push(...pending.splice(0), line)
+      for (const pendingLine of pending) out.push(pendingLine)
+      pending.length = 0
+      out.push(line)
     }
     for (const line of block) {
       if (!isStructural(line)) {
@@ -326,7 +337,7 @@ export const instantiate = (
       }
     }
     // Trailing blank and documentary comment lines keep the block's shape.
-    out.push(...pending)
+    for (const line of pending) out.push(line)
   }
   const body = out.join('\n').trim()
   return { text: body === '' ? '' : `${out.join('\n').trimEnd()}\n`, dropped, problems }

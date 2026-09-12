@@ -103,9 +103,10 @@ const rootOf = (entries: readonly Entry[], dimension: 'precedence' | 'reliabilit
  */
 const classOf = (entries: readonly Entry[], paths: readonly string[]): number => {
   const root = rootOf(entries, 'precedence') ?? 0
-  return paths.length === 0 ?
-    root :
-    Math.max(...paths.map(path => lookup(entries, path, 'precedence') ?? root))
+  if (paths.length === 0) return root
+  let maximum = Number.NEGATIVE_INFINITY
+  for (const path of paths) maximum = Math.max(maximum, lookup(entries, path, 'precedence') ?? root)
+  return maximum
 }
 
 type DeclarationRow = {
@@ -155,8 +156,7 @@ export const readPolicy = (db: Database, currentSql: string): Entry[] => {
       AND (c.subject = 'source' OR substr(c.subject, 1, 7) = 'source/')
   `).all() as unknown as DeclarationRow[]
   const sourcesOf = db.prepare(`
-    SELECT CASE WHEN instr(substr(context, 5), '#') = 0 THEN substr(context, 5)
-      ELSE substr(substr(context, 5), 1, instr(substr(context, 5), '#') - 1) END AS path
+    SELECT context
     FROM cave_context
     WHERE claim_id = ? AND substr(context, 1, 4) = 'src:'
   `)
@@ -168,8 +168,9 @@ export const readPolicy = (db: Database, currentSql: string): Entry[] => {
     if (value === undefined) {
       continue
     }
-    const paths = (sourcesOf.all(row.id) as { path: string }[]).map(source => source.path)
-    const key = `${row.subject}\0${row.attribute}`
+    const paths = (sourcesOf.all(row.id) as { context: string }[])
+      .map(source => source.context.slice(4).split('#', 1)[0]!)
+    const key = JSON.stringify([row.subject, row.attribute])
     const candidates = contests.get(key) ?? []
     candidates.push({ row, value, cls: classOf(builtins, paths) })
     contests.set(key, candidates)
@@ -179,7 +180,7 @@ export const readPolicy = (db: Database, currentSql: string): Entry[] => {
     builtins.map(entry => [entry.prefix, { ...entry }])
   )
   for (const [key, candidates] of contests) {
-    const [subject, attribute] = key.split('\0') as [string, string]
+    const [subject, attribute] = JSON.parse(key) as [string, string]
     const winner = candidates.sort((a, b) =>
       b.cls - a.cls || b.row.conf - a.row.conf || (a.row.tx < b.row.tx ? 1 : a.row.tx > b.row.tx ? -1 : 0))[0]!
     const prefix = subject === 'source' ? '' : subject.slice('source/'.length)
@@ -190,8 +191,13 @@ export const readPolicy = (db: Database, currentSql: string): Entry[] => {
   return [...merged.values()].sort((a, b) => a.prefix < b.prefix ? -1 : a.prefix > b.prefix ? 1 : 0)
 }
 
-const sqlString = (text: string): string =>
-  `'${text.replaceAll("'", "''")}'`
+const sqlString = (text: string): string => {
+  if (text.includes('\0')) {
+    const hex = Array.from(new TextEncoder().encode(text), byte => byte.toString(16).padStart(2, '0')).join('')
+    return `CAST(X'${hex}' AS TEXT)`
+  }
+  return `'${text.replaceAll("'", "''")}'`
+}
 
 const sqlNumber = (value: undefined | number): string =>
   value !== undefined && Number.isFinite(value) ? String(value) : 'NULL'
@@ -218,8 +224,20 @@ export const rankedSql = (
   currentSql: string,
   options: { aliases?: boolean } = {}
 ): string => {
-  const values = entries.map(entry =>
-    `(${sqlString(entry.prefix)}, ${sqlNumber(entry.precedence)}, ${sqlNumber(entry.reliability)})`)
+  let policySql: string
+  const materialized = entries.length > 16
+  if (materialized) {
+    const finite = (value: undefined | number): null | number =>
+      value !== undefined && Number.isFinite(value) ? value : null
+    const data = JSON.stringify(entries.map(entry =>
+      [entry.prefix, finite(entry.precedence), finite(entry.reliability)]))
+    policySql = `SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), ` +
+      `json_extract(value, '$[2]') FROM json_each(${sqlString(data)})`
+  } else {
+    const values = entries.map(entry =>
+      `(${sqlString(entry.prefix)}, ${sqlNumber(entry.precedence)}, ${sqlNumber(entry.reliability)})`)
+    policySql = values.length === 0 ? 'SELECT NULL, NULL, NULL WHERE 0' : `VALUES ${values.join(', ')}`
+  }
   const rootClass = sqlNumber(rootOf(entries, 'precedence') ?? 0)
   const rootReliability = sqlNumber(rootOf(entries, 'reliability') ?? 1)
   // Alias representative: the closure group's smallest member name —
@@ -228,11 +246,14 @@ export const rankedSql = (
     `min(${expr}, COALESCE((SELECT MIN(ap.b) FROM alias_pair ap WHERE ap.a = ${expr}), ${expr}))`
   const subjectPart = `json_extract(c.claim_key, '$[0]')`
   const payloadPart = `json_extract(c.claim_key, '$[3]')`
+  // Strip the ASCII key marker in bytes; TEXT substr stops at an embedded NUL.
+  const entityName = (part: string, start: number): string =>
+    `CAST(substr(CAST(${part} AS BLOB), ${start}) AS TEXT)`
   const subjectExpr = options.aliases === true ?
-    `CASE WHEN substr(${subjectPart}, 1, 2) = 'e:' THEN 'e:' || ${representative(`substr(${subjectPart}, 3)`)} ELSE ${subjectPart} END` :
+    `CASE WHEN substr(${subjectPart}, 1, 2) = 'e:' THEN 'e:' || ${representative(entityName(subjectPart, 3))} ELSE ${subjectPart} END` :
     subjectPart
   const payloadExpr = options.aliases === true ?
-    `CASE WHEN substr(${payloadPart}, 1, 4) = 'r:e:' THEN 'r:e:' || ${representative(`substr(${payloadPart}, 5)`)} ELSE ${payloadPart} END` :
+    `CASE WHEN substr(${payloadPart}, 1, 4) = 'r:e:' THEN 'r:e:' || ${representative(entityName(payloadPart, 5))} ELSE ${payloadPart} END` :
     payloadPart
   // Claim key modulo polarity and src: contexts (spec §26.1). Contexts in
   // the key are already sorted; filtering preserves the order.
@@ -249,14 +270,16 @@ export const rankedSql = (
   // Longest-prefix match of one source path against the policy (spec §26.3).
   const matched = (column: string): string =>
     `(SELECT y.${column} FROM cave_policy y WHERE y.${column} IS NOT NULL AND ` +
-    `(y.prefix = '' OR x.path = y.prefix OR substr(x.path, 1, length(y.prefix) + 1) = y.prefix || '/') ` +
-    `ORDER BY length(y.prefix) DESC LIMIT 1)`
-  const classExpr = `COALESCE((SELECT MAX(${matched('cls')}) FROM (${paths}) x), ${rootClass})`
-  const reliabilityExpr = `COALESCE((SELECT MIN(${matched('rel')}) FROM (${paths}) x), ${rootReliability})`
+    `(y.prefix = '' OR x.path = y.prefix OR ` +
+    `substr(CAST(x.path AS BLOB), 1, length(CAST(y.prefix AS BLOB)) + 1) = CAST(y.prefix || '/' AS BLOB)) ` +
+    `ORDER BY length(CAST(y.prefix AS BLOB)) DESC LIMIT 1)`
+  const classExpr = `COALESCE((SELECT MAX(COALESCE(${matched('cls')}, ${rootClass})) FROM (${paths}) x), ${rootClass})`
+  const reliabilityExpr = `COALESCE((SELECT MIN(COALESCE(${matched('rel')}, ${rootReliability})) FROM (${paths}) x), ${rootReliability})`
   const order = `${classExpr} DESC, c.conf * ${reliabilityExpr} DESC, c.tx DESC`
+  // REAL projection keeps finite JS numbers out of the driver's int64 decoder.
   return `
-WITH cave_policy(prefix, cls, rel) AS (VALUES ${values.join(', ')})
-SELECT c.*, ${groupExpr} AS res_group, ${classExpr} AS res_class, c.conf * ${reliabilityExpr} AS res_conf,
+WITH cave_policy(prefix, cls, rel) AS ${materialized ? 'MATERIALIZED ' : ''}(${policySql})
+SELECT c.*, ${groupExpr} AS res_group, CAST(${classExpr} AS REAL) AS res_class, c.conf * ${reliabilityExpr} AS res_conf,
   ROW_NUMBER() OVER (PARTITION BY ${groupExpr} ORDER BY ${order}) AS res_rank
 FROM (${currentSql}) c
 WHERE c.conf > 0`

@@ -1,15 +1,34 @@
 /**
  * Record sources (spec §23) — CSV/TSV files, JSON documents, JSONL streams,
- * SQLite databases (read-only), and http(s) URLs serving JSON or CSV. Every
+ * SQLite databases (read-only), and http(s) URLs serving JSON, JSONL, CSV or TSV. Every
  * source loads to the same shape: an array of flat-ish records the template
  * layer resolves fields from (`fieldOf` handles nested JSON by dot path).
  */
 
-import { readFileSync } from 'node:fs'
+import { captureRecords } from './records.ts'
+import { rethrowFetchFailure } from './fetch-failure.ts'
+import { decodeText, readText } from './utf8.ts'
 import { basename, extname } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import type { LineSpan } from '@cavelang/core'
 import { fieldOf } from './template.ts'
+
+
+/** Close an owned source connection once without replacing a query failure. */
+const withSourceDatabase = <T>(db: DatabaseSync, read: () => T): T => {
+  let result: T
+  try {
+    result = read()
+  } catch (error) {
+    try { db.close() } catch (closeError) {
+      throw new AggregateError([error, closeError],
+        'CAVE source SQL failed and database close also failed', { cause: error })
+    }
+    throw error
+  }
+  db.close()
+  return result
+}
 
 export type Format = 'csv' | 'tsv' | 'json' | 'jsonl' | 'sqlite'
 
@@ -41,6 +60,8 @@ export type Options = {
   readonly records?: string
   /** URL fetch timeout in seconds (default 60). */
   readonly timeoutSeconds?: number
+  /** Cancel source loading and pending URL body reads. */
+  readonly signal?: AbortSignal
   /** Injection point for tests; the built-in fetch otherwise. */
   readonly fetchImpl?: FetchLike
 }
@@ -52,6 +73,38 @@ export type Loaded = {
   readonly spans?: readonly LineSpan[]
   /** The source's own column order when it declares one (a CSV header), records or none. */
   readonly columns?: readonly string[]
+}
+
+const explicitFormat = (value: unknown): Format | undefined => {
+  switch (value) {
+    case undefined:
+    case 'csv': case 'tsv': case 'json': case 'jsonl': case 'sqlite':
+      return value
+    default:
+      throw new TypeError('format must be csv, tsv, json, jsonl or sqlite')
+  }
+}
+
+const captureOptions = (options: Options): Options => {
+  const signal = options.signal
+  signal?.throwIfAborted()
+  return {
+    signal, format: explicitFormat(options.format), delimiter: options.delimiter,
+    table: options.table, sql: options.sql, records: options.records,
+    timeoutSeconds: options.timeoutSeconds, fetchImpl: options.fetchImpl
+  }
+}
+
+const fetchTimeoutMs = (seconds: number): number => {
+  const milliseconds = typeof seconds === 'number' ? seconds * 1000 : NaN
+  const rounded = Math.round(milliseconds)
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(milliseconds))
+  if (!Number.isFinite(milliseconds) || seconds < 0 ||
+      rounded < (seconds === 0 ? 0 : 1) || rounded > 2147483647 ||
+      Math.abs(milliseconds - rounded) > tolerance) {
+    throw new TypeError('timeoutSeconds must resolve to whole milliseconds in 0..2147483647')
+  }
+  return rounded
 }
 
 export const isUrl = (source: string): boolean =>
@@ -70,8 +123,9 @@ const extensionFormats: Record<string, Format> = {
 
 /** Infers the source format from an explicit option or the file/URL extension. */
 export const formatOf = (source: string, options: Options = {}): Format => {
-  if (options.format !== undefined) {
-    return options.format
+  const supplied = explicitFormat(options.format)
+  if (supplied !== undefined) {
+    return supplied
   }
   const path = isUrl(source) ? new URL(source).pathname : source
   const format = extensionFormats[extname(path).toLowerCase()]
@@ -99,10 +153,15 @@ export const nameOf = (source: string): string => {
  * newlines; records split on LF or CRLF. The first row names the fields.
  */
 const parseCsvLocated = (text: string, delimiter = ','): { records: Record<string, string>[], spans: LineSpan[], columns: string[] } => {
-  const rows: { cells: string[], span: LineSpan }[] = []
+  if (typeof delimiter !== 'string' || delimiter.length !== 1 || /["\r\n]/.test(delimiter)) {
+    throw new Error('CSV delimiter must be a single character other than a double quote or line break')
+  }
+  const rows: { cells: string[], span: LineSpan, hasQuotedField: boolean }[] = []
   let row: string[] = []
   let field = ''
   let quoted = false
+  let hasQuotedField = false
+  let quoteStart = 1
   let line = 1
   let rowStart = 1
   const body = text.startsWith('\uFEFF') ? text.slice(1) : text
@@ -112,8 +171,9 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
   }
   const endRow = (): void => {
     endField()
-    rows.push({ cells: row, span: { startLine: rowStart, endLine: line } })
+    rows.push({ cells: row, span: { startLine: rowStart, endLine: line }, hasQuotedField })
     row = []
+    hasQuotedField = false
     rowStart = line + 1
   }
   for (let i = 0; i < body.length; i++) {
@@ -125,14 +185,22 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
           i += 1
         } else {
           quoted = false
+          const next = body[i + 1]
+          if (next !== undefined && next !== delimiter && next !== '\n' &&
+              !(next === '\r' && body[i + 2] === '\n')) {
+            throw new Error(`CSV line ${line}: unexpected character after closing quote`)
+          }
         }
       } else if (char === '\r' && body[i + 1] === '\n') {
         // CRLF normalizes to LF inside quoted fields too.
       } else {
         field += char
       }
-    } else if (char === '"' && field === '') {
+    } else if (char === '"') {
+      if (field !== '') throw new Error(`CSV line ${line}: unexpected quote in unquoted field`)
       quoted = true
+      hasQuotedField = true
+      quoteStart = line
     } else if (char === delimiter) {
       endField()
     } else if (char === '\n') {
@@ -144,7 +212,10 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
       line += 1
     }
   }
-  if (field !== '' || row.length > 0) {
+  if (quoted) {
+    throw new Error(`CSV line ${quoteStart}: unterminated quoted field`)
+  }
+  if (field !== '' || row.length > 0 || hasQuotedField) {
     endRow()
   }
   const [headerRow, ...dataRows] = rows
@@ -152,12 +223,21 @@ const parseCsvLocated = (text: string, delimiter = ','): { records: Record<strin
   if (header === undefined) {
     return { records: [], spans: [], columns: [] }
   }
-  const present = dataRows.filter(row_ => row_.cells.length > 1 || row_.cells[0] !== '')
+  const columns = header.map(cell => cell.trim())
+  const names = new Set<string>()
+  for (const name of columns) {
+    if (names.has(name)) throw new Error(`CSV line ${headerRow!.span.startLine}: duplicate column name ${JSON.stringify(name)}`)
+    names.add(name)
+  }
+  const present = dataRows.filter(row_ => row_.hasQuotedField || row_.cells.length > 1 || row_.cells[0] !== '')
   return {
-    columns: header.map(cell => cell.trim()),
-    records: present.map(row_ => Object.fromEntries(
-      header.map((name, at) => [name.trim(), row_.cells[at] ?? ''])
-    )),
+    columns,
+    records: present.map(row_ => {
+      if (row_.cells.length > columns.length) {
+        throw new Error(`CSV line ${row_.span.startLine}: ${row_.cells.length} cells exceed ${columns.length} header columns`)
+      }
+      return Object.fromEntries(columns.map((name, at) => [name, row_.cells[at] ?? '']))
+    }),
     spans: present.map(row_ => row_.span)
   }
 }
@@ -178,7 +258,12 @@ const asRecords = (value: unknown, source: string): Record<string, unknown>[] =>
 }
 
 const parseJson = (text: string, source: string, options: Options): Record<string, unknown>[] => {
-  const parsed: unknown = JSON.parse(text)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    throw new SyntaxError(`${source}: invalid JSON — ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+  }
   const picked = options.records === undefined ? parsed : fieldOf(parsed, options.records)
   if (options.records !== undefined && picked === undefined) {
     throw new Error(`${source}: --records ${JSON.stringify(options.records)} not found`)
@@ -192,7 +277,12 @@ const parseJsonlLocated = (text: string, source: string): { records: Record<stri
     .filter(entry => entry.line.trim() !== '')
   return {
     records: located.map(entry => {
-      const parsed: unknown = JSON.parse(entry.line)
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(entry.line)
+      } catch (error) {
+        throw new Error(`${source}: line ${entry.lineNo}: invalid JSON — ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+      }
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
         throw new Error(`${source}: line ${entry.lineNo} is not a JSON object`)
       }
@@ -207,6 +297,21 @@ const sqliteValue = (value: unknown): unknown =>
   typeof value === 'bigint' ?
     (Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()) :
     value
+
+/** Require a record projection before execution; object rows also need unique names. */
+const uniqueResultColumns = (statement: StatementSync): void => {
+  const columns = statement.columns()
+  if (columns.length === 0) {
+    throw new Error('SQL source query must return columns — use SELECT to project records')
+  }
+  const names = new Set<string>()
+  for (const { name } of columns) {
+    if (names.has(name)) {
+      throw new Error(`duplicate SQL result column ${JSON.stringify(name)} — use distinct AS aliases`)
+    }
+    names.add(name)
+  }
+}
 
 /**
  * The columns a missing-column diagnostic may refer to. SQLite strips
@@ -244,17 +349,54 @@ const missingColumn = (message: string): string | undefined => {
   return /cannot join using column ([^]+) - column not present in both tables$/.exec(message)?.[1]
 }
 
+/** Only readable string diagnostics can justify retrying an empty source. */
+const missingColumnOf = (error: unknown): string | undefined => {
+  try {
+    if (!(error instanceof Error)) return undefined
+    const message = error.message
+    return typeof message === 'string' ? missingColumn(message) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * The SQLite representation of a record field: scalars as they are
  * (a bigint exact while SQLite's signed 64-bit integer holds it, its
  * decimal text beyond), booleans as 0/1, anything structured as JSON text.
  */
-const sqlValue = (value: unknown): null | number | bigint | string =>
-  value === undefined || value === null ? null :
+const finiteValue = (value: unknown): unknown => {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error('non-finite numeric field cannot be staged for --sql')
+  }
+  return value
+}
+
+const sqlValue = (value: unknown): null | number | bigint | string => {
+  finiteValue(value)
+  return value === undefined || value === null ? null :
     typeof value === 'number' || typeof value === 'string' ? value :
       typeof value === 'bigint' ? (value >= -(2n ** 63n) && value < 2n ** 63n ? value : value.toString()) :
         typeof value === 'boolean' ? (value ? 1 : 0) :
-          JSON.stringify(value)
+          JSON.stringify(value, (_key, nested) => finiteValue(nested))
+}
+
+/** Capture the declared header once; an invalid header is not a schemaless source. */
+const captureSchema = (schema: readonly string[] | undefined): string[] | undefined => {
+  if (schema === undefined) return undefined
+  const invalid = (): never => { throw new TypeError('SQL source schema must be a dense array of strings') }
+  if (!Array.isArray(schema)) return invalid()
+  const length = schema.length
+  if (!Number.isInteger(length) || length < 0 || length > 0xffffffff) return invalid()
+  const columns: string[] = []
+  for (let index = 0; index < length; index++) {
+    if (!Object.hasOwn(schema, index)) return invalid()
+    const column = schema[index]
+    if (typeof column !== 'string') return invalid()
+    columns.push(column)
+  }
+  return columns
+}
 
 /**
  * Runs `sql` over the records loaded from a text format: the records
@@ -271,6 +413,8 @@ export const queryRecords = (
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
     throw new Error(`--table ${JSON.stringify(table)} is not a plain identifier`)
   }
+  records = captureRecords(records)
+  schema = captureSchema(schema)
   // The source's own columns first (a CSV header survives an empty file;
   // a repeated header is one column, as it is one record field), then any
   // field the records add.
@@ -299,7 +443,7 @@ export const queryRecords = (
   const quoted = (name: string): string => `"${name.replaceAll('"', '""')}"`
   const stage = (): Record<string, unknown>[] => {
     const db = new DatabaseSync(':memory:')
-    try {
+    return withSourceDatabase(db, () => {
       // No affinity: a value is exactly what the source gave — a CSV cell is
       // text ("00123" stays "00123"), a JSON number is a number — and a query
       // casts when it wants arithmetic (CAST(kg AS REAL) > 10).
@@ -307,7 +451,7 @@ export const queryRecords = (
       if (columns.length > 0) {
         const insert = db.prepare(`INSERT INTO ${quoted(table)} (${columns.map(quoted).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
         for (const record of records) {
-          insert.run(...columns.map(column => sqlValue(record[column])))
+          insert.run(...columns.map(column => sqlValue(Object.hasOwn(record, column) ? record[column] : undefined)))
         }
       } else {
         // Records without any field are still records: one row each, so a
@@ -316,14 +460,13 @@ export const queryRecords = (
         for (let i = 0; i < records.length; i += 1) insert.run()
       }
       const statement = db.prepare(sql)
+      uniqueResultColumns(statement)
       // Integers beyond the safe range arrive as bigints and become text in
       // `sqliteValue`, instead of throwing out of range.
       statement.setReadBigInts(true)
       const rows = statement.all() as Record<string, unknown>[]
       return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
-    } finally {
-      db.close()
-    }
+    })
   }
   // A schemaless source (JSON, JSONL) that became empty has no columns to
   // offer, yet the query names the ones it expects: for an empty input
@@ -343,7 +486,7 @@ export const queryRecords = (
       // `JOIN … USING` gets its own diagnostic.
       // The name arrives exactly as SQLite parsed it, edge spaces included:
       // `\` first \`` is the field " first ".
-      const reference = records.length === 0 && schemaless && error instanceof Error ? missingColumn(error.message) : undefined
+      const reference = records.length === 0 && schemaless ? missingColumnOf(error) : undefined
       // The empty name is a column too: SQLite accepts `""`.
       const names = reference === undefined ? [] : inferColumns(reference).filter(name => !known.has(name))
       if (names.length === 0) {
@@ -363,28 +506,49 @@ const readSqlite = (path: string, options: Options): Record<string, unknown>[] =
   }
   const sql = options.sql ?? `SELECT * FROM "${options.table!.replaceAll('"', '""')}"`
   const db = new DatabaseSync(path, { readOnly: true })
-  try {
-    const rows = db.prepare(sql).all() as Record<string, unknown>[]
+  return withSourceDatabase(db, () => {
+    const statement = db.prepare(sql)
+    uniqueResultColumns(statement)
+    statement.setReadBigInts(true)
+    const rows = statement.all() as Record<string, unknown>[]
     return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, sqliteValue(value)])))
-  } finally {
-    db.close()
-  }
+  })
 }
 
 /** Fetches a URL's body; the transport is injectable for tests. */
 export const fetchText = async (url: string, options: Options): Promise<{ text: string, contentType: string }> => {
-  const response = await (options.fetchImpl ?? fetch)(url, {
-    headers: {
-      'user-agent': 'cave-connect',
-      accept: 'application/json, text/csv;q=0.9, */*;q=0.8'
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout((options.timeoutSeconds ?? 60) * 1000)
-  })
-  if (!response.ok) {
-    throw new Error(`${url}: HTTP ${response.status}`)
+  const signal = options.signal
+  signal?.throwIfAborted()
+  if (/[\uD800-\uDFFF]/u.test(url)) throw new TypeError('URL must contain well-formed Unicode')
+  const timeoutSeconds = options.timeoutSeconds
+  const timeout = AbortSignal.timeout(fetchTimeoutMs(timeoutSeconds === undefined ? 60 : timeoutSeconds))
+  const fetchImpl = options.fetchImpl ?? fetch
+  try {
+    const response = await fetchImpl(url, {
+      headers: {
+        'user-agent': 'cave-connect',
+        accept: 'application/json, text/csv;q=0.9, */*;q=0.8'
+      },
+      redirect: 'follow',
+      signal: signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+    })
+    if (signal?.aborted) {
+      await response.body?.cancel().catch(() => undefined)
+      signal.throwIfAborted()
+    }
+    if (!response.ok) {
+      // Error bodies are not source data. Release the unread stream while keeping
+      // the HTTP status as the diagnostic even if transport cleanup fails.
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error(`${url}: HTTP ${response.status}`)
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    signal?.throwIfAborted()
+    const text = decodeText(bytes, url, false)
+    return { text, contentType: response.headers.get('content-type') ?? '' }
+  } catch (error) {
+    return rethrowFetchFailure(signal, error)
   }
-  return { text: await response.text(), contentType: response.headers.get('content-type') ?? '' }
 }
 
 /**
@@ -393,6 +557,7 @@ export const fetchText = async (url: string, options: Options): Promise<{ text: 
  * synchronous: `cave connect` follows URLs.
  */
 export const loadSync = (source: string, options: Options = {}): Loaded => {
+  options = captureOptions(options)
   if (isUrl(source)) {
     throw new Error(`${source}: URL sources are followed by cave connect, not when assembling a text store`)
   }
@@ -400,7 +565,7 @@ export const loadSync = (source: string, options: Options = {}): Loaded => {
   if (format === 'sqlite') {
     return { records: readSqlite(source, options), format }
   }
-  return { ...queried(parseLocated(format, readFileSync(source, 'utf8'), source, options), options), format }
+  return { ...queried(parseLocated(format, readText(source), source, options), options), format }
 }
 
 /** Applies `sql`, when given, to records of a text format — the spans no longer align, so they go. */
@@ -412,12 +577,16 @@ const queried = (
 
 /** Loads a source to records. Local files read synchronously; URLs fetch. */
 export const load = async (source: string, options: Options = {}): Promise<Loaded> => {
+  options = captureOptions(options)
   if (isUrl(source)) {
     const { text, contentType } = await fetchText(source, options)
+    const mediaType = contentType.split(';', 1)[0]!.trim().toLowerCase()
     const format = options.format ??
-      (contentType.includes('json') ? 'json' :
-        contentType.includes('csv') ? 'csv' :
-          formatOf(source, options))
+      (mediaType.includes('ndjson') || mediaType.includes('jsonl') ? 'jsonl' :
+        mediaType.includes('json') ? 'json' :
+        mediaType.includes('csv') ? 'csv' :
+          mediaType === 'text/tab-separated-values' ? 'tsv' :
+            formatOf(source, options))
     if (format === 'sqlite') {
       throw new Error(`${source}: SQLite sources must be local files`)
     }
@@ -434,9 +603,9 @@ const parseLocated = (
 ): { records: Record<string, unknown>[], spans?: LineSpan[], columns?: string[] } => {
   switch (format) {
     case 'csv':
-      return parseCsvLocated(text, options.delimiter ?? ',')
+      return parseCsvLocated(text, options.delimiter === undefined ? ',' : options.delimiter)
     case 'tsv':
-      return parseCsvLocated(text, options.delimiter ?? '\t')
+      return parseCsvLocated(text, options.delimiter === undefined ? '\t' : options.delimiter)
     case 'json':
       return { records: parseJson(text, source, options) }
     case 'jsonl':

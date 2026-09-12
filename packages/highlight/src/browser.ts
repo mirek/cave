@@ -1,7 +1,7 @@
 /** Browser entry point for CAVE's Tree-sitter highlighter. */
 
 import { Language, Parser } from 'web-tree-sitter'
-import { createHighlighter, type Highlighter } from './core.ts'
+import { createHighlighter, type OwnedHighlighter } from './core.ts'
 
 export * from './core.ts'
 
@@ -19,7 +19,7 @@ export const createBrowserHighlighter = async ({
   parserWasmUrl,
   languageWasmUrl,
   querySource,
-}: BrowserHighlighterOptions): Promise<Highlighter> => {
+}: BrowserHighlighterOptions): Promise<OwnedHighlighter> => {
   await Parser.init({ locateFile: () => parserWasmUrl })
   const language = await Language.load(languageWasmUrl)
   return createHighlighter(language, querySource)

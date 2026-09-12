@@ -57,10 +57,14 @@ const objectText = (claim: Claim.t): undefined | string =>
 export const memoryStore = (claims: readonly Claim.t[], registry: Registry.t = standardRegistry): CaveStore => {
   const current = new Map<string, Claim.t>()
   for (const claim of claims) {
-    current.set(Key.of(claim), claim)
+    const key = Key.of(claim)
+    // Latest beliefs keep transaction order, including after revisions.
+    current.delete(key)
+    current.set(key, claim)
   }
   const bySubject = new Map<string, Claim.t[]>()
   const byObject = new Map<string, Claim.t[]>()
+  const byEntity = new Map<string, Claim.t[]>()
   const push = (map: Map<string, Claim.t[]>, key: string, claim: Claim.t): void => {
     const existing = map.get(key)
     if (existing === undefined) {
@@ -70,10 +74,13 @@ export const memoryStore = (claims: readonly Claim.t[], registry: Registry.t = s
     }
   }
   for (const claim of current.values()) {
-    push(bySubject, subjectText(claim), claim)
+    const subject = subjectText(claim)
+    push(bySubject, subject, claim)
+    push(byEntity, subject, claim)
     const object = objectText(claim)
     if (object !== undefined) {
       push(byObject, object, claim)
+      if (object !== subject) push(byEntity, object, claim)
     }
   }
   const traversable = (claim: Claim.t): boolean =>
@@ -108,11 +115,7 @@ export const memoryStore = (claims: readonly Claim.t[], registry: Registry.t = s
         })
     },
     claimsAbout(entity) {
-      const about = [
-        ...bySubject.get(entity) ?? [],
-        ...(byObject.get(entity) ?? []).filter(claim => subjectText(claim) !== entity)
-      ]
-      return about
+      return [...byEntity.get(entity) ?? []]
     },
     expandTopic(topic) {
       return (bySubject.get(topic) ?? [])

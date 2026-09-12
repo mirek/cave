@@ -35,17 +35,19 @@ export const page: string = `<!doctype html>
 * { box-sizing: border-box; }
 body {
   margin: 0; background: var(--bg); color: var(--fg);
-  font: 15px/1.5 system-ui, sans-serif;
+  font: 15px/1.5 system-ui, sans-serif; overflow-wrap: anywhere;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+a:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a:focus-visible { text-decoration: underline; }
 header {
   position: sticky; top: 0; display: flex; gap: 1rem; align-items: center;
   padding: .55rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line);
 }
 header .brand { font-weight: 700; color: var(--fg); }
 header input[type=search] {
-  flex: 1; max-width: 26rem; padding: .3rem .6rem; border: 1px solid var(--line);
+  flex: 1; min-width: 0; max-width: 26rem; padding: .3rem .6rem; border: 1px solid var(--line);
   border-radius: .4rem; background: var(--pill); color: var(--fg); font: inherit;
 }
 header label { color: var(--dim); font-size: .85rem; display: flex; gap: .35rem; align-items: center; }
@@ -61,6 +63,7 @@ section h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
 section h2 .n { font-weight: 400; }
 .none { color: var(--dim); font-size: .85rem; margin: .2rem 0; }
 .err { color: var(--bad); }
+.retry { padding: .35rem .7rem; border: 1px solid var(--line); border-radius: .4rem; background: var(--pill); color: var(--fg); font: inherit; cursor: pointer; }
 .tiles { display: flex; flex-wrap: wrap; gap: .5rem; }
 .tile { background: var(--pill); border-radius: .5rem; padding: .45rem .8rem; min-width: 5.4rem; }
 .tile b { display: block; font-size: 1.15rem; }
@@ -100,31 +103,53 @@ section h2 .n { font-weight: 400; }
 .aka { color: var(--dim); font-size: .85rem; }
 mark { background: var(--mark); color: inherit; border-radius: .2rem; }
 .linked { font-size: .8rem; color: var(--dim); margin-top: .3rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 10; padding: .6rem .9rem; background: var(--bg); border: 2px solid var(--accent); border-radius: .3rem; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#view">Skip to content</a>
 <header>
   <a class="brand" href="#/">cave</a>
-  <input id="q" type="search" placeholder="search claims… (enter)">
+  <input id="q" type="search" aria-label="Search claims by phrase" aria-keyshortcuts="Enter" enterkeyhint="search" placeholder="search phrase… (enter)">
   <label><input id="aliases" type="checkbox"> aliases</label>
 </header>
-<main id="view"></main>
+<div id="loading-status" class="sr-only" role="status"></div>
+<main id="view" tabindex="-1" aria-busy="false"></main>
 <footer>cave __CAVE_VERSION__ &middot; __CAVE_DB__ &middot; sensitivity &le; __CAVE_SENSITIVITY__ &middot; read-only view</footer>
 <script>
 'use strict'
 var view = document.getElementById('view')
+var loadingStatus = document.getElementById('loading-status')
 var aliasBox = document.getElementById('aliases')
 var searchBox = document.getElementById('q')
+var baseTitle = document.title
 var BACKTICK = '\\u0060'
 
-aliasBox.checked = localStorage.getItem('cave-aliases') === '1'
+document.querySelector('.skip-link').addEventListener('click', function (event) {
+  event.preventDefault()
+  focusViewElement(view)
+})
+
+try {
+  aliasBox.checked = localStorage.getItem('cave-aliases') === '1'
+} catch (_) {
+  aliasBox.checked = false
+}
 aliasBox.addEventListener('change', function () {
-  localStorage.setItem('cave-aliases', aliasBox.checked ? '1' : '0')
+  try {
+    localStorage.setItem('cave-aliases', aliasBox.checked ? '1' : '0')
+  } catch (_) { /* Persistence is optional; the current toggle still applies. */ }
   route()
 })
 searchBox.addEventListener('keydown', function (event) {
-  if (event.key === 'Enter' && searchBox.value.trim() !== '') {
-    location.hash = '#/s/' + encodeURIComponent(searchBox.value.trim())
+  if (event.key === 'Enter' && !event.isComposing &&
+      !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && searchBox.value.trim() !== '') {
+    event.preventDefault()
+    var destination = '#/s/' + encodeURIComponent(searchBox.value.trim())
+    if (location.hash === destination) route()
+    else location.hash = destination
   }
 })
 
@@ -134,7 +159,12 @@ function esc (value) {
   })
 }
 var enc = encodeURIComponent
-function pct (value) { return Math.round(value * 1000) / 10 + '%' }
+function pct (value) {
+  var rounded = Math.round(value * 1000) / 10
+  if (value > 0 && rounded === 0) { return '<0.1%' }
+  if (value < 1 && rounded === 100) { return '>99.9%' }
+  return rounded + '%'
+}
 
 function api (path, params) {
   var pairs = []
@@ -146,8 +176,13 @@ function api (path, params) {
   })
   return fetch('/api/' + path + (pairs.length ? '?' + pairs.join('&') : '')).then(function (res) {
     return res.json().then(function (body) {
-      if (!res.ok) { throw new Error(body.error || ('http ' + res.status)) }
+      if (!res.ok) {
+        var message = body && typeof body.error === 'string' && body.error
+        throw new Error(message || ('HTTP ' + res.status))
+      }
       return body
+    }, function () {
+      throw new Error(res.ok ? 'Could not read JSON response (HTTP ' + res.status + ')' : 'HTTP ' + res.status)
     })
   })
 }
@@ -163,7 +198,7 @@ function claimHtml (c, opts) {
   opts = opts || {}
   var parts = []
   if (opts.when) { parts.push('<span class="when" title="' + esc(c.at) + '">' + esc(c.at.slice(0, 10)) + '</span>') }
-  if (opts.bar) { parts.push('<span class="bar" title="confidence ' + pct(c.conf) + '"><i style="width:' + (c.conf * 100) + '%"></i></span>') }
+  if (opts.bar) { parts.push('<span class="bar" title="confidence ' + esc(pct(c.conf)) + '"><i style="width:' + (c.conf * 100) + '%"></i></span>') }
   parts.push(entityHtml(c.subject))
   parts.push('<span class="v">' + esc(c.verb) + '</span>' + (c.negated ? ' <em class="not">NOT</em>' : ''))
   if (c.object !== undefined) {
@@ -174,6 +209,7 @@ function claimHtml (c, opts) {
     parts.push('<span class="val">' + esc(c.value) + '</span>')
   }
   if (c.delta !== undefined) { parts.push('<span class="val">+/- ' + esc(c.delta) + '</span>') }
+  if (c.sigmaLevel !== undefined) { parts.push('<span class="val">(' + esc(c.sigmaLevel) + 'σ)</span>') }
   c.contexts.forEach(function (ctx) {
     var source = (c.sources || []).filter(function (item) { return item.context === ctx })[0]
     var label = '@' + esc(ctx)
@@ -188,7 +224,7 @@ function claimHtml (c, opts) {
   if (c.conf === 0) {
     parts.push('<span class="conf retracted" title="retracted">@ 0%</span>')
   } else if (c.conf < 1) {
-    parts.push('<span class="conf">@ ' + pct(c.conf) + '</span>')
+    parts.push('<span class="conf">@ ' + esc(pct(c.conf)) + '</span>')
   }
   if (c.importance) { parts.push('<span class="imp">!</span>') }
   if (c.comment !== undefined) { parts.push('<span class="cmt">; ' + esc(c.comment) + '</span>') }
@@ -233,7 +269,7 @@ function dashboard (data) {
   html += section('coverage', '<div class="tiles">' +
     tile(cov.rows, 'rows') + tile(cov.facts, 'facts') + tile(cov.current, 'current') +
     tile(cov.entities, 'entities') + tile(cov.typedEntities, 'typed') +
-    tile(cov.averageConfidence === null ? '&mdash;' : pct(cov.averageConfidence), 'avg conf') +
+    tile(cov.averageConfidence === null ? '&mdash;' : esc(pct(cov.averageConfidence)), 'avg conf') +
     tile(cov.retracted, 'retracted') + tile(cov.negated, 'negated') + tile(cov.lowConfidence, 'low conf') +
     tile(cov.satisfied + '/' + cov.checks, 'shape checks') +
     '</div>')
@@ -301,10 +337,13 @@ function topicPage (data) {
 }
 
 function historyPage (data) {
-  var current = data.rows[data.rows.length - 1]
-  var html = '<h1>' + esc(current.line) + ' <span class="kind">belief history</span></h1>'
+  var latest = data.rows[data.rows.length - 1]
+  var html = '<h1>' + esc(latest.line) + ' <span class="kind">belief history</span></h1>'
   html += '<p class="linked">claim key <code>' + esc(data.key) + '</code> &middot; ' + data.rows.length +
-    ' event(s) &middot; oldest first, the last row is current belief</p>'
+    ' event(s) &middot; oldest first, the last row is the latest visible event</p>'
+  if (latest.conf === 0) {
+    html += '<p>This series is retracted in the selected audience.</p>'
+  }
   html += claimList(data.rows, { when: true, bar: true })
   view.innerHTML = html
 }
@@ -325,26 +364,85 @@ function treeHtml0 (nodes) { return nodes.length === 0 ? '' : treeHtml(nodes) }
 function lineagePage (data) {
   var html = '<h1>' + esc(data.row.line) + ' <span class="kind">lineage</span></h1>'
   html += claimHtml(data.row)
-  html += section('cites — why this is believed (BECAUSE premises, VIA rules, WHEN conditions)', treeHtml(data.cites))
+  html += '<p>These links show recorded evidence. Later changes to premises do not rewrite this claim’s original evidence.</p>'
+  html += section('cites — recorded evidence (BECAUSE premises, VIA rules, WHEN conditions)', treeHtml(data.cites))
   html += section('cited by — what depends on it', treeHtml(data.citedBy))
   view.innerHTML = html
 }
 
 function searchPage (text, data) {
-  searchBox.value = text
   view.innerHTML = '<h1>' + esc(text) + ' <span class="kind">search</span></h1>' +
+    '<p>Search includes earlier revisions and retracted claims, newest first. Open a claim’s history to follow its changes.</p>' +
+    (data.length === 100 ? '<p>Showing the newest 100 matches. More may exist; refine the search phrase to narrow the results.</p>' : '') +
     section('matches', claimList(data, { when: true }), data.length)
 }
 
+var navigation = 0
+var renderedHash
+
+function focusViewElement (destination) {
+  destination.setAttribute('tabindex', '-1')
+  destination.focus({ preventScroll: true })
+  destination.scrollIntoView({ block: 'start', behavior: 'instant' })
+  var header = document.querySelector('header')
+  var overlap = (header ? header.getBoundingClientRect().bottom : 0) + 12 - destination.getBoundingClientRect().top
+  if (overlap > 0) window.scrollBy({ top: -overlap, behavior: 'instant' })
+}
+
+function focusDestination (restoreFocus) {
+  if (restoreFocus && document.activeElement === document.body) {
+    var destination = view.querySelector('h1, [role="alert"]') || view.querySelector('h2')
+    if (destination) {
+      focusViewElement(destination)
+    }
+  }
+}
+
 function show (promise, render) {
+  var current = navigation
+  document.title = 'Loading view — ' + baseTitle
+  var restoreFocus = view.contains(document.activeElement)
+  view.setAttribute('aria-busy', 'true')
+  loadingStatus.textContent = 'Loading view.'
   view.innerHTML = '<p class="none">loading&hellip;</p>'
-  promise.then(render).catch(function (error) {
-    view.innerHTML = '<p class="err">' + esc(error.message) + '</p>'
+  promise.then(function (data) {
+    if (current === navigation) {
+      render(data)
+      var heading = view.querySelector('h1')
+      document.title = (heading ? heading.textContent : 'Overview') + ' — ' + baseTitle
+      view.setAttribute('aria-busy', 'false')
+      loadingStatus.textContent = 'View loaded.'
+      focusDestination(restoreFocus)
+    }
+  }).catch(function (error) {
+    if (current === navigation) showError(error, restoreFocus)
   })
 }
 
+function showError (error, restoreFocus) {
+  document.title = 'View error — ' + baseTitle
+  view.setAttribute('aria-busy', 'false')
+  loadingStatus.textContent = ''
+  view.innerHTML = '<p class="err" role="alert">' + esc(error.message) + '</p>' +
+    '<button class="retry" type="button">Retry view</button>'
+  view.querySelector('.retry').addEventListener('click', route)
+  focusDestination(restoreFocus)
+}
+
 function route () {
+  navigation++
+  var restoreFocus = view.contains(document.activeElement)
+  try {
+    renderRoute()
+  } catch (error) {
+    showError(error, restoreFocus)
+  }
+}
+
+function renderRoute () {
   var hash = location.hash || '#/'
+  var changedRoute = hash !== renderedHash
+  renderedHash = hash
   var aliases = aliasBox.checked
   var match
   if ((match = hash.match(/^#\\/e\\/(.+)$/))) {
@@ -357,6 +455,7 @@ function route () {
     show(api('lineage', { id: decodeURIComponent(match[1]) }), lineagePage)
   } else if ((match = hash.match(/^#\\/s\\/(.+)$/))) {
     var text = decodeURIComponent(match[1])
+    if (changedRoute) searchBox.value = text
     show(api('search', { q: text }), function (data) { searchPage(text, data) })
   } else {
     show(api('overview'), dashboard)

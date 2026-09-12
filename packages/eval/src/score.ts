@@ -26,6 +26,7 @@ import { canonicalizeText, emitClaim, standardRegistry } from '@cavelang/canonic
 import type { Registry } from '@cavelang/canonical'
 import { Files } from '@cavelang/ingest'
 import type { Store } from '@cavelang/store'
+import { validateTolerance } from './options.ts'
 
 /** Actor-stamp sources appended by the engine (spec §9.5), ignored in scoring. */
 const actorStampRe = /^src:(?:cli$|agent\/|ingest$)/
@@ -94,6 +95,7 @@ const valueOf = (claim: Claim.t): undefined | Value.t =>
  * existence) always agree — their key already carries the object.
  */
 export const valueAgrees = (golden: Claim.t, produced: Claim.t, tolerance = 0): boolean => {
+  validateTolerance(tolerance)
   const goldenValue = valueOf(golden)
   const producedValue = valueOf(produced)
   if (goldenValue === undefined || producedValue === undefined) {
@@ -103,8 +105,9 @@ export const valueAgrees = (golden: Claim.t, produced: Claim.t, tolerance = 0): 
     if ((goldenValue.unit ?? '') !== (producedValue.unit ?? '')) {
       return false
     }
+    // Dividing the difference avoids rounding a subnormal tolerance threshold up.
     return goldenValue.num === producedValue.num ||
-      Math.abs(producedValue.num - goldenValue.num) <= tolerance * Math.abs(goldenValue.num)
+      Math.abs(producedValue.num - goldenValue.num) / Math.abs(goldenValue.num) <= tolerance
   }
   return Value.format(goldenValue) === Value.format(producedValue)
 }
@@ -138,14 +141,18 @@ export const compare = (
   produced: readonly Fact[],
   options: { tolerance?: number } = {}
 ): Comparison => {
+  const tolerance = options.tolerance
+  validateTolerance(tolerance)
   const byKey = new Map(produced.map(fact => [fact.key, fact]))
+  golden = [...new Map(golden.map(fact => [fact.key, fact])).values()]
+  produced = [...byKey.values()]
   const misses: Fact[] = []
   const matchedKeys = new Set<string>()
   let matched = 0
   let valueOff = 0
   for (const fact of golden) {
     const candidate = byKey.get(fact.key)
-    if (candidate !== undefined && valueAgrees(fact.claim, candidate.claim, options.tolerance)) {
+    if (candidate !== undefined && valueAgrees(fact.claim, candidate.claim, tolerance)) {
       matched += 1
       matchedKeys.add(fact.key)
     } else {

@@ -1,0 +1,433 @@
+{
+  "description": "Balanced n-ary explanation multiplication; repeated assigned rational factors under default model limits.",
+  "before": {
+    "node24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per count; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "count": 128,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 6401,
+          "samplesMs": [
+            8.190624999999997,
+            3.6625839999999954,
+            2.6621669999999966,
+            2.6205830000000105
+          ],
+          "medianMs": 2.6621669999999966
+        },
+        {
+          "count": 1024,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1027,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            114.61516700000001,
+            108.36512499999998,
+            106.927209,
+            105.25241700000004
+          ],
+          "medianMs": 106.927209
+        },
+        {
+          "count": 4096,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 4099,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            1657.3076660000002,
+            1645.882791,
+            1648.5035000000003,
+            1707.5977080000002
+          ],
+          "medianMs": 1648.5035000000003
+        }
+      ]
+    },
+    "node26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per count; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "count": 128,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 6401,
+          "samplesMs": [
+            7.774750000000012,
+            3.188417000000001,
+            2.5694170000000014,
+            2.603874999999988
+          ],
+          "medianMs": 2.603874999999988
+        },
+        {
+          "count": 1024,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1027,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            113.933333,
+            104.92433300000002,
+            103.917708,
+            107.33020800000003
+          ],
+          "medianMs": 104.92433300000002
+        },
+        {
+          "count": 4096,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 4099,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            1627.530375,
+            1623.321125,
+            1593.873917,
+            1642.2067500000003
+          ],
+          "medianMs": 1623.321125
+        }
+      ]
+    }
+  },
+  "after": {
+    "node24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per count; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "packages/solver/src/explain.ts": "3c07eae48ead47e0309ef4d3499a81804b60c80d51d16311527c084a40c30562",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "count": 128,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 6401,
+          "samplesMs": [
+            7.793790999999999,
+            2.540582999999998,
+            1.4431669999999883,
+            1.410334000000006
+          ],
+          "medianMs": 1.4431669999999883
+        },
+        {
+          "count": 1024,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1027,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            18.668209000000004,
+            10.834625000000003,
+            9.628500000000003,
+            8.789249999999996
+          ],
+          "medianMs": 9.628500000000003
+        },
+        {
+          "count": 4096,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 4099,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            64.918084,
+            45.47941700000001,
+            40.99600000000001,
+            38.65549999999999
+          ],
+          "medianMs": 40.99600000000001
+        }
+      ]
+    },
+    "node26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per count; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "packages/solver/src/explain.ts": "3c07eae48ead47e0309ef4d3499a81804b60c80d51d16311527c084a40c30562",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "count": 128,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 6401,
+          "samplesMs": [
+            6.485333000000011,
+            1.7928330000000017,
+            1.3234999999999957,
+            1.0320420000000041
+          ],
+          "medianMs": 1.3234999999999957
+        },
+        {
+          "count": 1024,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1027,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            15.980249999999998,
+            10.667459000000008,
+            7.768167000000005,
+            7.473500000000001
+          ],
+          "medianMs": 7.768167000000005
+        },
+        {
+          "count": 4096,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 4099,
+            "expressionDepth": 3
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            54.603708,
+            42.51712499999999,
+            34.09587500000001,
+            37.994542000000024
+          ],
+          "medianMs": 37.994542000000024
+        }
+      ]
+    }
+  },
+  "correctness": {
+    "node24": {
+      "tree": {
+        "format": "cave.explanation-tree-oracle",
+        "version": 1,
+        "node": "v24.21.0",
+        "python": "3.14.5",
+        "seed": 20260911,
+        "cases": 256,
+        "checks": 512,
+        "indeterminate": 64,
+        "fixtureSha256": "815c80b44750f99ebe8c7d9bc28b362ce23965400bf3fd3d68b1098ea9884b07",
+        "sources": {
+          "scripts/explanation-tree-oracle.mjs": "6dca55e24773af665bc1e967f1375d99877f6064513a54b85759fb7225210724",
+          "packages/solver/src/explain.ts": "3c07eae48ead47e0309ef4d3499a81804b60c80d51d16311527c084a40c30562",
+          "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+          "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+        }
+      },
+      "wide": {
+        "format": "cave.exact-oracle-check",
+        "version": 3,
+        "node": "v24.21.0",
+        "python": "3.14.5",
+        "seed": "0xCAFE2026",
+        "cases": 600,
+        "checks": 3600,
+        "explanationChecks": 3744,
+        "linearChecks": 1872
+      }
+    },
+    "node26": {
+      "tree": {
+        "format": "cave.explanation-tree-oracle",
+        "version": 1,
+        "node": "v26.8.1",
+        "python": "3.14.5",
+        "seed": 20260911,
+        "cases": 256,
+        "checks": 512,
+        "indeterminate": 64,
+        "fixtureSha256": "815c80b44750f99ebe8c7d9bc28b362ce23965400bf3fd3d68b1098ea9884b07",
+        "sources": {
+          "scripts/explanation-tree-oracle.mjs": "6dca55e24773af665bc1e967f1375d99877f6064513a54b85759fb7225210724",
+          "packages/solver/src/explain.ts": "3c07eae48ead47e0309ef4d3499a81804b60c80d51d16311527c084a40c30562",
+          "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+          "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+        }
+      },
+      "wide": {
+        "format": "cave.exact-oracle-check",
+        "version": 3,
+        "node": "v26.8.1",
+        "python": "3.14.5",
+        "seed": "0xCAFE2026",
+        "cases": 600,
+        "checks": 3600,
+        "explanationChecks": 3744,
+        "linearChecks": 1872
+      }
+    }
+  }
+}

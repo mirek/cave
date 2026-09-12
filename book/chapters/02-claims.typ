@@ -209,6 +209,6 @@ error. `cave add --strict` refuses the whole file if anything is wrong, which
 is the right setting for files that other people review.
 
 #recap[A claim is `subject VERB object` or `subject HAS attribute: value`.
-Names are lowercase and slash-scoped; spell each entity the same way
-everywhere. Backticks and quotes hold exact text; `;` starts a comment that
+Concept names are lowercase; proper names keep their casing. Use `/` for scope
+and spell each entity consistently. Backticks and quotes hold exact text; `;` starts a comment that
 is stored with the claim. `cave parse` lints, `cave add` loads.]

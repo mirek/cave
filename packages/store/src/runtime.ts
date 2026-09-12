@@ -34,9 +34,12 @@ const declarationsAsOf = (store: BaseStore, asOf: string): Declaration[] => {
     SELECT subject, verb, object FROM cave_claim
     WHERE tx ${boundary.operator} ?
       AND negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'RENAMED-TO', 'IS')
-      AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
+      AND id NOT IN (
+        SELECT e.child_id FROM cave_edge e JOIN cave_claim parent ON parent.id = e.parent_id
+        WHERE e.role IN ('WHEN', 'VIA', 'BECAUSE') AND parent.tx ${boundary.operator} ?
+      )
     ORDER BY tx
-  `).all(boundary.tx) as Declaration[]
+  `).all(boundary.tx, boundary.tx) as Declaration[]
 }
 
 const applyDeclarations = (
@@ -71,8 +74,9 @@ export const openWith = (
   path: string = ':memory:',
   options: OpenOptions = {}
 ): Store => {
-  const baseRegistry = options.registry ?? Canonical.standardRegistry
-  const store = openStore(adapter, path, options)
+  const { registry, access } = options
+  const baseRegistry = registry ?? Canonical.standardRegistry
+  const store = openStore(adapter, path, { registry: baseRegistry, access })
   return Object.assign(store, {
     registryAsOf: (asOf: string): Canonical.Registry.t =>
       applyDeclarations(baseRegistry, declarationsAsOf(store, asOf))

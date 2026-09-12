@@ -1,0 +1,36 @@
+{
+  "description": "Independent Python Fraction differential audit after constant-divisor sign analysis. Correctness results, not timings or exhaustive proof.",
+  "sources": {
+    "scripts/exact-oracle-check.mjs": "31fa26193a3ba1c3a2d1c7fee65c881afa5f76eecae2837c7cb9ef316292855a",
+    "packages/solver/src/linear.ts": "0af6d17f8811c14795b4750d33cc42392264b8a6d892fd033da4bd1429eb1c4d",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/explain.ts": "6ba2a198571e002e2b791f7fcd2a8b21b81af2187dec77dd1c9da5cdc841b08c"
+  },
+  "runs": [
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    },
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    }
+  ]
+}

@@ -1,0 +1,797 @@
+{
+  "description": "Full-operation product benchmark with untimed analytic magnitude and wrong-value controls.",
+  "execution": "Sequential Node 26 then Node 24, without concurrent builds or tests; fresh child per workload.",
+  "scope": "Timed workload unchanged from version 1; post-workload RSS now includes two extra magnitude-control reports and is not directly comparable to previous sampled RSS.",
+  "sources": {
+    "scripts/exact-product-bench.mjs": "138e34deeb3c149ec78f9746726b1e7e5c24f9c90fad403215dcdcf508312f72",
+    "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+    "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+    "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+  },
+  "reports": [
+    {
+      "format": "cave.exact-product-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; default model and explanation limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.27770799999998985,
+          "samplesMs": [
+            0.2169590000000028,
+            0.2234160000000145,
+            0.27770799999998985,
+            0.387291999999988,
+            2.92733299999999
+          ],
+          "rssBytes": 106840064
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.5879999999999939,
+          "samplesMs": [
+            0.403499999999994,
+            0.4495419999999939,
+            0.5879999999999939,
+            0.9970830000000035,
+            3.824875000000006
+          ],
+          "rssBytes": 106151936
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.20587500000000603,
+          "samplesMs": [
+            0.16704200000000924,
+            0.20187500000000114,
+            0.20587500000000603,
+            0.28520799999999724,
+            2.2416669999999925
+          ],
+          "rssBytes": 104710144
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.6417079999999942,
+          "samplesMs": [
+            0.31929099999999266,
+            0.5074169999999896,
+            0.6417079999999942,
+            0.9500000000000028,
+            3.615791999999999
+          ],
+          "rssBytes": 105152512
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.2758749999999992,
+          "samplesMs": [
+            0.22308400000000006,
+            0.22470799999999258,
+            0.2758749999999992,
+            0.5164999999999935,
+            4.806624999999997
+          ],
+          "rssBytes": 106725376
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.5762920000000094,
+          "samplesMs": [
+            0.4081249999999983,
+            0.528917000000007,
+            0.5762920000000094,
+            1.0539170000000126,
+            3.6224590000000063
+          ],
+          "rssBytes": 105529344
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.17329100000000608,
+          "samplesMs": [
+            0.1355830000000111,
+            0.1624169999999907,
+            0.17329100000000608,
+            0.2636669999999981,
+            2.331374999999994
+          ],
+          "rssBytes": 104824832
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.4213750000000118,
+          "samplesMs": [
+            0.2566670000000073,
+            0.31733399999998824,
+            0.4213750000000118,
+            0.6577910000000031,
+            3.356874999999988
+          ],
+          "rssBytes": 105021440
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.8775420000000054,
+          "samplesMs": [
+            2.6576670000000036,
+            2.705042000000006,
+            2.8775420000000054,
+            3.724250000000012,
+            4.987458000000004
+          ],
+          "rssBytes": 107331584
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.363915999999989,
+          "samplesMs": [
+            3.987667000000002,
+            4.252332999999993,
+            4.363915999999989,
+            4.436916000000011,
+            8.176541
+          ],
+          "rssBytes": 105988096
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 1.59345900000001,
+          "samplesMs": [
+            1.3419580000000053,
+            1.4105420000000066,
+            1.59345900000001,
+            1.6795419999999979,
+            3.9044999999999987
+          ],
+          "rssBytes": 105693184
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 2.4777910000000105,
+          "samplesMs": [
+            2.2007499999999993,
+            2.442291999999995,
+            2.4777910000000105,
+            2.6140000000000043,
+            5.279875000000004
+          ],
+          "rssBytes": 107216896
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 3.0662910000000068,
+          "samplesMs": [
+            3.0078749999999985,
+            3.040542000000002,
+            3.0662910000000068,
+            3.746167,
+            4.879915999999994
+          ],
+          "rssBytes": 106496000
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.1937910000000045,
+          "samplesMs": [
+            4.031165999999999,
+            4.165833000000006,
+            4.1937910000000045,
+            4.735042000000007,
+            7.787582999999998
+          ],
+          "rssBytes": 106086400
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.8294999999999959,
+          "samplesMs": [
+            0.7149169999999998,
+            0.743707999999998,
+            0.8294999999999959,
+            0.9932500000000033,
+            2.6219169999999963
+          ],
+          "rssBytes": 105988096
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 1.5289590000000004,
+          "samplesMs": [
+            1.4310419999999908,
+            1.4335839999999962,
+            1.5289590000000004,
+            1.868458000000004,
+            4.7485829999999964
+          ],
+          "rssBytes": 106512384
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.563292000000004,
+          "samplesMs": [
+            7.350999999999999,
+            7.473208,
+            7.563292000000004,
+            7.734000000000009,
+            10.115041999999988
+          ],
+          "rssBytes": 106381312
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.217875000000006,
+          "samplesMs": [
+            10.91687499999999,
+            11.059958000000009,
+            11.217875000000006,
+            11.684333999999993,
+            14.484459000000001
+          ],
+          "rssBytes": 106872832
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 3.921082999999996,
+          "samplesMs": [
+            3.5646660000000026,
+            3.5692080000000033,
+            3.921082999999996,
+            3.9950410000000005,
+            5.773916999999997
+          ],
+          "rssBytes": 106299392
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 5.989833999999988,
+          "samplesMs": [
+            5.776457999999991,
+            5.859041000000005,
+            5.989833999999988,
+            6.226832999999999,
+            9.447209
+          ],
+          "rssBytes": 107249664
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.50824999999999,
+          "samplesMs": [
+            7.347667000000001,
+            7.506500000000003,
+            7.50824999999999,
+            7.7428330000000045,
+            10.204125000000005
+          ],
+          "rssBytes": 106119168
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.383583000000002,
+          "samplesMs": [
+            11.139667000000003,
+            11.175832999999997,
+            11.383583000000002,
+            11.500749999999996,
+            14.42966700000001
+          ],
+          "rssBytes": 106872832
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 2.124959000000004,
+          "samplesMs": [
+            2.057666999999995,
+            2.062874999999991,
+            2.124959000000004,
+            2.3215829999999897,
+            4.294415999999998
+          ],
+          "rssBytes": 106086400
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 3.764250000000004,
+          "samplesMs": [
+            3.291792000000001,
+            3.646917000000002,
+            3.764250000000004,
+            3.871707999999998,
+            6.834917000000004
+          ],
+          "rssBytes": 107069440
+        }
+      ]
+    },
+    {
+      "format": "cave.exact-product-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; default model and explanation limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.2762079999999969,
+          "samplesMs": [
+            0.24525000000001285,
+            0.2708330000000103,
+            0.2762079999999969,
+            0.40145899999998846,
+            3.120291999999992
+          ],
+          "rssBytes": 104300544
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.7109579999999909,
+          "samplesMs": [
+            0.42129100000001074,
+            0.5320409999999924,
+            0.7109579999999909,
+            0.8530410000000046,
+            4.1129999999999995
+          ],
+          "rssBytes": 102170624
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.20645800000001202,
+          "samplesMs": [
+            0.16808399999999324,
+            0.17412500000000364,
+            0.20645800000001202,
+            0.3182910000000021,
+            2.1495409999999993
+          ],
+          "rssBytes": 101826560
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.5345409999999902,
+          "samplesMs": [
+            0.3996659999999963,
+            0.4047089999999969,
+            0.5345409999999902,
+            0.6954590000000138,
+            4.128208000000001
+          ],
+          "rssBytes": 102465536
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.3329169999999948,
+          "samplesMs": [
+            0.22837499999999977,
+            0.22912499999999625,
+            0.3329169999999948,
+            0.3397499999999951,
+            2.059207999999998
+          ],
+          "rssBytes": 102875136
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.5737089999999938,
+          "samplesMs": [
+            0.42412500000000364,
+            0.5046250000000043,
+            0.5737089999999938,
+            1.0820410000000038,
+            3.474125000000001
+          ],
+          "rssBytes": 101564416
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.1763339999999971,
+          "samplesMs": [
+            0.13395900000000438,
+            0.14124999999999943,
+            0.1763339999999971,
+            0.23400000000000887,
+            1.9252089999999953
+          ],
+          "rssBytes": 103907328
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.433250000000001,
+          "samplesMs": [
+            0.29025000000000034,
+            0.3473330000000061,
+            0.433250000000001,
+            0.6297080000000079,
+            3.2946249999999964
+          ],
+          "rssBytes": 101662720
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 3.1594590000000125,
+          "samplesMs": [
+            2.8361249999999956,
+            2.9885829999999913,
+            3.1594590000000125,
+            3.498041999999998,
+            6.141249999999999
+          ],
+          "rssBytes": 103284736
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.5205839999999995,
+          "samplesMs": [
+            4.180750000000003,
+            4.240583000000001,
+            4.5205839999999995,
+            4.657250000000005,
+            8.848292
+          ],
+          "rssBytes": 103530496
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 1.465874999999997,
+          "samplesMs": [
+            1.3286250000000024,
+            1.380833999999993,
+            1.465874999999997,
+            1.670541,
+            3.337791999999993
+          ],
+          "rssBytes": 102121472
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 2.603624999999994,
+          "samplesMs": [
+            2.271249999999995,
+            2.3742500000000035,
+            2.603624999999994,
+            3.4209589999999963,
+            5.728334000000004
+          ],
+          "rssBytes": 103137280
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.7589169999999967,
+          "samplesMs": [
+            2.695332999999991,
+            2.735875000000007,
+            2.7589169999999967,
+            3.639832999999996,
+            4.9920840000000055
+          ],
+          "rssBytes": 103301120
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.452707999999987,
+          "samplesMs": [
+            4.130208999999994,
+            4.139541999999992,
+            4.452707999999987,
+            4.72591700000001,
+            7.947750000000013
+          ],
+          "rssBytes": 103923712
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 1.0964589999999959,
+          "samplesMs": [
+            0.7865419999999972,
+            0.8456249999999983,
+            1.0964589999999959,
+            1.3577499999999958,
+            2.8245840000000015
+          ],
+          "rssBytes": 102547456
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 1.4535410000000013,
+          "samplesMs": [
+            1.3694169999999986,
+            1.3886250000000047,
+            1.4535410000000013,
+            1.9564589999999953,
+            4.596917000000005
+          ],
+          "rssBytes": 103022592
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 8.127749999999992,
+          "samplesMs": [
+            7.646582999999993,
+            7.965582999999995,
+            8.127749999999992,
+            8.191500000000005,
+            10.654542000000006
+          ],
+          "rssBytes": 102727680
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.844791,
+          "samplesMs": [
+            11.187332999999995,
+            11.592500000000001,
+            11.844791,
+            12.038708999999997,
+            15.112167
+          ],
+          "rssBytes": 103251968
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 4.080624999999998,
+          "samplesMs": [
+            3.761874999999989,
+            3.8944160000000068,
+            4.080624999999998,
+            4.180750000000003,
+            6.169374999999988
+          ],
+          "rssBytes": 104038400
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 6.154375000000002,
+          "samplesMs": [
+            6.0208749999999895,
+            6.124957999999992,
+            6.154375000000002,
+            6.8428340000000105,
+            9.655459000000008
+          ],
+          "rssBytes": 103923712
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 8.108542,
+          "samplesMs": [
+            7.794208999999995,
+            8.104292000000001,
+            8.108542,
+            8.286667000000008,
+            10.107124999999996
+          ],
+          "rssBytes": 103235584
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.790582999999998,
+          "samplesMs": [
+            11.568958999999992,
+            11.605000000000004,
+            11.790582999999998,
+            12.075125,
+            15.608999999999995
+          ],
+          "rssBytes": 103006208
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 2.1471670000000103,
+          "samplesMs": [
+            2.0330419999999947,
+            2.100583999999998,
+            2.1471670000000103,
+            2.3483750000000043,
+            4.211042000000006
+          ],
+          "rssBytes": 103186432
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 4.212042000000011,
+          "samplesMs": [
+            3.786709000000002,
+            3.9080840000000023,
+            4.212042000000011,
+            4.2308749999999975,
+            7.323791999999997
+          ],
+          "rssBytes": 102875136
+        }
+      ]
+    }
+  ]
+}

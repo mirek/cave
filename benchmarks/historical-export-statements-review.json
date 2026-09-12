@@ -1,0 +1,102 @@
+{
+  "description": "Dense current export before/after preparing historical context and tag statements once per export; same reads and identity verification.",
+  "platform": "darwin",
+  "arch": "arm64",
+  "command": "node scripts/dense-current-export-bench.mjs",
+  "method": "Sequential fresh script process per runtime; same script and independently constructed store per size; one warm-up then median of five calls. Setup and output equality checks outside timer. Baseline is the immediately preceding verified-history checkpoint on the same source except statement reuse; no concurrent builds/tests. No memory or hard-time bound.",
+  "beforeStoreSha256": "722b08e4b7b6c906fb33e0e6ff1b557caf1d482cbfa970545bc6737655bdc3bf",
+  "afterSources": {
+    "scripts/dense-current-export-bench.mjs": "8ac4e409955d412d54c30e54a3dd73a7d71a3de6ee51373f27d727ee8c2c5884",
+    "packages/store/src/store.ts": "53b495a393570661cf6a6ef29c75c1ca30354b80d4f35686db7ba5d4cb39e752",
+    "packages/store/src/row.ts": "30f8a7ae69818e7eb9636bb6d6193da6484bfef3ea1f7132f40a5fec21a41073",
+    "packages/store/src/read-snapshot.ts": "66c595ec63029c1175fbd0700592931437fe16b31bc527155428ab3a681dedfb"
+  },
+  "before": [
+    {
+      "node": "v24.21.0",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 8.265041999999994
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 35.02087499999993
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 74.73637500000018
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 8.802042
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 35.90616700000004
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 67.87587500000006
+    }
+  ],
+  "after": [
+    {
+      "node": "v24.21.0",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 6.76483300000001
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 31.67958299999998
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 69.65925000000004
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 7.6684999999999945
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 31.82712499999991
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 59.308583
+    }
+  ]
+}

@@ -12,12 +12,13 @@
  * `line` keeps the claim as authored for the places text is the point.
  */
 
-import { SourceSpan, Uuidv7, Verb, Version } from '@cavelang/core'
+import { maximumSensitivity } from './sensitivity.ts'
+import { Key, SourceSpan, Uuidv7, Verb, Version } from '@cavelang/core'
 import type { SourceReference } from '@cavelang/core'
 import { check, defaultStaleDays } from '@cavelang/shape'
-import { QuerySql, Sensitivity } from '@cavelang/store'
-import type { Row, Store } from '@cavelang/store'
-import { withScopedStore } from './scope.ts'
+import { QuerySql, Row, Sensitivity } from '@cavelang/store'
+import type { Store } from '@cavelang/store'
+import { readSnapshot, withScopedStore } from './scope.ts'
 
 const currentSql = QuerySql.current()
 
@@ -35,6 +36,8 @@ export type ClaimView = {
   /** Value as written (`~20B USD/yr`), attribute and metric payloads. */
   readonly value?: string
   readonly delta?: string
+  /** Non-default sigma level; omitted means the semantic default of 2. */
+  readonly sigmaLevel?: number
   readonly conf: number
   readonly importance: boolean
   readonly comment?: string
@@ -61,49 +64,74 @@ export type Options = {
 }
 
 const maximumOf = (options: { maxSensitivity?: Sensitivity.Level }): Sensitivity.Level =>
-  options.maxSensitivity ?? Sensitivity.defaultMaximum
+  maximumSensitivity(options.maxSensitivity)
+
+const aliasesOf = (value: unknown): boolean => {
+  if (value === undefined) return false
+  if (typeof value !== 'boolean') throw new TypeError('aliases must be a boolean')
+  return value
+}
 
 const rows = (store: Store, sql: string, ...params: (string | number)[]): Row.t[] =>
   store.db.prepare(sql).all(...params) as unknown as Row.t[]
 
-const toView = (store: Store, row: Row.t, maximum?: Sensitivity.Level): ClaimView => {
-  const contexts = (store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(row.id) as
-    { context: string }[]).map(entry => entry.context)
-  const tags = (store.db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ?').all(row.id) as
-    { key: string, value: null | string }[])
-    .map(tag => tag.value === null ? { key: tag.key } : { key: tag.key, value: tag.value })
+const viewMapper = (store: Store, maximum?: Sensitivity.Level): ((row: Row.t) => ClaimView) => {
+  const contextsQuery = store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?')
+  const tagsQuery = store.db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ?')
   const visibleChild = maximum === undefined ? '' :
     ` JOIN cave_claim visible ON visible.id = cave_edge.child_id AND ${Sensitivity.sql('visible', maximum)}`
   const visibleParent = maximum === undefined ? '' :
     ` JOIN cave_claim visible ON visible.id = cave_edge.parent_id AND ${Sensitivity.sql('visible', maximum)}`
-  const cites = (store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleChild} WHERE parent_id = ?`).get(row.id) as { n: number }).n
-  const citedBy = (store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleParent} WHERE child_id = ?`).get(row.id) as { n: number }).n
-  return {
-    id: row.id,
-    tx: row.tx,
-    at: new Date(Uuidv7.msOf(row.tx)).toISOString(),
-    subject: row.subject,
-    verb: row.verb,
-    negated: row.negated !== 0,
-    ...row.object === null ? {} : { object: row.object },
-    ...row.attribute === null ? {} : { attribute: row.attribute },
-    ...row.value_text === null ? {} : { value: row.value_text },
-    ...row.delta_text === null ? {} : { delta: row.delta_text },
-    conf: row.conf,
-    importance: row.importance !== 0,
-    ...row.comment === null ? {} : { comment: row.comment },
-    contexts,
-    sources: SourceSpan.ofContexts(contexts),
-    tags,
-    key: row.claim_key,
-    line: row.raw_line,
-    cites,
-    citedBy
+  const citesQuery = store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleChild} WHERE parent_id = ?`)
+  const citedByQuery = store.db.prepare(`SELECT COUNT(*) AS n FROM cave_edge${visibleParent} WHERE child_id = ?`)
+  return row => {
+    // Validate primary fields before shaping raw columns, including search paths
+    // that do not otherwise reconstruct a claim. Metadata is fetched below.
+    const claim = Row.toClaim(row, [], [])
+    if (typeof row.id !== 'string' || !Uuidv7.is(row.id) || row.tx !== row.id) {
+      throw new Error(`CAVE view failed for claim ${row.id}: stored transaction identity must be a canonical lowercase UUIDv7 with id = tx`)
+    }
+    const contexts = (contextsQuery.all(row.id) as
+      { context: string }[]).map(entry => entry.context)
+    if (Key.of({ ...claim, contexts }) !== row.claim_key) {
+      throw new Error(`CAVE view failed for claim ${row.id}: stored claim key does not agree with its semantic identity`)
+    }
+    const tags = (tagsQuery.all(row.id) as
+      { key: string, value: null | string }[])
+      .map(tag => tag.value === null ? { key: tag.key } : { key: tag.key, value: tag.value })
+    const cites = (citesQuery.get(row.id) as { n: number }).n
+    const citedBy = (citedByQuery.get(row.id) as { n: number }).n
+    return {
+      id: row.id,
+      tx: row.tx,
+      at: new Date(Uuidv7.msOf(row.tx)).toISOString(),
+      subject: row.subject,
+      verb: row.verb,
+      negated: row.negated !== 0,
+      ...row.object === null ? {} : { object: row.object },
+      ...row.attribute === null ? {} : { attribute: row.attribute },
+      ...row.value_text === null ? {} : { value: row.value_text },
+      ...row.delta_text === null ? {} : { delta: row.delta_text },
+      ...row.sigma_level === null || row.sigma_level === 2 ? {} : { sigmaLevel: row.sigma_level },
+      conf: row.conf,
+      importance: row.importance !== 0,
+      ...row.comment === null ? {} : { comment: row.comment },
+      contexts,
+      sources: SourceSpan.ofContexts(contexts),
+      tags,
+      key: row.claim_key,
+      line: row.raw_line,
+      cites,
+      citedBy
+    }
   }
 }
 
+const toView = (store: Store, row: Row.t, maximum?: Sensitivity.Level): ClaimView =>
+  viewMapper(store, maximum)(row)
+
 const views = (store: Store, list: readonly Row.t[], maximum?: Sensitivity.Level): ClaimView[] =>
-  list.map(row => toView(store, row, maximum))
+  list.length === 0 ? [] : list.map(viewMapper(store, maximum))
 
 /** Entity test mirroring §20.2's: not a verb token, not a stored literal. */
 const isEntityName = (name: string): boolean =>
@@ -165,11 +193,19 @@ export type Overview = {
  * and the latest appends. Long sections are capped (the report is the
  * uncapped surface); `total` counts what the store has.
  */
-export const overview = (store: Store, options: { staleDays?: number, recent?: number, limit?: number, maxSensitivity?: Sensitivity.Level } = {}): Overview =>
-  withScopedStore(store, maximumOf(options), scoped => {
-  const limit = options.limit ?? 100
-  const report = check(scoped, { staleDays: options.staleDays ?? defaultStaleDays })
-  const recent = rows(scoped, 'SELECT * FROM cave_claim ORDER BY tx DESC LIMIT ?', options.recent ?? 30)
+export const overview = (store: Store, options: { staleDays?: number, recent?: number, limit?: number, maxSensitivity?: Sensitivity.Level } = {}): Overview => {
+  const { limit = 100, recent: recentLimit = 30, staleDays = defaultStaleDays } = options
+  for (const [name, value] of [['limit', limit], ['recent', recentLimit]] as const) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new TypeError(`${name} must be a non-negative safe integer`)
+    }
+  }
+  if (!Number.isFinite(staleDays) || staleDays < 0) {
+    throw new TypeError('staleDays must be finite and non-negative')
+  }
+  return withScopedStore(store, maximumOf(options), scoped => {
+  const report = check(scoped, { staleDays })
+  const recent = rows(scoped, 'SELECT * FROM cave_claim ORDER BY tx DESC LIMIT ?', recentLimit)
   return {
     version: Version.current(),
     coverage: report.coverage,
@@ -196,6 +232,7 @@ export const overview = (store: Store, options: { staleDays?: number, recent?: n
     recent: views(scoped, recent)
   }
   })
+}
 
 export type Entity = {
   readonly name: string
@@ -224,16 +261,23 @@ export type Entity = {
  * claims are shown (they are knowledge); retracted ones only appear in
  * the activity feed and in each fact's own history.
  */
-export const entity = (store: Store, name: string, options: Options & { activity?: number } = {}): Entity =>
-  withScopedStore(store, maximumOf(options), scoped => {
-  const aliases = options.aliases === true ? scoped.aliasesOf(name) : [name]
-  const marks = aliases.map(() => '?').join(', ')
+export const entity = (store: Store, name: string, options: Options & { activity?: number } = {}): Entity => {
+  const maximum = maximumOf(options)
+  const useAliases = aliasesOf(options.aliases)
+  const { activity = 30 } = options
+  if (!Number.isSafeInteger(activity) || activity < 0) {
+    throw new TypeError('activity must be a non-negative safe integer')
+  }
+  return withScopedStore(store, maximum, scoped => {
+  const aliases = useAliases ? scoped.aliasesOf(name) : [name]
   const facts = rows(scoped, `
+    ${useAliases ? QuerySql.aliasClosure(currentSql) : ''}
     SELECT c.* FROM (${currentSql}) c
-    WHERE c.subject IN (${marks}) AND c.object IS NULL AND c.conf > 0
+    WHERE ${useAliases ? 'c.subject IN (SELECT name FROM alias_closure)' : 'c.subject = ?'}
+      AND c.object IS NULL AND c.conf > 0
     ORDER BY c.verb, c.attribute, c.tx
-  `, ...aliases)
-  const traverse = { negated: true, ...options.aliases === true ? { aliases: true } : {} }
+  `, name)
+  const traverse = { negated: true, ...useAliases ? { aliases: true } : {} }
   const about = scoped.claimsAbout(name, traverse)
   const out = scoped.forward(name, traverse).map(fact => fact.row)
   return {
@@ -246,9 +290,10 @@ export const entity = (store: Store, name: string, options: Options & { activity
       ({ ...toView(scoped, fact.row), ...fact.rel === undefined ? {} : { rel: fact.rel } })),
     topics: scoped.topicsOf(name, traverse),
     total: about.length,
-    activity: views(scoped, about.slice(0, options.activity ?? 30))
+    activity: views(scoped, about.slice(0, activity))
   }
   })
+}
 
 export type TopicPage = {
   readonly name: string
@@ -256,13 +301,16 @@ export type TopicPage = {
 }
 
 /** One topic's members — the forward `CONTAINS` read (spec §11.2). */
-export const topic = (store: Store, name: string, options: Options = {}): TopicPage =>
-  withScopedStore(store, maximumOf(options), scoped =>
-    ({ name, members: scoped.topicMembers(name, { aliases: options.aliases }) }))
+export const topic = (store: Store, name: string, options: Options = {}): TopicPage => {
+  const maximum = maximumOf(options)
+  const aliases = aliasesOf(options.aliases)
+  return withScopedStore(store, maximum, scoped =>
+    ({ name, members: scoped.topicMembers(name, { aliases }) }))
+}
 
 export type History = {
   readonly key: string
-  /** The belief series, oldest first (spec §9.1) — the last row is current. */
+  /** Visible belief events, oldest first (spec §9.1); the last may be a retraction. */
   readonly rows: readonly ClaimView[]
 }
 
@@ -318,6 +366,14 @@ export const lineage = (store: Store, id: string, options: Pick<Options, 'maxSen
   if (root === undefined) {
     return undefined
   }
+  const projected = new Map<string, ClaimView>()
+  const project = (row: Row.t): ClaimView => {
+    const existing = projected.get(row.id)
+    if (existing !== undefined) return existing
+    const view = toView(store, row)
+    projected.set(row.id, view)
+    return view
+  }
   const walk = (direction: 'down' | 'up', rowId: string, seen: Set<string>, depth: number): LineageNode[] => {
     const edges = direction === 'down' ?
       store.db.prepare('SELECT role, child_id AS next FROM cave_edge WHERE parent_id = ? ORDER BY rowid') :
@@ -329,7 +385,7 @@ export const lineage = (store: Store, id: string, options: Pick<Options, 'maxSen
       }
       const repeat = seen.has(row.id)
       seen.add(row.id)
-      const view = toView(store, row)
+      const view = project(row)
       // The view's own edge counts say whether the walk would continue —
       // the cut and its marker share one condition, so they cannot drift.
       const deeper = (direction === 'down' ? view.cites : view.citedBy) > 0
@@ -344,15 +400,21 @@ export const lineage = (store: Store, id: string, options: Pick<Options, 'maxSen
     })
   }
   return {
-    row: toView(store, root),
+    row: project(root),
     cites: walk('down', id, new Set([id]), 0),
     citedBy: walk('up', id, new Set([id]), 0)
   }
   })
 
 /** Full-text search (§13.5's FTS surface), newest first, capped in the query. */
-export const search = (store: Store, text: string, options: { limit?: number, maxSensitivity?: Sensitivity.Level } = {}): ClaimView[] =>
-  views(store, store.search(text, {
-    limit: options.limit ?? 100,
-    maxSensitivity: maximumOf(options)
-  }), maximumOf(options))
+export const search = (store: Store, text: string, options: { limit?: number, maxSensitivity?: Sensitivity.Level } = {}): ClaimView[] => {
+  const maximum = maximumOf(options)
+  const { limit = 100 } = options
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    throw new TypeError('search limit must be a non-negative safe integer')
+  }
+  return readSnapshot(store, () => views(store, store.search(text, {
+    limit,
+    maxSensitivity: maximum
+  }), maximum))
+}

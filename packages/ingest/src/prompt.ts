@@ -13,6 +13,7 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { decodeText, sourceLabel, withSourceError } from './content.ts'
 import { SourceSpan } from '@cavelang/core'
 import { specCard as caveCard } from '@cavelang/mcp'
 
@@ -58,15 +59,18 @@ export type PromptInput = {
 
 /** @returns the full prompt for one batch. */
 export const buildPrompt = (input: PromptInput): string => {
-  const files = input.files.map(file => {
-    const source = `@${SourceSpan.context(file.path)}`
-    if (file.content === undefined) {
-      return `- ${file.path} — source context ${source}; inspect the file and cite exact lines`
+  const { files: inputFiles, instructions, context, mode } = input
+  const files = inputFiles.map(file => {
+    const { path, content } = file
+    const source = `@${SourceSpan.context(path)}`
+    const label = sourceLabel(path)
+    if (content === undefined) {
+      return `- ${label} — source context ${source}; inspect the file and cite exact lines`
     }
-    const lines = file.content.split(/\r?\n/)
+    const lines = content.split(/\r\n|\r|\n/)
     const width = String(lines.length).length
     const numbered = lines.map((line, at) => `${String(at + 1).padStart(width)} | ${line}`).join('\n')
-    return `### ${file.path}\nSource context: ${source}\n\`\`\`text\n${numbered}\n\`\`\``
+    return `### ${label}\nSource context: ${source}\n\`\`\`text\n${numbered}\n\`\`\``
   }).join('\n')
   return [
     'You are ingesting source material into a CAVE knowledge database.',
@@ -75,17 +79,17 @@ export const buildPrompt = (input: PromptInput): string => {
     caveCard,
     '',
     extractionRules,
-    ...input.instructions === undefined ? [] : ['', '## Ingestion instructions', '', input.instructions.trim()],
-    ...input.context === undefined ? [] : ['', '## Existing knowledge', '', input.context],
+    ...instructions === undefined ? [] : ['', '## Ingestion instructions', '', instructions.trim()],
+    ...context === undefined ? [] : ['', '## Existing knowledge', '', context],
     '',
     '## Files to ingest',
     '',
     files,
     '',
-    protocolOf[input.mode]
+    protocolOf[mode]
   ].join('\n')
 }
 
 /** Reads the instructions markdown file, when given. */
 export const readInstructions = (path: undefined | string): undefined | string =>
-  path === undefined ? undefined : readFileSync(path, 'utf8')
+  path === undefined ? undefined : decodeText(withSourceError(path, 'read instructions', () => readFileSync(path)), path, 'instructions')

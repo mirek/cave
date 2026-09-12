@@ -1,0 +1,2490 @@
+{
+  "description": "Shipped report-scoped cumulative explanation-work limit. Native distinct-predicate reports and unchanged calibration workloads after implementation; timings are single observations, not deadlines.",
+  "native": {
+    "24": {
+      "maximum": 10000000,
+      "native": true,
+      "satisfied": 14,
+      "indeterminate": 370,
+      "elapsedMs": 1782.066459,
+      "stats": {
+        "variables": 256,
+        "constraints": 384,
+        "objectives": 0,
+        "enumValues": 0,
+        "expressionNodes": 99456,
+        "expressionDepth": 3
+      }
+    },
+    "26": {
+      "maximum": 10000000,
+      "native": true,
+      "satisfied": 14,
+      "indeterminate": 370,
+      "elapsedMs": 1605.410208,
+      "stats": {
+        "variables": 256,
+        "constraints": 384,
+        "objectives": 0,
+        "enumValues": 0,
+        "expressionNodes": 99456,
+        "expressionDepth": 3
+      }
+    }
+  },
+  "calibration": {
+    "24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "scope": "Existing workload assertions under temporary per-report arithmetic accounting; no public API or defaults changed; sequential isolated children",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/explanation-work-calibration.mjs": "715b20970c47b8ba6810a8b316bb7bf8783c355c2349f28ae2063e87f277e1a7",
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "scripts/solver-numeric-budget-bench.mjs": "6e9031a2590abc75d1082f359cb3dd9aff475f48507c8b234aa044c9086e8036",
+        "scripts/explanation-intermediate-bench.mjs": "e0859e6abc1b4b1359d7ecd03d823a6c845c581b6cf334efb765416b76cda266",
+        "scripts/solver-cumulative-sum-bench.mjs": "98a75423d0eec338a6eba5632debf89d23f8e1939e37516e6a7d7f5c17738eaf",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "5aab2744ef7d7238241bf625110775dc6ffe9d84fa5d75d270e36c3426b764dd",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "e8521f1cf69b79a24ef1d6f6dbad73e63baaefae5a5a94832c8778ca8e58db02",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "128"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 170707,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "128"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 170707,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "1024"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 1872939,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "1024"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 1872939,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "4096"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851147,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "4096"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851147,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "product"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "product"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "negate"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "negate"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "divide"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851155,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "divide"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851155,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "add"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851156,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "add"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851156,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-numeric-budget-bench.mjs",
+            "--case",
+            "explain",
+            "990"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 399968,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-numeric-budget-bench.mjs",
+            "--case",
+            "explain",
+            "990"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 399968,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/explanation-intermediate-bench.mjs"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 54,
+          "maxUsed": 5272924,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/explanation-intermediate-bench.mjs"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 54,
+          "maxUsed": 5272924,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-cumulative-sum-bench.mjs",
+            "--case",
+            "384",
+            "1000000"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 782401,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-cumulative-sum-bench.mjs",
+            "--case",
+            "384",
+            "1000000"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 782401,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            }
+          ]
+        }
+      ]
+    },
+    "26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "scope": "Existing workload assertions under temporary per-report arithmetic accounting; no public API or defaults changed; sequential isolated children",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/explanation-work-calibration.mjs": "715b20970c47b8ba6810a8b316bb7bf8783c355c2349f28ae2063e87f277e1a7",
+        "scripts/solver-flat-product-bench.mjs": "156d9d1db7e75497fea87e6c56db07a1d3aeda9f5ae3b15e1990fb1f0bce3985",
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "scripts/solver-numeric-budget-bench.mjs": "6e9031a2590abc75d1082f359cb3dd9aff475f48507c8b234aa044c9086e8036",
+        "scripts/explanation-intermediate-bench.mjs": "e0859e6abc1b4b1359d7ecd03d823a6c845c581b6cf334efb765416b76cda266",
+        "scripts/solver-cumulative-sum-bench.mjs": "98a75423d0eec338a6eba5632debf89d23f8e1939e37516e6a7d7f5c17738eaf",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "5aab2744ef7d7238241bf625110775dc6ffe9d84fa5d75d270e36c3426b764dd",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "e8521f1cf69b79a24ef1d6f6dbad73e63baaefae5a5a94832c8778ca8e58db02",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "128"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 170707,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "128"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 170707,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            },
+            {
+              "used": 170707,
+              "checks": 131,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "1024"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 1872939,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "1024"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 1872939,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            },
+            {
+              "used": 1872939,
+              "checks": 1027,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "4096"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851147,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-flat-product-bench.mjs",
+            "--case",
+            "4096"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851147,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            },
+            {
+              "used": 8851147,
+              "checks": 4099,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "product"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "product"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "negate"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "negate"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8170816,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            },
+            {
+              "used": 8170816,
+              "checks": 4098,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "divide"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851155,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "divide"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851155,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851155,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "add"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 8851156,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-shared-product-bench.mjs",
+            "--case",
+            "12",
+            "add"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 8851156,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            },
+            {
+              "used": 8851156,
+              "checks": 4100,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-numeric-budget-bench.mjs",
+            "--case",
+            "explain",
+            "990"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 399968,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-numeric-budget-bench.mjs",
+            "--case",
+            "explain",
+            "990"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 399968,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            },
+            {
+              "used": 399968,
+              "checks": 991,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/explanation-intermediate-bench.mjs"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 54,
+          "maxUsed": 5272924,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/explanation-intermediate-bench.mjs"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 54,
+          "maxUsed": 5272924,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 796,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 14210,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 81244,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 6172,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 114834,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 658106,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 49180,
+              "checks": 5,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 919810,
+              "checks": 20,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            },
+            {
+              "used": 5272924,
+              "checks": 68,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-cumulative-sum-bench.mjs",
+            "--case",
+            "384",
+            "1000000"
+          ],
+          "maximum": 9007199254740991,
+          "guardedReports": 4,
+          "maxUsed": 782401,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            }
+          ]
+        },
+        {
+          "command": [
+            "scripts/solver-cumulative-sum-bench.mjs",
+            "--case",
+            "384",
+            "1000000"
+          ],
+          "maximum": 10000000,
+          "guardedReports": 4,
+          "maxUsed": 782401,
+          "rejected": 0,
+          "records": [
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            },
+            {
+              "used": 782401,
+              "checks": 513,
+              "rejected": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "sources": {
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+    "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/explain.ts": "5aab2744ef7d7238241bf625110775dc6ffe9d84fa5d75d270e36c3426b764dd",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1",
+    "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+    "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/expression-key.ts": "e8521f1cf69b79a24ef1d6f6dbad73e63baaefae5a5a94832c8778ca8e58db02",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e"
+  }
+}

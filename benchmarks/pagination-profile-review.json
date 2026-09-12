@@ -1,0 +1,507 @@
+{
+  "format": "cave.pagination-profile-review/v1",
+  "runs": [
+    {
+      "format": "cave.pagination-profile/v1",
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "sourceSha256": {
+        "scripts/pagination-profile.mjs": "364a93ed09d21368d5a324005c1420986c850c56d89a0c3d1a804a4b8385e8b1",
+        "packages/query/src/page.ts": "1c6daa6ac4f6389e15472be010381825c3dd20853327b481679094faa1a9b78d",
+        "packages/query/src/bounded.ts": "fdeaf9e1cb230adf1a2b56569ae0ccc5dd9f565f60b96b3889169b94bfcf305f",
+        "packages/query/src/compile.ts": "c49f29fc44e3a210e650de8bc97756038fdc4d2d296ed1d6f1a625d1f1c9cdfc"
+      },
+      "cases": [
+        {
+          "rows": 1000,
+          "kind": "valid-time",
+          "pages": 10,
+          "matches": 1000,
+          "plainMs": 80.80004100000002,
+          "profiledMs": 67.09237499999995,
+          "timings": {
+            "sql-prepare": {
+              "calls": 61,
+              "elapsedMs": 1.4962149999997791
+            },
+            "sql-other": {
+              "calls": 1010,
+              "elapsedMs": 1.2271219999989853
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.4718750000000682
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.09563099999968472
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.6149169999999913
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 26.880455999999867
+            },
+            "record-projection": {
+              "calls": 1000,
+              "elapsedMs": 28.927047999998877
+            }
+          },
+          "unassignedMs": 7.379111000002695
+        },
+        {
+          "rows": 1000,
+          "kind": "exact-number",
+          "pages": 10,
+          "matches": 1000,
+          "plainMs": 61.78995899999995,
+          "profiledMs": 63.281791999999996,
+          "timings": {
+            "sql-prepare": {
+              "calls": 41,
+              "elapsedMs": 1.272748000000206
+            },
+            "sql-other": {
+              "calls": 1,
+              "elapsedMs": 0.004415999999991982
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.4528349999998227
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.06841399999984787
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.5183340000000953
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 27.179417999999714
+            },
+            "record-projection": {
+              "calls": 1000,
+              "elapsedMs": 28.473988000000418
+            }
+          },
+          "unassignedMs": 5.3116389999999
+        },
+        {
+          "rows": 1000,
+          "kind": "selective-valid-time",
+          "pages": 10,
+          "matches": 10,
+          "plainMs": 31.507165999999984,
+          "profiledMs": 31.629125000000045,
+          "timings": {
+            "sql-prepare": {
+              "calls": 61,
+              "elapsedMs": 1.2216700000003584
+            },
+            "sql-other": {
+              "calls": 1010,
+              "elapsedMs": 1.0752139999977999
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.43241800000032526
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.06046100000003207
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.4049960000000965
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 26.38174799999979
+            },
+            "record-projection": {
+              "calls": 10,
+              "elapsedMs": 0.31983500000001186
+            }
+          },
+          "unassignedMs": 1.732783000001632
+        },
+        {
+          "rows": 10000,
+          "kind": "valid-time",
+          "pages": 100,
+          "matches": 10000,
+          "plainMs": 3184.9281250000004,
+          "profiledMs": 3128.3112499999997,
+          "timings": {
+            "sql-prepare": {
+              "calls": 601,
+              "elapsedMs": 17.799712000009094
+            },
+            "sql-other": {
+              "calls": 10100,
+              "elapsedMs": 23.911794000016926
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 42.0628289999986
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 0.9937109999937093
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 7.359122999991996
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2697.6297109999978
+            },
+            "record-projection": {
+              "calls": 10000,
+              "elapsedMs": 267.2024689999762
+            }
+          },
+          "unassignedMs": 71.35190100001546
+        },
+        {
+          "rows": 10000,
+          "kind": "exact-number",
+          "pages": 100,
+          "matches": 10000,
+          "plainMs": 3124.4831670000003,
+          "profiledMs": 3209.2181249999994,
+          "timings": {
+            "sql-prepare": {
+              "calls": 401,
+              "elapsedMs": 18.816302000001087
+            },
+            "sql-other": {
+              "calls": 1,
+              "elapsedMs": 0.007749999998850399
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 42.93562699997892
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 1.8747530000036932
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 8.438243999993574
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2793.81642800002
+            },
+            "record-projection": {
+              "calls": 10000,
+              "elapsedMs": 276.6517590000076
+            }
+          },
+          "unassignedMs": 66.67726199999561
+        },
+        {
+          "rows": 10000,
+          "kind": "selective-valid-time",
+          "pages": 100,
+          "matches": 100,
+          "plainMs": 2793.074666999999,
+          "profiledMs": 2782.6823339999974,
+          "timings": {
+            "sql-prepare": {
+              "calls": 601,
+              "elapsedMs": 18.429345999895304
+            },
+            "sql-other": {
+              "calls": 10100,
+              "elapsedMs": 10.726061999779631
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 41.65820399996301
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 0.9355830000204151
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 6.789210999988427
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2674.7852539999767
+            },
+            "record-projection": {
+              "calls": 100,
+              "elapsedMs": 5.842207999998209
+            }
+          },
+          "unassignedMs": 23.516466000375658
+        }
+      ]
+    },
+    {
+      "format": "cave.pagination-profile/v1",
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "sourceSha256": {
+        "scripts/pagination-profile.mjs": "364a93ed09d21368d5a324005c1420986c850c56d89a0c3d1a804a4b8385e8b1",
+        "packages/query/src/page.ts": "1c6daa6ac4f6389e15472be010381825c3dd20853327b481679094faa1a9b78d",
+        "packages/query/src/bounded.ts": "fdeaf9e1cb230adf1a2b56569ae0ccc5dd9f565f60b96b3889169b94bfcf305f",
+        "packages/query/src/compile.ts": "c49f29fc44e3a210e650de8bc97756038fdc4d2d296ed1d6f1a625d1f1c9cdfc"
+      },
+      "cases": [
+        {
+          "rows": 1000,
+          "kind": "valid-time",
+          "pages": 10,
+          "matches": 1000,
+          "plainMs": 80.753916,
+          "profiledMs": 67.9205,
+          "timings": {
+            "sql-prepare": {
+              "calls": 61,
+              "elapsedMs": 1.5495459999993955
+            },
+            "sql-other": {
+              "calls": 1010,
+              "elapsedMs": 1.197839000000556
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.47208100000023023
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.09941700000030096
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.6368770000002542
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 26.862125000000276
+            },
+            "record-projection": {
+              "calls": 1000,
+              "elapsedMs": 29.460597000000348
+            }
+          },
+          "unassignedMs": 7.642017999998643
+        },
+        {
+          "rows": 1000,
+          "kind": "exact-number",
+          "pages": 10,
+          "matches": 1000,
+          "plainMs": 62.558832999999936,
+          "profiledMs": 63.12170800000001,
+          "timings": {
+            "sql-prepare": {
+              "calls": 41,
+              "elapsedMs": 1.2908750000001419
+            },
+            "sql-other": {
+              "calls": 1,
+              "elapsedMs": 0.004583000000025095
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.45725000000015825
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.07320799999945393
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.5160800000002155
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 26.752828999999906
+            },
+            "record-projection": {
+              "calls": 1000,
+              "elapsedMs": 28.77211700000055
+            }
+          },
+          "unassignedMs": 5.254765999999563
+        },
+        {
+          "rows": 1000,
+          "kind": "selective-valid-time",
+          "pages": 10,
+          "matches": 10,
+          "plainMs": 31.46945800000003,
+          "profiledMs": 31.74420900000007,
+          "timings": {
+            "sql-prepare": {
+              "calls": 61,
+              "elapsedMs": 1.203540000000089
+            },
+            "sql-other": {
+              "calls": 1010,
+              "elapsedMs": 0.9722759999990558
+            },
+            "snapshot-revision": {
+              "calls": 20,
+              "elapsedMs": 0.4508299999998826
+            },
+            "sql-control": {
+              "calls": 60,
+              "elapsedMs": 0.06362599999954455
+            },
+            "historical-vocabulary": {
+              "calls": 20,
+              "elapsedMs": 0.4251689999997552
+            },
+            "sql-window": {
+              "calls": 20,
+              "elapsedMs": 26.388916999999992
+            },
+            "record-projection": {
+              "calls": 10,
+              "elapsedMs": 0.3332089999997834
+            }
+          },
+          "unassignedMs": 1.9066420000019662
+        },
+        {
+          "rows": 10000,
+          "kind": "valid-time",
+          "pages": 100,
+          "matches": 10000,
+          "plainMs": 3168.835416,
+          "profiledMs": 3085.4204170000003,
+          "timings": {
+            "sql-prepare": {
+              "calls": 601,
+              "elapsedMs": 17.402789999995548
+            },
+            "sql-other": {
+              "calls": 10100,
+              "elapsedMs": 11.462385999996513
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 42.450250000008054
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 0.9057529999836333
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 7.075530000000072
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2662.5736670000015
+            },
+            "record-projection": {
+              "calls": 10000,
+              "elapsedMs": 270.6662909999859
+            }
+          },
+          "unassignedMs": 72.88375000002907
+        },
+        {
+          "rows": 10000,
+          "kind": "exact-number",
+          "pages": 100,
+          "matches": 10000,
+          "plainMs": 3134.4096250000002,
+          "profiledMs": 3093.0847080000003,
+          "timings": {
+            "sql-prepare": {
+              "calls": 401,
+              "elapsedMs": 16.07596100002047
+            },
+            "sql-other": {
+              "calls": 1,
+              "elapsedMs": 0.006207999998878222
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 42.71083100000578
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 1.3203600000215374
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 6.893286000014996
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2699.9252599999872
+            },
+            "record-projection": {
+              "calls": 10000,
+              "elapsedMs": 264.37986300010743
+            }
+          },
+          "unassignedMs": 61.77293899984397
+        },
+        {
+          "rows": 10000,
+          "kind": "selective-valid-time",
+          "pages": 100,
+          "matches": 100,
+          "plainMs": 2746.9160410000004,
+          "profiledMs": 2779.1590829999986,
+          "timings": {
+            "sql-prepare": {
+              "calls": 601,
+              "elapsedMs": 19.82174900004611
+            },
+            "sql-other": {
+              "calls": 10100,
+              "elapsedMs": 10.241185000038968
+            },
+            "snapshot-revision": {
+              "calls": 200,
+              "elapsedMs": 42.1700339999843
+            },
+            "sql-control": {
+              "calls": 600,
+              "elapsedMs": 0.9168359999894165
+            },
+            "historical-vocabulary": {
+              "calls": 200,
+              "elapsedMs": 6.802991000025941
+            },
+            "sql-window": {
+              "calls": 200,
+              "elapsedMs": 2664.2609179999963
+            },
+            "record-projection": {
+              "calls": 100,
+              "elapsedMs": 6.644414999980654
+            }
+          },
+          "unassignedMs": 28.30095499993695
+        }
+      ]
+    }
+  ]
+}

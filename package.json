@@ -10,13 +10,16 @@
     "url": "git+https://github.com/mirek/cave.git"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "packageManager": "pnpm@11.9.0",
   "scripts": {
+    "bench:judge-parse": "node scripts/judge-parse-bench.mjs",
     "build": "tsc -b",
     "build:verify": "node scripts/verify-incremental-build.mjs",
     "bench:performance": "node --disable-warning=ExperimentalWarning scripts/performance-bench.mjs",
+    "bench:report": "node --disable-warning=ExperimentalWarning scripts/report-bench.mjs",
+    "bench:automation": "node --disable-warning=ExperimentalWarning scripts/automation-bench.mjs",
     "grammar:prepare": "node scripts/grammar-toolchain.mjs prepare",
     "grammar:verify": "node scripts/grammar-toolchain.mjs verify",
     "site:dev": "pnpm --filter @cavelang/website dev",
@@ -28,12 +31,16 @@
     "version-packages": "changeset version && node scripts/sync-versions.mjs && node scripts/grammar-toolchain.mjs build && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:validate": "node scripts/release-validate.mjs --mode=publish",
     "release:validate:version-pr": "node scripts/release-validate.mjs --mode=version-pr",
-    "release:publish": "./scripts/release-publish.sh"
+    "release:publish": "./scripts/release-publish.sh",
+    "release:audit": "node scripts/release-audit.mjs",
+    "bench:pagination": "node --disable-warning=ExperimentalWarning scripts/pagination-bench.mjs",
+    "bench:shape-query": "node --disable-warning=ExperimentalWarning scripts/shape-query-bench.mjs",
+    "bench:rule-watermarks": "node --disable-warning=ExperimentalWarning scripts/rule-watermark-bench.mjs"
   },
   "devDependencies": {
     "@cavelang/cli": "workspace:*",
-    "@changesets/cli": "^2.31.1",
-    "@types/node": "^22.20.1",
+    "@changesets/cli": "3.0.2",
+    "@types/node": "^22.20.2",
     "typescript": "^5.8.0"
   }
 }

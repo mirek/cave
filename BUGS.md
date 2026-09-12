@@ -15,4 +15,6 @@ review comments are consolidated into one bug file.
 
 ## Known bugs
 
-None.
+No known bugs are currently listed.
+
+The system review remains open in [`todo/system-review.md`](todo/system-review.md).

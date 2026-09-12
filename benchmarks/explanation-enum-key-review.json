@@ -1,0 +1,335 @@
+{
+  "description": "Repeated enum domain/value strings before and after report-scoped interning; full-report observations, not resource guarantees.",
+  "before": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per identifier size; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes construction, explicit syntax-key sizing and all four reports; not isolated report allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-enum-key-bench.mjs": "98a37925cfd4faf3059c1e886969f96510ed177b80d28e1ca5c99990eff2020c",
+        "packages/solver/src/explain.ts": "f7a666e74010473657bcd13c4df40668ed94be30f67c939ae7cf647ec0f783a8",
+        "packages/solver/src/expression-key.ts": "2b37e10f0b4ebd690b403e6f6d6f5fb1c53ca5d4f644ae4580c722084767abb0",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "identifierLength": 16,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 119820,
+          "samplesMs": [
+            37.04733399999999,
+            29.794832999999997,
+            25.063999999999993,
+            22.078291000000007
+          ],
+          "medianMs": 25.063999999999993,
+          "processMaxRssKiB": 122656
+        },
+        {
+          "identifierLength": 1024,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 4248588,
+          "samplesMs": [
+            62.45883400000001,
+            51.10216699999998,
+            52.77458299999998,
+            43.669625000000025
+          ],
+          "medianMs": 51.10216699999998,
+          "processMaxRssKiB": 211360
+        },
+        {
+          "identifierLength": 8192,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 33608716,
+          "samplesMs": [
+            272.367208,
+            268.538208,
+            237.56837499999995,
+            233.7718339999999
+          ],
+          "medianMs": 237.56837499999995,
+          "processMaxRssKiB": 526608
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per identifier size; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes construction, explicit syntax-key sizing and all four reports; not isolated report allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-enum-key-bench.mjs": "98a37925cfd4faf3059c1e886969f96510ed177b80d28e1ca5c99990eff2020c",
+        "packages/solver/src/explain.ts": "f7a666e74010473657bcd13c4df40668ed94be30f67c939ae7cf647ec0f783a8",
+        "packages/solver/src/expression-key.ts": "2b37e10f0b4ebd690b403e6f6d6f5fb1c53ca5d4f644ae4580c722084767abb0",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "identifierLength": 16,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 119820,
+          "samplesMs": [
+            35.103583,
+            25.758957999999993,
+            19.130083000000013,
+            19.260917000000006
+          ],
+          "medianMs": 19.260917000000006,
+          "processMaxRssKiB": 128544
+        },
+        {
+          "identifierLength": 1024,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 4248588,
+          "samplesMs": [
+            50.808792,
+            38.90904099999999,
+            41.545500000000004,
+            31.583292
+          ],
+          "medianMs": 38.90904099999999,
+          "processMaxRssKiB": 228032
+        },
+        {
+          "identifierLength": 8192,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 33608716,
+          "samplesMs": [
+            186.23637499999995,
+            158.627,
+            171.54537499999998,
+            156.94074999999998
+          ],
+          "medianMs": 158.627,
+          "processMaxRssKiB": 426128
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per identifier size; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes construction, explicit syntax-key sizing and all four reports; not isolated report allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-enum-key-bench.mjs": "98a37925cfd4faf3059c1e886969f96510ed177b80d28e1ca5c99990eff2020c",
+        "packages/solver/src/explain.ts": "a4381caa2569c240f75b6493387c52d2b384634b0a0b7f9dcb3557ddb3e7b9ba",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "identifierLength": 16,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            36.347959,
+            28.22674999999998,
+            24.62620799999999,
+            22.423292000000004
+          ],
+          "medianMs": 24.62620799999999,
+          "processMaxRssKiB": 127088
+        },
+        {
+          "identifierLength": 1024,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            57.634457999999995,
+            46.94158299999998,
+            47.841499999999996,
+            38.69941699999998
+          ],
+          "medianMs": 46.94158299999998,
+          "processMaxRssKiB": 209216
+        },
+        {
+          "identifierLength": 8192,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            194.747792,
+            207.04504099999997,
+            165.18375000000003,
+            159.53220899999997
+          ],
+          "medianMs": 165.18375000000003,
+          "processMaxRssKiB": 498624
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per identifier size; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes construction, explicit syntax-key sizing and all four reports; not isolated report allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-enum-key-bench.mjs": "98a37925cfd4faf3059c1e886969f96510ed177b80d28e1ca5c99990eff2020c",
+        "packages/solver/src/explain.ts": "a4381caa2569c240f75b6493387c52d2b384634b0a0b7f9dcb3557ddb3e7b9ba",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "identifierLength": 16,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            34.748333,
+            25.040541000000005,
+            20.014209000000022,
+            20.154457999999977
+          ],
+          "medianMs": 20.154457999999977,
+          "processMaxRssKiB": 132624
+        },
+        {
+          "identifierLength": 1024,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            46.32712500000001,
+            39.169915999999986,
+            43.48108300000001,
+            29.42504199999999
+          ],
+          "medianMs": 39.169915999999986,
+          "processMaxRssKiB": 204688
+        },
+        {
+          "identifierLength": 8192,
+          "stats": {
+            "variables": 0,
+            "constraints": 2,
+            "objectives": 0,
+            "enumValues": 1,
+            "expressionNodes": 6146,
+            "expressionDepth": 3
+          },
+          "keyCodeUnits": 50188,
+          "samplesMs": [
+            157.66029199999997,
+            120.05962500000001,
+            108.46808299999998,
+            103.43283300000007
+          ],
+          "medianMs": 108.46808299999998,
+          "processMaxRssKiB": 440288
+        }
+      ]
+    }
+  ]
+}

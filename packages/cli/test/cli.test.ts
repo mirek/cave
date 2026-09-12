@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
-import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, querySourcesCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
+import { actCommand, addCommand, backupCommand, cave, checkCommand, commandHelp, demoCommand, deriveCommand, diagnose, doctorCommand, exportCommand, generateCommand, highlightCommand, importCommand, parseCommand, queryCommand, querySourcesCommand, reconstructCommand, reportCommand, resolveCommand, restoreCommand, searchCommand, suggestAliasCommand, syncCommand } from '@cavelang/cli'
 import { open, Schema } from '@cavelang/store'
 
 const withDir = (body: (dir: string) => void): void => {
@@ -15,6 +15,137 @@ const withDir = (body: (dir: string) => void): void => {
     rmSync(dir, { recursive: true, force: true })
   }
 }
+
+test('resolve percentages distinguish positive reliability from zero and near-one from certainty', () => {
+  withDir(dir => {
+    const db = join(dir, 'reliability.db')
+    const store = open(db)
+    try {
+      store.ingest('api IS healthy @src:probe\napi IS NOT healthy @src:other')
+      for (const [value, expected] of [
+        [0, '0%'], [Number.MIN_VALUE, '<0.1%'], [0.00001, '<0.1%'],
+        [0.001, '0.1%'], [0.999, '99.9%'], [0.99999, '>99.9%'], [1, '100%']
+      ] as const) {
+        const literal = value === Number.MIN_VALUE ? `0.${'0'.repeat(323)}5` : String(value)
+        store.ingest(`source/probe HAS reliability: ${literal}`)
+        const policy = resolveCommand(['--db', db, '--policy', '--no-prelude'])
+        assert.equal(policy.code, 0, policy.err)
+        assert.ok(policy.out.split('\n').some(line => line.startsWith('source/probe ') && line.endsWith(`reliability ${expected}`)), expected)
+        const contested = resolveCommand(['--db', db, '--no-prelude'])
+        assert.equal(contested.code, 0, contested.err)
+        assert.ok(contested.out.split('\n').some(line => line.includes('api IS healthy ') && line.endsWith(`effective ${expected}`)), expected)
+        const json = resolveCommand(['--db', db, '--policy', '--json', '--no-prelude'])
+        assert.equal(JSON.parse(json.out).find((entry: { prefix: string }) => entry.prefix === 'probe').reliability, value)
+      }
+    } finally { store.close() }
+  })
+})
+
+test('derive retains notes for large duplicate declaration sets', () => {
+  withDir(dir => {
+    const db = join(dir, 'duplicate-rules.db')
+    const size = 130_000
+    const store = open(db)
+    try {
+      store.ingest(Array.from({ length: size + 1 }, (_, i) =>
+        'rule/copy-' + i + ' HAS rule: `?x IS service => ?x IS monitored`').join('\n'))
+    } finally { store.close() }
+    const result = deriveCommand(['--db', db, '--no-prelude'])
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.err, '')
+    const notes = result.out.split('\n').filter(line => line.startsWith('note: '))
+    assert.equal(notes.length, size)
+    for (let i = 0; i < size; i++) {
+      assert.equal(notes[i], `note: rule/copy-${i + 1} duplicates rule/copy-0 — one rule, first declaration fires`)
+    }
+  })
+})
+
+test('resolve renders large policy tables with complete aligned rows', () => {
+  withDir(dir => {
+    const db = join(dir, 'policy.db')
+    const size = 130_000
+    const store = open(db)
+    try {
+      store.ingest(Array.from({ length: size }, (_, i) => `source/import-${i} HAS precedence: 5`).join('\n'))
+    } finally { store.close() }
+    const result = resolveCommand(['--db', db, '--policy', '--no-prelude'])
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.err, '')
+    const rows = result.out.trimEnd().split('\n')
+    assert.equal(rows.length, size + 5)
+    const declarations = rows.filter(line => line.startsWith('source/import-'))
+    assert.equal(declarations.length, size)
+    const width = 'source/import-129999'.length
+    const seen = new Set<string>()
+    for (const row of declarations) {
+      assert.equal(row.slice(width), '  precedence 5')
+      seen.add(row.slice(0, width).trimEnd())
+    }
+    for (let i = 0; i < size; i++) assert.ok(seen.has(`source/import-${i}`))
+  })
+})
+
+test('check formats every review candidate in a large advisory report', () => {
+  withDir(dir => {
+    const db = join(dir, 'review.db')
+    const size = 130_000
+    const source = Array.from({ length: size }, (_, i) => `review-${i} EXISTS @ 50%`)
+    const store = open(db)
+    try { store.ingest(source.join('\n')) } finally { store.close() }
+    const result = checkCommand(['--db', db, '--no-prelude'])
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.err, '')
+    assert.ok(result.out.includes(`review candidates (${size}, conf 0.3-0.7):`))
+    const rows = result.out.split('\n').filter(line => line.startsWith('  '))
+    assert.equal(rows.length, size)
+    assert.deepEqual(new Set(rows), new Set(source.map(line => `  ${line}`)))
+  })
+})
+
+test('derive returns every large-prelude diagnostic without a formatting failure', () => {
+  withDir(dir => {
+    const db = join(dir, 'declarations.db')
+    const file = join(dir, 'rules.cave')
+    const size = 130_000
+    writeFileSync(file, Array.from({ length: size }, () => 'broken').join('\n'))
+    const result = deriveCommand(['--db', db, file])
+    assert.equal(result.code, 1)
+    const lines = result.err.trimEnd().split('\n')
+    assert.equal(lines.length, size)
+    for (let i = 0; i < size; i++) assert.ok(lines[i]!.startsWith(`rules line ${i + 1}: `))
+    assert.doesNotMatch(result.err, /Maximum call stack/)
+  })
+})
+
+test('query JSON and text preserve prototype-named variables', () => {
+  withDir(dir => {
+    const db = join(dir, 'query.db')
+    const store = open(db)
+    try { store.ingest('api IS service') } finally { store.close() }
+    const json = queryCommand(['--db', db, '?__proto__ IS service', '--json'])
+    assert.equal(json.code, 0, json.err)
+    assert.deepEqual(JSON.parse(json.out).matches[0].bindings, { ['__proto__']: 'api' })
+    const text = queryCommand(['--db', db, '?__proto__ IS service'])
+    assert.equal(text.code, 0, text.err)
+    assert.match(text.out, /\?__proto__ = api/)
+  })
+})
+
+for (const json of [false, true]) test(`derive keeps reporting malformed file errors on retry (${json ? 'JSON' : 'text'})`, () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const file = join(dir, 'rules.cave')
+    for (const text of ['api IS service\nbroken', '?x IS service => ?unbound IS watched']) {
+      writeFileSync(file, text)
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const result = deriveCommand([file, '--db', db, ...(json ? ['--json'] : [])])
+        assert.equal(result.code, 1)
+        assert.match(result.err, /rules line/)
+      }
+    }
+  })
+})
 
 test('help and unknown commands', () => {
   assert.equal(cave([]).code, 0)
@@ -100,6 +231,61 @@ test('query with WHERE filter as second positional', () => {
     addCommand([file, '--db', db])
     const filtered = queryCommand(['?cause CAUSE app/crash', 'WHERE conf >= 0.4', '--db', db])
     assert.equal(filtered.out, '?cause = memory-leak\n')
+  })
+})
+
+test('query rejects invalid requests on empty stores and empty historical snapshots', () => {
+  withDir(dir => {
+    const db = join(dir, 'empty.db')
+    const store = open(db)
+    store.close()
+    for (const json of [[], ['--json']]) {
+      for (const args of [['this is not a query'], ['?x USES jwt', '--at', 'not-a-time']]) {
+        const result = queryCommand(['--db', db, ...args, ...json])
+        assert.equal(result.code, 1)
+        assert.match(result.err, /CAVE-Q/)
+      }
+    }
+    const writer = open(db)
+    writer.ingest('api USES jwt')
+    writer.close()
+    assert.equal(queryCommand(['--db', db, '?x USES jwt', '--at', 'not-a-time', '--as-of', '2000-01-01']).code, 1)
+  })
+})
+
+test('query cursors reject older rows and lineage arriving through text and database sync', () => {
+  for (const kind of ['text', 'database']) withDir(dir => {
+    const origin = join(dir, 'origin.db'), target = join(dir, 'target.db'), text = join(dir, 'origin.cave')
+    const source = open(origin)
+    source.ingest('offline USES jwt')
+    writeFileSync(text, source.exportText({ tx: true }))
+    source.close()
+    const local = open(target)
+    local.ingest('a USES jwt\nb USES jwt')
+    local.close()
+    const args = ['--db', target, '?x USES jwt', '--limit', '1']
+    const first = JSON.parse(queryCommand([...args, '--json']).out)
+    assert.equal(first.matches[0].bindings.x, 'a')
+    assert.equal(syncCommand(['--db', target, kind === 'text' ? text : origin, '--no-record']).code, 0)
+    for (const json of [[], ['--json']]) {
+      const stale = queryCommand([...args, '--cursor', first.next, ...json])
+      assert.equal(stale.code, 1)
+      assert.match(stale.err, /snapshot changed.*restart/i)
+      assert.equal(stale.out, '')
+    }
+    const restarted = JSON.parse(queryCommand([...args, '--json']).out)
+    assert.equal(restarted.matches[0].bindings.x, 'offline')
+    assert.equal(syncCommand(['--db', origin, target, '--no-record']).code, 0)
+    const peer = open(origin)
+    const rows = peer.currentBeliefs()
+    peer.db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
+      .run(rows[1]!.id, 'BECAUSE', rows[0]!.id)
+    writeFileSync(text, peer.exportText({ tx: true }))
+    peer.close()
+    assert.equal(syncCommand(['--db', target, kind === 'text' ? text : origin, '--no-record']).code, 0)
+    const changedEdges = queryCommand([...args, '--cursor', restarted.next, '--json'])
+    assert.equal(changedEdges.code, 1)
+    assert.match(changedEdges.err, /snapshot changed.*restart/i)
   })
 })
 
@@ -359,7 +545,7 @@ test('derive: declare + fire + list + retract (spec §24)', () => {
     assert.equal(first.code, 0, first.err)
     assert.match(first.out, /declared 1 rule/)
     assert.match(first.out, /\+1 appended/)
-    assert.equal(queryCommand(['a NEEDS c', '--db', db]).out, 'a NEEDS c @ 72%\n')
+    assert.equal(queryCommand(['a NEEDS c', '--db', db]).out, 'a NEEDS c @ 72.00000000000001%\n')
 
     // No positional fires the stored rules; nothing new → watermark skip.
     const again = deriveCommand(['--db', db])
@@ -394,13 +580,27 @@ test('derive --dry-run reports without writing; problems set the exit code', () 
     assert.equal(deriveCommand(['--db', db, '--list']).out, 'no rules\n', 'not even the declaration')
 
     const bad = join(dir, 'bad.cave')
-    writeFileSync(bad, '?x NEEDS ?y => ?x NEEDS ?unbound\n')
+    writeFileSync(bad, '?x NEEDS ?y => ?x NEEDS ?unbound\n?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z\n')
     const rejected = deriveCommand([bad, '--db', db])
-    assert.equal(rejected.code, 0, 'declaration problems are reported, valid rules still fire')
+    assert.equal(rejected.code, 1, 'declaration errors fail the command even when valid rules still fire')
     assert.match(rejected.err, /\?unbound is not bound/)
+    assert.match(queryCommand(['a NEEDS c', '--db', db]).out, /a NEEDS c/)
 
     assert.equal(deriveCommand(['--db', db, '--min-conf', 'high']).code, 1)
     assert.equal(deriveCommand(['--db', db, '--retract', 'nonexistent']).code, 1)
+  })
+})
+
+test('derive rejects invalid pass limits before creating its database', () => {
+  withDir(dir => {
+    const db = join(dir, 'absent.db')
+    for (const value of ['0', '-1', '1.5', 'NaN', 'Infinity', '9007199254740992']) {
+      const result = deriveCommand(['--db', db, `--max-passes=${value}`])
+      assert.equal(result.code, 1)
+      assert.equal(result.out, '')
+      assert.match(result.err, /positive safe integer/)
+      assert.equal(existsSync(db), false)
+    }
   })
 })
 
@@ -420,6 +620,41 @@ test('derive pass exhaustion is a resumable non-zero status', () => {
     assert.equal(resumed.code, 0)
     assert.equal(JSON.parse(resumed.out).complete, true)
     assert.equal(queryCommand(['a NEEDS e', '--db', db]).code, 0)
+  })
+})
+
+test('derive pass exhaustion preserves unsupported history until a complete retry', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const facts = join(dir, 'facts.cave'), rules = join(dir, 'rules.cave')
+    writeFileSync(facts, 'a IS ready\n')
+    assert.equal(addCommand([facts, '--db', db]).code, 0)
+    writeFileSync(rules, '?x IS ready => ?x IS enabled\n')
+    assert.equal(deriveCommand([rules, '--db', db]).code, 0)
+    writeFileSync(facts, 'a IS ready @ 0%\n')
+    assert.equal(addCommand([facts, '--db', db]).code, 0)
+    const before = exportCommand(['--db', db, '--tx']).out
+    for (const json of [false, true]) for (const flags of [[], ['--dry-run']]) {
+      const stopped = deriveCommand(['--db', db, '--max-passes', '1', ...(json ? ['--json'] : []), ...flags])
+      assert.equal(stopped.code, 1)
+      if (json) {
+        const report = JSON.parse(stopped.out)
+        assert.equal(report.complete, false)
+        assert.equal(report.retracted, 0)
+      } else {
+        assert.match(stopped.out, /note: stopped at 1 passes.*re-run to continue/)
+        const summary = stopped.out.trimEnd().split('\n').at(-1)!
+        assert.match(summary, /^derived \(incomplete\)/)
+        assert.equal(summary.includes('(dry run)'), flags.length > 0)
+        assert.match(summary, /0 retracted/)
+      }
+      assert.equal(exportCommand(['--db', db, '--tx']).out, before)
+      assert.match(queryCommand(['a IS enabled', '--db', db]).out, /a IS enabled/)
+    }
+    const retry = deriveCommand(['--db', db, '--json'])
+    assert.equal(retry.code, 0)
+    assert.equal(JSON.parse(retry.out).retracted, 1)
+    assert.equal(queryCommand(['a IS enabled', '--db', db]).out, 'no matches\n')
   })
 })
 
@@ -539,7 +774,7 @@ test('doctor reports a missing store without creating it and emits safe JSON', (
     writeFileSync(hooks, JSON.stringify({ [secret]: `curl https://${secret}.example` }))
 
     const result = doctorCommand(['--db', db, '--hooks', hooks, '--json'])
-    assert.equal(result.code, 0, result.err)
+    assert.equal(result.code, 0, result.err || result.out)
     const report = JSON.parse(result.out)
     assert.equal(report.format, 'cave.doctor')
     assert.equal(report.version, 1)
@@ -570,6 +805,8 @@ test('doctor validates an existing store without modifying or migrating it', () 
     assert.equal(report.configuration.database.claims, 1)
     assert.ok(report.checks.some((entry: { id: string, status: string }) =>
       entry.id === 'store.integrity' && entry.status === 'pass'))
+    assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.search' && entry.status === 'pass'))
     assert.deepEqual(readFileSync(db), before, 'doctor must leave a healthy database byte-for-byte unchanged')
 
     const future = open(db)
@@ -583,12 +820,43 @@ test('doctor validates an existing store without modifying or migrating it', () 
   })
 })
 
+test('doctor distinguishes literal CAVE prefixes from unrelated SQLite objects', () => {
+  for (const name of ['caveat', 'idxXcaveYnotes', 'cave_notes', 'idx_cave_notes', 'CAVE_NOTES']) withDir(dir => {
+    const db = join(dir, 'private-uninitialized.db')
+    const sqlite = new DatabaseSync(db)
+    try {
+      sqlite.exec(`CREATE TABLE ${name} (value TEXT); INSERT INTO ${name} VALUES ('private-content')`)
+    } finally { sqlite.close() }
+    const before = readFileSync(db)
+    const isCave = ['cave_notes', 'idx_cave_notes', 'CAVE_NOTES'].includes(name)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 0, result.out)
+      assert.equal(result.err, '')
+      assert.match(result.out, isCave ? /needs migration/ : /not initialized as a CAVE store/)
+      assert.doesNotMatch(result.out, /private/)
+      if (format.length > 0) {
+        const report = JSON.parse(result.out)
+        assert.equal(report.configuration.database.schemaVersion, 0)
+        assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+          entry.id === 'store.database' && entry.status === 'warn'))
+      }
+      assert.deepEqual(readFileSync(db), before)
+    }
+  })
+})
+
 test('doctor reports a damaged current schema without exposing SQLite details', () => {
-  withDir(dir => {
+  for (const mutation of [
+    'DROP TABLE cave_context',
+    'DROP TABLE cave_fts; CREATE VIRTUAL TABLE cave_fts USING rtree(claim_id, subject, verb, object, attribute, value_text, comment, raw_line, cave_fts)',
+    'DROP TABLE cave_fts; CREATE VIEW cave_fts AS SELECT id AS claim_id, subject, verb, object, attribute, value_text, comment, raw_line FROM cave_claim',
+    'DROP TABLE cave_fts; CREATE TABLE cave_fts AS SELECT id AS claim_id, subject, verb, object, attribute, value_text, comment, raw_line FROM cave_claim'
+  ]) withDir(dir => {
     const secret = 'private-corrupt-store'
     const db = join(dir, `${secret}.db`)
     const store = open(db)
-    store.db.exec('DROP TABLE cave_context')
+    store.db.exec(mutation)
     store.close()
     const before = readFileSync(db)
 
@@ -600,6 +868,469 @@ test('doctor reports a damaged current schema without exposing SQLite details', 
       entry.id === 'store.database' && entry.status === 'fail'))
     assert.doesNotMatch(result.out, new RegExp(secret))
     assert.deepEqual(readFileSync(db), before, 'doctor must not attempt schema repair')
+  })
+})
+
+test('doctor detects invalid stored fields without exposing or repairing rows', () => {
+  for (const mutation of [
+    'UPDATE cave_claim SET conf = -0.1',
+    'UPDATE cave_claim SET conf = 1.1',
+    "UPDATE cave_claim SET conf = 'private-confidence'",
+    'UPDATE cave_claim SET conf = 1e999',
+    'UPDATE cave_claim SET sigma_level = 0',
+    'UPDATE cave_claim SET sigma_level = -1',
+    "UPDATE cave_claim SET sigma_level = 'private-sigma'",
+    'UPDATE cave_claim SET sigma_level = 1e999',
+    'UPDATE cave_claim SET value_num = 42',
+    "UPDATE cave_claim SET value_unit = 'private-value-unit'",
+    'UPDATE cave_claim SET value_approx = 1',
+    'UPDATE cave_claim SET delta_num = 2',
+    "UPDATE cave_claim SET delta_unit = 'private-delta-unit'",
+    'UPDATE cave_claim SET value_approx = -1',
+    "UPDATE cave_claim SET value_approx = 'private-approximation'",
+    'UPDATE cave_claim SET negated = -1',
+    "UPDATE cave_claim SET importance = 'private-invalid-flag'",
+    "UPDATE cave_claim SET value_text = '42'",
+    "UPDATE cave_claim SET attribute = 'private-attribute'",
+    "UPDATE cave_claim SET object = NULL, attribute = 'private-attribute'"
+  ]) withDir(dir => {
+    const db = join(dir, 'private-row-store.db')
+    const store = open(db)
+    let id: string
+    try {
+      id = store.ingest('private-entity IS person').ids[0]!
+      store.db.exec(mutation)
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1, mutation)
+      assert.doesNotMatch(result.out + result.err, /private/)
+      assert.ok(!(result.out + result.err).includes(id))
+      if (format.length > 0) {
+        const report = JSON.parse(result.out)
+        assert.ok(report.checks.some((entry: { id: string, status: string }) => entry.id === 'store.rows' && entry.status === 'fail'))
+      }
+      assert.deepEqual(readFileSync(db), before)
+    }
+    const repair = open(db)
+    try {
+      repair.db.exec('UPDATE cave_claim SET conf = 1, sigma_level = 2, negated = 0, importance = 0, value_approx = 0, object = \'person\', attribute = NULL, value_text = NULL, value_num = NULL, value_unit = NULL, delta_num = NULL, delta_unit = NULL')
+    } finally { repair.close() }
+    const recovered = doctorCommand(['--db', db, '--json'])
+    assert.equal(recovered.code, 0, recovered.out)
+    assert.ok(JSON.parse(recovered.out).checks.some((entry: { id: string, status: string }) => entry.id === 'store.rows' && entry.status === 'pass'))
+  })
+})
+
+test('doctor detects malformed transaction identities even when integrity and search checks pass', () => {
+  const other = '018f0000-0000-7000-8000-000000000002'
+  for (const identity of [
+    { id: other, tx: '018f0000-0000-7000-8000-000000000003' },
+    { id: 'private-identity', tx: 'private-identity' },
+    { id: '018F0000-0000-7000-8000-000000000002', tx: '018F0000-0000-7000-8000-000000000002' },
+    { id: null, tx: other }
+  ]) withDir(dir => {
+    const db = join(dir, 'private-identity.db')
+    const store = open(db)
+    let original: string
+    try {
+      original = store.ingest('private-subject IS retained').ids[0]!
+      store.db.prepare('UPDATE cave_claim SET id = ?, tx = ?').run(identity.id, identity.tx)
+      store.db.prepare('UPDATE cave_fts SET claim_id = ?').run(identity.id)
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1, result.out)
+      assert.equal(result.err, '')
+      assert.doesNotMatch(result.out, /private|018[fF]0000/)
+      if (format.length > 0) {
+        const checks = JSON.parse(result.out).checks as { id: string, status: string }[]
+        for (const id of ['store.integrity', 'store.search']) {
+          assert.ok(checks.some(check => check.id === id && check.status === 'pass'))
+        }
+        assert.ok(checks.some(check => check.id === 'store.rows' && check.status === 'fail'))
+      }
+      assert.deepEqual(readFileSync(db), before)
+    }
+    const repair = new DatabaseSync(db)
+    try {
+      repair.prepare('UPDATE cave_claim SET id = ?, tx = ?').run(original, original)
+      repair.prepare('UPDATE cave_fts SET claim_id = ?').run(original)
+    } finally { repair.close() }
+    assert.equal(doctorCommand(['--db', db, '--json']).code, 0)
+  })
+})
+
+test('doctor checks one database snapshot while a concurrent writer changes numeric caches', t => {
+  withDir(dir => {
+    const db = join(dir, 'doctor-snapshot.db')
+    const writer = open(db)
+    try {
+      writer.db.exec('PRAGMA journal_mode = WAL')
+      writer.ingest('sample HAS amount: 42')
+      const prepare = DatabaseSync.prototype.prepare
+      let changed = false
+      const intercepted = t.mock.method(DatabaseSync.prototype, 'prepare', function (this: DatabaseSync, sql: string) {
+        if (sql === 'SELECT * FROM cave_claim' && !changed) {
+          changed = true
+          writer.db.exec('UPDATE cave_claim SET value_num = 999')
+        }
+        return prepare.call(this, sql)
+      })
+      const first = doctorCommand(['--db', db, '--json'])
+      intercepted.mock.restore()
+      assert.equal(changed, true)
+      assert.equal(first.code, 0, first.out)
+      assert.ok(JSON.parse(first.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'pass'))
+      assert.equal(writer.currentBeliefs()[0]!.value_num, 999)
+      const next = doctorCommand(['--db', db, '--json'])
+      assert.equal(next.code, 1, next.out)
+      assert.ok(JSON.parse(next.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      writer.db.exec('UPDATE cave_claim SET value_num = 42')
+      const repaired = doctorCommand(['--db', db, '--json'])
+      assert.equal(repaired.code, 0, repaired.out)
+    } finally { writer.close() }
+  })
+})
+
+test('doctor captures programmatic database and hook options before inspection', t => {
+  withDir(dir => {
+    const db = join(dir, 'captured-diagnosis.db')
+    const hooks = join(dir, 'hooks.json')
+    const store = open(db)
+    store.close()
+    writeFileSync(hooks, '{}')
+    let dbReads = 0, hookReads = 0, selectedHooks = hooks
+    const options = {
+      get db() { return ++dbReads === 1 ? db : undefined },
+      get hooks() { hookReads++; return selectedHooks }
+    }
+    const prepare = DatabaseSync.prototype.prepare
+    const intercepted = t.mock.method(DatabaseSync.prototype, 'prepare', function (this: DatabaseSync, sql: string) {
+      if (sql === 'PRAGMA user_version') selectedHooks = join(dir, 'missing-hooks.json')
+      return prepare.call(this, sql)
+    })
+    let report: ReturnType<typeof diagnose>
+    try { report = diagnose(options) } finally { intercepted.mock.restore() }
+    assert.equal(dbReads, 1)
+    assert.equal(hookReads, 1)
+    assert.equal(report.ok, true)
+    assert.equal(report.configuration.database.source, 'flag')
+    assert.equal(report.configuration.hooks.source, 'flag')
+    assert.equal(report.configuration.hooks.exists, true)
+    assert.ok(report.checks.some(entry => entry.id === 'config.hooks' && entry.status === 'pass'))
+    const changed = diagnose({ db, hooks: selectedHooks })
+    assert.equal(changed.ok, false)
+    assert.ok(changed.checks.some(entry => entry.id === 'config.hooks' && entry.status === 'fail'))
+  })
+})
+
+test('doctor distinguishes text-store cleanup failure from loading failure', t => {
+  for (const unreadable of [false, true]) withDir(dir => {
+    const path = join(dir, 'private-text.cave')
+    writeFileSync(path, 'private-subject IS person\n')
+    const before = readFileSync(path)
+    const close = DatabaseSync.prototype.close
+    let closes = 0
+    const intercepted = t.mock.method(DatabaseSync.prototype, 'close', function (this: DatabaseSync) {
+      const textStore = this.location() === null && this.prepare("SELECT 1 FROM sqlite_schema WHERE name = 'cave_claim'").get() !== undefined
+      close.call(this)
+      if (textStore) {
+        closes++
+        throw unreadable ? Object.create(null) : new Error('private text-store close failure')
+      }
+    })
+    try {
+      for (const format of [[], ['--json']]) {
+        const result = doctorCommand(['--db', path, ...format])
+        assert.equal(result.code, 1)
+        assert.equal(result.err, '')
+        assert.doesNotMatch(result.out, /private/)
+        if (format.length > 0) {
+          const report = JSON.parse(result.out)
+          assert.equal(report.configuration.database.kind, 'text')
+          assert.equal(report.configuration.database.claims, 1)
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'store.database' && entry.status === 'pass'))
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'store.cleanup' && entry.status === 'fail'))
+        }
+        assert.deepEqual(readFileSync(path), before)
+      }
+      assert.equal(closes, 2)
+    } finally { intercepted.mock.restore() }
+    assert.equal(doctorCommand(['--db', path, '--json']).code, 0)
+  })
+})
+
+test('doctor retains SQLite capability results when probe close also fails', t => {
+  for (const failedProbe of [false, true]) for (const unreadable of [false, true]) withDir(dir => {
+    const db = join(dir, 'probe-cleanup.db')
+    const store = open(db)
+    store.close() // Initialize the adapter's text probe before intercepting doctor.
+    const exec = DatabaseSync.prototype.exec, close = DatabaseSync.prototype.close
+    let closes = 0
+    const execution = t.mock.method(DatabaseSync.prototype, 'exec', function (this: DatabaseSync, sql: string) {
+      if (failedProbe && sql === 'CREATE VIRTUAL TABLE doctor_fts USING fts5(value)') throw new Error('private capability failure')
+      return exec.call(this, sql)
+    })
+    const closing = t.mock.method(DatabaseSync.prototype, 'close', function (this: DatabaseSync) {
+      const probe = this.location() === null
+      close.call(this)
+      if (probe) {
+        closes++
+        throw unreadable ? Object.create(null) : new Error('private probe close failure')
+      }
+    })
+    try {
+      for (const format of [[], ['--json']]) {
+        let result: ReturnType<typeof doctorCommand> | undefined
+        assert.doesNotThrow(() => { result = doctorCommand(['--db', db, ...format]) })
+        assert.ok(result)
+        assert.equal(result.code, 1)
+        assert.equal(result.err, '')
+        assert.doesNotMatch(result.out, /private/)
+        if (format.length > 0) {
+          const report = JSON.parse(result.out)
+          assert.equal(report.ok, false)
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'runtime.sqlite.cleanup' && entry.status === 'fail'))
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'runtime.sqlite' && entry.status === (failedProbe ? 'fail' : 'pass')))
+        }
+      }
+      assert.equal(closes, 2)
+    } finally { execution.mock.restore(); closing.mock.restore() }
+    assert.equal(doctorCommand(['--db', db, '--json']).code, 0)
+  })
+})
+
+test('doctor retains redacted row diagnostics when database close also fails', t => {
+  for (const invalid of [false, true]) for (const unreadable of [false, true]) withDir(dir => {
+    const db = join(dir, 'private-close.db')
+    const store = open(db)
+    try {
+      store.ingest('private-entity IS person')
+      if (invalid) store.db.exec('UPDATE cave_claim SET value_num = 42')
+    } finally { store.close() }
+    const before = readFileSync(db)
+    const close = DatabaseSync.prototype.close
+    let closes = 0
+    const intercepted = t.mock.method(DatabaseSync.prototype, 'close', function (this: DatabaseSync) {
+      const target = this.location()?.endsWith('private-close.db') === true
+      close.call(this)
+      if (target) {
+        closes++
+        throw unreadable ? Object.create(null) : new Error('private close failure')
+      }
+    })
+    try {
+      for (const format of [[], ['--json']]) {
+        let result: ReturnType<typeof doctorCommand> | undefined
+        assert.doesNotThrow(() => { result = doctorCommand(['--db', db, ...format]) })
+        assert.ok(result)
+        assert.equal(result.code, 1)
+        assert.equal(result.err, '')
+        assert.doesNotMatch(result.out, /private/)
+        if (format.length > 0) {
+          const report = JSON.parse(result.out)
+          assert.equal(report.ok, false)
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'store.cleanup' && entry.status === 'fail'))
+          assert.ok(report.checks.some((entry: { id: string, status: string }) =>
+            entry.id === 'store.rows' && entry.status === (invalid ? 'fail' : 'pass')))
+        }
+        assert.deepEqual(readFileSync(db), before)
+      }
+      assert.equal(closes, 2)
+    } finally { intercepted.mock.restore() }
+    assert.equal(doctorCommand(['--db', db, '--json']).code, invalid ? 1 : 0)
+  })
+})
+
+test('doctor releases rollback-journal read locks after healthy and invalid-row reports', t => {
+  withDir(dir => {
+    const db = join(dir, 'doctor-locks.db')
+    const writer = open(db)
+    try {
+      writer.db.exec('PRAGMA journal_mode = DELETE; PRAGMA busy_timeout = 0')
+      assert.equal(writer.db.prepare('PRAGMA journal_mode').get()?.['journal_mode'], 'delete')
+      writer.ingest('sample HAS amount: 42')
+      const prepare = DatabaseSync.prototype.prepare
+      let attempted = false
+      const intercepted = t.mock.method(DatabaseSync.prototype, 'prepare', function (this: DatabaseSync, sql: string) {
+        if (sql === 'SELECT * FROM cave_claim' && !attempted) {
+          attempted = true
+          assert.throws(() => writer.db.exec('UPDATE cave_claim SET value_num = 999'), /database is locked/)
+        }
+        return prepare.call(this, sql)
+      })
+      const healthy = doctorCommand(['--db', db, '--json'])
+      intercepted.mock.restore()
+      assert.equal(attempted, true)
+      assert.equal(healthy.code, 0, healthy.out)
+      assert.equal(writer.currentBeliefs()[0]!.value_num, 42)
+      // Returning from doctor releases the read lock, without closing the writer.
+      writer.db.exec('UPDATE cave_claim SET value_num = 999')
+      const unhealthy = doctorCommand(['--db', db, '--json'])
+      assert.equal(unhealthy.code, 1, unhealthy.out)
+      assert.ok(JSON.parse(unhealthy.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      // An invalid-row report must release its read lock too.
+      writer.db.exec('UPDATE cave_claim SET value_num = 42')
+      const repaired = doctorCommand(['--db', db, '--json'])
+      assert.equal(repaired.code, 0, repaired.out)
+    } finally { writer.close() }
+  })
+})
+
+test('doctor accepts consistent numeric, unit and literal projections without writing', () => {
+  withDir(dir => {
+    const db = join(dir, 'numeric-projections.db')
+    const store = open(db)
+    try {
+      store.ingest('sample HAS revenue: ~20B USD/yr +/- 2B USD/yr\nlabel HAS name: "42"\ncode HAS token: `42`\nsmall HAS amount: 1e-313')
+    } finally { store.close() }
+    const before = readFileSync(db)
+    const result = doctorCommand(['--db', db, '--json'])
+    assert.equal(result.code, 0, result.out)
+    assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.rows' && entry.status === 'pass'))
+    assert.deepEqual(readFileSync(db), before)
+  })
+})
+
+test('doctor rejects empty and binary provenance without exposing values or changing the store', () => {
+  for (const dimension of ['actor', 'source', 'run', 'domain']) for (const value of ['', Buffer.from('private-provenance')]) withDir(dir => {
+    const db = join(dir, 'private-provenance.db')
+    const store = open(db)
+    let id: string
+    try {
+      id = store.ingest('private-entity IS retained').ids[0]!
+      store.db.prepare('INSERT INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)').run(id, dimension, value)
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1)
+      assert.doesNotMatch(result.out + result.err, /private/)
+      assert.ok(!(result.out + result.err).includes(id))
+      if (format.length) assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      assert.deepEqual(readFileSync(db), before)
+    }
+    for (const valid of ['repaired', '\0']) {
+      const repair = new DatabaseSync(db)
+      try { repair.prepare('UPDATE cave_provenance SET value = ? WHERE claim_id = ? AND dimension = ?').run(valid, id, dimension) }
+      finally { repair.close() }
+      const recovered = doctorCommand(['--db', db, '--json'])
+      assert.equal(recovered.code, 0, recovered.out)
+      assert.ok(JSON.parse(recovered.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'pass'))
+    }
+  })
+})
+
+test('doctor detects historical claim key and context disagreement without exposing data', () => {
+  for (const corruption of ['key', 'context']) withDir(dir => {
+    const db = join(dir, 'private-identity.db')
+    const store = open(db)
+    let id: string, key: string
+    try {
+      store.ingest('private-entity HAS count: 1 @private-context @src:private-source')
+      store.ingest('private-entity HAS count: 2 @private-context @src:private-source')
+      const oldest = store.db.prepare('SELECT id, claim_key FROM cave_claim ORDER BY tx LIMIT 1').get()!
+      id = oldest.id as string
+      key = oldest.claim_key as string
+      if (corruption === 'key') store.db.prepare('UPDATE cave_claim SET claim_key = ? WHERE id = ?').run('private-wrong-key', id)
+      else store.db.prepare('DELETE FROM cave_context WHERE claim_id = ? AND context = ?').run(id, 'private-context')
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1, result.out)
+      assert.doesNotMatch(result.out + result.err, /private/)
+      assert.ok(!(result.out + result.err).includes(id))
+      if (format.length) assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      assert.deepEqual(readFileSync(db), before)
+    }
+    const repair = new DatabaseSync(db)
+    try {
+      if (corruption === 'key') repair.prepare('UPDATE cave_claim SET claim_key = ? WHERE id = ?').run(key, id)
+      else repair.prepare('INSERT INTO cave_context (claim_id, context) VALUES (?, ?)').run(id, 'private-context')
+    } finally { repair.close() }
+    const recovered = doctorCommand(['--db', db, '--json'])
+    assert.equal(recovered.code, 0, recovered.out)
+    assert.ok(JSON.parse(recovered.out).checks.some((entry: { id: string, status: string }) =>
+      entry.id === 'store.rows' && entry.status === 'pass'))
+  })
+})
+
+test('doctor accepts confidence endpoints and positive finite or default sigma levels', () => {
+  withDir(dir => {
+    const db = join(dir, 'numeric-boundaries.db')
+    for (const conf of [0, 1]) for (const sigma of [null, Number.MIN_VALUE, 0.5, 2, Number.MAX_VALUE]) {
+      const store = open(db)
+      try {
+        store.ingest('item IS valid')
+        store.db.prepare('UPDATE cave_claim SET conf = ?, sigma_level = ?').run(conf, sigma)
+      } finally { store.close() }
+      const before = readFileSync(db)
+      const result = doctorCommand(['--db', db, '--json'])
+      assert.equal(result.code, 0, result.out)
+      assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'pass'))
+      assert.deepEqual(readFileSync(db), before)
+    }
+  })
+})
+
+test('doctor detects missing, duplicate, orphaned, and stale search entries without writing', () => {
+  for (const mutation of [
+    'DELETE FROM cave_fts',
+    'INSERT INTO cave_fts SELECT * FROM cave_fts',
+    "UPDATE cave_fts SET claim_id = 'orphan'",
+    "UPDATE cave_fts SET comment = 'stale-index-private-value'",
+    "DELETE FROM cave_fts WHERE subject = 'private-second'; INSERT INTO cave_fts SELECT * FROM cave_fts WHERE subject = 'private-entity'",
+  ]) withDir(dir => {
+    const db = join(dir, 'private-search-store.db')
+    const store = open(db)
+    store.ingest('private-entity IS person ; private-comment\nprivate-second IS person')
+    store.db.exec(mutation)
+    store.close()
+    const before = readFileSync(db)
+    const result = doctorCommand(['--db', db, '--json'])
+    assert.equal(result.code, 1, mutation)
+    const report = JSON.parse(result.out)
+    assert.ok(report.checks.some((entry: { id: string, status: string }) => entry.id === 'store.integrity' && entry.status === 'pass'))
+    assert.ok(report.checks.some((entry: { id: string, status: string }) => entry.id === 'store.search' && entry.status === 'fail'))
+    assert.doesNotMatch(result.out + result.err, /private/)
+    assert.deepEqual(readFileSync(db), before)
+  })
+})
+
+test('doctor text-store failures never expose source names, paths, or malformed input', () => {
+  withDir(dir => {
+    const secret = 'private-doctor-secret'
+    const notes = join(dir, `${secret}.cave`)
+    for (const text of [
+      `${secret} lowercase invalid`,
+      `source/${secret} HAS path: ${secret}.csv\nsource/${secret} HAS map: missing.map.cave`,
+    ]) {
+      writeFileSync(notes, text)
+      for (const format of [[], ['--json']]) {
+        const result = doctorCommand(['--db', notes, ...format])
+        assert.equal(result.code, 1)
+        assert.ok(!(result.out + result.err).includes(secret), result.out)
+        assert.ok(!(result.out + result.err).includes(dir), result.out)
+        assert.deepEqual(readFileSync(notes, 'utf8'), text)
+      }
+    }
   })
 })
 
@@ -744,6 +1475,90 @@ test('query/export accept --no-prelude so read-time registry matches write-time'
   })
 })
 
+test('annotated export preserves its output file when stored transaction identity is corrupt', () => {
+  withDir(dir => {
+    const db = join(dir, 'knowledge.db'), output = join(dir, 'retained.cave')
+    const store = open(db)
+    let id: string
+    try {
+      store.ingest('visible IS retained #sensitivity:public')
+      id = store.ingest('private-subject IS retained #sensitivity:restricted').ids[0]!
+      store.db.prepare('UPDATE cave_claim SET tx = ? WHERE id = ?')
+        .run('018f0000-0000-7000-8000-000000000002', id)
+    } finally { store.close() }
+    const before = readFileSync(db)
+    writeFileSync(output, 'retained output')
+    const failed = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted', '--out', output])
+    assert.equal(failed.code, 1)
+    assert.equal(failed.out, '')
+    assert.match(failed.err, /transaction identity/)
+    assert.ok(failed.err.includes(id))
+    assert.doesNotMatch(failed.err, /private-subject/)
+    assert.equal(readFileSync(output, 'utf8'), 'retained output')
+    assert.deepEqual(readFileSync(db), before)
+    const publicExport = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'public'])
+    assert.equal(publicExport.code, 0, publicExport.err)
+    assert.match(publicExport.out, /visible IS retained/)
+    assert.doesNotMatch(publicExport.out, /private-subject/)
+    const repair = new DatabaseSync(db)
+    try { repair.prepare('UPDATE cave_claim SET tx = ? WHERE id = ?').run(id, id) }
+    finally { repair.close() }
+    const recovered = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted', '--out', output])
+    assert.equal(recovered.code, 0, recovered.err)
+    assert.ok(readFileSync(output, 'utf8').includes(id))
+  })
+})
+
+for (const corruption of ['provenance', 'claim key']) test(`annotated export preserves its output file when stored ${corruption} is malformed`, () => {
+  withDir(dir => {
+    const db = join(dir, 'knowledge.db'), output = join(dir, 'retained.cave')
+    const store = open(db)
+    let id: string, key: string
+    try {
+      store.ingest('visible IS retained #sensitivity:public')
+      id = store.ingest('private-subject IS retained #sensitivity:restricted').ids[0]!
+      key = store.currentBeliefs().find(row => row.id === id)!.claim_key
+      if (corruption === 'provenance') {
+        store.db.prepare('INSERT INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)').run(id, 'source', '')
+      } else {
+        store.db.prepare('UPDATE cave_claim SET claim_key = ? WHERE id = ?').run('incorrect-key', id)
+      }
+    } finally { store.close() }
+    const before = readFileSync(db)
+    writeFileSync(output, 'retained output')
+    const failed = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted', '--out', output])
+    assert.equal(failed.code, 1)
+    assert.equal(failed.out, '')
+    assert.ok(failed.err.includes(`stored ${corruption}`), failed.err)
+    assert.ok(failed.err.includes(id))
+    assert.doesNotMatch(failed.err, /private-subject/)
+    assert.equal(readFileSync(output, 'utf8'), 'retained output')
+    assert.deepEqual(readFileSync(db), before)
+    const publicExport = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'public'])
+    assert.equal(publicExport.code, 0, publicExport.err)
+    assert.doesNotMatch(publicExport.out, /private-subject/)
+    const repair = new DatabaseSync(db)
+    try {
+      if (corruption === 'provenance') repair.prepare('UPDATE cave_provenance SET value = ? WHERE claim_id = ?').run('repaired', id)
+      else repair.prepare('UPDATE cave_claim SET claim_key = ? WHERE id = ?').run(key, id)
+    }
+    finally { repair.close() }
+    const recovered = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted', '--out', output])
+    assert.equal(recovered.code, 0, recovered.err)
+    const destination = join(dir, 'restored.db')
+    const replay = syncCommand(['--db', destination, output, '--no-record', '--json'])
+    assert.equal(replay.code, 0, replay.err)
+    assert.deepEqual(JSON.parse(replay.out).problems, [])
+    assert.equal(JSON.parse(replay.out).merged, 2)
+    const restored = open(destination)
+    try {
+      const row = restored.currentBeliefs().find(row => row.id === id)!
+      assert.equal(row.tx, id)
+      assert.equal(row.claim_key, key)
+    } finally { restored.close() }
+  })
+})
+
 test('export --out writes a file; import restores the full belief history', () => {
   withDir(dir => {
     const original = join(dir, 'original.db')
@@ -829,10 +1644,34 @@ test('backup verifies and restore preserves exact row identity and transaction o
   })
 })
 
+test('backup verification and restore report historical schema without migrating snapshot bytes', () => {
+  withDir(dir => {
+    const snapshot = join(dir, 'version1.db'), restored = join(dir, 'restored.db')
+    const source = open(snapshot)
+    source.ingest('api IS service')
+    source.db.exec('DROP INDEX idx_cave_tx')
+    source.db.exec('PRAGMA user_version = 1')
+    source.close()
+    const bytes = readFileSync(snapshot)
+    const verified = backupCommand(['--verify', snapshot])
+    assert.equal(verified.code, 0, verified.err)
+    assert.match(verified.out, /schema v1/)
+    const digest = /sha256:([0-9a-f]{64})/.exec(verified.out)?.[1]
+    assert.ok(digest)
+    const result = restoreCommand([snapshot, '--db', restored, '--sha256', digest])
+    assert.equal(result.code, 0, result.err)
+    assert.match(result.out, /schema v1/)
+    assert.deepEqual(readFileSync(snapshot), bytes)
+    assert.deepEqual(readFileSync(restored), bytes)
+  })
+})
+
 test('backup and restore validate required arguments and digests', () => {
   assert.equal(backupCommand([]).code, 1)
   assert.equal(backupCommand(['--verify', 'missing.db', '--db', 'x.db']).code, 1)
   assert.match(backupCommand(['--verify', 'missing.db', '--sha256', 'bad']).err, /64 hexadecimal/)
+  assert.match(backupCommand(['--verify', 'missing.db', '--sha256', 'a'.repeat(64) + '\n']).err, /64 hexadecimal/)
+  assert.match(restoreCommand(['snapshot.db', '--db', 'out.db', '--sha256', 'a'.repeat(64) + '\n']).err, /64 hexadecimal/)
   assert.equal(restoreCommand(['snapshot.db']).code, 1)
   assert.equal(restoreCommand(['a.db', 'b.db', '--db', 'out.db']).code, 1)
   assert.match(restoreCommand(['snapshot.db', '--db', 'out.db', '--sha256', 'bad']).err, /64 hexadecimal/)
@@ -951,6 +1790,35 @@ test('generate reports ambiguous schema without writing output (spec §20.4)', (
   })
 })
 
+test('generate preserves an existing client for binary unit declarations and recovers after repair', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db'), output = join(dir, 'client.ts')
+    const store = open(db)
+    try {
+      store.ingest('service EXPECTS cost #unit:USD')
+      const id = store.currentBeliefs()[0]!.id
+      const args = ['--db', db, '--out', output, '--no-prelude']
+      const initial = generateCommand(args)
+      assert.equal(initial.code, 0, initial.err)
+      const before = readFileSync(output)
+      for (const value of [new Uint8Array(), new Uint8Array([85, 83, 68])]) {
+        store.db.prepare("UPDATE cave_tag SET value = ? WHERE claim_id = ? AND key = 'unit'").run(value, id)
+        const rejected = generateCommand(args)
+        assert.equal(rejected.code, 1)
+        assert.equal(rejected.out, '')
+        assert.match(rejected.err, /schema cannot be generated/)
+        assert.match(rejected.err, /unit must have one non-empty text value/)
+        assert.deepEqual(readFileSync(output), before)
+        assert.deepEqual(store.db.prepare("SELECT value FROM cave_tag WHERE claim_id = ? AND key = 'unit'").get(id)!.value, value)
+        store.db.prepare("UPDATE cave_tag SET value = 'USD' WHERE claim_id = ? AND key = 'unit'").run(id)
+        const recovered = generateCommand(args)
+        assert.equal(recovered.code, 0, recovered.err)
+        assert.deepEqual(readFileSync(output), before)
+      }
+    } finally { store.close() }
+  })
+})
+
 test('export refuses --out that would overwrite the source database (export-clobbers-db)', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
@@ -978,6 +1846,33 @@ test('export refuses --out that would overwrite the source database (export-clob
     assert.equal(exportCommand(['--db', db, '--out', link]).code, 1)
 
     // The store survives every refused attempt and still answers.
+    assert.equal(queryCommand(['auth USES ?x', '--db', db]).out, '?x = jwt\n')
+  })
+})
+
+test('file output commands protect SQLite sidecar paths through database symlinks', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const input = join(dir, 'input.cave')
+    const template = join(dir, 'report.md')
+    writeFileSync(input, 'service EXPECTS owner\nauth USES jwt\n')
+    writeFileSync(template, 'Report\n')
+    assert.equal(addCommand([input, '--db', db]).code, 0)
+    const linked = join(dir, 'linked.db')
+    symlinkSync(db, linked)
+    for (const source of [db, linked]) {
+      for (const suffix of ['-wal', '-shm', '-journal']) {
+        const output = `${db}${suffix}`
+        for (const [command, args] of [
+          [exportCommand, []], [generateCommand, []],
+          [reportCommand, [template]], [backupCommand, []]
+        ] as const) {
+          const result = command([...args, '--db', source, '--out', output])
+          assert.equal(result.code, 1, `${source} → ${output}`)
+          assert.match(result.err, /source database/)
+        }
+      }
+    }
     assert.equal(queryCommand(['auth USES ?x', '--db', db]).out, '?x = jwt\n')
   })
 })
@@ -1131,6 +2026,46 @@ test('suggest-alias --write appends with @src:suggest/alias; --json carries sign
     assert.match(again.out, /no alias suggestions/)
   }))
 
+test('suggest-alias --write --json performs the write and reports its count', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try { store.ingest('maria EXISTS\ngrandma-maria EXISTS') } finally { store.close() }
+    const written = await suggestAliasCommand(['--db', db, '--write', '--json'])
+    assert.equal(written.code, 0, written.err)
+    const result = JSON.parse(written.out)
+    assert.equal(result.appended, 1)
+    assert.equal(result.suggestions.length, 1)
+    const reopened = open(db)
+    try { assert.equal(reopened.byTag('suggested').length, 1) } finally { reopened.close() }
+    const again = JSON.parse((await suggestAliasCommand(['--db', db, '--write', '--json'])).out)
+    assert.deepEqual(again, { suggestions: [], appended: 0 })
+  }))
+
+test('suggest-alias --agent does not write confirmations hidden inside JSON strings or objects', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    let before: string
+    try {
+      store.ingest('maria EXISTS\ngrandma-maria EXISTS')
+      before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    } finally { store.close() }
+    for (const agent of [
+      `node -e 'console.log(JSON.stringify(["[1]"]))'`,
+      `node -e 'console.log(JSON.stringify("[1]"))'`,
+      `node -e 'console.log(JSON.stringify({rejected:[1]}))'`
+    ]) {
+      const result = await suggestAliasCommand(['--db', db, '--write', '--json', '--agent', agent])
+      assert.equal(result.code, 0, result.err)
+      assert.deepEqual(JSON.parse(result.out), { suggestions: [], appended: 0 })
+      const reopened = open(db)
+      try {
+        assert.equal(reopened.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      } finally { reopened.close() }
+    }
+  }))
+
 test('suggest-alias --agent judge filters; failures and bad flags fail cleanly (spec §27.4)', () =>
   withDirAsync(async dir => {
     const db = join(dir, 'k.db')
@@ -1160,7 +2095,10 @@ test('suggest-alias --agent judge filters; failures and bad flags fail cleanly (
     assert.match(badMin.err, /--min expects a score/)
     const badLimit = await suggestAliasCommand(['--db', db, '--limit', '0'])
     assert.equal(badLimit.code, 1)
-    assert.match(badLimit.err, /--limit expects a positive integer/)
+    assert.match(badLimit.err, /--limit expects a positive safe integer/)
+    const unsafeLimit = await suggestAliasCommand(['--db', db, '--limit', '9007199254740992'])
+    assert.equal(unsafeLimit.code, 1)
+    assert.match(unsafeLimit.err, /--limit expects a positive safe integer/)
     const help = await suggestAliasCommand(['--help'])
     assert.equal(help.code, 0)
     assert.match(help.out, /Usage:/)
@@ -1283,6 +2221,33 @@ test('act --dry-run persists nothing; act --json reports; bad pairs rejected', (
   })
 })
 
+test('malformed hook encoding is rejected consistently before action effects', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db'), seed = join(dir, 'seed.cave'), hooks = join(dir, 'hooks.json')
+    writeFileSync(seed, 'action/note HAS action: `?x => ?x IS noted`\naction/note HAS hook: post')
+    assert.equal(actCommand(['--db', db, '--declare', seed]).code, 0)
+    const before = exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted']).out
+    for (const invalid of [
+      Buffer.concat([Buffer.from('{"post":"exit 0 # '), Buffer.from([0xff]), Buffer.from('"}')]),
+      Buffer.from(JSON.stringify({ post: 'exit 0 # \ud800' })),
+      Buffer.from(JSON.stringify({ ['\udc00']: 'exit 0' })),
+      Buffer.from(JSON.stringify({ ' ': 'exit 0' })),
+    ]) {
+      writeFileSync(hooks, invalid)
+      const rejected = cave(['act', '--db', db, 'note', 'x=partial', '--hooks', hooks])
+      assert.equal(rejected.code, 1)
+      assert.equal(rejected.out, '')
+      const doctor = doctorCommand(['--db', db, '--hooks', hooks, '--json'])
+      const check = JSON.parse(doctor.out).checks.find((check: { id: string }) => check.id === 'config.hooks')
+      assert.equal(check.status, 'fail')
+      assert.equal(exportCommand(['--db', db, '--tx', '--max-sensitivity', 'restricted']).out, before)
+    }
+    writeFileSync(hooks, JSON.stringify({ post: 'exit 0' }))
+    assert.equal(actCommand(['--db', db, 'note', 'x=recovered', '--hooks', hooks]).code, 0)
+    assert.match(queryCommand(['--db', db, '?x IS noted']).out, /recovered/)
+  })
+})
+
 test('act --hooks fires the named hook with claims on stdin (spec §25.4)', () => {
   withDir(dir => {
     const db = join(dir, 'k.db')
@@ -1312,6 +2277,26 @@ test('act --hooks fires the named hook with claims on stdin (spec §25.4)', () =
     const failing = actCommand(['--db', db, 'announce', 'what=ga', '--hooks', hooks])
     assert.equal(failing.code, 1)
     assert.match(failing.out, /hook post: hook exited with 3/)
+    assert.match(queryCommand(['--db', db, 'bulletin CONTAINS ?w']).out, /ga/)
+
+    const snapshot = () => {
+      const store = open(db, { access: 'read-only' })
+      try { return store.exportText({ tx: true, maxSensitivity: 'restricted' }) }
+      finally { store.close() }
+    }
+    const committed = snapshot()
+    const previousHookOutput = readFileSync(out, 'utf8')
+    writeFileSync(hooks, JSON.stringify({ post: `node -e "${script}" ${out}` }))
+    const repeated = actCommand(['--db', db, 'announce', 'what=ga', '--hooks', hooks])
+    assert.equal(repeated.code, 0, repeated.err)
+    assert.match(repeated.out, /hook post: not fired \(nothing changed\)/)
+    assert.equal(snapshot(), committed)
+    assert.equal(readFileSync(out, 'utf8'), previousHookOutput, 'a no-op does not retry the corrected hook')
+
+    const changed = actCommand(['--db', db, 'announce', 'what=release', '--hooks', hooks])
+    assert.equal(changed.code, 0, changed.err)
+    assert.match(changed.out, /hook post: ok/)
+    assert.match(readFileSync(out, 'utf8'), /bulletin CONTAINS release/)
     assert.match(queryCommand(['--db', db, 'bulletin CONTAINS ?w']).out, /ga/)
   })
 })
@@ -1355,6 +2340,57 @@ test('sync merges a store file, idempotently, and records the merge (spec §28)'
     assert.equal(again.code, 0)
     assert.match(again.out, /merged 0 claim\(s\), 0 edge\(s\), 1 already present/)
     assert.doesNotMatch(again.out, /record:/)
+  })
+})
+
+test('sync reports database identity conflicts in text and JSON without copying', () => {
+  withDir(dir => {
+    const a = join(dir, 'a.db')
+    const b = join(dir, 'b.db')
+    const source = open(b)
+    source.ingest('api IS trusted')
+    source.close()
+    assert.equal(syncCommand(['--db', a, b, '--no-record']).code, 0)
+    const changed = open(b)
+    changed.db.exec("UPDATE cave_claim SET object = 'compromised' WHERE subject = 'api'")
+    changed.ingest('request IS denied')
+    changed.close()
+    for (const extra of [[], ['--dry-run'], ['--json'], ['--dry-run', '--json']]) {
+      const result = syncCommand(['--db', a, b, ...extra])
+      assert.equal(result.code, 1)
+      if (extra.includes('--json')) {
+        const report = JSON.parse(result.out)
+        assert.equal(report.merged, 0)
+        assert.equal(report.problems[0].line, 0)
+        assert.match(report.problems[0].message, /already stored.*different content/)
+      } else {
+        assert.match(result.err, /nothing merged/)
+        assert.match(result.err, /already stored.*different content/)
+        assert.doesNotMatch(result.err, /line 0/)
+      }
+    }
+    assert.match(queryCommand(['--db', a, 'request IS denied']).out, /no matches/)
+  })
+})
+
+test('sync treats a hard-linked source as the target without changing its rows', () => {
+  withDir(dir => {
+    const db = join(dir, 'store.db')
+    const alias = join(dir, 'alias.db')
+    const store = open(db)
+    store.ingest('api IS service')
+    store.close()
+    linkSync(db, alias)
+    const before = readFileSync(db)
+    for (const dryRun of [false, true]) {
+      const result = syncCommand(['--db', db, alias, '--json', ...(dryRun ? ['--dry-run'] : [])])
+      assert.equal(result.code, 0, result.err)
+      const report = JSON.parse(result.out)
+      assert.equal(report.merged, 0)
+      assert.equal(report.dryRun, dryRun)
+      assert.deepEqual(report.problems, [])
+      assert.deepEqual(readFileSync(db), before)
+    }
   })
 })
 
@@ -1402,6 +2438,65 @@ test('sync consumes cave export --tx text and validates plain text (spec §28.4)
     assert.equal(plain.code, 1)
     assert.match(plain.err, /without a transaction annotation/)
     assert.match(plain.err, /cave import/)
+  })
+})
+
+test('sync JSON distinguishes rejected content from source errors and recovers without partial writes', () => {
+  withDir(dir => {
+    const db = join(dir, 'target.db'), path = join(dir, 'source.cave')
+    const source = open(), target = open(db)
+    let valid: string, before: string
+    try {
+      source.ingest('remote IS imported')
+      target.ingest('local IS retained')
+      valid = source.exportText({ tx: true, maxSensitivity: 'restricted' })
+      before = target.exportText({ tx: true, maxSensitivity: 'restricted' })
+    } finally { source.close(); target.close() }
+    const unchanged = () => {
+      const store = open(db)
+      try { assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before) }
+      finally { store.close() }
+    }
+    for (const dryRun of [false, true]) {
+      const args = ['--db', db, path, '--json', '--no-prelude', ...(dryRun ? ['--dry-run'] : [])]
+      for (const text of ['unannotated IS rejected', ';@ invalid\nremote IS imported']) {
+        writeFileSync(path, text)
+        const result = syncCommand(args)
+        assert.equal(result.code, 1)
+        assert.equal(result.err, '')
+        const report = JSON.parse(result.out)
+        assert.ok(report.problems.length > 0)
+        assert.equal(report.merged, 0)
+        assert.equal(report.record, undefined)
+        assert.equal(report.dryRun, dryRun)
+        unchanged()
+      }
+      for (const bytes of [Buffer.from([0xff]), Buffer.from('SQLite format 3\0broken')]) {
+        writeFileSync(path, bytes)
+        const result = syncCommand(args)
+        assert.equal(result.code, 1)
+        assert.equal(result.out, '')
+        assert.ok(result.err.includes(path))
+        assert.match(result.err, bytes[0] === 0xff ? /invalid UTF-8/ : /cannot (attach|inspect) sync source/)
+        unchanged()
+      }
+      rmSync(path)
+      const missing = syncCommand(args)
+      assert.equal(missing.code, 1)
+      assert.equal(missing.out, '')
+      assert.match(missing.err, /no such file/)
+      unchanged()
+    }
+    writeFileSync(path, valid!)
+    const args = ['--db', db, path, '--json', '--no-prelude']
+    const preview = syncCommand([...args, '--dry-run'])
+    assert.equal(preview.code, 0, preview.err)
+    assert.equal(JSON.parse(preview.out).merged, 1)
+    unchanged()
+    const merged = syncCommand(args)
+    assert.equal(merged.code, 0, merged.err)
+    assert.equal(JSON.parse(merged.out).merged, 1)
+    assert.equal(JSON.parse(syncCommand(args).out).merged, 0)
   })
 })
 
@@ -1573,7 +2668,7 @@ test('read commands never migrate an older store; a writing command does (spec �
     }
     const read = cave(['query', '--db', db, '?x IS ?y'])
     assert.equal(read.code, 1)
-    assert.match(read.err, /^cave query: .*legacy\.db: schema version 0 needs migration to 1 — close every user and copy the file as a rollback point, then open it with a writing command such as cave add/)
+    assert.match(read.err, /^cave query: .*legacy\.db: schema version 0 needs migration to 2 — close every user and copy the file as a rollback point, then open it with a writing command such as cave add/)
     assert.equal(versionOf(), 0, 'the read left the schema version alone')
     const dry = cave(['derive', '--db', db, '--dry-run'])
     assert.equal(dry.code, 1)
@@ -1610,7 +2705,7 @@ test('backup of a store awaiting migration names the file-copy rollback point in
     const bytes = readFileSync(db)
     const result = cave(['backup', '--db', db, '--out', join(dir, 'snap.db')])
     assert.equal(result.code, 1)
-    assert.match(result.err, /schema version 0 needs migration to 1 — close every user and copy the file as a rollback point/)
+    assert.match(result.err, /schema version 0 needs migration to 2 — close every user and copy the file as a rollback point/)
     assert.deepEqual(readFileSync(db), bytes, 'the source is neither migrated nor touched')
     assert.equal(existsSync(join(dir, 'snap.db')), false)
   })
@@ -1768,4 +2863,134 @@ test('query --sources rediscovers when a writer changes the declarations while s
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('suggest-alias --write reports unrepresentable pairs without claiming successful appends', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    let before: string
+    try {
+      store.ingest('42 HAS email: "shared@example.test"\n43 HAS email: "shared@example.test"\nmaria EXISTS\ngrandma-maria EXISTS')
+      before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    } finally { store.close() }
+    for (const flags of [[], ['--json']]) {
+      const result = await suggestAliasCommand(['--db', db, '--write', ...flags])
+      assert.equal(result.code, 1)
+      assert.equal(result.out, '')
+      assert.match(result.err, /cannot represent an alias relation/i)
+      const reopened = open(db)
+      try { assert.equal(reopened.exportText({ tx: true, maxSensitivity: 'restricted' }), before) }
+      finally { reopened.close() }
+    }
+  }))
+
+test('suggest-alias --limit excludes unsupported lower-ranked pairs from the write', () =>
+  withDirAsync(async dir => {
+    const db = join(dir, 'k.db')
+    const store = open(db)
+    try { store.ingest('Long_Street EXISTS\nlong-street EXISTS\n42 HAS email: "shared@example.test"\n43 HAS email: "shared@example.test"') }
+    finally { store.close() }
+    const result = await suggestAliasCommand(['--db', db, '--limit', '1', '--write', '--json'])
+    assert.equal(result.code, 0, result.err)
+    const written = JSON.parse(result.out)
+    assert.equal(written.appended, 1)
+    assert.equal(written.suggestions.length, 1)
+    const reopened = open(db)
+    try {
+      assert.ok(reopened.aliasesOf('Long_Street').includes('long-street'))
+      assert.deepEqual(reopened.aliasesOf('42'), ['42'])
+    } finally { reopened.close() }
+  }))
+
+test('check confidence summaries preserve the endpoints without changing JSON precision', () => {
+  withDir(dir => {
+    for (const [index, [authored, value, label]] of [
+      ['0.001%', 0.00001, '<1%'], ['99.999%', 0.99999, '>99%'],
+      ['50%', 0.5, '50%'], ['100%', 1, '100%'], ['0%', null, undefined]
+    ].entries()) {
+      const db = join(dir, `confidence-${index}.db`)
+      const store = open(db)
+      try { store.ingest(`sensor IS available @ ${authored}`) } finally { store.close() }
+      const text = checkCommand(['--db', db])
+      assert.equal(text.code, 0)
+      if (label === undefined) assert.doesNotMatch(text.out, /avg conf/)
+      else assert.ok(text.out.includes(`avg conf ${label},`), text.out)
+      const json = checkCommand(['--db', db, '--json'])
+      assert.equal(json.code, 0)
+      assert.equal(JSON.parse(json.out).coverage.averageConfidence, value)
+    }
+  })
+})
+
+
+test('act rejects repeated and prototype-named extra arguments before effects', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db'), seed = join(dir, 'action.cave')
+    writeFileSync(seed, 'action/review HAS action: `?service => ?service IS reviewed`')
+    assert.equal(actCommand(['--db', db, '--declare', seed]).code, 0)
+    const duplicate = actCommand(['--db', db, 'review', 'service=first', 'service=second'])
+    assert.equal(duplicate.code, 1)
+    assert.match(duplicate.err, /duplicate parameter.*service/)
+    const extra = actCommand(['--db', db, 'review', 'service=api', '__proto__=ignored'])
+    assert.equal(extra.code, 1)
+    assert.match(extra.err, /unknown parameter.*__proto__/)
+    assert.match(queryCommand(['--db', db, '?service IS reviewed']).out, /no matches/)
+    assert.equal(actCommand(['--db', db, 'review', 'service=api']).code, 0)
+    assert.match(queryCommand(['--db', db, 'api IS reviewed']).out, /api IS reviewed/)
+  })
+})
+
+test('doctor diagnoses unemittable historical tags without exposing or changing them', () => {
+  for (const [key, value] of [['note', 'private\nvalue'], ['private\nkey', null]] as const) withDir(dir => {
+    const db = join(dir, 'private-tags.db')
+    const store = open(db)
+    let id: string
+    try {
+      id = store.ingest('private-subject IS retained').ids[0]!
+      store.db.prepare('INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)').run(id, key, value)
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1, result.out)
+      assert.doesNotMatch(result.out + result.err, /private/)
+      assert.ok(!(result.out + result.err).includes(id))
+      if (format.length) assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      assert.deepEqual(readFileSync(db), before)
+    }
+    const repair = new DatabaseSync(db)
+    try { repair.prepare('DELETE FROM cave_tag WHERE claim_id = ?').run(id) }
+    finally { repair.close() }
+    const recovered = doctorCommand(['--db', db, '--json'])
+    assert.equal(recovered.code, 0, recovered.out)
+  })
+})
+
+test('doctor diagnoses unsupported edge roles and permits repair without disclosing data', () => {
+  withDir(dir => {
+    const db = join(dir, 'private-edges.db')
+    const store = open(db)
+    try {
+      store.ingest('private-subject IS retained\n  BECAUSE private-evidence')
+      store.db.prepare('UPDATE cave_edge SET role = ?').run('private-role')
+    } finally { store.close() }
+    const before = readFileSync(db)
+    for (const format of [[], ['--json']]) {
+      const result = doctorCommand(['--db', db, ...format])
+      assert.equal(result.code, 1, result.out)
+      assert.doesNotMatch(result.out + result.err, /private/)
+      if (format.length) assert.ok(JSON.parse(result.out).checks.some((entry: { id: string, status: string }) =>
+        entry.id === 'store.rows' && entry.status === 'fail'))
+      assert.deepEqual(readFileSync(db), before)
+    }
+    for (const role of ['WHEN', 'VIA', 'BECAUSE', 'QUALIFIES']) {
+      const repair = new DatabaseSync(db)
+      try { repair.prepare('UPDATE cave_edge SET role = ?').run(role) }
+      finally { repair.close() }
+      const recovered = doctorCommand(['--db', db, '--json'])
+      assert.equal(recovered.code, 0, recovered.out)
+    }
+  })
 })

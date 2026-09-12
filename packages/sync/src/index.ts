@@ -2,8 +2,9 @@
  * `@cavelang/sync` — store merge (spec §28).
  *
  * Merge append-only CAVE stores by row identity: rows absent by id copy
- * verbatim, present ids skip — idempotent, transitive, conflict-free by
- * construction (§9.4 coexistence). Sources are store files (`syncDb`) or
+ * verbatim, matching present ids skip, and reused ids with different content
+ * reject the source. Valid replicas are idempotent, transitive and free of
+ * belief conflicts (§9.4 coexistence). Sources are store files (`syncDb`) or
  * §28.4 transaction-annotated canonical text (`syncText`,
  * `cave export --tx`); effective merges append a `SYNCED-INTO` record
  * claim, and merged transaction ids feed the §28.2 receive rule.

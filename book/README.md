@@ -26,7 +26,9 @@ whenever its source changes.
 Every `$`-prompt session and every CAVE listing in the book is replayed
 against the real `cave` CLI by `scripts/book-examples.mjs`, and
 `packages/cli/test/book.test.ts` runs it as part of `pnpm test`, so recorded
-output cannot drift from the shipped tool. The exception is a session marked
+output cannot drift from the shipped tool. Changes to human-readable success
+diagnostics require refreshing the recorded example and PDF too, even when
+command syntax and JSON schemas remain unchanged. The exception is a session marked
 `// no-test` (one that needs a language model, a browser, a long-running
 server, or the optional Z3 solver package): it is skipped, so re-run it by
 hand whenever the commands it shows change.
@@ -36,6 +38,17 @@ node scripts/book-examples.mjs            # check every chapter (exit 1 on drift
 node scripts/book-examples.mjs --update   # rewrite recorded output in place
 node scripts/book-examples.mjs --only 17  # one chapter, by file-name fragment
 ```
+
+`--only` accepts one nonempty file-name fragment, not a comma-separated list.
+Missing values, repeated filters, unknown arguments and filters matching no
+chapters exit 2 before creating a replay workspace or updating recorded output.
+Run the command separately for unrelated chapter names. A valid selection still
+exits 1 on example drift and 0 when the selected chapters pass.
+
+The runner removes its temporary command wrapper and chapter workspaces on
+completion or failure, including failures while preparing the wrapper or copying
+fixtures. Setup failures stop the replay with a nonzero exit status; after fixing
+the underlying problem, rerun the same command.
 
 The conventions the runner reads from `chapters/*.typ`:
 
@@ -77,10 +90,25 @@ The conventions the runner reads from `chapters/*.typ`:
 - A raw block that itself contains triple-backtick fences (a Markdown report
   template) uses a four-backtick fence.
 
+The `cave doctor` session uses `<token>` for the installed Node and SQLite
+versions, which differ between supported runtimes. Keep the surrounding check
+messages and supported engine range exact.
+
 When the CLI's output changes, run `--update`, review the diff, and restore
 any placeholders the update replaced with concrete values (the updater keeps
 a recorded block verbatim when it still matches, and otherwise writes the
 actual output). Then rebuild the PDF.
+Output replacement uses array concatenation rather than passing every output
+line as a function argument. The updater handles long recorded output while
+preserving surrounding chapter text and subsequent edits; a regression replays
+and refreshes a 130,000-line session. Chapter text and captured command output
+still reside in memory, and command capture limits still apply.
+Replay matches individual lines and handles whole-line ellipses between them,
+avoiding a single regular expression proportional to the entire transcript.
+Large placeholder-bearing transcripts retain the same matching rules.
+Matching removes trailing newline characters from actual output; leading and
+interior blank lines remain significant unless covered by a whole-line ellipsis.
+Carriage returns and Unicode line separators remain part of their output line.
 
 ## Writing a chapter
 

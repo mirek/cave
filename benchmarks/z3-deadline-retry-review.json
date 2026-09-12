@@ -1,0 +1,1940 @@
+{
+  "description": "A bounded Node 26 reproduction retains a stalled request; repeated interrupt mitigation and runtime recovery on both supported Node majors. Does not establish a hard elapsed-time bound or the precise native cause.",
+  "sources": {
+    "packages/solver-z3/src/deadline.ts": "b7171aea5b455615a49f69f64ad880d187fb5f4a81fa8db2b63cd268c4ab4756",
+    "packages/solver-z3/src/runtime.ts": "e94a54c784dd80cd643e6c3ae4ff852c324bb5b737064149b427394deb8f9319",
+    "packages/solver-z3/test/deadline.test.ts": "4203b8073129cfaf2a9224c64f07f3a7c6cb568fded67f2ba4daf2a9e266d97b",
+    "scripts/z3-deadline-probe.mjs": "9b88183d35c92426ac10ea228b71943d35aa6633b15b3d8be6e66d308c4f97e2"
+  },
+  "beforeNode26": {
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "protocol": "Three sequential fresh processes; ten 1 ms pigeonhole requests each on one runtime, each followed by a satisfiable recovery check. A 15 s external process deadline retains partial events and terminates an overrun; it is a diagnostic harness limit, not an adapter guarantee.",
+    "sources": {
+      "scripts/z3-deadline-probe.mjs": "9b88183d35c92426ac10ea228b71943d35aa6633b15b3d8be6e66d308c4f97e2",
+      "packages/solver-z3/src/runtime.ts": "23e5a9f3b99351b4d4c4a6e428087dfcb26060e1fb5bb188a3ec804a129dcaf3",
+      "packages/solver-z3/src/cleanup.ts": "518513db6d55e6d05b3eeffebe57f2400f253e5158cd76081fff7d0635652fed",
+      "packages/solver-z3/src/close-workers.ts": "46715009ae7d8c8f5084f89a5eac1fb335660d5a99d84e6665c7dea4d2ec8ee6",
+      "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+      "pnpm-lock.yaml": "c527cbffc9e5dd5f397a881e0e406cdd439b7d7304d4f11af4ebd5ceca781797"
+    },
+    "runs": [
+      {
+        "trial": 0,
+        "status": 0,
+        "signal": null,
+        "stderr": "",
+        "events": [
+          {
+            "phase": "initialized",
+            "initializationMs": 101,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            }
+          },
+          {
+            "phase": "starting",
+            "iteration": 0
+          },
+          {
+            "phase": "result",
+            "iteration": 0,
+            "wallMs": 191.13020799999998,
+            "adapterElapsedMs": 137,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 0
+          },
+          {
+            "phase": "starting",
+            "iteration": 1
+          },
+          {
+            "phase": "result",
+            "iteration": 1,
+            "wallMs": 151.89183299999996,
+            "adapterElapsedMs": 124,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 1
+          },
+          {
+            "phase": "starting",
+            "iteration": 2
+          },
+          {
+            "phase": "result",
+            "iteration": 2,
+            "wallMs": 141.92662500000006,
+            "adapterElapsedMs": 119,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 2
+          },
+          {
+            "phase": "starting",
+            "iteration": 3
+          },
+          {
+            "phase": "result",
+            "iteration": 3,
+            "wallMs": 132.6574579999999,
+            "adapterElapsedMs": 111,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 3
+          },
+          {
+            "phase": "starting",
+            "iteration": 4
+          },
+          {
+            "phase": "result",
+            "iteration": 4,
+            "wallMs": 128.49024999999995,
+            "adapterElapsedMs": 108,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 4
+          },
+          {
+            "phase": "starting",
+            "iteration": 5
+          },
+          {
+            "phase": "result",
+            "iteration": 5,
+            "wallMs": 123.32608400000004,
+            "adapterElapsedMs": 105,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 5
+          },
+          {
+            "phase": "starting",
+            "iteration": 6
+          },
+          {
+            "phase": "result",
+            "iteration": 6,
+            "wallMs": 127.5597499999999,
+            "adapterElapsedMs": 107,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 6
+          },
+          {
+            "phase": "starting",
+            "iteration": 7
+          },
+          {
+            "phase": "result",
+            "iteration": 7,
+            "wallMs": 119.48974999999996,
+            "adapterElapsedMs": 99,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 7
+          },
+          {
+            "phase": "starting",
+            "iteration": 8
+          },
+          {
+            "phase": "result",
+            "iteration": 8,
+            "wallMs": 120.87324999999987,
+            "adapterElapsedMs": 98,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 8
+          },
+          {
+            "phase": "starting",
+            "iteration": 9
+          },
+          {
+            "phase": "result",
+            "iteration": 9,
+            "wallMs": 117.78479199999992,
+            "adapterElapsedMs": 99,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 9
+          },
+          {
+            "phase": "closed",
+            "closeMs": 2.989958000000115
+          }
+        ]
+      },
+      {
+        "trial": 1,
+        "status": null,
+        "signal": "SIGKILL",
+        "error": "ETIMEDOUT",
+        "stderr": "",
+        "events": [
+          {
+            "phase": "initialized",
+            "initializationMs": 72,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            }
+          },
+          {
+            "phase": "starting",
+            "iteration": 0
+          },
+          {
+            "phase": "result",
+            "iteration": 0,
+            "wallMs": 163.44258399999998,
+            "adapterElapsedMs": 112,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 0
+          },
+          {
+            "phase": "starting",
+            "iteration": 1
+          },
+          {
+            "phase": "result",
+            "iteration": 1,
+            "wallMs": 145.684958,
+            "adapterElapsedMs": 118,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 1
+          },
+          {
+            "phase": "starting",
+            "iteration": 2
+          },
+          {
+            "phase": "result",
+            "iteration": 2,
+            "wallMs": 128.00158300000004,
+            "adapterElapsedMs": 107,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 2
+          },
+          {
+            "phase": "starting",
+            "iteration": 3
+          },
+          {
+            "phase": "result",
+            "iteration": 3,
+            "wallMs": 127.49508300000002,
+            "adapterElapsedMs": 106,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 3
+          },
+          {
+            "phase": "starting",
+            "iteration": 4
+          },
+          {
+            "phase": "result",
+            "iteration": 4,
+            "wallMs": 121.28137500000003,
+            "adapterElapsedMs": 101,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 4
+          },
+          {
+            "phase": "starting",
+            "iteration": 5
+          }
+        ]
+      },
+      {
+        "trial": 2,
+        "status": 0,
+        "signal": null,
+        "stderr": "",
+        "events": [
+          {
+            "phase": "initialized",
+            "initializationMs": 85,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            }
+          },
+          {
+            "phase": "starting",
+            "iteration": 0
+          },
+          {
+            "phase": "result",
+            "iteration": 0,
+            "wallMs": 164.184875,
+            "adapterElapsedMs": 113,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 0
+          },
+          {
+            "phase": "starting",
+            "iteration": 1
+          },
+          {
+            "phase": "result",
+            "iteration": 1,
+            "wallMs": 150.67983400000003,
+            "adapterElapsedMs": 123,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 1
+          },
+          {
+            "phase": "starting",
+            "iteration": 2
+          },
+          {
+            "phase": "result",
+            "iteration": 2,
+            "wallMs": 141.38858399999998,
+            "adapterElapsedMs": 119,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 2
+          },
+          {
+            "phase": "starting",
+            "iteration": 3
+          },
+          {
+            "phase": "result",
+            "iteration": 3,
+            "wallMs": 138.147875,
+            "adapterElapsedMs": 114,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 3
+          },
+          {
+            "phase": "starting",
+            "iteration": 4
+          },
+          {
+            "phase": "result",
+            "iteration": 4,
+            "wallMs": 133.76737500000002,
+            "adapterElapsedMs": 112,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 4
+          },
+          {
+            "phase": "starting",
+            "iteration": 5
+          },
+          {
+            "phase": "result",
+            "iteration": 5,
+            "wallMs": 126.3225829999999,
+            "adapterElapsedMs": 107,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 5
+          },
+          {
+            "phase": "starting",
+            "iteration": 6
+          },
+          {
+            "phase": "result",
+            "iteration": 6,
+            "wallMs": 128.15754199999992,
+            "adapterElapsedMs": 108,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 6
+          },
+          {
+            "phase": "starting",
+            "iteration": 7
+          },
+          {
+            "phase": "result",
+            "iteration": 7,
+            "wallMs": 124.859375,
+            "adapterElapsedMs": 105,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 7
+          },
+          {
+            "phase": "starting",
+            "iteration": 8
+          },
+          {
+            "phase": "result",
+            "iteration": 8,
+            "wallMs": 126.8085000000001,
+            "adapterElapsedMs": 107,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "timeout",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 8
+          },
+          {
+            "phase": "starting",
+            "iteration": 9
+          },
+          {
+            "phase": "result",
+            "iteration": 9,
+            "wallMs": 125.63858300000015,
+            "adapterElapsedMs": 106,
+            "status": "unknown",
+            "reason": {
+              "kind": "timeout",
+              "message": "interrupted",
+              "limit": "timeoutMs"
+            }
+          },
+          {
+            "phase": "recovered",
+            "iteration": 9
+          },
+          {
+            "phase": "closed",
+            "closeMs": 2.5595420000001923
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "protocol": "Three sequential fresh processes; ten 1 ms pigeonhole requests each on one runtime, each followed by a satisfiable recovery check. A 15 s external process deadline retains partial events and terminates an overrun; it is a diagnostic harness limit, not an adapter guarantee.",
+      "sources": {
+        "scripts/z3-deadline-probe.mjs": "9b88183d35c92426ac10ea228b71943d35aa6633b15b3d8be6e66d308c4f97e2",
+        "packages/solver-z3/src/runtime.ts": "e94a54c784dd80cd643e6c3ae4ff852c324bb5b737064149b427394deb8f9319",
+        "packages/solver-z3/src/cleanup.ts": "518513db6d55e6d05b3eeffebe57f2400f253e5158cd76081fff7d0635652fed",
+        "packages/solver-z3/src/close-workers.ts": "46715009ae7d8c8f5084f89a5eac1fb335660d5a99d84e6665c7dea4d2ec8ee6",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "pnpm-lock.yaml": "c527cbffc9e5dd5f397a881e0e406cdd439b7d7304d4f11af4ebd5ceca781797"
+      },
+      "runs": [
+        {
+          "trial": 0,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 82,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 219.76225000000002,
+              "adapterElapsedMs": 181,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 141.90783399999998,
+              "adapterElapsedMs": 114,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 132.23112500000002,
+              "adapterElapsedMs": 109,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 134.19716700000004,
+              "adapterElapsedMs": 110,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 125.72466699999995,
+              "adapterElapsedMs": 106,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 121.33166599999993,
+              "adapterElapsedMs": 102,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 121.00429200000008,
+              "adapterElapsedMs": 102,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 124.0809999999999,
+              "adapterElapsedMs": 102,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 129.47675000000004,
+              "adapterElapsedMs": 104,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 118.37645799999996,
+              "adapterElapsedMs": 99,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 2.484124999999949
+            }
+          ]
+        },
+        {
+          "trial": 1,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 70,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 186.70449999999997,
+              "adapterElapsedMs": 150,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 143.97970800000002,
+              "adapterElapsedMs": 116,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 131.88454099999996,
+              "adapterElapsedMs": 110,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 135.21454199999994,
+              "adapterElapsedMs": 112,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 132.6751250000001,
+              "adapterElapsedMs": 112,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 126.53020900000001,
+              "adapterElapsedMs": 107,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 132.15037500000005,
+              "adapterElapsedMs": 111,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 125.43949999999995,
+              "adapterElapsedMs": 105,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 124.88416699999993,
+              "adapterElapsedMs": 103,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 126.75600000000009,
+              "adapterElapsedMs": 105,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 1.6065419999999904
+            }
+          ]
+        },
+        {
+          "trial": 2,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 77,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 195.41962499999997,
+              "adapterElapsedMs": 158,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 148.71237499999995,
+              "adapterElapsedMs": 120,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 135.32620799999995,
+              "adapterElapsedMs": 113,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 134.96587499999998,
+              "adapterElapsedMs": 111,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 125.37074999999993,
+              "adapterElapsedMs": 106,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 123.7305,
+              "adapterElapsedMs": 104,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 122.06475,
+              "adapterElapsedMs": 103,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "timeout",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 124.73695900000007,
+              "adapterElapsedMs": 105,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 122.69200000000001,
+              "adapterElapsedMs": 101,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 121.29991599999994,
+              "adapterElapsedMs": 100,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 1.568958000000066
+            }
+          ]
+        }
+      ]
+    },
+    "26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "protocol": "Three sequential fresh processes; ten 1 ms pigeonhole requests each on one runtime, each followed by a satisfiable recovery check. A 15 s external process deadline retains partial events and terminates an overrun; it is a diagnostic harness limit, not an adapter guarantee.",
+      "sources": {
+        "scripts/z3-deadline-probe.mjs": "9b88183d35c92426ac10ea228b71943d35aa6633b15b3d8be6e66d308c4f97e2",
+        "packages/solver-z3/src/runtime.ts": "e94a54c784dd80cd643e6c3ae4ff852c324bb5b737064149b427394deb8f9319",
+        "packages/solver-z3/src/cleanup.ts": "518513db6d55e6d05b3eeffebe57f2400f253e5158cd76081fff7d0635652fed",
+        "packages/solver-z3/src/close-workers.ts": "46715009ae7d8c8f5084f89a5eac1fb335660d5a99d84e6665c7dea4d2ec8ee6",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "pnpm-lock.yaml": "c527cbffc9e5dd5f397a881e0e406cdd439b7d7304d4f11af4ebd5ceca781797"
+      },
+      "runs": [
+        {
+          "trial": 0,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 100,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 237.066542,
+              "adapterElapsedMs": 186,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 160.36029200000002,
+              "adapterElapsedMs": 131,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 157.42033300000003,
+              "adapterElapsedMs": 130,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 125.938625,
+              "adapterElapsedMs": 103,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 119.15029199999992,
+              "adapterElapsedMs": 100,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 116.551916,
+              "adapterElapsedMs": 98,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 115.59325000000013,
+              "adapterElapsedMs": 97,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 115.74395800000002,
+              "adapterElapsedMs": 97,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 116.96145899999988,
+              "adapterElapsedMs": 98,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 115.84933300000012,
+              "adapterElapsedMs": 96,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 2.431332999999995
+            }
+          ]
+        },
+        {
+          "trial": 1,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 72,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 197.774375,
+              "adapterElapsedMs": 147,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 139.419958,
+              "adapterElapsedMs": 112,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 127.43620799999997,
+              "adapterElapsedMs": 107,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 125.66316599999993,
+              "adapterElapsedMs": 103,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 119.08558400000004,
+              "adapterElapsedMs": 100,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 119.008958,
+              "adapterElapsedMs": 100,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 115.88525000000004,
+              "adapterElapsedMs": 97,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 117.03716599999984,
+              "adapterElapsedMs": 98,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 116.34804200000008,
+              "adapterElapsedMs": 96,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 119.31900000000019,
+              "adapterElapsedMs": 96,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 1.5797919999999976
+            }
+          ]
+        },
+        {
+          "trial": 2,
+          "status": 0,
+          "signal": null,
+          "stderr": "",
+          "events": [
+            {
+              "phase": "initialized",
+              "initializationMs": 72,
+              "backend": {
+                "name": "z3-wasm",
+                "version": "Z3 5.1.0.0"
+              }
+            },
+            {
+              "phase": "starting",
+              "iteration": 0
+            },
+            {
+              "phase": "result",
+              "iteration": 0,
+              "wallMs": 198.419083,
+              "adapterElapsedMs": 147,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 0
+            },
+            {
+              "phase": "starting",
+              "iteration": 1
+            },
+            {
+              "phase": "result",
+              "iteration": 1,
+              "wallMs": 136.811958,
+              "adapterElapsedMs": 109,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 1
+            },
+            {
+              "phase": "starting",
+              "iteration": 2
+            },
+            {
+              "phase": "result",
+              "iteration": 2,
+              "wallMs": 126.71470899999997,
+              "adapterElapsedMs": 106,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 2
+            },
+            {
+              "phase": "starting",
+              "iteration": 3
+            },
+            {
+              "phase": "result",
+              "iteration": 3,
+              "wallMs": 127.69295899999997,
+              "adapterElapsedMs": 105,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 3
+            },
+            {
+              "phase": "starting",
+              "iteration": 4
+            },
+            {
+              "phase": "result",
+              "iteration": 4,
+              "wallMs": 117.78049999999996,
+              "adapterElapsedMs": 98,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 4
+            },
+            {
+              "phase": "starting",
+              "iteration": 5
+            },
+            {
+              "phase": "result",
+              "iteration": 5,
+              "wallMs": 114.45362499999999,
+              "adapterElapsedMs": 96,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 5
+            },
+            {
+              "phase": "starting",
+              "iteration": 6
+            },
+            {
+              "phase": "result",
+              "iteration": 6,
+              "wallMs": 112.89200000000005,
+              "adapterElapsedMs": 95,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 6
+            },
+            {
+              "phase": "starting",
+              "iteration": 7
+            },
+            {
+              "phase": "result",
+              "iteration": 7,
+              "wallMs": 115.40625,
+              "adapterElapsedMs": 97,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 7
+            },
+            {
+              "phase": "starting",
+              "iteration": 8
+            },
+            {
+              "phase": "result",
+              "iteration": 8,
+              "wallMs": 115.52833299999998,
+              "adapterElapsedMs": 95,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 8
+            },
+            {
+              "phase": "starting",
+              "iteration": 9
+            },
+            {
+              "phase": "result",
+              "iteration": 9,
+              "wallMs": 113.43262500000014,
+              "adapterElapsedMs": 93,
+              "status": "unknown",
+              "reason": {
+                "kind": "timeout",
+                "message": "interrupted",
+                "limit": "timeoutMs"
+              }
+            },
+            {
+              "phase": "recovered",
+              "iteration": 9
+            },
+            {
+              "phase": "closed",
+              "closeMs": 1.3596249999998236
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

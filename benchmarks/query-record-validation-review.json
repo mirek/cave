@@ -1,0 +1,1013 @@
+{
+  "format": "cave.query-record-review/v1",
+  "method": "Sequential baseline Node 24, baseline Node 26, current Node 24, current Node 26; 16 cases each; one warm-up and five batches of three calls per case. Setup, transaction entry/exit, record decode and equality assertions are untimed. Baseline loader omits construction identity/key guards and the outer projection snapshot only; no runtime files are edited.",
+  "limitations": [
+    "One local macOS arm64 run per variant; order and cache effects remain.",
+    "Combined comparison does not attribute cost to an individual guard or savepoint.",
+    "No large graphs, transitive support, malformed data, HTTP, or browser timing."
+  ],
+  "sourceSha256": {
+    "scripts/query-record-bench.mjs": "efeb43896749c597094a2002de6572cc8dee5b2b362d57fcca4bf62c0f8befd4",
+    "benchmarks/query-record-baseline.mjs": "8bcced34eebfaa0e15140b0e0323341c644f1037bca1e2d60d2cd213a7a5e62b",
+    "packages/store/src/record.ts": "e145303cf15b4935584c3dc6edbadca774cf0769a03023cadf30421a8e152c96",
+    "packages/query/src/record.ts": "9ae12c6740bde0b57bc8375ba8175d7f5941be9ab445f9de45469f83ab061848"
+  },
+  "commands": {
+    "baseline": "node --disable-warning=ExperimentalWarning --import ./benchmarks/query-record-baseline.mjs scripts/query-record-bench.mjs",
+    "current": "node --disable-warning=ExperimentalWarning scripts/query-record-bench.mjs"
+  },
+  "reports": {
+    "before24": {
+      "format": "cave.query-record-benchmark/v1",
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cases": [
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            1.9629719999999982,
+            2.198139000000007,
+            1.5908749999999827,
+            1.8340556666666619,
+            1.4781386666666663
+          ],
+          "medianMs": 1.8340556666666619
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.5148749999999989,
+            1.6712223333333327,
+            1.4856113333333383,
+            1.4290693333333404,
+            1.7158053333333214
+          ],
+          "medianMs": 1.5148749999999989
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            2.0078473333333213,
+            2.2235556666666603,
+            1.8695136666666674,
+            2.3614860000000135,
+            1.8801946666666634
+          ],
+          "medianMs": 2.0078473333333213
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.5069166666666736,
+            1.5212639999999926,
+            1.5822083333333314,
+            2.1121386666666617,
+            1.5129303333333344
+          ],
+          "medianMs": 1.5212639999999926
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.853694333333332,
+            3.3410696666666695,
+            3.552430666666661,
+            3.13802800000002,
+            3.2983750000000023
+          ],
+          "medianMs": 3.3410696666666695
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.68262500000003,
+            3.268708333333317,
+            3.6407499999999877,
+            3.9751946666666527,
+            3.0474860000000112
+          ],
+          "medianMs": 3.6407499999999877
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.9596390000000006,
+            4.003222333333345,
+            3.380430666666674,
+            4.193125000000009,
+            4.187055666666652
+          ],
+          "medianMs": 4.003222333333345
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.3859443333333274,
+            2.7411803333333182,
+            3.3006390000000088,
+            3.3345416666666474,
+            2.811125000000023
+          ],
+          "medianMs": 3.3006390000000088
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            14.68949999999999,
+            14.773013666666657,
+            18.239986000000005,
+            15.500083333333313,
+            13.845458333333303
+          ],
+          "medianMs": 14.773013666666657
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            13.371958333333396,
+            16.013472333333386,
+            13.057430666666656,
+            15.313236000000037,
+            13.213555666666707
+          ],
+          "medianMs": 13.371958333333396
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            17.198402999999946,
+            20.083541666666633,
+            17.517805666666618,
+            19.400360999999975,
+            17.586000000000013
+          ],
+          "medianMs": 17.586000000000013
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            12.910444333333317,
+            13.057597333333282,
+            15.57538900000001,
+            13.110013666666722,
+            15.898208333333287
+          ],
+          "medianMs": 13.110013666666722
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            34.23700000000008,
+            30.32836100000001,
+            32.73279166666665,
+            32.7982083333333,
+            30.429152666666596
+          ],
+          "medianMs": 32.73279166666665
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            31.29697233333339,
+            32.48788866666655,
+            30.098805666666674,
+            33.75627799999999,
+            35.35734699999997
+          ],
+          "medianMs": 32.48788866666655
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            39.35915266666658,
+            40.72015300000006,
+            38.15122199999996,
+            38.68662499999997,
+            38.54581966666668
+          ],
+          "medianMs": 38.68662499999997
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            32.002416666666704,
+            33.83558333333334,
+            33.3617083333335,
+            31.329263999999966,
+            32.22273600000002
+          ],
+          "medianMs": 32.22273600000002
+        }
+      ]
+    },
+    "before26": {
+      "format": "cave.query-record-benchmark/v1",
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cases": [
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            2.114305333333334,
+            2.793722333333316,
+            1.644944333333342,
+            1.9620970000000095,
+            1.4897360000000124
+          ],
+          "medianMs": 1.9620970000000095
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.4545833333333273,
+            1.6809446666666759,
+            1.4362499999999916,
+            1.85486099999999,
+            1.4328889999999888
+          ],
+          "medianMs": 1.4545833333333273
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            1.9109719999999963,
+            2.0942223333333345,
+            1.9113473333333484,
+            2.255374999999996,
+            1.9224306666666848
+          ],
+          "medianMs": 1.9224306666666848
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.7647499999999923,
+            2.3000140000000138,
+            1.4658613333333317,
+            1.6455553333333341,
+            1.651263999999988
+          ],
+          "medianMs": 1.651263999999988
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.51858333333333,
+            3.5602500000000155,
+            3.4085693333333325,
+            3.473027666666667,
+            3.2307219999999766
+          ],
+          "medianMs": 3.473027666666667
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.1742636666666613,
+            3.2633886666666663,
+            3.8542916666666542,
+            3.236069333333338,
+            3.381652666666658
+          ],
+          "medianMs": 3.2633886666666663
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            4.112444666666647,
+            3.3976526666666964,
+            3.4537083333333385,
+            3.9571110000000167,
+            3.3532360000000003
+          ],
+          "medianMs": 3.4537083333333385
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.3728889999999865,
+            2.822902666666664,
+            3.3184446666666645,
+            2.9565280000000107,
+            2.9820973333333236
+          ],
+          "medianMs": 2.9820973333333236
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            15.018347333333358,
+            15.003958333333307,
+            17.24831933333333,
+            14.131277666666657,
+            16.73115299999999
+          ],
+          "medianMs": 15.018347333333358
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            14.946652666666674,
+            17.182847000000038,
+            13.374750000000025,
+            15.745874999999993,
+            13.619861000000052
+          ],
+          "medianMs": 14.946652666666674
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            17.707736333333287,
+            20.265680666666714,
+            17.37899999999998,
+            19.854694333333327,
+            17.380694666666688
+          ],
+          "medianMs": 17.707736333333287
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            12.985555666666642,
+            14.92206966666663,
+            16.309722333333337,
+            13.228986333333372,
+            15.253138666666624
+          ],
+          "medianMs": 14.92206966666663
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            31.17061133333338,
+            30.632236000000074,
+            32.05634733333333,
+            32.430639000000006,
+            31.049749999999978
+          ],
+          "medianMs": 31.17061133333338
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            31.833764000000127,
+            30.95262500000005,
+            30.81881933333337,
+            32.00497233333332,
+            30.946097333333302
+          ],
+          "medianMs": 30.95262500000005
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            36.41480566666663,
+            37.85104166666664,
+            36.285333333333256,
+            36.309916666666595,
+            37.67186099999996
+          ],
+          "medianMs": 36.41480566666663
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            32.04843066666672,
+            32.09838866666663,
+            33.841000000000044,
+            34.844388999999865,
+            32.31269433333333
+          ],
+          "medianMs": 32.31269433333333
+        }
+      ]
+    },
+    "after24": {
+      "format": "cave.query-record-benchmark/v1",
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cases": [
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            2.08359733333333,
+            2.064902999999996,
+            1.7016666666666633,
+            1.5460416666666674,
+            1.9142916666666754
+          ],
+          "medianMs": 1.9142916666666754
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.7160276666666618,
+            1.5018610000000006,
+            1.4454859999999978,
+            1.7478886666666729,
+            1.4525833333333367
+          ],
+          "medianMs": 1.5018610000000006
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            1.7574999999999932,
+            1.5599863333333321,
+            1.506749999999992,
+            1.7449306666666757,
+            1.4987083333333355
+          ],
+          "medianMs": 1.5599863333333321
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.4682219999999877,
+            1.580138999999993,
+            1.6316803333333307,
+            2.1065136666666526,
+            1.4699026666666744
+          ],
+          "medianMs": 1.580138999999993
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.738555333333333,
+            3.3001390000000015,
+            3.4138749999999995,
+            3.2336249999999986,
+            3.4314443333333315
+          ],
+          "medianMs": 3.4138749999999995
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.40920833333333,
+            3.322541666666666,
+            3.689680666666675,
+            3.677666666666672,
+            2.9870416666666793
+          ],
+          "medianMs": 3.40920833333333
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.084208333333322,
+            3.5036943333333284,
+            3.426124999999994,
+            3.221041666666679,
+            3.670902666666658
+          ],
+          "medianMs": 3.426124999999994
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.589902666666679,
+            3.5509026666666537,
+            2.9493609999999912,
+            3.350639000000001,
+            3.385097333333306
+          ],
+          "medianMs": 3.385097333333306
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            14.993513666666635,
+            17.654749999999996,
+            14.337111000000013,
+            16.864763666666665,
+            16.59716666666668
+          ],
+          "medianMs": 16.59716666666668
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            15.239166666666657,
+            13.587722333333318,
+            16.65062499999999,
+            17.034597333333295,
+            13.663361000000046
+          ],
+          "medianMs": 15.239166666666657
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            14.31545833333333,
+            16.178152666666694,
+            13.496847333333335,
+            15.743958333333316,
+            15.999597333333364
+          ],
+          "medianMs": 15.743958333333316
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            15.205319666666659,
+            13.529014000000037,
+            16.025305666666707,
+            17.554180666666678,
+            14.71911099999996
+          ],
+          "medianMs": 15.205319666666659
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            38.86172200000002,
+            36.923375,
+            33.01279166666669,
+            33.6735416666667,
+            33.1777223333332
+          ],
+          "medianMs": 33.6735416666667
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            33.09948600000007,
+            31.910666666666657,
+            34.88587500000009,
+            33.56445833333328,
+            33.18531966666675
+          ],
+          "medianMs": 33.18531966666675
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            32.713222333333306,
+            34.00576400000015,
+            30.97797233333328,
+            33.1219029999999,
+            33.15183333333334
+          ],
+          "medianMs": 33.1219029999999
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            34.23787500000011,
+            31.14554166666676,
+            33.34451400000004,
+            33.31548633333341,
+            30.72418066666675
+          ],
+          "medianMs": 33.31548633333341
+        }
+      ]
+    },
+    "after26": {
+      "format": "cave.query-record-benchmark/v1",
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cases": [
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            2.606972000000004,
+            2.4287499999999986,
+            1.6724583333333385,
+            1.879888666666659,
+            1.577624999999993
+          ],
+          "medianMs": 1.879888666666659
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.5370276666666693,
+            1.487055666666663,
+            1.7416110000000156,
+            1.515180333333338,
+            1.6940833333333292
+          ],
+          "medianMs": 1.5370276666666693
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            1.8179306666666737,
+            1.5561806666666484,
+            1.8869583333333442,
+            1.5103750000000105,
+            1.7649999999999864
+          ],
+          "medianMs": 1.7649999999999864
+        },
+        {
+          "claims": 100,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            1.6960696666666497,
+            1.48836133333333,
+            1.7124026666666623,
+            2.339513999999989,
+            1.515264000000002
+          ],
+          "medianMs": 1.6960696666666497
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            3.732221999999998,
+            3.265402999999992,
+            3.436222333333338,
+            3.215347333333341,
+            3.3806109999999876
+          ],
+          "medianMs": 3.3806109999999876
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            3.2248473333333245,
+            3.9846526666666477,
+            3.4258886666666513,
+            3.687763999999978,
+            3.484874999999988
+          ],
+          "medianMs": 3.484874999999988
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            2.9794999999999923,
+            3.4226250000000014,
+            3.467361333333315,
+            2.9582223333333104,
+            3.4850276666666864
+          ],
+          "medianMs": 3.4226250000000014
+        },
+        {
+          "claims": 100,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            2.9903470000000048,
+            3.613333333333306,
+            3.4632916666666915,
+            2.942791666666684,
+            3.3405276666666546
+          ],
+          "medianMs": 3.3405276666666546
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            15.369000000000028,
+            18.960486333333318,
+            14.596291666666653,
+            16.977194333333312,
+            16.67156933333331
+          ],
+          "medianMs": 16.67156933333331
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            15.790764000000005,
+            14.241263666666706,
+            16.22300000000003,
+            16.62227766666668,
+            13.73726400000002
+          ],
+          "medianMs": 15.790764000000005
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            13.640625,
+            16.741375000000062,
+            13.669874999999971,
+            15.950666666666697,
+            16.67848600000002
+          ],
+          "medianMs": 15.950666666666697
+        },
+        {
+          "claims": 1000,
+          "metadata": false,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            15.632472333333377,
+            13.876180666666642,
+            17.04954166666668,
+            15.176236333333312,
+            14.596388666666675
+          ],
+          "medianMs": 15.176236333333312
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            33.63948633333333,
+            32.2585276666667,
+            31.6084583333333,
+            32.20359733333331,
+            33.610694333333264
+          ],
+          "medianMs": 32.2585276666667
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "memory",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            33.201014000000065,
+            32.20699999999988,
+            30.984583333333376,
+            31.490735999999895,
+            34.753430666666645
+          ],
+          "medianMs": 32.20699999999988
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": false,
+          "iterations": 3,
+          "samplesMs": [
+            37.28408333333331,
+            38.94870833333334,
+            36.928819333333344,
+            36.151125000000015,
+            39.209236
+          ],
+          "medianMs": 37.28408333333331
+        },
+        {
+          "claims": 1000,
+          "metadata": true,
+          "mode": "wal-read-only",
+          "nested": true,
+          "iterations": 3,
+          "samplesMs": [
+            36.276653000000046,
+            37.14963900000006,
+            38.549402999999984,
+            34.91680566666673,
+            35.54765266666649
+          ],
+          "medianMs": 36.276653000000046
+        }
+      ]
+    }
+  }
+}

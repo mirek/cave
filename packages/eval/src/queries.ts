@@ -35,6 +35,7 @@
 import { Token } from '@cavelang/parser'
 import { query } from '@cavelang/query'
 import type { Store } from '@cavelang/store'
+import { errorMessage } from './error-message.ts'
 
 export type Expect =
   | { readonly kind: 'some' }
@@ -58,7 +59,8 @@ const bindingRe = /\?([^\s=]+)\s*=\s*/g
 
 /** @returns the solution record of one `?var = value` line, or `undefined`. */
 const parseSolution = (text: string): undefined | Record<string, string> => {
-  const found = [...text.matchAll(bindingRe)]
+  const starts = new Set(Token.topLevel(text, '?'))
+  const found = [...text.matchAll(bindingRe)].filter(match => starts.has(match.index))
   if (found.length === 0 || found[0]!.index !== 0) {
     return undefined
   }
@@ -66,10 +68,11 @@ const parseSolution = (text: string): undefined | Record<string, string> => {
   for (const [at, match] of found.entries()) {
     const next = found[at + 1]
     const value = text.slice(match.index + match[0].length, next?.index).trim()
-    if (value === '') {
+    const name = match[1]!
+    if (value === '' || Object.hasOwn(solution, name)) {
       return undefined
     }
-    solution[match[1]!] = value
+    Object.defineProperty(solution, name, { value, enumerable: true, writable: true, configurable: true })
   }
   return solution
 }
@@ -98,7 +101,7 @@ export const parseQueries = (text: string): Parsed => {
     if (trimmed === '' || trimmed.startsWith(';')) {
       return
     }
-    if (trimmed.startsWith('WHERE ')) {
+    if (/^WHERE(?:[ \t]|$)/.test(trimmed)) {
       if (current === undefined) {
         problems.push(`queries line ${line}: WHERE without a pattern`)
         return
@@ -153,7 +156,7 @@ export type Outcome = {
 }
 
 const recordKey = (record: Readonly<Record<string, string>>): string =>
-  JSON.stringify(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)))
+  JSON.stringify(Object.entries(record).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
 
 /** Runs one query against the store and checks its expectation. */
 export const checkQuery = (
@@ -175,7 +178,7 @@ export const checkQuery = (
       matches: 0,
       missing: [],
       unexpected: [],
-      error: error instanceof Error ? error.message : String(error)
+      error: errorMessage(error)
     }
   }
   switch (q.expect.kind) {

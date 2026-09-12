@@ -24,7 +24,8 @@
  * blocks included.
  */
 
-import { SourceSpan, Uuidv7 } from '@cavelang/core'
+import { maximumSensitivity } from './sensitivity.ts'
+import { Key, SourceSpan, Uuidv7 } from '@cavelang/core'
 import { emitClaim } from '@cavelang/canonical'
 import { Pattern, query } from '@cavelang/query'
 import type { Match } from '@cavelang/query'
@@ -32,6 +33,10 @@ import { Row } from '@cavelang/store'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { withScopedStore } from './scope.ts'
+import { errorMessage } from './error-message.ts'
+import { fromMarkdown } from 'mdast-util-from-markdown'
+import { gfmFootnoteFromMarkdown } from 'mdast-util-gfm-footnote'
+import { gfmFootnote } from 'micromark-extension-gfm-footnote'
 
 export type Problem = {
   /** 1-based template line of the query that failed. */
@@ -74,32 +79,38 @@ const escapeRegExp = (text: string): string =>
 /**
  * Wraps store text as a Markdown code span that survives its own
  * backticks: the delimiter outruns the longest run inside by one, and a
- * space pads content that begins or ends with a backtick (CommonMark
- * strips the pair back out).
+ * space pads content that begins or ends with a backtick, or has spaces
+ * at both ends (CommonMark strips one pair unless the content is all spaces).
  */
 const toCodeSpan = (text: string): string => {
-  const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map(run => run[0].length))
+  let longest = 0
+  for (const run of text.matchAll(/`+/g)) longest = Math.max(longest, run[0].length)
   const delimiter = '`'.repeat(longest + 1)
-  const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : ''
+  const pad = text.startsWith('`') || text.endsWith('`') ||
+    (text.startsWith(' ') && text.endsWith(' ') && /[^ ]/.test(text)) ? ' ' : ''
   return `${delimiter}${pad}${text}${pad}${delimiter}`
 }
 
-const sourceLink = (reference: SourceSpan.Reference): string =>
-  reference.href === undefined ?
-    toCodeSpan(reference.location) :
-    `[${reference.location.replaceAll('[', '\\[').replaceAll(']', '\\]')}](<${reference.href.replaceAll('>', '%3E')}>)`
+const sourceLink = (reference: SourceSpan.Reference): string => {
+  // Decoded source identities can contain controls. Keep the label on one
+  // line while leaving the stored identity and encoded URL unchanged.
+  const location = reference.location.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, char =>
+    char === '\n' ? '\\n' : char === '\r' ? '\\r' : char === '\t' ? '\\t' :
+      `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  return reference.href === undefined ?
+    toCodeSpan(location) :
+    `[${location.replace(/[\\`*_\[\]<>&]/g, char => `\\${char}`)}](<${reference.href.replaceAll('&', '&amp;').replaceAll('>', '%3E')}>)`
+}
 
 /**
- * Substitutes `?var` occurrences with bindings, longest names first so
- * `?who` never clips `?who2`; a token no binding matches passes through
- * untouched (fragments are prose — the §29.3 convention).
+ * Substitutes template occurrences once; inserted values are never scanned.
+ * Longest names win, and unknown tokens pass through untouched.
  */
 const substitute = (fragment: string, bindings: Readonly<Record<string, string>>): string => {
-  let text = fragment
-  for (const name of Object.keys(bindings).sort((a, b) => b.length - a.length)) {
-    text = text.replace(new RegExp(`\\?${escapeRegExp(name)}(?![A-Za-z0-9_-])`, 'g'), () => bindings[name]!)
-  }
-  return text
+  const names = Object.keys(bindings).sort((a, b) => b.length - a.length)
+  if (names.length === 0) return fragment
+  const tokens = new RegExp(`\\?(${names.map(escapeRegExp).join('|')})(?![\\p{L}\\p{M}\\p{N}_-])`, 'gu')
+  return fragment.replace(tokens, (_token, name: string) => bindings[name]!)
 }
 
 /** Distinct `?var` names of a parsed pattern, in slot order. */
@@ -126,7 +137,51 @@ const fenceRe = /^ {0,3}(`{3,}|~{3,})(.*)$/
 const closesFence = (line: string, fence: string): boolean => {
   const match = fenceRe.exec(line)
   return match !== null &&
-    match[1]![0] === fence[0] && match[1]!.length >= fence.length && match[2]!.trim() === ''
+    match[1]![0] === fence[0] && match[1]!.length >= fence.length && /^[ \t]*$/.test(match[2]!)
+}
+
+type InlineSplice = {
+  readonly startColumn: number
+  readonly endLine: number
+  readonly endColumn: number
+  readonly content: string
+}
+
+/** Locate live spans and literal regions without reserializing the template. */
+const templateBoundaries = (template: string, lines: readonly string[]): {
+  inert: Set<number>, blocks: ReadonlyMap<number, { endLine: number, fence: string }>, splices: ReadonlyMap<number, readonly InlineSplice[]>
+} => {
+  type Node = ReturnType<typeof fromMarkdown> | ReturnType<typeof fromMarkdown>['children'][number]
+  const tree = fromMarkdown(template, {
+    extensions: [gfmFootnote()], mdastExtensions: [gfmFootnoteFromMarkdown()]
+  })
+  const pending: Node[] = [tree]
+  const topLevel = new Set<Node>(tree.children)
+  const inert = new Set<number>()
+  const blocks = new Map<number, { endLine: number, fence: string }>()
+  const splices = new Map<number, InlineSplice[]>()
+  while (pending.length > 0) {
+    const node = pending.pop()!
+    if (node.type === 'inlineCode' && node.position !== undefined && node.value.startsWith(splicePrefix)) {
+      const { start, end } = node.position
+      const entries = splices.get(start.line - 1) ?? []
+      entries.push({ startColumn: start.column - 1, endLine: end.line - 1,
+        endColumn: end.column - 1, content: node.value.replace(/\r\n|\r|\n/g, ' ') })
+      splices.set(start.line - 1, entries)
+    }
+    if (node.type === 'code' && node.position !== undefined) {
+      const start = node.position.start.line - 1
+      const fence = fenceRe.exec(lines[start]!)
+      if (topLevel.has(node) && fence !== null && fence[2]!.trim().split(/\s+/)[0] === 'cave-q') {
+        blocks.set(start, { endLine: node.position.end.line - 1, fence: fence[1]! })
+      } else {
+        for (let line = start; line < node.position.end.line; line++) inert.add(line)
+      }
+    }
+    if ('children' in node) for (const child of node.children) pending.push(child)
+  }
+  for (const entries of splices.values()) entries.sort((a, b) => a.startColumn - b.startColumn)
+  return { inert, blocks, splices }
 }
 
 type Renderer = {
@@ -141,26 +196,22 @@ type Renderer = {
  * the solution as `cave query` prints it, as a cited bullet.
  */
 const renderBlock = (blockLines: readonly string[], startLine: number, renderer: Renderer): string[] => {
-  const lines = [...blockLines]
-  while (lines.length > 0 && lines[0]!.trim() === '') {
-    lines.shift()
-    startLine += 1
-  }
-  if (lines.length === 0) {
+  let first = 0
+  while (first < blockLines.length && blockLines[first]!.trim() === '') first += 1
+  startLine += first
+  if (first === blockLines.length) {
     renderer.problem(startLine, 'empty cave-q block — a CAVE-Q pattern is required (spec §31.1)')
     return [invalidQuery]
   }
+  const lines = blockLines.slice(first)
   const queryLines = [lines[0]!]
   let at = 1
-  while (at < lines.length && lines[at]!.trim().startsWith('WHERE ')) {
+  while (at < lines.length && /^WHERE(?:[ \t]|$)/.test(lines[at]!.trim())) {
     queryLines.push(lines[at]!)
     at += 1
   }
-  const fragmentLines = lines.slice(at)
-  while (fragmentLines.length > 0 && fragmentLines[0]!.trim() === '') {
-    fragmentLines.shift()
-  }
-  const fragment = fragmentLines.some(line => line.trim() !== '') ? fragmentLines.join('\n') : undefined
+  while (at < lines.length && lines[at]!.trim() === '') at += 1
+  const fragment = at < lines.length ? lines.slice(at).join('\n') : undefined
 
   const matches = renderer.run(queryLines.join('\n'), startLine)
   if (matches === undefined) {
@@ -168,6 +219,7 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
   }
   const out: string[] = []
   for (const match of matches) {
+    const marker = match.row === undefined ? '' : renderer.cite(match.row)
     let instance: string
     if (fragment === undefined) {
       const bindings = Object.entries(match.bindings)
@@ -175,13 +227,14 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
         .join('  ')
       // A fully bound pattern has nothing to bind — the claim itself is
       // the point (mirroring `cave query`'s rendering).
-      instance = `- ${bindings !== '' ? bindings : toCodeSpan(match.row?.raw_line ?? queryLines[0]!.trim())} ${placeholder}`
+      instance = `- ${bindings !== '' ? bindings : toCodeSpan(match.row?.raw_line ?? queryLines[0]!.trim())}${marker === '' ? '' : ` ${marker}`}`
     } else {
-      instance = substitute(fragment, match.bindings)
-    }
-    if (match.row !== undefined) {
-      const marker = renderer.cite(match.row)
-      if (instance.includes(placeholder)) {
+      // Citation placeholders belong to the authored template, never to data
+      // inserted from the store. Resolve them before substituting bindings.
+      instance = fragment
+      if (match.row === undefined) {
+        instance = instance.replace(/[ \t]*\[\^\?\]/g, '')
+      } else if (instance.includes(placeholder)) {
         instance = instance.replaceAll(placeholder, marker)
       } else {
         // Append to the last non-blank line, so a paragraph fragment's
@@ -195,72 +248,11 @@ const renderBlock = (blockLines: readonly string[], startLine: number, renderer:
         }
         instance = instanceLines.join('\n')
       }
-    } else {
-      // Transitive solutions carry no row (§24.2's rule) — nothing to cite.
-      instance = instance.replace(/[ \t]*\[\^\?\]/g, '')
+      instance = substitute(instance, match.bindings)
     }
-    out.push(...instance.split('\n'))
+    for (const line of instance.split('\n')) out.push(line)
   }
   return out
-}
-
-/** A code span on one line: `[start, end)` offsets, delimiters included. */
-type CodeSpan = {
-  readonly start: number
-  readonly end: number
-  /** Content after CommonMark normalization (one padding space stripped). */
-  readonly content: string
-}
-
-/**
- * Scans one line for Markdown code spans (CommonMark 6.1): a span opens
- * with a backtick run and closes at the next run of exactly the same
- * length — longer and shorter runs in between are content, an opener
- * with no closer is literal text. Content that both begins and ends
- * with a space (and isn't all spaces) loses one from each end, the
- * escape hatch that lets content begin or end with a backtick.
- */
-const codeSpans = (line: string): CodeSpan[] => {
-  const spans: CodeSpan[] = []
-  let at = 0
-  while (at < line.length) {
-    const start = line.indexOf('`', at)
-    if (start === -1) {
-      break
-    }
-    let opened = start + 1
-    while (opened < line.length && line[opened] === '`') {
-      opened += 1
-    }
-    const length = opened - start
-    let close = -1
-    for (let search = opened; search < line.length;) {
-      const candidate = line.indexOf('`', search)
-      if (candidate === -1) {
-        break
-      }
-      let candidateEnd = candidate + 1
-      while (candidateEnd < line.length && line[candidateEnd] === '`') {
-        candidateEnd += 1
-      }
-      if (candidateEnd - candidate === length) {
-        close = candidate
-        break
-      }
-      search = candidateEnd
-    }
-    if (close === -1) {
-      at = opened
-      continue
-    }
-    let content = line.slice(opened, close)
-    if (content.startsWith(' ') && content.endsWith(' ') && /[^ ]/.test(content)) {
-      content = content.slice(1, -1)
-    }
-    spans.push({ start, end: close + length, content })
-    at = close + length
-  }
-  return spans
 }
 
 const splicePrefix = 'cave-q:'
@@ -274,7 +266,7 @@ const renderSplice = (patternText: string, lineNo: number, renderer: Renderer): 
   try {
     names = variablesOf(Pattern.parse(patternText))
   } catch (error) {
-    renderer.problem(lineNo, error instanceof Error ? error.message : String(error))
+    renderer.problem(lineNo, errorMessage(error))
     return invalidQuery
   }
   if (names.length !== 1) {
@@ -300,23 +292,25 @@ const renderSplice = (patternText: string, lineNo: number, renderer: Renderer): 
   return match.row === undefined ? value : `${value}${renderer.cite(match.row)}`
 }
 
-/**
- * Splices on one prose line: each code span whose content starts with
- * `cave-q:` — whatever its delimiter length, so patterns may carry
- * backtick code literals — is replaced by its splice rendering; other
- * spans and the text between pass through untouched.
- */
-const renderInline = (line: string, lineNo: number, renderer: Renderer): string => {
+/** Render parsed spans, preserving source outside their exact boundaries. */
+const renderInline = (lines: readonly string[], startLine: number,
+  splices: ReadonlyMap<number, readonly InlineSplice[]>, renderer: Renderer): { text: string, endLine: number } => {
+  let line = startLine
+  let column = 0
+  let index = 0
   let out = ''
-  let at = 0
-  for (const span of codeSpans(line)) {
-    out += line.slice(at, span.start)
-    out += span.content.startsWith(splicePrefix)
-      ? renderSplice(span.content.slice(splicePrefix.length), lineNo, renderer)
-      : line.slice(span.start, span.end)
-    at = span.end
+  while (true) {
+    const span = splices.get(line)?.[index]
+    if (span === undefined) return { text: out + lines[line]!.slice(column), endLine: line }
+    out += lines[line]!.slice(column, span.startColumn)
+    out += renderSplice(span.content.slice(splicePrefix.length), line + 1, renderer)
+    column = span.endColumn
+    if (span.endLine === line) index += 1
+    else {
+      line = span.endLine
+      index = 0
+    }
   }
-  return out + line.slice(at)
 }
 
 /**
@@ -330,13 +324,19 @@ const renderReport = (store: Store, template: string, options: ReportOptions): R
   /** Footnote number per cited row id — repeats share a marker. */
   const numbers = new Map<string, number>()
   const definitions: string[] = []
+  // Reserve label occurrences throughout the original template, including
+  // case variants and code examples, before assigning any generated labels.
+  const reserved = new Set([...template.matchAll(/\[\^\s*(c[1-9][0-9]*)\s*\]/gi)]
+    .map(match => match[1]!.toLowerCase()))
+  let nextNumber = 1
 
   const cite = (row: Row.t): string => {
     const existing = numbers.get(row.id)
     if (existing !== undefined) {
       return `[^c${existing}]`
     }
-    const number = numbers.size + 1
+    while (reserved.has(`c${nextNumber}`)) nextNumber += 1
+    const number = nextNumber++
     numbers.set(row.id, number)
     const contexts = (store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(row.id) as
       { context: string }[]).map(entry => entry.context)
@@ -347,74 +347,80 @@ const renderReport = (store: Store, template: string, options: ReportOptions): R
     // must show provenance the authored abbreviation would hide.
     // A code span holds one line: a multi-line comment (§6.4) folds its
     // lines with ` / ` instead of opening above the claim as in CAVE text.
+    if (typeof row.id !== 'string' || !Uuidv7.is(row.id) || row.tx !== row.id) {
+      throw new Error('stored transaction identity must be a canonical lowercase UUIDv7 with id = tx')
+    }
     const claim = Row.toClaim(row, contexts, tags)
     const canonical = claim.comment === undefined ?
       emitClaim(claim) :
-      `${emitClaim({ ...claim, comment: undefined })} ; ${claim.comment.split('\n').join(' / ')}`
-    const date = new Date(Uuidv7.msOf(row.tx)).toISOString().slice(0, 10)
+      `${emitClaim({ ...claim, comment: undefined })} ; ${claim.comment.split(/\r\n|\r|\n/).join(' / ')}`
+    if (Key.of(claim) !== row.claim_key) {
+      throw new Error('stored claim key does not agree with its semantic identity')
+    }
+    const date = new Date(Uuidv7.msOf(row.tx)).toISOString().split('T')[0]!
     const spans = SourceSpan.ofContexts(contexts).filter(reference => reference.span !== undefined)
     const provenance = spans.length === 0 ? '' : `, source ${spans.map(sourceLink).join(', ')}`
     definitions.push(`[^c${number}]: ${toCodeSpan(canonical)} — ${date}, claim key ${toCodeSpan(row.claim_key)}${provenance}`)
     return `[^c${number}]`
   }
 
+  // A render uses one immutable scoped store and fixed query options. Retain
+  // only the last successful query, avoiding a cache of every report result.
+  let previousQuery: string | undefined
+  let previousMatches: Match[] | undefined
   const renderer: Renderer = {
-    cite,
+    cite: row => {
+      try { return cite(row) }
+      catch (error) {
+        throw new Error(`CAVE report citation failed for claim ${row.id}: ${errorMessage(error)}`, { cause: error })
+      }
+    },
     problem: (line, message) => problems.push({ line, message }),
     run: (queryText, line) => {
+      if (previousQuery === queryText && previousMatches !== undefined) return previousMatches
+      previousQuery = undefined
+      previousMatches = undefined
       try {
-        return query(store, queryText, {
+        const matches = query(store, queryText, {
           ...options.aliases === true ? { aliases: true } : {},
           ...options.resolve === true ? { resolve: true } : {},
           ...options.asOf === undefined ? {} : { asOf: options.asOf },
           ...options.at === undefined ? {} : { at: options.at }
         })
+        previousQuery = queryText
+        previousMatches = matches
+        return matches
       } catch (error) {
-        problems.push({ line, message: error instanceof Error ? error.message : String(error) })
+        problems.push({ line, message: errorMessage(error) })
         return undefined
       }
     }
   }
 
-  const lines = template.split(/\r?\n/)
+  const lines = template.split(/\r\n|\r|\n/)
+  const { inert, blocks, splices } = templateBoundaries(template, lines)
   const out: string[] = []
   let at = 0
   while (at < lines.length) {
     const line = lines[at]!
-    const fence = fenceRe.exec(line)
-    if (fence !== null && fence[2]!.trim() !== '' && fence[2]!.trim().split(/\s+/)[0] === 'cave-q') {
-      const blockStart = at + 1
-      const blockLines: string[] = []
-      at += 1
-      while (at < lines.length && !closesFence(lines[at]!, fence[1]!)) {
-        blockLines.push(lines[at]!)
-        at += 1
-      }
-      if (at >= lines.length) {
-        problems.push({ line: blockStart, message: 'unclosed cave-q block' })
-      } else {
-        at += 1 // the closing fence
-      }
-      out.push(...renderBlock(blockLines, blockStart + 1, renderer))
-      continue
-    }
-    if (fence !== null) {
-      // Any other fenced block passes through verbatim — its content is
-      // code, so inline splices inside it never fire.
+    if (inert.has(at)) {
       out.push(line)
       at += 1
-      while (at < lines.length) {
-        out.push(lines[at]!)
-        if (closesFence(lines[at]!, fence[1]!)) {
-          at += 1
-          break
-        }
-        at += 1
-      }
       continue
     }
-    out.push(renderInline(line, at + 1, renderer))
-    at += 1
+    const block = blocks.get(at)
+    if (block !== undefined) {
+      const blockStart = at + 1
+      const closed = block.endLine > at && closesFence(lines[block.endLine]!, block.fence)
+      const blockLines = lines.slice(at + 1, block.endLine + (closed ? 0 : 1))
+      if (!closed) problems.push({ line: blockStart, message: 'unclosed cave-q block' })
+      for (const line of renderBlock(blockLines, blockStart + 1, renderer)) out.push(line)
+      at = block.endLine + 1
+      continue
+    }
+    const rendered = renderInline(lines, at, splices, renderer)
+    out.push(rendered.text)
+    at = rendered.endLine + 1
   }
 
   // One newline ends the document — the template's own EOF blank lines
@@ -423,13 +429,25 @@ const renderReport = (store: Store, template: string, options: ReportOptions): R
     out.pop()
   }
   if (definitions.length > 0) {
-    out.push('', ...definitions)
+    out.push('')
+    for (const definition of definitions) out.push(definition)
   }
   const body = out.join('\n')
   const markdown = body === '' ? '' : `${body}\n`
   return { markdown, citations: definitions.length, problems }
 }
 
-export const report = (store: Store, template: string, options: ReportOptions = {}): Report =>
-  withScopedStore(store, options.maxSensitivity ?? Sensitivity.defaultMaximum, scoped =>
-    renderReport(scoped, template, options))
+export const report = (store: Store, template: string, options: ReportOptions = {}): Report => {
+  const { maxSensitivity, aliases, resolve, asOf, at } = options
+  for (const [name, value] of [['aliases', aliases], ['resolve', resolve]] as const) {
+    if (value !== undefined && typeof value !== 'boolean') throw new TypeError(`${name} must be a boolean`)
+  }
+  const captured: ReportOptions = {
+    ...aliases === undefined ? {} : { aliases },
+    ...resolve === undefined ? {} : { resolve },
+    ...asOf === undefined ? {} : { asOf },
+    ...at === undefined ? {} : { at }
+  }
+  return withScopedStore(store, maximumSensitivity(maxSensitivity), scoped =>
+    renderReport(scoped, template, captured))
+}

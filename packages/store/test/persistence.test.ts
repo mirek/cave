@@ -5,6 +5,65 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { canonicalizeText, Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
+import { nodeSqliteAdapter } from '@cavelang/store/adapter/node'
+import { openWith } from '../src/runtime.ts'
+
+for (const atReservation of [false, true]) test(`ingest sees peer vocabulary before canonicalizing (write at reservation=${atReservation})`, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-vocabulary-'))
+  const path = join(dir, 'k.db')
+  let inject: (() => void) | undefined
+  const store = openWith({
+    ...nodeSqliteAdapter,
+    open(location, options) {
+      const db = nodeSqliteAdapter.open(location, options)
+      return { prepare: sql => db.prepare(sql), close: () => db.close(), exec(sql) {
+        if (sql === 'BEGIN IMMEDIATE' && inject !== undefined) {
+          const write = inject
+          inject = undefined
+          write()
+        }
+        db.exec(sql)
+      } }
+    },
+  }, path)
+  const peer = open(path)
+  try {
+    const declare = () => peer.ingest('MANAGES IS verb\nMANAGES REVERSE MANAGED-BY')
+    if (atReservation) inject = declare
+    else declare()
+    store.ingest('api MANAGED-BY alice')
+    assert.equal(inject, undefined)
+    const row = store.currentBeliefs().find(row => row.subject === 'alice')
+    assert.equal(row?.verb, 'MANAGES')
+    assert.equal(row?.object, 'api')
+  } finally {
+    peer.close()
+    store.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a failed strict ingest restores registry state without hiding peer vocabulary on retry', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-ingest-rollback-'))
+  const path = join(dir, 'k.db')
+  const store = open(path)
+  const peer = open(path)
+  try {
+    peer.ingest('MANAGES IS verb\nMANAGES REVERSE MANAGED-BY')
+    const original = store.registry()
+    const before = store.currentBeliefs().length
+    assert.throws(() => store.ingest('WRAPS REVERSE WRAPPED-BY\nbroken', { strict: true }))
+    assert.equal(store.registry(), original)
+    assert.equal(store.currentBeliefs().length, before)
+    store.ingest('api MANAGED-BY alice')
+    assert.equal(store.currentBeliefs().find(row => row.subject === 'alice')?.verb, 'MANAGES')
+    assert.equal(Registry.inverseOf(store.registry(), 'WRAPS'), undefined)
+  } finally {
+    peer.close()
+    store.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 test('registry rebuilds from stored declaration claims on reopen', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-'))
@@ -73,6 +132,32 @@ test('exportText emits canonical text; re-ingest preserves current beliefs', () 
   assert.deepEqual(after, before)
   store.close()
   copy.close()
+})
+
+test('current-only search observes peer commits without reopening the reader', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-search-peer-'))
+  const path = join(dir, 'k.db')
+  const writer = open(path)
+  const reader = open(path)
+  try {
+    writer.ingest('service HAS state: ready')
+    const initial = reader.search('service', { currentOnly: true })
+    assert.deepEqual(initial.map(row => row.value_text), ['ready'])
+    writer.ingest('service HAS state: updated')
+    assert.deepEqual(reader.search('service', { currentOnly: true }).map(row => row.value_text), ['updated'])
+    writer.ingest('service HAS state: updated @ 0%')
+    assert.deepEqual(reader.search('service', { currentOnly: true }), [])
+    assert.equal(reader.search('service').length, 3)
+    writer.ingest('service HAS state: restored')
+    const before = writer.exportText({ tx: true, maxSensitivity: 'restricted' })
+    assert.deepEqual(reader.search('service', { currentOnly: true }).map(row => row.value_text), ['restored'])
+    assert.deepEqual(initial.map(row => row.value_text), ['ready'])
+    assert.equal(writer.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally {
+    reader.close()
+    writer.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('exportText current-only skips superseded rows', () => {

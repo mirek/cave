@@ -21,6 +21,9 @@
 import { Claim, Context, Key, Uuidv7, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import type { Adapter } from './adapter.ts'
+import { readSnapshot } from './read-snapshot.ts'
+import { errorMessage } from './error-message.ts'
+import { captureClaim } from './capture-claim.ts'
 import * as QuerySql from './query-sql.ts'
 import * as Resolve from './resolve.ts'
 import * as Row from './row.ts'
@@ -30,6 +33,36 @@ import * as Provenance from './provenance.ts'
 import * as Record from './record.ts'
 
 const currentSql = QuerySql.current()
+
+const booleanOption = (value: unknown, name: string): boolean => {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new TypeError(`${name} must be a boolean`)
+  }
+  return value === true
+}
+
+const validateSensitivity = (maximum: undefined | Sensitivity.Level): void => {
+  if (maximum !== undefined && Sensitivity.parse(maximum) === undefined) {
+    throw new TypeError('maxSensitivity must be public, internal, confidential or restricted')
+  }
+}
+
+const validateEdgeRole = (role: unknown): void => {
+  if (role !== 'WHEN' && role !== 'VIA' && role !== 'BECAUSE' && role !== 'QUALIFIES') {
+    throw new TypeError('CAVE edge role must be WHEN, VIA, BECAUSE or QUALIFIES')
+  }
+}
+
+/** Reject asynchronous callbacks without starting custom thenable work. */
+const requireSynchronous = (result: unknown, message: string): void => {
+  if (result instanceof Promise ||
+      (result !== null && (typeof result === 'object' || typeof result === 'function') &&
+      typeof (result as { then?: unknown }).then === 'function')) {
+    try { void Promise.prototype.then.call(result, undefined, () => {}) }
+    catch { /* Non-native thenables have no promise rejection to observe. */ }
+    throw new TypeError(message)
+  }
+}
 
 /**
  * The closure walked from a seed entity — the seed is the query's first
@@ -83,7 +116,9 @@ export type AppendOptions = {
    * Explicit row identity (spec §28.1), index-aligned with the result's
    * claims: a claim with an id here is replayed under it — inserted with
    * `id = tx = ids[i]` when absent, skipped when the store already has the
-   * row — and the generator observes it (spec §28.2). Claims without an
+   * row — and the generator observes it (spec §28.2). Every supplied ID
+   * used by a claim must be a canonical lowercase UUIDv7; the whole batch
+   * is validated before any ID is observed or row is inserted. Claims without an
    * entry mint fresh ids as usual. Edges deduplicate against stored edges
    * in this mode, so replaying a sync export is idempotent end to end.
    */
@@ -178,21 +213,34 @@ export const open = (
   path: string = ':memory:',
   options: { registry?: Canonical.Registry.t, access?: Access } = {}
 ) => {
-  const access = options.access ?? 'migrate'
+  const { access = 'migrate' } = options
+  if (access !== 'read-only' && access !== 'no-migrate' && access !== 'migrate') {
+    throw new TypeError('store access must be read-only, no-migrate or migrate')
+  }
   const db = adapter.open(path, access === 'read-only' ? { readOnly: true } : {})
+  try {
+    return initializeStore(adapter, db, options, access)
+  } catch (error) {
+    try { db.close() } catch (closeError) {
+      throw new AggregateError([error, closeError],
+        `CAVE store initialization failed: ${errorMessage(error)}; database cleanup also failed: ${errorMessage(closeError)}`,
+        { cause: error })
+    }
+    throw error
+  }
+}
+
+/** The caller retains database ownership until initialization succeeds. */
+const initializeStore = (adapter: Adapter, db: ReturnType<Adapter['open']>,
+  options: { registry?: Canonical.Registry.t, access?: Access }, access: Access) => {
   // Concurrent writers wait for the database allocation lock instead of
   // failing immediately with SQLITE_BUSY.
   db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA foreign_keys = ON')
-  try {
-    if (access === 'migrate') {
-      Schema.init(db, adapter.capabilities)
-    } else {
-      Schema.check(db)
-    }
-  } catch (error) {
-    db.close()
-    throw error
+  if (access === 'migrate') {
+    Schema.init(db, adapter.capabilities)
+  } else {
+    Schema.check(db)
   }
 
   // The receive rule (spec §28.2): the store, not the wall clock, is the
@@ -209,6 +257,9 @@ export const open = (
 
   const baseRegistry = options.registry ?? Canonical.standardRegistry
   let registry = baseRegistry
+  const dataVersionStatement = db.prepare('PRAGMA data_version')
+  const dataVersion = (): number => (dataVersionStatement.get() as { data_version: number }).data_version
+  let registryDataVersion = dataVersion()
 
   const insertClaim = db.prepare(`
     INSERT INTO cave_claim (
@@ -223,6 +274,10 @@ export const open = (
     'INSERT OR IGNORE INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)')
   const insertTag = db.prepare('INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)')
   const insertEdge = db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
+  const declarationAt = db.prepare(`SELECT 1 FROM cave_claim
+    WHERE id = ? AND negated = 0 AND object IS NOT NULL
+      AND (verb IN ('REVERSE', 'RENAMED-TO') OR (verb = 'IS' AND object = 'verb'))`)
+
   const insertFts = db.prepare(`
     INSERT INTO cave_fts (claim_id, subject, verb, object, attribute, value_text, comment, raw_line)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -240,23 +295,35 @@ export const open = (
     const declarations = db.prepare(`
       SELECT subject, verb, object FROM cave_claim
       WHERE negated = 0 AND object IS NOT NULL AND verb IN ('REVERSE', 'RENAMED-TO', 'IS')
+        AND (verb <> 'IS' OR object = 'verb')
         AND id NOT IN (SELECT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE'))
       ORDER BY tx
     `).all() as { subject: string, verb: string, object: string }[]
+    let rebuilt = baseRegistry
     for (const declaration of declarations) {
       if (!Verb.isVerbToken(declaration.subject)) {
         continue
       }
       if (declaration.verb === 'REVERSE' && Verb.isVerbToken(declaration.object)) {
-        registry = Canonical.Registry.declareReverse(registry, declaration.subject, declaration.object).registry
+        rebuilt = Canonical.Registry.declareReverse(rebuilt, declaration.subject, declaration.object).registry
       } else if (declaration.verb === 'RENAMED-TO' && Verb.isVerbToken(declaration.object)) {
-        registry = Canonical.Registry.declareRename(registry, declaration.subject, declaration.object).registry
+        rebuilt = Canonical.Registry.declareRename(rebuilt, declaration.subject, declaration.object).registry
       } else if (declaration.verb === 'IS' && declaration.object === 'verb') {
-        registry = Canonical.Registry.declareVerb(registry, declaration.subject)
+        rebuilt = Canonical.Registry.declareVerb(rebuilt, declaration.subject)
       }
     }
+    registry = rebuilt
   }
   rebuildRegistry()
+
+  /** Refresh external commits without a write transaction; also works on read-only connections. */
+  const refreshRegistry = (): void => {
+    const currentVersion = dataVersion()
+    if (currentVersion !== registryDataVersion) {
+      rebuildRegistry()
+      registryDataVersion = currentVersion
+    }
+  }
 
   /**
    * The outer transaction takes SQLite's write-reservation lock before any
@@ -266,28 +333,38 @@ export const open = (
    * Rollback also restores the in-memory verb registry.
    */
   let transactionDepth = 0
-  const transaction = <T>(body: () => T): T => {
+  const transaction = <T>(body: (context: { readonly outermost: boolean }) => T): T => {
     const outer = transactionDepth === 0
     const savepoint = `cave_tx_${transactionDepth}`
     transactionDepth += 1
     const savedRegistry = registry
+    const savedRegistryDataVersion = registryDataVersion
     let started = false
     try {
       db.exec(outer ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${savepoint}`)
       started = true
-      const result = body()
+      const result = body({ outermost: outer })
+      requireSynchronous(result, 'CAVE transaction callback must be synchronous')
       db.exec(outer ? 'COMMIT' : `RELEASE ${savepoint}`)
       return result
     } catch (error) {
-      if (started) {
-        if (outer) {
-          db.exec('ROLLBACK')
-        } else {
-          db.exec(`ROLLBACK TO ${savepoint}`)
-          db.exec(`RELEASE ${savepoint}`)
+      try {
+        if (started) {
+          if (outer) {
+            db.exec('ROLLBACK')
+          } else {
+            db.exec(`ROLLBACK TO ${savepoint}`)
+            db.exec(`RELEASE ${savepoint}`)
+          }
         }
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError],
+          `CAVE transaction failed: ${errorMessage(error)}; rollback also failed: ${errorMessage(rollbackError)}`,
+          { cause: error })
+      } finally {
+        registry = savedRegistry
+        registryDataVersion = savedRegistryDataVersion
       }
-      registry = savedRegistry
       throw error
     } finally {
       transactionDepth -= 1
@@ -300,16 +377,84 @@ export const open = (
   /** Appends a canonicalization result — one row per claim, per-row tx. */
   const insertResult = (result: Canonical.Result, options_: AppendOptions = {}): IngestResult =>
     transaction(() => {
+      // Validate and insert from the same caller values, including replay IDs.
+      const { ids: replayIds, contexts, source, lifecycle, provenance } = options_
+      if (source !== undefined && typeof source !== 'string') throw new TypeError('append source must be a string')
+      if (provenance !== undefined && (provenance === null || typeof provenance !== 'object' || Array.isArray(provenance))) {
+        throw new TypeError('append provenance must be an object')
+      }
+      const { actor, sources, run, domains } = provenance ?? {}
+      for (const [name, collection] of [
+        ['ids', replayIds], ['contexts', contexts],
+        ['provenance.sources', sources], ['provenance.domains', domains],
+      ] as const) {
+        if (collection !== undefined && !Array.isArray(collection)) throw new TypeError(`append ${name} must be an array`)
+      }
+      options_ = {
+        ids: replayIds === undefined ? undefined : Array.from(replayIds),
+        contexts: contexts === undefined ? undefined : Array.from(contexts),
+        source, lifecycle: booleanOption(lifecycle, 'append lifecycle'),
+        provenance: provenance === undefined ? undefined : {
+          actor, run,
+          sources: sources === undefined ? undefined : Array.from(sources),
+          domains: domains === undefined ? undefined : Array.from(domains),
+        },
+      }
+      for (const [name, value] of [['actor', actor], ['run', run]] as const) {
+        if (value !== undefined && typeof value !== 'string') throw new TypeError(`append provenance.${name} must be a string`)
+      }
+      for (const name of ['sources', 'domains'] as const) {
+        for (const value of options_.provenance?.[name] ?? []) {
+          if (typeof value !== 'string') throw new TypeError(`append provenance.${name} entries must be strings`)
+        }
+      }
+      const preparedEdges = Array.from(result.edges, ({ parent, role, child }) => ({ parent, role, child }))
+      // Validate the whole replay before even observing a valid earlier ID:
+      // rejected batches must not change ordering state or partially append.
+      const prepared = result.claims.map((entry, index) => {
+        const id = options_.ids?.[index]
+        if (id !== undefined && (typeof id !== 'string' || !Uuidv7.is(id))) {
+          throw new Error(`CAVE replay claim ${index + 1}: expected a canonical lowercase UUIDv7 id`)
+        }
+        const authored = addContexts(captureClaim(entry.claim), options_.contexts)
+        const claim = stampSource(authored, options_.source, options_.lifecycle === true)
+        const provided = options_.provenance ?? {}
+        const provenance = Provenance.entries(authored.contexts, {
+          ...provided,
+          actor: provided.actor ?? options_.source,
+          run: provided.run ?? (options_.lifecycle === true ? options_.source : undefined)
+        })
+        const columns = Row.toColumns(claim)
+        const emitted = Canonical.emitClaim(claim)
+        const rawLine = columns.rawLine === '' ? emitted : columns.rawLine
+        const textValues = [
+          ...Object.values(columns), rawLine, ...claim.contexts,
+          ...provenance.map(entry => entry.value),
+          ...claim.tags.flatMap(tag => [tag.key, tag.value])
+        ]
+        if (textValues.some(value => typeof value === 'string' && /[\uD800-\uDFFF]/u.test(value))) {
+          throw new TypeError(`CAVE claim ${index + 1}: unpaired UTF-16 surrogate cannot be stored as UTF-8`)
+        }
+        return { claim, provenance, columns, rawLine }
+      })
       const ids: string[] = []
+      for (const edge of preparedEdges) {
+        validateEdgeRole(edge.role)
+        for (const [field, index] of [['parent', edge.parent], ['child', edge.child]] as const) {
+          if (!Number.isSafeInteger(index) || index < 0 || index >= prepared.length) {
+            throw new TypeError(`CAVE edge ${field} must index an existing claim`)
+          }
+        }
+      }
       const replay = options_.ids !== undefined
       let skipped = 0
       // BEGIN IMMEDIATE makes this read and all following inserts one
       // database-serialized allocation step. A process that opened before a
       // fast-clock peer wrote now observes that peer before minting (§28.2).
-      if (result.claims.some((_, index) => options_.ids?.[index] === undefined)) {
+      if (prepared.some((_, index) => options_.ids?.[index] === undefined)) {
         observeMaxTx()
       }
-      result.claims.forEach((entry, index) => {
+      prepared.forEach(({ claim, provenance, columns, rawLine }, index) => {
         const explicit = options_.ids?.[index]
         if (explicit !== undefined) {
           // Identity replay (spec §28.1): the id is the row — present means
@@ -321,17 +466,7 @@ export const open = (
             return
           }
         }
-        const authored = addContexts(entry.claim, options_.contexts)
-        const claim = stampSource(authored, options_.source, options_.lifecycle === true)
-        const provided = options_.provenance ?? {}
-        const provenance = Provenance.entries(authored.contexts, {
-          ...provided,
-          actor: provided.actor ?? options_.source,
-          run: provided.run ?? (options_.lifecycle === true ? options_.source : undefined)
-        })
         const id = explicit ?? Uuidv7.next()
-        const columns = Row.toColumns(claim)
-        const rawLine = columns.rawLine === '' ? Canonical.emitClaim(claim) : columns.rawLine
         insertClaim.run(
           id, id,
           columns.subject, columns.verb, columns.negated, columns.object, columns.attribute,
@@ -357,7 +492,7 @@ export const open = (
         ids.push(id)
       })
       let edges = 0
-      for (const edge of result.edges) {
+      for (const edge of preparedEdges) {
         const parentId = ids[edge.parent]!
         const childId = ids[edge.child]!
         if (replay && edgeExists.get(parentId, edge.role, childId) !== undefined) {
@@ -370,8 +505,16 @@ export const open = (
       return { ids, edges, skipped, problems: result.problems }
     })
 
-  const rows = (sql: string, ...params: (string | number)[]): Row.t[] =>
-    db.prepare(sql).all(...params) as unknown as Row.t[]
+  const assertReadUnicode = (...values: (string | number)[]): void => {
+    if (values.some(value => typeof value === 'string' && /[\uD800-\uDFFF]/u.test(value))) {
+      throw new TypeError('CAVE read: unpaired UTF-16 surrogate cannot be queried as UTF-8')
+    }
+  }
+
+  const rows = (sql: string, ...params: (string | number)[]): Row.t[] => {
+    assertReadUnicode(...params)
+    return db.prepare(sql).all(...params) as unknown as Row.t[]
+  }
 
   const contextsOf = (id: string): string[] =>
     (db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(id) as { context: string }[])
@@ -385,6 +528,7 @@ export const open = (
 
   const provenanceOf = (row: Row.t | string): Provenance.t => {
     const id = typeof row === 'string' ? row : row.id
+    assertReadUnicode(id)
     const entries = db.prepare(`
       SELECT dimension, value FROM cave_provenance WHERE claim_id = ? ORDER BY dimension, value
     `).all(id) as Provenance.Entry[]
@@ -428,6 +572,22 @@ export const open = (
       Resolve.resolvedSql(readPolicy(), currentSql, { aliases: options.aliases === true }) :
       currentSql
 
+  const traverseRead = <T>(options: TraverseOptions, read: (captured: TraverseOptions) => T,
+    operation: 'resolution' | 'reverse' = 'resolution'): T => {
+    const { negated, retracted, aliases, resolve } = options
+    const captured = {
+      negated: booleanOption(negated, 'traversal negated'),
+      retracted: booleanOption(retracted, 'traversal retracted'),
+      aliases: booleanOption(aliases, 'traversal aliases'),
+      resolve: booleanOption(resolve, 'traversal resolve')
+    }
+    return resolve === true || operation === 'reverse' ?
+      readSnapshot(db, operation, () => read(captured)) : read(captured)
+  }
+
+  const closeCallbacks = new Set<() => void>()
+  let closed = false
+
   return {
     /** Adapter that owns this database connection and its capabilities. */
     adapter,
@@ -435,8 +595,11 @@ export const open = (
     /** Raw adapter database handle — used by `@cavelang/query`; treat as read-only. */
     db,
 
-    /** Current verb registry (input registry + stored + ingested declarations). */
-    registry: (): Canonical.Registry.t => registry,
+    /** Current verb registry; refreshes declarations committed by other connections. */
+    registry: (): Canonical.Registry.t => {
+      refreshRegistry()
+      return registry
+    },
 
     /** Configured registry before any in-band declarations are applied. */
     baseRegistry: (): Canonical.Registry.t => baseRegistry,
@@ -448,8 +611,9 @@ export const open = (
      * reopening.
      */
     reloadRegistry(): void {
-      registry = baseRegistry
+      const currentVersion = dataVersion()
       rebuildRegistry()
+      registryDataVersion = currentVersion
     },
 
     /**
@@ -457,6 +621,8 @@ export const open = (
      * nested appends and their registry declarations. Nestable
      * (savepoints) — the write gate wraps ingest + check in one of these
      * (spec §20.3).
+     * The callback receives `outermost`: only that scope commits the
+     * database; a nested scope merely releases its savepoint.
      */
     transaction,
 
@@ -467,12 +633,18 @@ export const open = (
      * (spec §9.5).
      */
     ingest(text: string, options_: { strict?: boolean } & AppendOptions = {}): IngestResult {
-      const result = Canonical.canonicalizeText(text, registry)
-      if (options_.strict === true && result.problems.length > 0) {
-        const detail = result.problems.map(problem => `  line ${problem.line}: ${problem.message}`).join('\n')
-        throw new Error(`CAVE ingest failed with ${result.problems.length} problem(s):\n${detail}`)
-      }
-      return insertResult(result, options_)
+      const strict = booleanOption(options_.strict, 'ingest strict')
+      return transaction(() => {
+        // data_version changes for commits from other connections, not our own
+        // appends. Check under the write reservation before using the registry.
+        refreshRegistry()
+        const result = Canonical.canonicalizeText(text, registry)
+        if (strict && result.problems.length > 0) {
+          const detail = result.problems.map(problem => `  line ${problem.line}: ${problem.message}`).join('\n')
+          throw new Error(`CAVE ingest failed with ${result.problems.length} problem(s):\n${detail}`)
+        }
+        return insertResult(result, options_)
+      })
     },
 
     /** Appends an already-canonicalized result. */
@@ -480,13 +652,18 @@ export const open = (
 
     /** Latest row per claim key (spec §13.5), oldest first. */
     currentBeliefs(options_: { minConf?: number } = {}): Row.t[] {
-      return options_.minConf === undefined ?
+      const minConf = options_.minConf
+      if (minConf !== undefined && (!Number.isFinite(minConf) || minConf < 0 || minConf > 1)) {
+        throw new TypeError('currentBeliefs minConf must be finite and in 0..1')
+      }
+      return minConf === undefined ?
         rows(`${currentSql} ORDER BY c.tx`) :
-        rows(`${currentSql} WHERE c.conf >= ? ORDER BY c.tx`, options_.minConf)
+        rows(`${currentSql} WHERE c.conf >= ? ORDER BY c.tx`, minConf)
     },
 
     /** Current belief for one claim key, `undefined` if the fact is unknown. */
     currentBelief(claimKey: string): undefined | Row.t {
+      assertReadUnicode(claimKey)
       const row = db.prepare(
         'SELECT * FROM cave_claim WHERE claim_key = ? ORDER BY tx DESC LIMIT 1'
       ).get(claimKey) as undefined | Row.t
@@ -515,9 +692,10 @@ export const open = (
      * `aliases`, groups widen through the alias closure (spec §26.1).
      */
     resolvedBeliefs(options_: { aliases?: boolean } = {}): Row.t[] {
-      const aliases = options_.aliases === true
+      const aliases = booleanOption(options_.aliases, 'resolvedBeliefs aliases')
       const prefix = aliases ? `WITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}\n` : ''
-      return rows(`${prefix}SELECT * FROM (${Resolve.resolvedSql(readPolicy(), currentSql, { aliases })}) ORDER BY tx`)
+      return readSnapshot(db, 'resolution', () =>
+        rows(`${prefix}SELECT * FROM (${Resolve.resolvedSql(readPolicy(), currentSql, { aliases })}) ORDER BY tx`))
     },
 
     /**
@@ -528,21 +706,23 @@ export const open = (
      * picking) and for the `cave resolve` view.
      */
     contested(options_: { aliases?: boolean } = {}): Resolve.Contested[] {
-      const aliases = options_.aliases === true
-      const prefix = aliases ? `WITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}\n` : ''
-      const ranked = rows(
-        `${prefix}SELECT * FROM (${Resolve.rankedSql(readPolicy(), currentSql, { aliases })}) ORDER BY res_group, res_rank`
-      ) as Resolve.Ranked[]
-      const groups: { group: string, rows: Resolve.Ranked[] }[] = []
-      for (const row of ranked) {
-        const last = groups[groups.length - 1]
-        if (last !== undefined && last.group === row.res_group) {
-          last.rows.push(row)
-        } else {
-          groups.push({ group: row.res_group, rows: [row] })
+      const aliases = booleanOption(options_.aliases, 'contested aliases')
+      return readSnapshot(db, 'resolution', () => {
+        const prefix = aliases ? `WITH RECURSIVE ${QuerySql.aliasPairs(currentSql)}\n` : ''
+        const ranked = rows(
+          `${prefix}SELECT * FROM (${Resolve.rankedSql(readPolicy(), currentSql, { aliases })}) ORDER BY res_group, res_rank`
+        ) as Resolve.Ranked[]
+        const groups: { group: string, rows: Resolve.Ranked[] }[] = []
+        for (const row of ranked) {
+          const last = groups[groups.length - 1]
+          if (last !== undefined && last.group === row.res_group) {
+            last.rows.push(row)
+          } else {
+            groups.push({ group: row.res_group, rows: [row] })
+          }
         }
-      }
-      return groups.filter(group => group.rows.length > 1)
+        return groups.filter(group => group.rows.length > 1)
+      })
     },
 
     /**
@@ -552,6 +732,7 @@ export const open = (
      * removes that link. The queried name first, the rest sorted.
      */
     aliasesOf(entity: string): string[] {
+      assertReadUnicode(entity)
       const names = db.prepare(`${aliasClosureSql} SELECT name FROM alias_closure WHERE name <> ? ORDER BY name`)
         .all(entity, entity) as { name: string }[]
       return [entity, ...names.map(row => row.name)]
@@ -559,7 +740,8 @@ export const open = (
 
     /** All rows about an entity, both directions, newest first (spec §13.5). */
     claimsAbout(entity: string, options_: { aliases?: boolean } = {}): Row.t[] {
-      return options_.aliases === true ?
+      const aliases = booleanOption(options_.aliases, 'claimsAbout aliases')
+      return aliases === true ?
         rows(
           `${aliasClosureSql} SELECT * FROM cave_claim
            WHERE subject IN (SELECT name FROM alias_closure) OR object IN (SELECT name FROM alias_closure)
@@ -571,10 +753,12 @@ export const open = (
 
     /** Forward reads: current relational facts with `entity` as subject (spec §13.3). */
     forward(entity: string, options_: TraverseOptions = {}): ForwardFact[] {
-      return rows(
-        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
-        entity
-      ).map(row => ({ verb: row.verb, target: row.object!, row }))
+      return traverseRead(options_, options_ => {
+        return rows(
+          `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+          entity
+        ).map(row => ({ verb: row.verb, target: row.object!, row }))
+      })
     },
 
     /**
@@ -583,13 +767,16 @@ export const open = (
      * when one is declared.
      */
     reverse(entity: string, options_: TraverseOptions = {}): ReverseFact[] {
-      return rows(
-        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
-        entity
-      ).map(row => {
-        const rel = Canonical.Registry.inverseOf(registry, row.verb)
-        return { verb: row.verb, ...rel === undefined ? {} : { rel }, source: row.subject, row }
-      })
+      return traverseRead(options_, options_ => {
+        refreshRegistry()
+        return rows(
+          `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+          entity
+        ).map(row => {
+          const rel = Canonical.Registry.inverseOf(registry, row.verb)
+          return { verb: row.verb, ...rel === undefined ? {} : { rel }, source: row.subject, row }
+        })
+      }, 'reverse')
     },
 
     /** Flat tag (`value` omitted → `value IS NULL`) or scoped tag rows (spec §13.5). */
@@ -625,18 +812,22 @@ export const open = (
 
     /** Members of a topic — forward `CONTAINS` traversal (spec §11.2). */
     topicMembers(topic: string, options_: TraverseOptions = {}): string[] {
-      return rows(
-        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
-        topic
-      ).map(row => row.object!)
+      return traverseRead(options_, options_ => {
+        return rows(
+          `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('subject', options_)} AND verb = 'CONTAINS' AND object IS NOT NULL${traversalFilter(options_)} ORDER BY tx`,
+          topic
+        ).map(row => row.object!)
+      })
     },
 
     /** Topics containing an entity — the inverse `CONTAINS` read (spec §11.2). */
     topicsOf(entity: string, options_: TraverseOptions = {}): string[] {
-      return rows(
-        `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
-        entity
-      ).map(row => row.subject)
+      return traverseRead(options_, options_ => {
+        return rows(
+          `${withAliases(options_)} SELECT * FROM (${universe(options_)}) WHERE ${entityMatch('object', options_)} AND verb = 'CONTAINS'${traversalFilter(options_)} ORDER BY tx`,
+          entity
+        ).map(row => row.subject)
+      })
     },
 
     /**
@@ -645,16 +836,38 @@ export const open = (
      * would otherwise parse as a column filter); pass `raw` to use full
      * FTS5 MATCH syntax. `limit` caps the rows inside the query itself,
      * so a broad search never materializes more than the caller reads.
+     * `currentOnly` selects non-retracted current rows before that cap;
+     * omission retains historical search.
      */
-    search(query: string, options_: { raw?: boolean, limit?: number, maxSensitivity?: Sensitivity.Level } = {}): Row.t[] {
-      const match = options_.raw === true ? query : `"${query.replaceAll('"', '""')}"`
+    search(query: string, options_: { raw?: boolean, limit?: number, maxSensitivity?: Sensitivity.Level, currentOnly?: boolean } = {}): Row.t[] {
+      const { raw, limit, maxSensitivity, currentOnly } = options_
+      validateSensitivity(maxSensitivity)
+      for (const [name, value] of [['raw', raw], ['currentOnly', currentOnly]] as const) {
+        if (value !== undefined && typeof value !== 'boolean') {
+          throw new TypeError(`search ${name} must be a boolean`)
+        }
+      }
+      if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0)) {
+        throw new TypeError('search limit must be a non-negative safe integer')
+      }
+      // MATCH parsers treat NUL as a terminator, even in a bound SQL string.
+      if (query.includes('\0')) throw new TypeError('search query must not contain NUL characters')
+      // FTS4 does not accept FTS5's doubled-quote escaping within a phrase.
+      // Quotes are token separators in both engines' default tokenizers.
+      const literal = adapter.capabilities.fullText === 'fts4' ?
+        query.replaceAll('"', ' ') : query.replaceAll('"', '""')
+      const match = raw === true ? query : `"${literal}"`
+      // Probe the (claim_key, tx) index for each match rather than grouping
+      // every unrelated key. Newer rows count even when hidden or retracted.
       const sql = `
         SELECT c.* FROM cave_claim c JOIN cave_fts f ON c.id = f.claim_id
-        WHERE cave_fts MATCH ?${options_.maxSensitivity === undefined ? '' : ` AND ${Sensitivity.sql('c', options_.maxSensitivity)}`}
+        WHERE cave_fts MATCH ?${currentOnly === true ? ` AND c.conf > 0 AND NOT EXISTS (
+          SELECT 1 FROM cave_claim newer WHERE newer.claim_key = c.claim_key AND newer.tx > c.tx
+        )` : ''}${maxSensitivity === undefined ? '' : ` AND ${Sensitivity.sql('c', maxSensitivity)}`}
         ORDER BY c.tx DESC`
-      return options_.limit === undefined ?
+      return limit === undefined ?
         rows(sql, match) :
-        rows(`${sql} LIMIT ?`, match, options_.limit)
+        rows(`${sql} LIMIT ?`, match, limit)
     },
 
     /**
@@ -666,15 +879,28 @@ export const open = (
      * keys reject unknown ids.
      */
     appendEdges(edges: readonly { parentId: string, role: Canonical.EdgeRole, childId: string }[]): void {
+      edges = Array.from(edges, ({ parentId, role, childId }) => ({ parentId, role, childId }))
+      for (const edge of edges) validateEdgeRole(edge.role)
       transaction(() => {
+        let changedDeclarations = false
         for (const edge of edges) {
           insertEdge.run(edge.parentId, edge.role, edge.childId)
+          if (!changedDeclarations && (edge.role === 'WHEN' || edge.role === 'VIA' || edge.role === 'BECAUSE')) {
+            changedDeclarations = declarationAt.get(edge.childId) !== undefined
+          }
+        }
+        if (changedDeclarations) {
+          // Qualifier children do not contribute in-band declarations. Keep
+          // this connection consistent with registry replay after reopening.
+          rebuildRegistry()
+          registryDataVersion = dataVersion()
         }
       })
     },
 
     /** Qualifier/grouping edges of a claim row (spec §13.2). */
     edgesOf(parentId: string): { role: string, child: Row.t }[] {
+      assertReadUnicode(parentId)
       return (db.prepare(`
         SELECT e.role AS role, c.* FROM cave_edge e JOIN cave_claim c ON c.id = e.child_id
         WHERE e.parent_id = ?`).all(parentId) as unknown as (Row.t & { role: string })[]
@@ -688,8 +914,9 @@ export const open = (
      * Emits the store as canonical CAVE text — all rows in transaction
      * order, or only current beliefs with `current`. With `tx`, every
      * claim line is preceded by its §28.4 transaction annotation
-     * (`;@ <tx>`), so the text carries row identity: `cave sync` replays
-     * it idempotently, plain `cave import` reads it unchanged.
+     * (`;@ <tx>` with optional JSON provenance), so text carries identity
+     * and exact dimensions: `cave sync` replays it idempotently, while plain
+     * `cave import` ignores annotation metadata.
      *
      * In current-only export an edge endpoint may be a superseded row;
      * dropping such edges would silently un-condition current claims and
@@ -698,46 +925,146 @@ export const open = (
      * resulting edges are deduplicated.
      */
     exportText(options_: { current?: boolean, tx?: boolean, maxSensitivity?: Sensitivity.Level } = {}): string {
-      const current = options_.current === true
-      const maximum = options_.maxSensitivity ?? Sensitivity.defaultMaximum
-      const claimRows = current ?
-        rows(`${currentSql} WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`) :
-        rows(`SELECT c.* FROM cave_claim c WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`)
-      const indexById = new Map(claimRows.map((row, index) => [row.id, index]))
-      let resolve = (id: string): undefined | number => indexById.get(id)
-      if (current) {
-        const indexByKey = new Map(claimRows.map((row, index) => [row.claim_key, index]))
-        const keyById = new Map(
-          (db.prepare('SELECT id, claim_key FROM cave_claim').all() as { id: string, claim_key: string }[])
-            .map(row => [row.id, row.claim_key])
-        )
-        resolve = id => indexById.get(id) ?? indexByKey.get(keyById.get(id) ?? '')
+      const current = options_.current
+      const maximum = options_.maxSensitivity
+      const tx = options_.tx
+      validateSensitivity(maximum)
+      for (const [name, value] of [['current', current], ['tx', tx]] as const) {
+        if (value !== undefined && typeof value !== 'boolean') {
+          throw new TypeError(`exportText ${name} must be a boolean`)
+        }
       }
-      const claims = claimRows.map(row => ({ claim: toClaim(row), line: 0 }))
-      const edgeRows = db.prepare('SELECT parent_id, role, child_id FROM cave_edge').all() as
-        { parent_id: string, role: Canonical.EdgeRole, child_id: string }[]
-      const seen = new Set<string>()
-      const edges = edgeRows.flatMap(edge => {
-        const parent = resolve(edge.parent_id)
-        const child = resolve(edge.child_id)
-        if (parent === undefined || child === undefined || parent === child) {
-          return []
+      return readSnapshot(db, 'export', () => {
+        const claimRows = current ?
+          rows(`${currentSql} WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`) :
+          rows(`SELECT c.* FROM cave_claim c WHERE ${Sensitivity.sql('c', maximum)} ORDER BY c.tx`)
+        if (claimRows.length === 0) return ''
+        const indexById = new Map(claimRows.map((row, index) => [row.id, index]))
+        let resolve = (id: string): undefined | number => indexById.get(id)
+        if (current) {
+          let historicalIndex: ((id: string) => undefined | number) | undefined
+          resolve = id => {
+            const currentIndex = indexById.get(id)
+            if (currentIndex !== undefined) return currentIndex
+            if (historicalIndex === undefined) {
+              const indexByKey = new Map(claimRows.map((row, index) => [row.claim_key, index]))
+              const keyById = new Map(
+                (db.prepare(`SELECT id, claim_key FROM cave_claim WHERE id IN (
+                  SELECT parent_id FROM cave_edge UNION SELECT child_id FROM cave_edge
+                )`).all() as { id: string, claim_key: string }[])
+                  .map(row => [row.id, row.claim_key])
+              )
+              const verified = new Set<string>()
+              const historicalRow = db.prepare('SELECT * FROM cave_claim WHERE id = ?')
+              const historicalContexts = db.prepare('SELECT context FROM cave_context WHERE claim_id = ?')
+              const historicalTags = db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ?')
+              historicalIndex = id => {
+                const index = indexByKey.get(keyById.get(id) ?? '')
+                if (index !== undefined && !verified.has(id)) {
+                  try {
+                    const row = historicalRow.get(id) as Row.t
+                    const contexts = (historicalContexts.all(id) as { context: string }[]).map(entry => entry.context)
+                    const tags = historicalTags.all(id) as { key: string, value: null | string }[]
+                    if (Key.of(Row.toClaim(row, contexts, tags)) !== row.claim_key) {
+                      throw new Error('stored historical claim key does not agree with its semantic identity')
+                    }
+                  } catch (error) { throw invalidRow({ id }, error) }
+                  verified.add(id)
+                }
+                return index
+              }
+            }
+            return historicalIndex(id)
+          }
         }
-        const dedupe = `${parent}|${edge.role}|${child}`
-        if (seen.has(dedupe)) {
-          return []
+        const invalidRow = (row: Pick<Row.t, 'id'>, cause: unknown): Error =>
+          new Error(`CAVE export failed for claim ${row.id}: ${errorMessage(cause)}`, { cause })
+        const claims = claimRows.map(row => {
+          try {
+            if (tx && (typeof row.id !== 'string' || !Uuidv7.is(row.id) || row.tx !== row.id)) {
+              throw new Error('stored transaction identity must be a canonical lowercase UUIDv7 with id = tx')
+            }
+            const claim = toClaim(row)
+            if ((current || tx) && Key.of(claim) !== row.claim_key) {
+              throw new Error('stored claim key does not agree with its semantic identity')
+            }
+            return { claim, line: 0 }
+          } catch (error) { throw invalidRow(row, error) }
+        })
+        const edgeRows = db.prepare('SELECT parent_id, role, child_id FROM cave_edge').all() as
+          { parent_id: string, role: Canonical.EdgeRole, child_id: string }[]
+        const seen = new Set<string>()
+        const edges = edgeRows.flatMap(edge => {
+          const parent = resolve(edge.parent_id)
+          const child = resolve(edge.child_id)
+          if (parent === undefined || child === undefined) {
+            // Omitted sensitive claims are valid endpoints; absent rows are
+            // corruption when this export includes the other end of the edge.
+            if ((parent !== undefined || child !== undefined) &&
+              ((parent === undefined && claimExists.get(edge.parent_id) === undefined) ||
+                (child === undefined && claimExists.get(edge.child_id) === undefined))) {
+              throw new Error('CAVE export failed for edge: stored relationship references a missing claim')
+            }
+            return []
+          }
+          if (edge.role !== 'WHEN' && edge.role !== 'VIA' && edge.role !== 'BECAUSE' && edge.role !== 'QUALIFIES') {
+            throw new Error(`CAVE export failed for edge ${edge.parent_id} -> ${edge.child_id}: stored edge role must be WHEN, VIA, BECAUSE or QUALIFIES`)
+          }
+          const dedupe = `${parent}|${edge.role}|${child}`
+          if (seen.has(dedupe)) {
+            return []
+          }
+          seen.add(dedupe)
+          return [{ parent, role: edge.role, child }]
+        })
+        try {
+          return Canonical.emit(
+            { claims, edges },
+            tx ? { annotate: index => {
+              const row = claimRows[index]!
+              const actual = Provenance.parse(provenanceOf(row))
+              if (actual === undefined) {
+                throw invalidRow(row, new Error('stored provenance must contain nonempty Unicode strings in every dimension'))
+              }
+              const inferred = Provenance.normalize(Provenance.fromEntries(Provenance.entries(claims[index]!.claim.contexts)))
+              const payload = JSON.stringify(actual) === JSON.stringify(inferred) ? '' :
+                ` ${JSON.stringify({ provenance: actual })}`
+              return Canonical.txComment(row.tx) + payload
+            } } : {}
+          )
+        } catch (error) {
+          // Locate invalid historical data only after emission fails; successful
+          // exports do not pay for an additional pass through claim validation.
+          for (const [index, entry] of claims.entries()) {
+            try { Canonical.emitClaim(entry.claim) }
+            catch (cause) { throw invalidRow(claimRows[index]!, cause) }
+          }
+          throw error
         }
-        seen.add(dedupe)
-        return [{ parent, role: edge.role, child }]
       })
-      return Canonical.emit(
-        { claims, edges },
-        options_.tx === true ? { annotate: index => Canonical.txComment(claimRows[index]!.tx) } : {}
-      )
+    },
+
+    /** Register synchronous dependent-resource cleanup; returns an unsubscribe function. */
+    onClose(callback: () => void): () => void {
+      if (closed) throw new Error('CAVE store: cannot register cleanup after close')
+      const registration = () => callback()
+      closeCallbacks.add(registration)
+      return () => { closeCallbacks.delete(registration) }
     },
 
     close(): void {
-      db.close()
+      if (closed) return
+      closed = true
+      const callbacks = [...closeCallbacks]
+      closeCallbacks.clear()
+      const errors: unknown[] = []
+      for (const callback of callbacks) {
+        try { requireSynchronous(callback(), 'CAVE store cleanup callback must be synchronous') }
+        catch (error) { errors.push(error) }
+      }
+      try { db.close() } catch (error) { closed = false; errors.push(error) }
+      if (errors.length === 1) throw errors[0]
+      if (errors.length > 1) throw new AggregateError(errors, `CAVE store: cleanup failed: ${errors.map(errorMessage).join('; ')}`)
     }
   }
 }

@@ -17,6 +17,7 @@
 
 import { Confidence, Value, Verb } from '@cavelang/core'
 import { Token } from '@cavelang/parser'
+import { assertQueryUnicode } from './unicode.ts'
 
 /** A pattern slot: named variable, wildcard `_`, or a bound term. */
 export type Slot =
@@ -63,13 +64,19 @@ const filterOps: readonly FilterOp[] = ['>=', '<=', '!=', '=', '>', '<']
 const isFilterOp = (text: string): text is FilterOp =>
   filterOps.includes(text as FilterOp)
 
+const variableName = (text: string): string => {
+  const name = text.slice(1)
+  if (name === '') throw new Error('CAVE-Q: variable requires a name after ?; use _ for a wildcard')
+  return name
+}
+
 const slotOf = (token: Token.t): Slot => {
   if (token.kind === 'word') {
     if (token.text === '_') {
       return { kind: 'wildcard' }
     }
     if (token.text.startsWith('?')) {
-      return { kind: 'var', name: token.text.slice(1) }
+      return { kind: 'var', name: variableName(token.text) }
     }
     return { kind: 'term', text: token.text }
   }
@@ -85,7 +92,7 @@ const verbSlotOf = (token: Token.t): undefined | VerbSlot => {
     return { kind: 'wildcard' }
   }
   if (token.text.startsWith('?')) {
-    return { kind: 'var', name: token.text.slice(1) }
+    return { kind: 'var', name: variableName(token.text) }
   }
   const transitive = token.text.endsWith('+')
   const name = transitive ? token.text.slice(0, -1) : token.text
@@ -107,7 +114,7 @@ const parseFilter = (tokens: readonly Token.t[], lineNo: number): Filter => {
   switch (field.text) {
     case 'conf': {
       const conf = valueText.endsWith('%') ? Confidence.parse(valueText) : Number(valueText)
-      if (conf === undefined || Number.isNaN(conf)) {
+      if (conf === undefined || !Number.isFinite(conf)) {
         return bad(`cannot parse confidence ${JSON.stringify(valueText)}`)
       }
       return { field: 'conf', op: op.text, value: conf }
@@ -148,13 +155,16 @@ const parseFilter = (tokens: readonly Token.t[], lineNo: number): Filter => {
 export const parse = (input: string): Pattern => {
   const lines = input
     .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => line !== '' && !line.startsWith(';'))
+    .map((line, index) => {
+      assertQueryUnicode(line, index + 1)
+      return { text: line.trim(), lineNo: index + 1 }
+    })
+    .filter(line => line.text !== '' && !line.text.startsWith(';'))
   if (lines.length === 0) {
     throw new Error('CAVE-Q: empty query')
   }
   const [patternLine, ...filterLines] = lines
-  const { head } = Token.splitComment(patternLine!)
+  const { head } = Token.splitComment(patternLine!.text)
   const tokens = Token.tokenize(head)
   if (tokens.length < 2) {
     throw new Error('CAVE-Q: a pattern needs at least a subject and a verb (spec §12.1)')
@@ -214,13 +224,13 @@ export const parse = (input: string): Pattern => {
   } else {
     throw new Error(`CAVE-Q: cannot parse payload ${JSON.stringify(payloadTokens.map(token => token.text).join(' '))}`)
   }
-  const filters = filterLines.map((line, at) => {
-    const filterTokens = Token.tokenize(Token.splitComment(line).head)
+  const filters = filterLines.map(line => {
+    const filterTokens = Token.tokenize(Token.splitComment(line.text).head)
     const [keyword, ...rest_] = filterTokens
     if (keyword?.kind !== 'word' || keyword.text !== 'WHERE') {
-      throw new Error(`CAVE-Q line ${at + 2}: expected WHERE, got ${JSON.stringify(keyword?.text ?? '')}`)
+      throw new Error(`CAVE-Q line ${line.lineNo}: expected WHERE, got ${JSON.stringify(keyword?.text ?? '')}`)
     }
-    return parseFilter(rest_, at + 2)
+    return parseFilter(rest_, line.lineNo)
   })
   return { subject, verb, payload, negated, contexts, tags, filters }
 }

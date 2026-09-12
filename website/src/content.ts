@@ -4,6 +4,7 @@ import examples from '../../examples/README.md?raw'
 import architecture from '../../ARCHITECTURE.md?raw'
 import implementation from '../../IMPLEMENTATION.md?raw'
 import documentation from '../../DOCUMENTATION.md?raw'
+import benchmarks from '../../benchmarks/README.md?raw'
 import todo from '../../TODO.md?raw'
 import core from '../../packages/core/README.md?raw'
 import parser from '../../packages/parser/README.md?raw'
@@ -69,8 +70,9 @@ export const docs: readonly Doc[] = [
   { slug: 'tree-sitter', label: 'Tree-sitter grammar', group: 'Integrations', markdown: treeSitter, source: 'packages/tree-sitter-cave/README.md' },
   { slug: 'vscode', label: 'VS Code extension', group: 'Integrations', markdown: vscode, source: 'editors/vscode/README.md' },
   { slug: 'documentation', label: 'Documentation index', group: 'Project', markdown: documentation, source: 'DOCUMENTATION.md' },
+  { slug: 'benchmarks', label: 'Performance trials', group: 'Project', markdown: benchmarks, source: 'benchmarks/README.md' },
   { slug: 'todo', label: 'TODO', group: 'Project', markdown: todo, source: 'TODO.md' },
 ]
 
-export const docBySlug = (slug: string): Doc =>
-  docs.find(doc => doc.slug === slug) ?? docs[0]!
+export const docBySlug = (slug: string): Doc | undefined =>
+  docs.find(doc => doc.slug === slug)

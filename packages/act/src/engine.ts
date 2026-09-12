@@ -73,7 +73,7 @@ export type HookOutcome = {
   /** Why the hook did not fire (`not configured`, `nothing changed`). */
   readonly note?: string
   readonly code?: null | number
-  /** Trailing stdout+stderr of the hook command. */
+  /** Captured stdout prefix followed by stderr prefix, with outer whitespace trimmed. */
   readonly output?: string
   readonly error?: string
 }
@@ -216,13 +216,17 @@ export const substitute = (
     ...Object.fromEntries(Object.entries(args).map(([name, value]) => [name, String(value)]))
   })
 
+const configuredHook = (hooks: ActOptions['hooks'], name: string): string | undefined =>
+  hooks !== undefined && Object.hasOwn(hooks, name) ? hooks[name] : undefined
+
 const runHook = (
   name: string,
   template: string,
   action: Action.t,
   args: Readonly<Record<string, unknown>>,
   claims: readonly string[],
-  options: ActOptions
+  options: ActOptions,
+  timeoutMs: number
 ): HookOutcome => {
   try {
     const result = runProcessSync(shellCommand(template, {
@@ -230,7 +234,7 @@ const runHook = (
       ...Object.fromEntries(Object.entries(args).map(([key, value]) => [key, String(value)]))
     }), {
       input: `${claims.join('\n')}\n`,
-      timeoutMs: (options.hookTimeoutSeconds ?? defaultHookTimeoutSeconds) * 1000,
+      timeoutMs,
       ...options.cwd === undefined ? {} : { cwd: options.cwd },
       ...options.hookMaxStdoutBytes === undefined ? {} : { maxStdoutBytes: options.hookMaxStdoutBytes },
       ...options.hookMaxStderrBytes === undefined ? {} : { maxStderrBytes: options.hookMaxStderrBytes }
@@ -258,6 +262,7 @@ const runHook = (
 }
 
 const rollback = Symbol('cave-act dry run')
+const nestedHook = Symbol('cave-act nested hook')
 
 /** Thrown inside the transaction on gate rejection; never escapes `act`. */
 const rejected = Symbol('cave-act gate rejected')
@@ -266,16 +271,21 @@ type Rejected = Error & { readonly [rejected]: readonly Violation[] }
 const isRejected = (error: unknown): error is Rejected =>
   error instanceof Error && rejected in error
 
-/**
- * Executes one action (spec §25.2). See the module doc for semantics;
- * `dryRun` computes the same report inside a rolled-back transaction.
- */
-export const act = (
+type AppliedAction = {
+  readonly report: ActSuccess
+  readonly action: Action.t
+  readonly parameters: Readonly<Record<string, unknown>>
+  readonly changed: readonly string[]
+  readonly hookName: string | undefined
+}
+
+/** Evaluate and apply while the caller holds the store write reservation. */
+const applyAction = (
   store: Store,
   name: string,
   args: Readonly<Record<string, unknown>> = {},
   options: ActOptions = {}
-): ActReport => {
+): ActFailure | AppliedAction => {
   const resolved = loadAction(store, name)
   if (resolved === undefined) {
     return fail(name, `no current action ${JSON.stringify(Action.actionSubject(name))} — declare it first (spec §25.1)`)
@@ -291,13 +301,18 @@ export const act = (
     return fail(action.name, `unknown parameter(s) ${unknown.join(', ')} — ${action.name} takes ${action.params.length === 0 ? 'none' : action.params.map(param => `?${param}`).join(', ')}`)
   }
   const bindings: Record<string, string> = {}
+  const parameters: [string, unknown][] = []
   for (const param of action.params) {
-    const { text, problem } = formatArg(param, args[param])
+    const value = Object.hasOwn(args, param) ? args[param] : undefined
+    const { text, problem } = formatArg(param, value)
     if (problem !== undefined) {
       return fail(action.name, problem)
     }
     bindings[param] = text!
+    parameters.push([param, value])
   }
+
+  const parameterValues = new Map(parameters)
 
   // Premises: the §24.2 join with parameters pre-bound (§25.2).
   let solutions: Solution[] = [{ bindings, rows: [] }]
@@ -307,9 +322,18 @@ export const act = (
         satisfies(solution.bindings[premise.variable], premise.op, premise.value))
     } else {
       solutions = solutions.flatMap(solution => {
-        const pattern = specialize(premise.pattern, solution.bindings)
+        let pattern = specialize(premise.pattern, solution.bindings)
         if (pattern === undefined) {
           return []
+        }
+        const subject = premise.pattern.subject
+        if (subject.kind === 'var' && parameterValues.has(subject.name)) {
+          // A caller parameter can serve both entity and numeric value slots.
+          // Format only this subject from the already-captured argument; keep
+          // the shared value binding for constraints, payloads and effects.
+          const formatted = Template.formatValue(parameterValues.get(subject.name), 'subject')
+          if (formatted.kind !== 'ok') return []
+          pattern = { ...pattern, subject: { kind: 'term', text: formatted.text } }
         }
         return match(store, pattern, { aliases: options.aliases === true }).map(found => ({
           bindings: { ...solution.bindings, ...found.bindings },
@@ -326,7 +350,7 @@ export const act = (
   // Premise-bound effect variables must bind uniquely (§25.2).
   const chosen: Record<string, string> = { ...bindings }
   for (const variable of new Set(action.effects.flatMap(Action.effectVariables))) {
-    if (chosen[variable] !== undefined) {
+    if (Object.hasOwn(chosen, variable)) {
       continue
     }
     const values = [...new Set(solutions.map(solution => solution.bindings[variable]!))]
@@ -334,7 +358,9 @@ export const act = (
       return fail(action.name,
         `ambiguous binding for ?${variable} (${values.join(', ')}) — an action executes once, deterministically (spec §25.2)`)
     }
-    chosen[variable] = values[0]!
+    Object.defineProperty(chosen, variable, {
+      value: values[0]!, enumerable: true, writable: true, configurable: true
+    })
   }
 
   // Instantiation is a pure read — any problem fails before writing.
@@ -350,7 +376,7 @@ export const act = (
   }
 
   const check = options.check !== false
-  const before = check ? new Set(evaluate(store).violations.map(violationKey)) : undefined
+  let before: Set<string> | undefined
   const effects: EffectOutcome[] = []
   const changed: string[] = []
   let appended = 0
@@ -363,11 +389,16 @@ export const act = (
       for (const entry of instantiated) {
         const current = store.currentBelief(entry.key)
         const columns = Row.toColumns(entry.claim)
-        if (current !== undefined && Math.abs(current.conf - entry.claim.conf) < 1e-9 &&
+        if (current !== undefined && current.conf === entry.claim.conf &&
             current.value_text === columns.valueText) {
           effects.push({ line: entry.line, outcome: 'unchanged' })
           unchanged += 1
           continue
+        }
+        // Capture the complete baseline immediately before the first write.
+        // Idempotent effects leave both beliefs and lineage untouched.
+        if (check && before === undefined) {
+          before = new Set(evaluate(store).violations.map(violationKey))
         }
         const inserted = store.insertResult(
           { claims: [{ claim: entry.claim, line: 0 }], edges: [], registry: entry.registry, problems: [] },
@@ -388,7 +419,8 @@ export const act = (
         changed.push(entry.line)
       }
       if (before !== undefined) {
-        const fresh = evaluate(store).violations.filter(violation => !before.has(violationKey(violation)))
+        const baseline = before
+        const fresh = evaluate(store).violations.filter(violation => !baseline.has(violationKey(violation)))
         if (fresh.length > 0) {
           throw Object.assign(new Error(`shape gate: ${fresh.length} new violation(s)`), { [rejected]: fresh })
         }
@@ -407,24 +439,7 @@ export const act = (
     }
   }
 
-  // The hook runs strictly after commit (§25.4) — dry runs and no-op
-  // executions never reach the outside world.
-  const hookName = currentHook(store, action.subject)
-  let hook: undefined | HookOutcome
-  if (hookName !== undefined) {
-    const template = options.hooks?.[hookName]
-    if (options.dryRun === true) {
-      hook = { name: hookName, fired: false, note: 'dry run' }
-    } else if (changed.length === 0) {
-      hook = { name: hookName, fired: false, note: 'nothing changed' }
-    } else if (template === undefined) {
-      hook = { name: hookName, fired: false, note: 'not configured' }
-    } else {
-      hook = runHook(hookName, template, action, args, changed, options)
-    }
-  }
-
-  return {
+  const report: ActSuccess = {
     ok: true,
     action: action.name,
     subject: action.subject,
@@ -433,9 +448,94 @@ export const act = (
     effects,
     appended,
     updated,
-    unchanged,
-    ...hook === undefined ? {} : { hook }
+    unchanged
   }
+  return { report, action, parameters: Object.fromEntries(parameters), changed, hookName: currentHook(store, action.subject) }
+}
+
+/**
+ * Executes one action (spec §25.2). Declaration, premise and shape reads
+ * share the write transaction with the effects; hooks run after commit.
+ * `dryRun` computes the same report with its effects rolled back.
+ */
+export const act = (
+  store: Store,
+  name: string,
+  args: Readonly<Record<string, unknown>> = {},
+  options: ActOptions = {}
+): ActReport => {
+  const { dryRun, check, aliases, hooks, cwd, hookTimeoutSeconds, hookMaxStdoutBytes, hookMaxStderrBytes } = options
+  options = { dryRun, check, aliases, hooks, cwd, hookTimeoutSeconds, hookMaxStdoutBytes, hookMaxStderrBytes }
+  for (const key of ['dryRun', 'check', 'aliases'] as const) {
+    if (options[key] !== undefined && typeof options[key] !== 'boolean') {
+      return fail(name, `${key} must be a boolean — nothing appended`)
+    }
+  }
+  // Inspect data properties without pulling lazy hook getters before commit.
+  if (options.hooks !== undefined && (options.hooks === null || typeof options.hooks !== 'object' ||
+      Array.isArray(options.hooks) || Object.values(Object.getOwnPropertyDescriptors(options.hooks)).some(entry =>
+        'value' in entry ? typeof entry.value !== 'string' : entry.get === undefined))) {
+    return fail(name, 'hooks must be an object of name → shell template strings — nothing appended')
+  }
+  const seconds = options.hookTimeoutSeconds === undefined ? defaultHookTimeoutSeconds : options.hookTimeoutSeconds
+  const milliseconds = typeof seconds === 'number' ? seconds * 1000 : NaN
+  const timeoutMs = Math.round(milliseconds)
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(milliseconds))
+  if (!Number.isFinite(seconds) || seconds < 0 || timeoutMs > 2147483647 ||
+      (seconds !== 0 && timeoutMs < 1) || Math.abs(milliseconds - timeoutMs) > tolerance) {
+    return fail(name, 'hookTimeoutSeconds must resolve to whole milliseconds in 0..2147483647 — nothing appended')
+  }
+  for (const key of ['hookMaxStdoutBytes', 'hookMaxStderrBytes'] as const) {
+    const value = options[key]
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+      return fail(name, `${key} must be a non-negative safe integer — nothing appended`)
+    }
+  }
+  let applied: ActFailure | AppliedAction
+  try {
+    applied = store.transaction(({ outermost }) => {
+      // Refresh peer commits without replaying unchanged vocabulary history.
+      store.registry()
+      const result = applyAction(store, name, args, options)
+      if (!outermost && !('ok' in result) && options.dryRun !== true &&
+          result.changed.length > 0 && result.hookName !== undefined &&
+          options.hooks !== undefined && Object.hasOwn(options.hooks, result.hookName)) {
+        // A savepoint release is not a commit. Reject this action's writes
+        // rather than fire a hook for data the caller can still roll back.
+        throw nestedHook
+      }
+      return result
+    })
+  } catch (error) {
+    if (error !== nestedHook) throw error
+    return fail(name, 'configured action hooks cannot run inside a caller-owned transaction; execute the action outside it or omit hook configuration — nothing appended')
+  }
+  if ('ok' in applied) return applied
+  const { report, action, parameters, changed, hookName } = applied
+  // The hook runs strictly after commit (§25.4) — dry runs and no-op
+  // executions never reach the outside world.
+  let hook: undefined | HookOutcome
+  if (hookName !== undefined) {
+    if (options.dryRun === true) {
+      hook = { name: hookName, fired: false, note: 'dry run' }
+    } else if (changed.length === 0) {
+      hook = { name: hookName, fired: false, note: 'nothing changed' }
+    } else {
+      let template: string | undefined
+      try { template = configuredHook(options.hooks, hookName) } catch {
+        return { ...report, hook: { name: hookName, fired: false, error: 'hook configuration lookup failed' } }
+      }
+      if (template === undefined) {
+        hook = { name: hookName, fired: false, note: 'not configured' }
+      } else if (typeof template !== 'string') {
+        hook = { name: hookName, fired: false, error: 'hook command must be a string' }
+      } else {
+        hook = runHook(hookName, template, action, parameters, changed, options, timeoutMs)
+      }
+    }
+  }
+
+  return { ...report, ...hook === undefined ? {} : { hook } }
 }
 
 /** Execute an untrusted proposal through the governed action boundary. */

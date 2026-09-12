@@ -132,3 +132,31 @@ test('at rejects unparseable anchors and transitive patterns (spec §32.4)', () 
   assert.throws(() => query(store, 'terrier EXTENDS+ animal', { at: '2026' }), /transitive/)
   store.close()
 })
+
+test('valid-time trajectories remain finite across extreme signed endpoints', () => {
+  const store = open()
+  try {
+    const endpoint = `1${'0'.repeat(308)}`
+    store.ingest(`metric IS -${endpoint} -> ${endpoint} @2026-01-01..2026-01-03`)
+    const start = query(store, 'metric IS', { at: '2026-01-01' })
+    const middle = query(store, 'metric IS', { at: '2026-01-02' })
+    const end = query(store, 'metric IS', { at: '2026-01-03' })
+    assert.equal(start[0]?.at?.num, -1e308)
+    assert.equal(middle[0]?.at?.num, 0)
+    assert.equal(middle[0]?.at?.text, '0')
+    assert.equal(end[0]?.at?.num, 1e308)
+  } finally { store.close() }
+})
+
+test('mixed open and closed ranges retain a textual trajectory', () => {
+  const store = open()
+  try {
+    store.ingest('metric IS 10 -> 20 @2025..2028 @2026..')
+    for (const at of ['2027', '2030']) {
+      const result = query(store, 'metric IS', { at })
+      assert.equal(result.length, 1)
+      assert.equal(result[0]!.at, undefined)
+      assert.equal(result[0]!.row?.value_text, '10 -> 20')
+    }
+  } finally { store.close() }
+})

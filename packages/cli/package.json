@@ -21,7 +21,7 @@
     "directory": "packages/cli"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "bin": {
     "cave": "./src/main.ts"
@@ -127,7 +127,10 @@
     "@cavelang/store": "workspace:*",
     "@modelcontextprotocol/server": "2.0.0",
     "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.13"
+    "linkedom": "^0.18.13",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm-footnote": "2.1.0",
+    "micromark-extension-gfm-footnote": "2.1.0"
   },
   "devDependencies": {
     "@cavelang/act": "workspace:*",

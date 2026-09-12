@@ -130,6 +130,12 @@ output. With `--prune`, records that vanished from the source entirely are
 retracted the same way. Vocabulary declarations are never retracted;
 registry history is additive.
 
+A failed record with a known key keeps its previous claims. If a record
+loses its key, or an unkeyed record fails to format or ingest, the connector
+cannot tell which previous record it represents. Valid records still update,
+but disappearance pruning is skipped with a note. Repair the source and run
+with `--prune` again; a valid empty source still retracts vanished records.
+
 == Continuous and query-time reads
 
 `--watch` keeps the command running and re-maps whenever the file or the
@@ -219,6 +225,12 @@ runs every declared source, `--watch` tails all their files, and
 stamps `@src:stock/<key>` rather than `@src:connect/stock/<key>`, so the
 stamp names the same entity the reliability sits on and the policy applies
 to what the source yields.
+
+Changing a connected source's declaration replaces its data in one
+transaction. If any replacement record fails, retirement and all replacement
+writes roll back together. The previous data survives, and fixing the source
+and rerunning retries the complete transition. An unchanged declaration
+continues to isolate failures one record at a time.
 
 #recap[`cave connect <source> --map <template>` instantiates a CAVE
 document per record; blocks without variables are prelude. Records are

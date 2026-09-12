@@ -5,6 +5,34 @@ import { SourceSpan } from '@cavelang/core'
 import { open } from '@cavelang/store'
 import { entity, history, lineage, overview, search, topic, topics } from '@cavelang/view'
 
+test('entity source links preserve an existing URL fragment without a line span', () => {
+  const store = open()
+  try {
+    const source = 'https://example.com/design notes#section'
+    const context = SourceSpan.context(source)
+    store.ingest(`api HAS status: ready @${context}`)
+    const reference = entity(store, 'api').facts[0]!.sources.find(reference => reference.context === context)!
+    assert.equal(reference.source, source)
+    assert.equal(reference.href, 'https://example.com/design%20notes#section')
+    assert.equal(reference.span, undefined)
+  } finally { store.close() }
+})
+
+test('entity facts traverse alias groups beyond the SQL parameter limit', () => {
+  const store = open()
+  const size = 33_000
+  try {
+    store.ingest(Array.from({ length: size }, (_, i) => `root ALIAS member-${i}`).join('\n'))
+    store.ingest('root HAS status: local\nmember-32999 HAS status: remote\nunrelated HAS status: omitted')
+    const result = entity(store, 'root', { aliases: true, activity: 0, maxSensitivity: 'restricted' })
+    assert.equal(result.aliases.length, size + 1)
+    assert.equal(result.aliases[0], 'root')
+    assert.deepEqual(result.facts.map(row => [row.subject, row.value]), [['root', 'local'], ['member-32999', 'remote']])
+    assert.deepEqual(result.activity, [])
+    assert.equal(entity(store, 'root', { activity: 0, maxSensitivity: 'restricted' }).facts.length, 1)
+  } finally { store.close() }
+})
+
 /**
  * One store exercising every §30.2 view: attributes with uncertainty,
  * both relation directions through a declared inverse, topics, aliases,
@@ -33,6 +61,39 @@ maybe-flaky CAUSE checkout/errors @ 40%
   store.ingest('cache-node IS healthy @ 0%', { source: 'test' })
   return store
 }
+
+test('overview rejects invalid caps and horizons before reading the store', () => {
+  const store = open()
+  store.close()
+  for (const name of ['limit', 'recent'] as const) {
+    for (const value of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, null as unknown as number]) {
+      assert.throws(() => overview(store, { [name]: value }),
+        new RegExp(`${name} must be a non-negative safe integer`))
+    }
+  }
+  for (const staleDays of [-1, NaN, Infinity, null as unknown as number]) {
+    assert.throws(() => overview(store, { staleDays }), /staleDays must be finite and non-negative/)
+  }
+})
+
+test('overview supports zero caps and captures cap getters once', () => {
+  const store = fixture()
+  try {
+    const empty = overview(store, { limit: 0, recent: 0 })
+    assert.deepEqual(empty.violations.items, [])
+    assert.ok(empty.violations.total > 0)
+    assert.deepEqual(empty.recent, [])
+    let limits = 0, recents = 0
+    const capped = overview(store, {
+      get limit() { limits++; return limits === 1 ? 1 : -1 },
+      get recent() { recents++; return recents === 1 ? 1 : -1 }
+    })
+    assert.equal(capped.violations.items.length, 1)
+    assert.equal(capped.recent.length, 1)
+    assert.equal(limits, 1)
+    assert.equal(recents, 1)
+  } finally { store.close() }
+})
 
 test('overview: coverage, topics, violations, review candidates, recent (spec §30.2)', () => {
   const store = fixture()
@@ -105,6 +166,64 @@ test('entity 360: facts, both relation directions, topics, activity (spec §30.2
   store.close()
 })
 
+test('entity activity limits reject invalid values before database reads and support zero', t => {
+  const store = fixture()
+  let coercions = 0
+  try {
+    let reads = 0
+    const prepare = store.db.prepare.bind(store.db)
+    const tracked = t.mock.method(store.db, 'prepare', (...args: Parameters<typeof prepare>) => {
+      reads++
+      return prepare(...args)
+    })
+    for (const activity of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1,
+      null, '1', true, 1n, Symbol('limit'), { [Symbol.toPrimitive]() { coercions++; return 1 } }]) {
+      assert.throws(() => entity(store, 'checkout', { activity: activity as number }),
+        /activity must be a non-negative safe integer/)
+    }
+    assert.equal(reads, 0)
+    assert.equal(coercions, 0)
+    tracked.mock.restore()
+    const full = entity(store, 'checkout')
+    const empty = entity(store, 'checkout', { activity: 0 })
+    const one = entity(store, 'checkout', { activity: 1 })
+    assert.deepEqual(empty, { ...full, activity: [] })
+    assert.deepEqual(one, { ...full, activity: full.activity.slice(0, 1) })
+  } finally { store.close() }
+})
+
+for (const [name, read] of [['entity', entity], ['topic', topic]] as const) {
+  test(`${name} rejects malformed alias modes before database reads`, t => {
+    const store = fixture()
+    try {
+      const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      const tracked = t.mock.method(store.db, 'prepare', () => { throw new Error('unexpected database read') })
+      for (const aliases of ['true', 'false', null, 0, 1, [], {}]) {
+        assert.throws(() => read(store, 'checkout', { aliases: aliases as boolean }), /aliases must be a boolean/)
+      }
+      assert.equal(tracked.mock.callCount(), 0)
+      tracked.mock.restore()
+      assert.deepEqual(read(store, 'checkout'), read(store, 'checkout', { aliases: false }))
+      read(store, 'checkout', { aliases: true })
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    } finally { store.close() }
+  })
+}
+
+test('entity 360 captures alias options once for all sections of a read', () => {
+  const store = fixture()
+  try {
+    const expected = entity(store, 'checkout', { aliases: true })
+    let reads = 0
+    const options = { get aliases() { return ++reads === 1 } }
+    const actual = entity(store, 'checkout', options)
+    assert.deepEqual(actual, expected)
+    assert.equal(reads, 1)
+    assert.deepEqual(entity(store, 'checkout', options), entity(store, 'checkout', { aliases: false }))
+    assert.equal(reads, 2)
+  } finally { store.close() }
+})
+
 test('entity 360 widens through the alias closure only when asked (spec §13.6)', () => {
   const store = fixture()
   const plain = entity(store, 'checkout')
@@ -115,6 +234,22 @@ test('entity 360 widens through the alias closure only when asked (spec §13.6)'
   assert.ok(latency !== undefined, 'the aliased series shows, stored name kept')
   assert.equal(latency.subject, 'checkout-svc')
   store.close()
+})
+
+test('topic reads capture aliases before projection callbacks can change options', t => {
+  const store = open()
+  try {
+    store.ingest('platform ALIAS platform-alias\nplatform-alias CONTAINS service')
+    const options = { aliases: true }
+    const prepare = store.db.prepare.bind(store.db)
+    const changed = t.mock.method(store.db, 'prepare', (...args: Parameters<typeof prepare>) => {
+      options.aliases = false
+      return prepare(...args)
+    })
+    assert.deepEqual(topic(store, 'platform', options).members, ['service'])
+    changed.mock.restore()
+    assert.deepEqual(topic(store, 'platform', options).members, [])
+  } finally { store.close() }
 })
 
 test('topic members are the forward CONTAINS read (spec §11.2)', () => {
@@ -190,6 +325,35 @@ test('lineage terminates on §24.5 support cycles', () => {
   store.close()
 })
 
+test('lineage projects shared evidence rows once while retaining repeated branches', t => {
+  const store = open()
+  try {
+    const ids = store.ingest('root IS result\nleft IS premise\nright IS premise\nshared IS evidence').ids
+    store.appendEdges([
+      { parentId: ids[0]!, role: 'BECAUSE', childId: ids[1]! },
+      { parentId: ids[0]!, role: 'BECAUSE', childId: ids[2]! },
+      { parentId: ids[1]!, role: 'BECAUSE', childId: ids[3]! },
+      { parentId: ids[2]!, role: 'BECAUSE', childId: ids[3]! }
+    ])
+    const prepare = store.db.prepare.bind(store.db)
+    let projections = 0
+    t.mock.method(store.db, 'prepare', (sql: string) => {
+      if (sql.startsWith('SELECT context FROM cave_context')) projections++
+      return prepare(sql)
+    })
+    const tree = lineage(store, ids[0]!, { maxSensitivity: 'restricted' })!
+    assert.equal(tree.cites.length, 2)
+    const first = tree.cites[0]!.children[0]!
+    const repeat = tree.cites[1]!.children[0]!
+    assert.equal(first.row.subject, 'shared')
+    assert.equal(first.repeat, undefined)
+    assert.equal(repeat.repeat, true)
+    assert.deepEqual(repeat.row, first.row)
+    assert.deepEqual(repeat.children, [])
+    assert.equal(projections, 4)
+  } finally { store.close() }
+})
+
 test('lineage marks depth-capped nodes truncated, never as complete leaves', () => {
   const store = open()
   // A citation chain deeper than the render cap: step-19 cites step-18
@@ -233,6 +397,69 @@ test('lineage marks depth-capped nodes truncated, never as complete leaves', () 
   store.close()
 })
 
+test('public historical search does not acquire hidden revision metadata', () => {
+  const store = open()
+  try {
+    const first = store.ingest('revision-scope HAS status: public-value #sensitivity:public #label:visible ; public comment').ids[0]!
+    const visible = search(store, 'revision-scope', { maxSensitivity: 'public' })
+    const hidden = store.ingest('revision-scope HAS status: secret-value #sensitivity:restricted #label:private ; private comment').ids[0]!
+    store.appendEdges([{ parentId: hidden, role: 'BECAUSE', childId: first }])
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    assert.deepEqual(search(store, 'revision-scope', { maxSensitivity: 'public' }), visible)
+    assert.deepEqual(search(store, 'secret-value', { maxSensitivity: 'public' }), [])
+    const all = search(store, 'revision-scope', { maxSensitivity: 'restricted' })
+    assert.equal(all.length, 2)
+    assert.equal(all[0]!.key, all[1]!.key)
+    assert.equal(all[0]!.comment, 'private comment')
+    assert.equal(all[1]!.comment, 'public comment')
+    assert.equal(all[1]!.citedBy, 1)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('search captures one sensitivity ceiling for matches and evidence counts', () => {
+  const store = open()
+  try {
+    const rows = store.ingest('visible-public IS item #sensitivity:public\nprivate-evidence IS item #sensitivity:restricted')
+    store.appendEdges([{ parentId: rows.ids[0]!, role: 'BECAUSE', childId: rows.ids[1]! }])
+    let reads = 0
+    const matches = search(store, 'visible-public', {
+      get maxSensitivity() { reads++; return reads === 1 ? 'public' : 'restricted' }
+    })
+    assert.equal(matches.length, 1)
+    assert.equal(matches[0]!.cites, 0)
+    assert.equal(reads, 1)
+    assert.equal(search(store, 'visible-public', { maxSensitivity: 'restricted' })[0]!.cites, 1)
+  } finally { store.close() }
+})
+
+test('search batches keep per-row metadata distinct and refresh evidence on the next call', () => {
+  const store = open()
+  try {
+    const seeded = store.ingest('batch-first IS item @first #label:one\nbatch-second IS item @second #label:two')
+    const firstId = seeded.ids[0]!
+    const secondId = seeded.ids[1]!
+    const before = search(store, 'batch')
+    assert.equal(before.length, 2)
+    const first = before.find(row => row.id === firstId)!
+    const second = before.find(row => row.id === secondId)!
+    assert.ok(first.contexts.includes('first'))
+    assert.ok(second.contexts.includes('second'))
+    assert.ok(!first.contexts.includes('second'))
+    assert.ok(!second.contexts.includes('first'))
+    assert.deepEqual(first.tags, [{ key: 'label', value: 'one' }])
+    assert.deepEqual(second.tags, [{ key: 'label', value: 'two' }])
+    assert.equal(first.cites, 0)
+    assert.equal(second.citedBy, 0)
+    store.appendEdges([{ parentId: firstId, role: 'BECAUSE', childId: secondId }])
+    const after = search(store, 'batch')
+    assert.deepEqual(after.find(row => row.id === firstId), { ...first, cites: 1 })
+    assert.deepEqual(after.find(row => row.id === secondId), { ...second, citedBy: 1 })
+    assert.equal(first.cites, 0)
+    assert.equal(second.citedBy, 0)
+  } finally { store.close() }
+})
+
 test('search rides the store FTS, newest first', () => {
   const store = fixture()
   const matches = search(store, 'redis-cache')
@@ -240,6 +467,19 @@ test('search rides the store FTS, newest first', () => {
   assert.ok(matches.some(match => match.subject === 'api-gateway'))
   assert.deepEqual(search(store, 'nothing-matches-this'), [])
   store.close()
+})
+
+test('search validates limits before opening a database snapshot', () => {
+  const store = open()
+  store.close()
+  for (const limit of [null, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '1', true, 1n, Symbol('limit')]) {
+    assert.throws(() => search(store, 'service', { limit: limit as number }), /limit must be a non-negative safe integer/)
+  }
+  const valid = fixture()
+  try {
+    assert.deepEqual(search(valid, 'service', { limit: 0 }), [])
+    assert.ok(search(valid, 'service').length > 0)
+  } finally { valid.close() }
 })
 
 test('search threads its limit into the store query, never slicing materialized matches', () => {
@@ -318,4 +558,17 @@ test('claim APIs expose parsed source-span locations and URL links (spec §9.8)'
     href: 'https://example.com/design%20notes.md#L10-L12'
   }])
   store.close()
+})
+
+test('structured claims retain non-default sigma levels alongside uncertainty deltas', () => {
+  const store = open()
+  try {
+    store.ingest('sensor HAS reading: 1 +/- 0.01 (3σ)\ndefault-sensor HAS reading: 1 +/- 0.01 (2σ)')
+    const explicit = entity(store, 'sensor').facts[0]!
+    assert.equal(explicit.delta, '0.01')
+    assert.equal(explicit.sigmaLevel, 3)
+    assert.equal(entity(store, 'default-sensor').facts[0]!.sigmaLevel, undefined)
+    assert.equal(overview(store).recent.find(row => row.subject === 'sensor')!.sigmaLevel, 3)
+    assert.equal(history(store, explicit.key).rows[0]!.sigmaLevel, 3)
+  } finally { store.close() }
 })

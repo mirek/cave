@@ -75,6 +75,31 @@ test('a comment block directly above a template belongs to it; a blank line keep
   ].join('\n'), 'a dropped line takes the comment block above it along')
 })
 
+test('large comment blocks preserve order, attachment and optional-field removal', () => {
+  const comments = Array.from({ length: 130_000 }, (_, at) => `; source note ${at}`)
+  for (const prefix of ['', 'person IS class\n']) {
+    const { mapping, problems } = Template.parse(prefix + comments.join('\n') + '\n?id HAS name: ?name\n?id IS person')
+    assert.deepEqual(problems, [])
+    assert.ok(mapping)
+    assert.equal(mapping.prelude, prefix)
+    assert.deepEqual(mapping.templates, [[...comments, '?id HAS name: ?name'], ['?id IS person']])
+    const full = Template.instantiate(mapping.templates, field => ({ id: 'alice', name: 'Alice' })[field])
+    assert.equal(full.text, comments.join('\n') + '\nalice HAS name: Alice\nalice IS person\n')
+    assert.deepEqual(full.problems, [])
+    const partial = Template.instantiate(mapping.templates, field => field === 'id' ? 'alice' : undefined)
+    assert.equal(partial.text, 'alice IS person\n')
+    assert.equal(partial.dropped, 1)
+    assert.deepEqual(partial.problems, [])
+  }
+  const prelude = Template.parse([...comments, 'person IS class', '', '?id IS person'].join('\n'))
+  assert.deepEqual(prelude.problems, [])
+  assert.equal(prelude.mapping?.prelude, [...comments, 'person IS class', ''].join('\n'))
+  const trailing = Template.instantiate([['?id IS person', ...comments]], () => 'alice')
+  assert.deepEqual(trailing.problems, [])
+  assert.equal(trailing.dropped, 0)
+  assert.equal(trailing.text, ['alice IS person', ...comments, ''].join('\n'))
+})
+
 test('mapping lint rejects real syntax problems and attribute variables', () => {
   const attribute = Template.parse('?id HAS ?attr: ?value')
   assert.equal(attribute.mapping, undefined)
@@ -165,6 +190,21 @@ test('instantiate keeps comments and reports formatting problems', () => {
     name === 'note' ? 'both " and `' : 'fine')
   assert.equal(broken.problems.length, 1)
   assert.match(broken.problems[0]!, /\?note/)
+})
+
+test('field lookup ignores inherited properties but preserves explicit prototype-named JSON keys', () => {
+  const record = JSON.parse('{"id":"api","constructor":"owned","__proto__":{"label":"own data"},"items":[{"sku":"one"}]}')
+  assert.equal(Template.fieldOf(record, 'toString'), undefined)
+  assert.equal(Template.fieldOf(record, 'items.map'), undefined)
+  assert.equal(Template.fieldOf(record, 'constructor'), 'owned')
+  assert.equal(Template.fieldOf(record, '__proto__.label'), 'own data')
+  assert.equal(Template.fieldOf(record, 'items.0.sku'), 'one')
+  assert.equal(Template.fieldOf({ profile: Object.create({ team: 'inherited' }) }, 'profile.team'), undefined)
+  assert.equal(Template.fieldOf(Object.create({ 'a.b': 'inherited' }), 'a.b'), undefined)
+  const parsed = Template.parse('?id HAS label: ?toString')
+  assert.deepEqual(parsed.problems, [])
+  const result = Template.instantiate(parsed.mapping!.templates, name => Template.fieldOf(record, name))
+  assert.deepEqual(result, { text: '', dropped: 1, problems: [] })
 })
 
 test('fieldOf resolves exact keys first, then dot paths into nested JSON', () => {

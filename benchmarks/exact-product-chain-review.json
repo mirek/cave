@@ -1,0 +1,1549 @@
+{
+  "format": "cave.exact-product-chain-review/v1",
+  "method": "Sequential isolated Node 24 and Node 26 baselines, then final runs. Twelve cases per runtime, five timed full-operation calls per child, 10-second timeout, 128 MiB V8 old-space ceiling. No concurrent benchmarks/builds/tests.",
+  "limitations": [
+    "Timing includes complete linear analysis or explanation; excludes fixture creation and assertions.",
+    "Checks expected linearity and satisfied constraint outcome, not every intermediate arithmetic value.",
+    "RSS is observed after work, not peak memory or a total-process cap.",
+    "Single local macOS arm64 trial per variant; no general arithmetic time bound."
+  ],
+  "beforeSourceSha256": {
+    "scripts/exact-product-chain-bench.mjs": "0017ce66f594f7083bf9e61969280487f51565cf2aa342a5c63997f83585a00c",
+    "packages/solver/src/linear.ts": "e5a7124ab9561ae0340b05f3d071da99967213ee70de7063bd0b625dcde6734a",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/exact.ts": "1e03ed5cf17dd0b120ce7945bd59d703e0d299e69ad993715d80752b3dac9175"
+  },
+  "before": {
+    "24": {
+      "format": "cave.exact-product-chain-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 0.29274999999999807,
+          "samplesMs": [
+            0.24033400000000427,
+            0.24150000000000205,
+            0.29274999999999807,
+            0.37554200000001003,
+            3.008541000000008
+          ],
+          "rssBytes": 99483648
+        },
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 0.5495830000000126,
+          "samplesMs": [
+            0.39187499999999886,
+            0.4304170000000056,
+            0.5495830000000126,
+            0.7482499999999987,
+            4.5249159999999975
+          ],
+          "rssBytes": 98844672
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 3.101791999999989,
+          "samplesMs": [
+            2.2297499999999957,
+            3.0136249999999905,
+            3.101791999999989,
+            3.6002500000000026,
+            7.471792000000001
+          ],
+          "rssBytes": 100646912
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 1.1323749999999961,
+          "samplesMs": [
+            0.9178750000000093,
+            0.9757920000000126,
+            1.1323749999999961,
+            1.688083000000006,
+            3.8517500000000027
+          ],
+          "rssBytes": 100597760
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 7.845084,
+          "samplesMs": [
+            7.560415999999989,
+            7.74199999999999,
+            7.845084,
+            8.039166999999992,
+            9.946417000000004
+          ],
+          "rssBytes": 100876288
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 1.8834579999999903,
+          "samplesMs": [
+            1.4663749999999993,
+            1.4761249999999961,
+            1.8834579999999903,
+            2.112499999999997,
+            4.587833000000003
+          ],
+          "rssBytes": 102744064
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 1.1957080000000104,
+          "samplesMs": [
+            1.1898339999999905,
+            1.1944159999999897,
+            1.1957080000000104,
+            1.298917000000003,
+            2.9639999999999986
+          ],
+          "rssBytes": 98402304
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 1.3280419999999964,
+          "samplesMs": [
+            1.2208339999999964,
+            1.2336250000000035,
+            1.3280419999999964,
+            1.5974999999999966,
+            3.8598749999999953
+          ],
+          "rssBytes": 100057088
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 22.230999999999995,
+          "samplesMs": [
+            21.916957999999994,
+            21.972542000000004,
+            22.230999999999995,
+            22.404582999999988,
+            24.274082999999997
+          ],
+          "rssBytes": 101056512
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 6.093249999999998,
+          "samplesMs": [
+            5.815458000000007,
+            5.864957999999987,
+            6.093249999999998,
+            6.1594579999999866,
+            10.018375000000006
+          ],
+          "rssBytes": 101761024
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 82.622458,
+          "samplesMs": [
+            82.101834,
+            82.41675000000001,
+            82.622458,
+            83.783625,
+            85.62883299999999
+          ],
+          "rssBytes": 102465536
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 12.268999999999991,
+          "samplesMs": [
+            12.071416,
+            12.166041000000007,
+            12.268999999999991,
+            12.664292000000003,
+            15.660708
+          ],
+          "rssBytes": 102645760
+        }
+      ]
+    },
+    "26": {
+      "format": "cave.exact-product-chain-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 0.36216699999999946,
+          "samplesMs": [
+            0.27137499999999193,
+            0.3205420000000032,
+            0.36216699999999946,
+            0.4983749999999958,
+            2.6581669999999917
+          ],
+          "rssBytes": 105168896
+        },
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 0.6172499999999985,
+          "samplesMs": [
+            0.33899999999999864,
+            0.44737499999999386,
+            0.6172499999999985,
+            0.636084000000011,
+            6.933207999999993
+          ],
+          "rssBytes": 105201664
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 2.267707999999999,
+          "samplesMs": [
+            2.1125410000000073,
+            2.136250000000004,
+            2.267707999999999,
+            2.4987079999999935,
+            4.528166000000006
+          ],
+          "rssBytes": 103202816
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 1.122833,
+          "samplesMs": [
+            0.8846249999999998,
+            0.997792000000004,
+            1.122833,
+            1.3148750000000007,
+            3.7151660000000035
+          ],
+          "rssBytes": 104857600
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 7.726874999999993,
+          "samplesMs": [
+            7.348292000000001,
+            7.4140000000000015,
+            7.726874999999993,
+            8.184541999999993,
+            9.746082999999999
+          ],
+          "rssBytes": 104628224
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 1.7354169999999982,
+          "samplesMs": [
+            1.5018749999999983,
+            1.5709170000000086,
+            1.7354169999999982,
+            1.906209000000004,
+            5.123374999999996
+          ],
+          "rssBytes": 105529344
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 1.271957999999998,
+          "samplesMs": [
+            1.138417000000004,
+            1.1740839999999935,
+            1.271957999999998,
+            1.7986669999999947,
+            3.109499999999997
+          ],
+          "rssBytes": 102121472
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 1.2808750000000089,
+          "samplesMs": [
+            1.1767919999999918,
+            1.191749999999999,
+            1.2808750000000089,
+            1.7516250000000042,
+            3.9648750000000064
+          ],
+          "rssBytes": 103612416
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 21.993375,
+          "samplesMs": [
+            21.65187499999999,
+            21.731042000000002,
+            21.993375,
+            22.591208999999992,
+            24.737167000000007
+          ],
+          "rssBytes": 105185280
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 5.899833000000001,
+          "samplesMs": [
+            5.794709000000012,
+            5.813333999999998,
+            5.899833000000001,
+            6.371832999999995,
+            9.250666999999993
+          ],
+          "rssBytes": 106266624
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 81.89391600000002,
+          "samplesMs": [
+            81.246084,
+            81.60533300000003,
+            81.89391600000002,
+            82.7645,
+            84.47579200000001
+          ],
+          "rssBytes": 105136128
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 12.028666999999999,
+          "samplesMs": [
+            11.725042000000002,
+            11.770916,
+            12.028666999999999,
+            12.25437500000001,
+            16.020292000000005
+          ],
+          "rssBytes": 105267200
+        }
+      ]
+    }
+  },
+  "after": {
+    "24": {
+      "format": "cave.exact-product-chain-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 0.39645800000000975,
+          "samplesMs": [
+            0.2753330000000034,
+            0.3458339999999964,
+            0.39645800000000975,
+            0.40695799999998883,
+            3.399374999999992
+          ],
+          "rssBytes": 99139584
+        },
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 0.5252080000000063,
+          "samplesMs": [
+            0.3889159999999947,
+            0.5092499999999944,
+            0.5252080000000063,
+            0.8336249999999978,
+            4.8147089999999935
+          ],
+          "rssBytes": 99303424
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 1.548957999999999,
+          "samplesMs": [
+            1.2153750000000088,
+            1.3764169999999893,
+            1.548957999999999,
+            1.6943749999999937,
+            3.406374999999997
+          ],
+          "rssBytes": 99270656
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 1.171291999999994,
+          "samplesMs": [
+            0.9557920000000024,
+            1.056207999999998,
+            1.171291999999994,
+            1.5515829999999937,
+            4.033999999999992
+          ],
+          "rssBytes": 100679680
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 2.64524999999999,
+          "samplesMs": [
+            2.4383750000000077,
+            2.638417000000004,
+            2.64524999999999,
+            2.82566700000001,
+            4.541291000000001
+          ],
+          "rssBytes": 101466112
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 1.9513749999999987,
+          "samplesMs": [
+            1.5182080000000013,
+            1.6497079999999897,
+            1.9513749999999987,
+            2.0633749999999935,
+            4.832916999999995
+          ],
+          "rssBytes": 101318656
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 1.1951249999999902,
+          "samplesMs": [
+            1.1750420000000048,
+            1.1899169999999941,
+            1.1951249999999902,
+            1.2982080000000025,
+            2.9215420000000023
+          ],
+          "rssBytes": 98697216
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 1.4332920000000087,
+          "samplesMs": [
+            1.244208999999998,
+            1.3083330000000046,
+            1.4332920000000087,
+            1.6282919999999876,
+            4.0562089999999955
+          ],
+          "rssBytes": 100532224
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 10.562416999999996,
+          "samplesMs": [
+            10.438209,
+            10.476749999999996,
+            10.562416999999996,
+            10.744957999999997,
+            12.964541999999994
+          ],
+          "rssBytes": 101580800
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 6.111167000000009,
+          "samplesMs": [
+            5.77225,
+            5.942041000000003,
+            6.111167000000009,
+            6.361666999999997,
+            9.144875000000006
+          ],
+          "rssBytes": 101548032
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 25.217416999999998,
+          "samplesMs": [
+            24.965834,
+            25.12379200000001,
+            25.217416999999998,
+            25.24237500000001,
+            28.387541000000006
+          ],
+          "rssBytes": 101548032
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 12.171458000000001,
+          "samplesMs": [
+            12.107500000000002,
+            12.169459000000003,
+            12.171458000000001,
+            12.988250000000008,
+            16.390209
+          ],
+          "rssBytes": 101646336
+        }
+      ]
+    },
+    "26": {
+      "format": "cave.exact-product-chain-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 0.2699169999999924,
+          "samplesMs": [
+            0.23441700000000765,
+            0.2643329999999935,
+            0.2699169999999924,
+            0.3859170000000063,
+            2.7292500000000075
+          ],
+          "rssBytes": 104267776
+        },
+        {
+          "digits": 1000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 0.4960839999999962,
+          "samplesMs": [
+            0.4024169999999998,
+            0.4280420000000049,
+            0.4960839999999962,
+            0.5803750000000036,
+            5.170916999999996
+          ],
+          "rssBytes": 103956480
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 1.3771249999999924,
+          "samplesMs": [
+            1.0843330000000009,
+            1.291916999999998,
+            1.3771249999999924,
+            1.3959579999999931,
+            3.139208999999994
+          ],
+          "rssBytes": 102858752
+        },
+        {
+          "digits": 1000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 1.1416250000000048,
+          "samplesMs": [
+            0.9444160000000039,
+            0.9783330000000063,
+            1.1416250000000048,
+            1.3587090000000046,
+            3.694583999999999
+          ],
+          "rssBytes": 104529920
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 3.1045839999999885,
+          "samplesMs": [
+            2.714500000000001,
+            2.901916,
+            3.1045839999999885,
+            4.0774159999999995,
+            5.017375000000001
+          ],
+          "rssBytes": 104595456
+        },
+        {
+          "digits": 1000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 1.618124999999992,
+          "samplesMs": [
+            1.4138750000000044,
+            1.4952090000000027,
+            1.618124999999992,
+            1.7742920000000026,
+            4.9805840000000074
+          ],
+          "rssBytes": 105037824
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "linear",
+          "medianMs": 1.2307500000000005,
+          "samplesMs": [
+            1.1984170000000063,
+            1.2040410000000037,
+            1.2307500000000005,
+            1.2701660000000032,
+            2.951042000000001
+          ],
+          "rssBytes": 103153664
+        },
+        {
+          "digits": 5000,
+          "factors": 2,
+          "operation": "explain",
+          "medianMs": 1.5439170000000004,
+          "samplesMs": [
+            1.1783750000000026,
+            1.3100419999999957,
+            1.5439170000000004,
+            1.6242909999999995,
+            3.9241250000000036
+          ],
+          "rssBytes": 103563264
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "linear",
+          "medianMs": 10.590707999999992,
+          "samplesMs": [
+            10.334999999999994,
+            10.464832999999999,
+            10.590707999999992,
+            10.751459000000011,
+            12.607541000000005
+          ],
+          "rssBytes": 105201664
+        },
+        {
+          "digits": 5000,
+          "factors": 10,
+          "operation": "explain",
+          "medianMs": 6.118707999999998,
+          "samplesMs": [
+            5.7549999999999955,
+            5.8364580000000075,
+            6.118707999999998,
+            6.120082999999994,
+            9.119458000000002
+          ],
+          "rssBytes": 105070592
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "linear",
+          "medianMs": 25.377707999999984,
+          "samplesMs": [
+            25.037707999999995,
+            25.231792,
+            25.377707999999984,
+            25.44662500000001,
+            28.070541999999996
+          ],
+          "rssBytes": 104726528
+        },
+        {
+          "digits": 5000,
+          "factors": 18,
+          "operation": "explain",
+          "medianMs": 11.985250000000008,
+          "samplesMs": [
+            11.763416000000007,
+            11.893791000000007,
+            11.985250000000008,
+            12.364625000000004,
+            15.609790999999987
+          ],
+          "rssBytes": 105136128
+        }
+      ]
+    }
+  },
+  "afterSourceSha256": {
+    "scripts/exact-product-chain-bench.mjs": "0017ce66f594f7083bf9e61969280487f51565cf2aa342a5c63997f83585a00c",
+    "packages/solver/src/linear.ts": "870a7441ef879ada95af93f68873bc3c7c259f4c9e745ac155095e394fb0012b",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/exact.ts": "1e03ed5cf17dd0b120ce7945bd59d703e0d299e69ad993715d80752b3dac9175"
+  },
+  "change": "Accumulate constant multiplication chains as bigint numerator/denominator pairs with cross-cancellation, normalizing/serializing once at the end. All operands are evaluated before accumulation, preserving errors.",
+  "reproduction": {
+    "method": "Sequential baseline24, current24, baseline26, current26 using the guarded child loader. No overlapping benchmarks/builds/tests.",
+    "commands": {
+      "baseline": "node scripts/exact-product-chain-bench.mjs --baseline",
+      "current": "node scripts/exact-product-chain-bench.mjs"
+    },
+    "sourceSha256": {
+      "scripts/exact-product-chain-bench.mjs": "fa81ecd13b9a7213750968d9ba8b08807f1b720ce776429266e8e6641568d220",
+      "benchmarks/linear-product-chain-baseline.mjs": "48116a3a7d633b75eb9eb5bbfad3a46620b933bfeacb01b5f0363b659a06bdab",
+      "packages/solver/src/linear.ts": "870a7441ef879ada95af93f68873bc3c7c259f4c9e745ac155095e394fb0012b"
+    },
+    "reports": {
+      "before24": {
+        "format": "cave.exact-product-chain-benchmark",
+        "version": 1,
+        "variant": "baseline",
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurement": {
+          "samplesPerWorkload": 5,
+          "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+          "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+          "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+          "memoryLimit": "V8 old space only; not a total-process memory cap"
+        },
+        "measurements": [
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 0.310292000000004,
+            "samplesMs": [
+              0.25941700000001333,
+              0.2631670000000099,
+              0.310292000000004,
+              0.4307089999999789,
+              7.132292000000007
+            ],
+            "rssBytes": 99729408
+          },
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 0.4898340000000019,
+            "samplesMs": [
+              0.407708999999997,
+              0.41979200000000105,
+              0.4898340000000019,
+              0.5999169999999907,
+              2.7465000000000046
+            ],
+            "rssBytes": 98811904
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 2.380958000000007,
+            "samplesMs": [
+              2.1936249999999973,
+              2.2502080000000007,
+              2.380958000000007,
+              2.4620000000000033,
+              4.522041999999999
+            ],
+            "rssBytes": 100843520
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 1.0802500000000066,
+            "samplesMs": [
+              0.913958000000008,
+              1.0014159999999919,
+              1.0802500000000066,
+              1.842540999999997,
+              3.748874999999998
+            ],
+            "rssBytes": 101728256
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 7.67266699999999,
+            "samplesMs": [
+              7.535083,
+              7.559208999999996,
+              7.67266699999999,
+              8.107709,
+              9.567208000000008
+            ],
+            "rssBytes": 102449152
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 1.7027920000000023,
+            "samplesMs": [
+              1.4962500000000034,
+              1.5648750000000007,
+              1.7027920000000023,
+              1.873291000000009,
+              4.711624999999998
+            ],
+            "rssBytes": 101416960
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 1.2005830000000088,
+            "samplesMs": [
+              1.1582089999999994,
+              1.1762080000000026,
+              1.2005830000000088,
+              1.289041999999995,
+              3.1783340000000067
+            ],
+            "rssBytes": 99434496
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 1.3532090000000068,
+            "samplesMs": [
+              1.2067499999999995,
+              1.2347910000000013,
+              1.3532090000000068,
+              1.4995000000000118,
+              4.798333999999997
+            ],
+            "rssBytes": 100139008
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 23.134583000000006,
+            "samplesMs": [
+              22.565124999999995,
+              22.833291000000003,
+              23.134583000000006,
+              23.296541999999988,
+              25.833124999999995
+            ],
+            "rssBytes": 101810176
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 6.261708999999996,
+            "samplesMs": [
+              5.824916000000002,
+              6.1129159999999985,
+              6.261708999999996,
+              6.307792000000006,
+              9.574041000000008
+            ],
+            "rssBytes": 102252544
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 84.670208,
+            "samplesMs": [
+              84.66624999999999,
+              84.66783299999997,
+              84.670208,
+              86.94637499999999,
+              87.965958
+            ],
+            "rssBytes": 102580224
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 12.341458000000003,
+            "samplesMs": [
+              11.824874999999992,
+              11.886833999999993,
+              12.341458000000003,
+              12.985166000000007,
+              16.002083
+            ],
+            "rssBytes": 101908480
+          }
+        ]
+      },
+      "after24": {
+        "format": "cave.exact-product-chain-benchmark",
+        "version": 1,
+        "variant": "current",
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurement": {
+          "samplesPerWorkload": 5,
+          "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+          "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+          "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+          "memoryLimit": "V8 old space only; not a total-process memory cap"
+        },
+        "measurements": [
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 0.2723749999999967,
+            "samplesMs": [
+              0.23695800000000133,
+              0.24029200000001083,
+              0.2723749999999967,
+              0.38783300000000054,
+              2.174709000000007
+            ],
+            "rssBytes": 97910784
+          },
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 0.5031670000000048,
+            "samplesMs": [
+              0.4276669999999996,
+              0.47179200000000776,
+              0.5031670000000048,
+              0.7186659999999989,
+              2.987291000000006
+            ],
+            "rssBytes": 98975744
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 1.331541999999999,
+            "samplesMs": [
+              1.2784170000000046,
+              1.3198749999999961,
+              1.331541999999999,
+              2.0489589999999964,
+              3.2468330000000094
+            ],
+            "rssBytes": 98123776
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 1.1920410000000032,
+            "samplesMs": [
+              0.9164580000000058,
+              0.9845830000000007,
+              1.1920410000000032,
+              1.4757919999999984,
+              3.906957999999989
+            ],
+            "rssBytes": 101351424
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 2.6234170000000034,
+            "samplesMs": [
+              2.5741250000000093,
+              2.5753329999999863,
+              2.6234170000000034,
+              2.7595000000000027,
+              4.544667000000004
+            ],
+            "rssBytes": 101105664
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 2.1354999999999933,
+            "samplesMs": [
+              1.5093750000000057,
+              1.582833000000008,
+              2.1354999999999933,
+              2.1808750000000003,
+              4.650167000000003
+            ],
+            "rssBytes": 101203968
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 1.2127079999999921,
+            "samplesMs": [
+              1.1574580000000054,
+              1.1615829999999931,
+              1.2127079999999921,
+              1.2975409999999954,
+              3.752500000000005
+            ],
+            "rssBytes": 98615296
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 1.4879590000000036,
+            "samplesMs": [
+              1.207792000000012,
+              1.2214169999999882,
+              1.4879590000000036,
+              1.8890419999999892,
+              4.953582999999995
+            ],
+            "rssBytes": 100597760
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 10.53125,
+            "samplesMs": [
+              10.328541999999999,
+              10.359458000000004,
+              10.53125,
+              10.930625000000006,
+              12.866458000000002
+            ],
+            "rssBytes": 103579648
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 6.101707999999988,
+            "samplesMs": [
+              5.909083999999993,
+              5.988334000000009,
+              6.101707999999988,
+              6.165915999999996,
+              9.110250000000008
+            ],
+            "rssBytes": 102285312
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 25.22120800000002,
+            "samplesMs": [
+              25.108999999999995,
+              25.1875,
+              25.22120800000002,
+              25.249499999999998,
+              28.246207999999996
+            ],
+            "rssBytes": 102137856
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 12.569790999999995,
+            "samplesMs": [
+              12.244916000000003,
+              12.503540999999998,
+              12.569790999999995,
+              13.370416000000006,
+              16.333167000000003
+            ],
+            "rssBytes": 101695488
+          }
+        ]
+      },
+      "before26": {
+        "format": "cave.exact-product-chain-benchmark",
+        "version": 1,
+        "variant": "baseline",
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurement": {
+          "samplesPerWorkload": 5,
+          "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+          "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+          "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+          "memoryLimit": "V8 old space only; not a total-process memory cap"
+        },
+        "measurements": [
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 0.2951669999999922,
+            "samplesMs": [
+              0.2723749999999967,
+              0.28170799999999474,
+              0.2951669999999922,
+              0.39033399999999574,
+              3.074959000000007
+            ],
+            "rssBytes": 105365504
+          },
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 0.4733329999999967,
+            "samplesMs": [
+              0.32995800000000486,
+              0.45283299999999826,
+              0.4733329999999967,
+              0.689249999999987,
+              2.750124999999997
+            ],
+            "rssBytes": 103268352
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 2.2655830000000066,
+            "samplesMs": [
+              2.1774170000000055,
+              2.186125000000004,
+              2.2655830000000066,
+              2.5334999999999894,
+              4.0894170000000045
+            ],
+            "rssBytes": 104972288
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 1.1889159999999919,
+            "samplesMs": [
+              0.9098330000000061,
+              0.9462500000000063,
+              1.1889159999999919,
+              1.283208000000002,
+              3.8369590000000073
+            ],
+            "rssBytes": 105152512
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 7.692082999999997,
+            "samplesMs": [
+              7.4442089999999865,
+              7.615208999999993,
+              7.692082999999997,
+              8.370582999999996,
+              10.286541000000014
+            ],
+            "rssBytes": 105955328
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 1.6507919999999956,
+            "samplesMs": [
+              1.4351669999999928,
+              1.564208999999991,
+              1.6507919999999956,
+              1.7874580000000009,
+              4.425542
+            ],
+            "rssBytes": 105758720
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 1.3460420000000113,
+            "samplesMs": [
+              1.1989169999999945,
+              1.3015829999999937,
+              1.3460420000000113,
+              1.4916670000000067,
+              3.207249999999995
+            ],
+            "rssBytes": 103809024
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 1.2911249999999939,
+            "samplesMs": [
+              1.108542,
+              1.1899590000000018,
+              1.2911249999999939,
+              1.4563750000000084,
+              3.5776670000000053
+            ],
+            "rssBytes": 104005632
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 22.124417000000008,
+            "samplesMs": [
+              21.841250000000002,
+              21.856375000000014,
+              22.124417000000008,
+              22.578165999999996,
+              24.269624999999998
+            ],
+            "rssBytes": 106430464
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 6.241958999999994,
+            "samplesMs": [
+              5.958041999999992,
+              5.977541000000002,
+              6.241958999999994,
+              6.417000000000002,
+              9.661375000000007
+            ],
+            "rssBytes": 105725952
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 81.643667,
+            "samplesMs": [
+              81.42533299999997,
+              81.50216699999999,
+              81.643667,
+              82.37308300000001,
+              85.75675
+            ],
+            "rssBytes": 106070016
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 11.899583000000007,
+            "samplesMs": [
+              11.694749999999999,
+              11.803416999999996,
+              11.899583000000007,
+              12.114041999999998,
+              15.624208000000003
+            ],
+            "rssBytes": 106299392
+          }
+        ]
+      },
+      "after26": {
+        "format": "cave.exact-product-chain-benchmark",
+        "version": 1,
+        "variant": "current",
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurement": {
+          "samplesPerWorkload": 5,
+          "workload": "Products of separately allocated unit fractions with a common large denominator; 2, 10 or 18 factors, within default maxNumericDigits.",
+          "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+          "rss": "after workload and assertions; includes runtime and imports; not peak or incremental memory",
+          "memoryLimit": "V8 old space only; not a total-process memory cap"
+        },
+        "measurements": [
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 0.3309579999999954,
+            "samplesMs": [
+              0.25491700000000606,
+              0.2707500000000067,
+              0.3309579999999954,
+              0.3674170000000032,
+              3.375833
+            ],
+            "rssBytes": 101859328
+          },
+          {
+            "digits": 1000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 0.5200420000000037,
+            "samplesMs": [
+              0.36120800000000486,
+              0.40449999999999875,
+              0.5200420000000037,
+              0.801833000000002,
+              3.0509580000000085
+            ],
+            "rssBytes": 104251392
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 1.198999999999998,
+            "samplesMs": [
+              1.1517089999999968,
+              1.161833999999999,
+              1.198999999999998,
+              1.3447080000000113,
+              3.4542080000000084
+            ],
+            "rssBytes": 103170048
+          },
+          {
+            "digits": 1000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 1.2781250000000028,
+            "samplesMs": [
+              0.8708749999999981,
+              0.9313750000000027,
+              1.2781250000000028,
+              1.5794159999999948,
+              3.672916999999991
+            ],
+            "rssBytes": 104398848
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 2.649249999999995,
+            "samplesMs": [
+              2.422374999999988,
+              2.479791999999989,
+              2.649249999999995,
+              2.9713749999999948,
+              4.526583999999993
+            ],
+            "rssBytes": 104235008
+          },
+          {
+            "digits": 1000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 1.6102089999999976,
+            "samplesMs": [
+              1.414041999999995,
+              1.4719580000000008,
+              1.6102089999999976,
+              1.7408750000000026,
+              4.848374999999997
+            ],
+            "rssBytes": 105955328
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "linear",
+            "medianMs": 1.2212919999999912,
+            "samplesMs": [
+              1.1744580000000013,
+              1.1854589999999945,
+              1.2212919999999912,
+              1.3001670000000018,
+              2.915542000000009
+            ],
+            "rssBytes": 102875136
+          },
+          {
+            "digits": 5000,
+            "factors": 2,
+            "operation": "explain",
+            "medianMs": 1.2822499999999906,
+            "samplesMs": [
+              1.221625000000003,
+              1.2487500000000011,
+              1.2822499999999906,
+              1.4514999999999958,
+              3.8473749999999995
+            ],
+            "rssBytes": 104300544
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "linear",
+            "medianMs": 10.510874999999999,
+            "samplesMs": [
+              10.179000000000002,
+              10.360250000000008,
+              10.510874999999999,
+              10.654457999999991,
+              12.646874999999994
+            ],
+            "rssBytes": 105988096
+          },
+          {
+            "digits": 5000,
+            "factors": 10,
+            "operation": "explain",
+            "medianMs": 5.9296250000000015,
+            "samplesMs": [
+              5.6733329999999995,
+              5.7151250000000005,
+              5.9296250000000015,
+              6.0141670000000005,
+              9.171540999999998
+            ],
+            "rssBytes": 105644032
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "linear",
+            "medianMs": 25.558333000000005,
+            "samplesMs": [
+              24.952541999999994,
+              24.96112500000001,
+              25.558333000000005,
+              25.789083000000005,
+              27.312124999999995
+            ],
+            "rssBytes": 106119168
+          },
+          {
+            "digits": 5000,
+            "factors": 18,
+            "operation": "explain",
+            "medianMs": 12.084208000000004,
+            "samplesMs": [
+              11.785415999999984,
+              11.954833999999991,
+              12.084208000000004,
+              12.374750000000006,
+              15.961124999999996
+            ],
+            "rssBytes": 105234432
+          }
+        ]
+      }
+    }
+  }
+}

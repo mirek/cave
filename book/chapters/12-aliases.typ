@@ -71,10 +71,11 @@ both histories intact.
 == Finding candidates
 
 Naming drift is the entity-resolution bottleneck under extraction, and
-discovering the pairs is the hard part. `cave suggest-alias` scores every
-pair of entity names by explainable signals and prints candidate `ALIAS`
-claims at low confidence for review. Rebuild the store without the alias
-to see what it finds:
+discovering the pairs is the hard part. `cave suggest-alias` finds candidate
+pairs using explainable signals and prints `ALIAS` claims at low confidence
+for review. `--min` accepts a finite score in 0..1 or a percentage; `--limit`
+requires a positive safe integer. Rebuild the store without the alias to see
+what it finds:
 
 ```sh
 $ cave add --db fresh.db roastery.cave
@@ -116,12 +117,19 @@ entities is a category, not an identity; and shared relations only
 strengthen a candidate, never create one, because siblings share parents
 without being one person.
 
-`--write` appends the suggestions instead of printing them, stamped
-`@src:suggest/alias`. Because a written suggestion is a positive claim, an
-alias-aware read honours it until reviewed; rejecting one then means
-retracting *its* series by naming that source context. An optional
-`--agent` runs a language-model judge over the candidates before anyone
-sees them, with the same shell contract as ingestion (Chapter 15).
+Suggested lines preserve entity identity. An undirected link may reverse to
+`42 ALIAS 4-2`, keeping `42` out of the numeric object position. The preferred
+name in suggestion metadata is unchanged. If neither direction can represent
+an entity object, discovery reports an error without writing.
+
+`--write` stamps suggestions `@src:suggest/alias`. Under one transaction, it
+skips pairs with history in either direction, preserving reviews committed
+while a judge runs. Every fresh line must describe one positive alias relation
+between its proposed names; a mismatch rejects the whole batch.
+`--json` returns the selected suggestions; `--json --write` also writes and
+reports the actual appended count. Alias-aware reads honour written suggestions
+until reviewed: retract their series using the same direction and source context. An optional
+`--agent` judges candidates using the ingestion shell contract (Chapter 15).
 
 #recap[`a ALIAS b` links two names for one entity; `--aliases` widens
 matching through the closure without rewriting rows or merging histories.

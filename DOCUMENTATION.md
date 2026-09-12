@@ -40,6 +40,7 @@ in the repository.
 | Entry points | `README.md`, `DOCUMENTATION.md` | Step-by-step tutorial (backed by `examples/monorepo/` and `examples/market/`), specification index, and this maintenance map. |
 | Project references | `PROJECT-BOUNDARIES.md`, `RETIRED-ROADMAP.md`, `DEPENDENCY-MAINTENANCE.md` | Permanent non-goals, historical roadmap resolution, and dependency triage policy. |
 | System design | `ARCHITECTURE.md`, `IMPLEMENTATION.md` | Boundaries, flows, package map, toolchain, and implementation decisions. |
+| Performance trials | `benchmarks/README.md`, `benchmarks/*.json` | Benchmark discovery, reproduction guidance, workload budgets, recorded reports, and links to package measurements. |
 | Contributor instructions | `CLAUDE.md`, `.github/pull_request_template.md`, `.claude/skills/pull-requests/SKILL.md` | Required repository and PR workflow: changesets, documentation review, the review loop (every finding fixed or answered, every addressed thread resolved), CI and the bot PDF commit, the `main` ruleset, and the rule that material conclusions are persisted in live documents. |
 | Normative specification skills | `.claude/skills/cave-design/SKILL.md`, `.claude/skills/cave-writing/SKILL.md`, `.claude/skills/cave-extraction/SKILL.md`, `.claude/skills/cave-storage-query/SKILL.md` | Numbered CAVE specification sections. |
 | Installable Agent Skill | `skills/cave/SKILL.md`, `skills/cave/references/usage.md`, `skills/cave/agents/openai.yaml` | Portable task guidance for CAVE users; defer to the connected server's version-matched `cave_help` tool. |
@@ -73,12 +74,23 @@ drifts fails `pnpm test` and is refreshed with
 
 `packages/cli/test/documentation.test.ts` keeps the mechanical copies small
 and reviewable. It checks command and MCP tables against their registries,
+including whether reference rows remain inside a contiguous Markdown table,
 every published package entry point against its package README, package
 migrations against `package-surfaces.json`, website navigation against package
 READMEs, the root specification index against `.claude/skills/cave-*`, and the
-book/website version imports against the root manifest. Contributors update
+book/website version imports against the root manifest. Package README import
+examples must use the registry's published replacements for retired internal
+workspaces; contributor source imports and the migration guide's explicit
+before/after example keep their separate roles. Contributors update
 the authoritative registry and its human explanation in one PR; ordinary
 `pnpm test` reports the exact stale projection.
+
+`website/test/e2e/production.spec.ts` also follows the website's documentation
+navigation and checks that links to bundled sections have rendered targets.
+Its browser tests verify section deep links, reloads, and history on both mobile
+and desktop. Run them against a fresh `pnpm site:build` with
+`pnpm --filter @cavelang/website test:browser` when changing documentation links
+or headings; Markdown stays the source of truth for both GitHub and the site.
 
 ## Change map
 
@@ -107,6 +119,6 @@ Before publishing a PR:
    fixed bug files and their index entries.
 4. Rebuild generated documentation artifacts from their checked-in sources.
 5. Check links, code examples, current-version displays, and documentation
-   navigation.
+navigation.
 6. Record the review in the pull request checklist, including “no documentation
    change required” when that is the verified result.
