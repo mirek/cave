@@ -184,6 +184,37 @@ test('installed Changesets versions the real workspace before derived version sy
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
+test('version synchronization attributes provisional private notes to the lockstep release', () => {
+  for (const [previous, provisional, next] of [
+    ['0.35.0', '0.35.1', '0.36.0'],
+    ['1.9.0', '1.10.0', '2.0.0']
+  ]) {
+    const root = mkdtempSync(join(tmpdir(), 'cave-private-notes-'))
+    try {
+      writeVersions(root, previous)
+      mkdirSync(join(root, 'packages/core'))
+      mkdirSync(join(root, 'packages/private'))
+      writeFileSync(join(root, 'packages/core/package.json'), JSON.stringify({ name: '@cavelang/core', version: next }))
+      writeFileSync(join(root, 'packages/private/package.json'), JSON.stringify({ name: '@fixture/private', private: true, version: provisional }))
+      const history = `## ${previous}\n\n### Patch Changes\n\n- Historical fix.\n`
+      const notes = '\n\n### Patch Changes\n\n- Actual private fix.\n\n'
+      const path = join(root, 'packages/private/CHANGELOG.md')
+      writeFileSync(path, `# @fixture/private\n\n## ${provisional}${notes}${history}`)
+      const run = () => spawnSync(process.execPath, [synchronizer], {
+        encoding: 'utf8', env: { ...process.env, CAVE_RELEASE_ROOT: root }
+      })
+      const first = run()
+      assert.equal(first.status, 0, first.stderr)
+      const expected = `# @fixture/private\n\n## ${next}${notes}${history}`
+      assert.equal(readFileSync(path, 'utf8'), expected)
+      assert.equal(JSON.parse(readFileSync(join(root, 'packages/private/package.json'), 'utf8')).version, next)
+      const second = run()
+      assert.equal(second.status, 0, second.stderr)
+      assert.equal(readFileSync(path, 'utf8'), expected, 'retry preserves notes and history exactly')
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  }
+})
+
 test('version synchronization gives the private VS Code workspace a changelog entry', () => {
   const root = mkdtempSync(join(tmpdir(), 'cave-version-sync-'))
   try {

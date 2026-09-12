@@ -335,6 +335,10 @@ reviewed public API check; source tests do not prove installed resolution.
   extension and grammar metadata, leaving the ignored website unchanged. It
   adds alignment changelog entries for workspaces it advances so the action
   can summarize every changed package, preserving existing release entries.
+  When Changesets gives a workspace a provisional version between the old
+  root version and the new fixed-group version, the synchronizer retitles its
+  leading changelog entry to the actual lockstep release. Its detailed notes
+  stay intact; entries at or below the old root version remain history.
   Each alignment changelog is written before its manifest version advances.
   A changelog failure therefore leaves that workspace eligible for a retry,
   with the original release severity; successful earlier workspace writes may
