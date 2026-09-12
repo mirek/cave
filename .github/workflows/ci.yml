@@ -207,7 +207,7 @@ jobs:
         run: pnpm --filter @cavelang/tree-sitter-cave build && pnpm site:build
 
       - name: Install the browser runtime
-        run: pnpm --filter @cavelang/website exec playwright install --with-deps chromium
+        run: pnpm --filter @cavelang/website exec playwright install --with-deps --no-shell chromium
 
       - name: Exercise the production website and local viewer
         run: pnpm --filter @cavelang/website test:browser

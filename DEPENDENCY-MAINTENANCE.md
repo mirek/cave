@@ -251,8 +251,20 @@ newer, covering both supported CAVE majors. The
 remove Ubuntu 20.04 support; the browser CI job already uses Ubuntu 24.04.
 This release's Chromium build is 153.0.8010.12 (revision 1243). Install the
 browser matching the lockfile through `pnpm --dir website exec playwright
-install chromium`; a previously installed browser is not version evidence.
+install --no-shell chromium`; a previously installed browser is not version evidence.
 For local review, `--no-remove` preserves other Playwright installations' browsers.
+
+The suite selects `channel: 'chromium'`, using the full browser's headless mode.
+[Playwright documents this mode](https://playwright.dev/docs/browsers#chromium-new-headless-mode)
+as sharing normal browser behavior more closely than the separate headless shell.
+CI installs that browser with `--no-shell`. This follows intermittent hosted
+middle-click failures in both documentation navigation and article section links,
+where the click completed but no new page event arrived. The symptom also appears
+in [upstream issue #42142](https://github.com/microsoft/playwright/issues/42142),
+including a plain-HTML reproduction; a passing local run did not rule it out.
+The mode change retains native clicks, destination assertions, failure traces,
+and the input timeline. It does not add retries or replace the click with a
+programmatic page opening. Future browser updates must still pass the full suite.
 
 The existing single-worker Chromium suite needs no migration to the new test
 locks, frame locators or trace snapshot APIs. All 144 production-browser tests

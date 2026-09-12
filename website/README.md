@@ -556,9 +556,10 @@ An intermittent hosted missing-tab failure was not reproduced in 20 local runs
 of the original six-scenario test or 12 additional CPU-throttled scenarios;
 the added evidence does not establish a root-cause fix or justify retries.
 
-The Playwright configuration runs these checks in its version-matched Chromium
-build. After updating the lockfile, install that browser with
-`pnpm --dir website exec playwright install chromium`; the
+The Playwright configuration uses `channel: 'chromium'` to run the full browser
+in headless mode. Native middle-click/new-tab assertions remain enabled.
+After updating the lockfile, install that version-matched browser with
+`pnpm --dir website exec playwright install --no-shell chromium`; the
 [dependency guide](../DEPENDENCY-MAINTENANCE.md#playwright-browser-test-updates)
 records the current compatibility review. Responsive widths,
 touch and accessibility media emulation exercise that engine; the suite does not
