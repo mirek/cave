@@ -1,5 +1,12 @@
 # @cavelang/solver-z3
 
+## 0.36.8
+
+### Patch Changes
+
+- Updated dependencies [be7359c]
+  - @cavelang/solver@0.36.8
+
 ## 0.36.7
 
 ### Patch Changes

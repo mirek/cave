@@ -1,5 +1,11 @@
 # @cavelang/solver
 
+## 0.36.8
+
+### Patch Changes
+
+- be7359c: Extend the independent mixed-expression oracle with large denominator compositions, computed zero divisors and explanation-budget recovery, and document the reviewed arithmetic boundary.
+
 ## 0.36.7
 
 No changes in this release.
