@@ -146,6 +146,51 @@ test('HTTP contains unprintable store failures and serves subsequent requests', 
   }
 })
 
+test('HTTP contains response serialization failures and recovers after adapter repair', async t => {
+  const store = fixture()
+  const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
+  const listener = handle.server.listeners('request')[0]!
+  let escaped: unknown
+  handle.server.removeAllListeners('request')
+  handle.server.on('request', (req, res) => {
+    try { listener(req, res) } catch (error) {
+      escaped = error
+      res.destroy()
+    }
+  })
+  try {
+    const url = `${handle.url}api/overview`
+    const before = await (await fetch(url)).text()
+    const prepare = store.db.prepare.bind(store.db)
+    t.mock.method(store.db, 'prepare', (sql: string) => {
+      const statement = prepare(sql)
+      // BigInt is a SQLite adapter value, but cannot be serialized as JSON.
+      return sql === 'SELECT COUNT(*) AS n FROM cave_claim'
+        ? { ...statement, get: () => ({ n: 1n }) }
+        : statement
+    })
+    for (const method of ['GET', 'HEAD']) {
+      const response = await fetch(url, { method }).catch(() => undefined)
+      assert.equal(escaped, undefined, 'serialization must not escape the HTTP handler')
+      assert.ok(response, 'the client receives an HTTP response')
+      assert.equal(response.status, 500)
+      assert.equal(response.headers.get('cache-control'), 'no-store')
+      assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8')
+      const body = await response.text()
+      if (method === 'HEAD') assert.equal(body, '')
+      else assert.match(JSON.parse(body).error, /BigInt/i)
+    }
+    t.mock.restoreAll()
+    const repaired = await fetch(url)
+    assert.equal(repaired.status, 200)
+    assert.equal(await repaired.text(), before)
+  } finally {
+    t.mock.restoreAll()
+    await handle.close()
+    store.close()
+  }
+})
+
 test('browser API errors preserve HTTP status when response bodies are not error objects', async () => {
   let response: Response
   const start = page.indexOf('function api (')
