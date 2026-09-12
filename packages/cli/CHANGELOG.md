@@ -1,5 +1,18 @@
 # @cavelang/cli
 
+## 0.36.3
+
+### Patch Changes
+
+- b117d83: Serialize viewer API responses before sending headers so serialization failures return HTTP 500 instead of escaping the server's request handler.
+- @cavelang/canonical@0.36.3
+  - @cavelang/core@0.36.3
+  - @cavelang/fusion@0.36.3
+  - @cavelang/highlight@0.36.3
+  - @cavelang/parser@0.36.3
+  - @cavelang/query@0.36.3
+  - @cavelang/store@0.36.3
+
 ## 0.36.2
 
 ### Patch Changes
