@@ -1,5 +1,18 @@
 # @cavelang/cli
 
+## 0.36.5
+
+### Patch Changes
+
+- 007343d: Reuse metadata statements within lineage reads, reducing repeated SQLite preparation while preserving validation, shared evidence and fresh data on later requests.
+- @cavelang/canonical@0.36.5
+  - @cavelang/core@0.36.5
+  - @cavelang/fusion@0.36.5
+  - @cavelang/highlight@0.36.5
+  - @cavelang/parser@0.36.5
+  - @cavelang/query@0.36.5
+  - @cavelang/store@0.36.5
+
 ## 0.36.4
 
 ### Patch Changes

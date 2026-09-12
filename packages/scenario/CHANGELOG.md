@@ -1,5 +1,15 @@
 # @cavelang/scenario
 
+## 0.36.5
+
+### Patch Changes
+
+- @cavelang/canonical@0.36.5
+  - @cavelang/core@0.36.5
+  - @cavelang/query@0.36.5
+  - @cavelang/solver@0.36.5
+  - @cavelang/store@0.36.5
+
 ## 0.36.4
 
 ### Patch Changes
