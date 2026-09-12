@@ -1,5 +1,11 @@
 # @cavelang/rules
 
+## 0.36.8
+
+### Patch Changes
+
+- Align the @cavelang/rules workspace with the CAVE 0.36.8 release identity.
+
 ## 0.36.7
 
 ### Patch Changes
