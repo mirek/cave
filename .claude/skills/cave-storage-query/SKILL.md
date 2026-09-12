@@ -280,6 +280,9 @@ Surfaces:
 - `SourceSpan.context`, `parse`, and `ofContexts` in `@cavelang/core` are the
   single formatter/parser. They expose `{ source, span, location, href? }`;
   HTTP(S) sources get a navigable `href`.
+  The JavaScript API's numeric line endpoints MUST be safe integers (at most
+  `Number.MAX_SAFE_INTEGER`). Formatting rejects endpoints outside that range;
+  parsing returns `undefined` rather than exposing a rounded evidence anchor.
 - `cave ingest` numbers embedded source lines and asks the extractor to cite
   the smallest supporting range using the printed escaped source context.
 - `cave connect` attaches the physical source identity to mapped records and
@@ -311,13 +314,32 @@ Two query layers: SQL over stored claims (§13.5) and **CAVE-Q**, a small graph-
 terrier EXTENDS+ animal           ; transitive: one or more EXTENDS hops
 ```
 
-Variables begin with `?` (`?service`, `?bug`); `_` is a wildcard:
+Variables begin with `?` and require a non-empty name (`?service`, `?bug`);
+a bare `?` is invalid. `_` is a wildcard:
 
 ```cave
 _ USES jwt
 ```
 
 Inverse verbs are valid in patterns. `?x PART-OF monorepo` and `monorepo CONTAINS ?x` compile to the same physical query against canonical rows.
+
+Query syntax and option compatibility MUST be validated independently of row
+availability, including paginated queries over empty stores or empty historical
+snapshots. An empty result is not a successful interpretation of an invalid
+query, malformed time anchor, or unsupported option combination.
+
+Paginated reads pin the first page's transaction cutoff. Because sync can add
+older transactions, a continuation MUST also verify that its historical row
+universe and touching lineage have not changed. Compare the revision before
+and after page materialization; reject a changed snapshot with an instruction
+to restart, never return a mixed page or silently reuse its offset. An edge
+from a future parent to an old row still invalidates the cursor conservatively,
+even though historical vocabulary ignores parents beyond the cutoff.
+Wholly future rows and edges are compatible.
+The append-only runtime uses counts and local rowid tails in database-local,
+constant-size version-2 cursor tokens. Older tokens require restarting; the
+public `cave.query-page` envelope remains version 1. In-place raw SQL changes
+to immutable claims or metadata are outside this continuation contract.
 
 ### 12.2 Filters
 
@@ -342,6 +364,11 @@ snapshots). The boundary is one of
 - a **timestamp** — `2026-01-15T10:30:00Z` — inclusive of that second;
 - a **transaction id** — a UUIDv7 — inclusive of exactly that append.
 
+Transaction periods are clipped at the UUIDv7 epoch, 1970-01-01T00:00:00Z.
+An as-of period wholly before that epoch contains no recorded transactions; a
+period crossing it retains its nonnegative portion. Valid-time contexts (§32)
+remain independent and may describe earlier calendar dates.
+
 Rows recorded after the boundary are invisible: a claim retracted later
 is still believed at the boundary, a claim first recorded later is
 unknown. Everything the engine resolves moves to the same instant — the
@@ -350,6 +377,12 @@ resolution as believed *then*; an un-anchored query uses *now*), and
 transitive hops walk as-of edges. Matching the full history composes:
 under `all` the query sees every row up to the boundary instead of
 resolving to one per key.
+
+Vocabulary reconstruction uses that boundary too. A declaration is excluded as
+a `WHEN`, `VIA`, or `BECAUSE` qualifier only when its parent claim is visible
+at the boundary. A later parent cannot retroactively remove an older verb,
+inverse pair, or lifecycle declaration. Parent and declaration comparisons use
+the same inclusive transaction or whole-date/second interval semantics.
 
 Surfaces: `cave query --as-of <boundary>`, `query(store, pattern,
 { asOf })`, and the `cave_query` MCP tool's `asOf` parameter. In SQL, the
@@ -456,8 +489,14 @@ CREATE VIRTUAL TABLE cave_fts USING fts5(
 
 Every store records an integer schema version in `PRAGMA user_version`.
 Version `0` means an unversioned store written before this rule; the current
-schema is version `1`. Opening a store MUST read the version before preparing
+schema is version `2`. Opening a store MUST read the version before preparing
 claim queries or performing any schema write.
+
+Version `2` adds `idx_cave_tx` on `cave_claim(tx)` for global and bounded
+transaction-head reads. The 1→2 migration changes no claim or metadata rows;
+version-1 validation does not require this index. Version-2 validation requires
+the full index on the transaction column with binary collation, so a same-named
+index with incompatible range ordering cannot satisfy the migration.
 
 - A version newer than the runtime supports fails immediately and names both
   versions. It is never opened by guessing at compatibility; database sync
@@ -467,8 +506,28 @@ claim queries or performing any schema write.
   `user_version` update share one `BEGIN IMMEDIATE` transaction. An
   interruption therefore leaves either the old version or the complete next
   version; reopening resumes from the committed version.
-- A current-version store is validated for required tables, indexes, and
-  columns. It is not silently repaired by re-running idempotent DDL.
+- A current-version store is validated for required tables, indexes, columns,
+  and the identity primary keys: `cave_claim(id)` and
+  `cave_provenance(claim_id, dimension, value)`. Matching column names without
+  these keys is not a compatible schema. Every identity-key column must use
+  binary collation, preserving case and trailing spaces in provenance values.
+  Required secondary indexes must have the declared table and ordered columns,
+  binary collation, and no uniqueness constraint or partial predicate. Their
+  names alone do not establish compatibility.
+  Required text columns in ordinary tables must retain TEXT affinity, including
+  equivalent declarations such as VARCHAR or CLOB. Numeric coercion must not
+  collapse authored text or distinct provenance identities such as `001` and
+  `1`. FTS virtual columns retain their module-defined storage. Schema affinity
+  validation does not certify the types of individual historical rows.
+  Numeric claim columns must retain INTEGER, REAL or NUMERIC affinity so
+  numeric predicates and ordering do not become text or storage-class
+  comparisons. Equivalent numeric declarations remain compatible.
+  In STRICT tables, fraction-bearing value, delta, sigma and confidence columns
+  must be REAL. STRICT ANY does not provide numeric affinity. The standard
+  schema remains non-STRICT; validation must account for these differences
+  when inspecting an existing table definition.
+  It is not silently repaired by
+  re-running idempotent DDL.
 - Migrations are forward-only. Never decrement `user_version`. Before an
   upgrade that needs an operator rollback point, stop every process using the
   store, close it, and copy the closed SQLite file. Rollback means replacing
@@ -478,7 +537,10 @@ claim queries or performing any schema write.
 Version 1 establishes the §13 tables and indexes and backfills the explicit
 §9.5.1 provenance projection. Canonical text interchange remains independent
 of SQLite schema versions; exact database sync accepts supported old versions
-and preserves their rows while rejecting newer sources.
+and preserves their rows while rejecting newer sources. Every supported
+versioned sync source is structurally validated against its recorded version,
+without migration; older versioned sources do not fall back to unversioned
+legacy handling when required provenance structure is missing.
 
 #### 13.2.2 Exact snapshot backup and restore
 
@@ -501,15 +563,28 @@ and writers may remain active. CAVE then fsyncs the temporary file, requires
 schema and required structure, computes SHA-256, and atomically publishes the
 verified file. An interruption can leave only an unadvertised temporary file;
 an earlier destination is untouched.
+Backup publication refuses a destination with WAL, SHM or rollback-journal
+sidecars, including with `--force`; an old sidecar must not accompany new
+snapshot bytes. Neither backup nor restore may publish into a sidecar path
+belonging to its source.
 
 The snapshot preserves every immutable claim row and its `id`, `tx`,
 `claim_key`, raw line, contexts, explicit provenance, tags, edges, FTS state,
 and belief history. It may be physically compacted, so "exact" means complete
 logical and temporal identity rather than byte equality with the live source.
 
+Verification and restore accept schema versions 1 through the current version
+and validate the structure belonging to the recorded version. They MUST NOT
+migrate the snapshot or restored bytes. A later writable open migrates an older
+restored database; the retained backup remains unchanged. Unversioned and newer
+snapshots fail verification.
+
 Restore first verifies the snapshot and optional recorded SHA-256, copies it
 to a temporary file, fsyncs and verifies that copy again, then publishes the
-same snapshot bytes atomically. The destination is required explicitly and is
+same snapshot bytes atomically. Verification rejects source WAL,
+SHM, or rollback-journal sidecars. Create a standalone snapshot with `cave backup`
+first so the row metadata, checksum and copied bytes describe the same content.
+The destination is required explicitly and is
 never overwritten without `--force`. Restore refuses a destination with WAL,
 SHM, or rollback-journal sidecars: stop every process using that path and resolve/remove stale
 sidecars before retrying. On any failure, keep the last verified backup and
@@ -532,7 +607,22 @@ FROM cave_claim WHERE object = ?;
 
 `inverse_of(verb)` is a lookup over the `REVERSE` declaration claims. Materializing inverses would double every row, fork the belief series per key, and double contradiction-resolution work — all avoided by keeping inverses lazy.
 
+Live registry access and inverse reads refresh declarations when SQLite reports
+a commit from another connection. Query compilation therefore sees peer verb
+and lifecycle declarations without a local write or reopen, including on
+read-only connections. Unchanged data reuses the cached registry. Raw SQL
+writes on the same connection still require an explicit registry reload.
+
 ### 13.4 Canonicalization pipeline
+
+Ordinary `ingest` reserves its write transaction before canonicalizing input.
+It checks SQLite's connection-local `data_version` and rebuilds vocabulary
+after commits from other connections, so inverse and lifecycle spellings use
+the declarations committed before the reservation. Local appends reuse the
+registry; strict failures and outer rollbacks restore both registry state and
+its version marker. Low-level `insertResult` appends an already-canonicalized
+result: its caller owns the vocabulary snapshot and must reserve any dependent
+reads. Raw SQL declaration writes require an explicit `reloadRegistry`.
 
 Before storage:
 
@@ -787,9 +877,15 @@ second schema language:
   are performed: `s` does not satisfy `#unit:ms`; conversion policy belongs at
   an explicit typed evaluation boundary. A unitless value also fails.
 
-The tags are ordinary claim metadata and need no grammar extension. Other tag
-values retain their normal classification meaning; only
-`#cardinality:one` and `#unit:<unit>` affect shape evaluation.
+The tags are ordinary claim metadata and need no grammar extension. On active
+expectations, `cardinality` and `unit` are reserved constraint keys: cardinality
+must occur at most once with `one` or `some`; unit must occur at most once with
+a non-empty text value and applies only to attributes. Stored binary values
+are malformed even when their bytes spell a valid unit. Runtime checks and generated
+clients share this validation. Malformed constraints are errors, not permissive
+defaults; a gate rolls back an append that introduces one. A pre-existing
+malformed declaration must be corrected or retracted without gating before
+checked writes resume. Other tag keys retain their classification meaning.
 
 **Targets — binding through the taxonomy.** An entity is an *instance*
 of type `T` when it carries a current positive `IS` claim whose object is
@@ -805,7 +901,10 @@ api-gateway IS microservice                       ; via the taxonomy
 The `EXTENDS` taxonomy is the *only* widening mechanism — no name globs,
 which would institute a shadow type system beside it. Subclass entities
 themselves (`microservice` above) are not instances; expectations bind
-through `IS`. Verb-token subjects are never instances — `MIGRATES IS
+through `IS`. Taxonomy binding has no hop-depth cutoff: traverse all reachable
+types, deduplicating visited types to terminate cycles and checking each
+instance once per expectation even when several paths bind it. Verb-token
+subjects are never instances — `MIGRATES IS
 verb` is a declaration (§5.4), not a membership.
 
 **Satisfaction.** An instance satisfies
@@ -849,7 +948,10 @@ reports, without writing anything:
 
 **Alias disagreements** close the loop §13.6 left open (union-of-rows
 surfaces disagreements; something must *look*): within one alias closure
-group, member names keep separate belief series, and the checker reports
+group, member names keep separate belief series. Closure membership follows
+all current positive alias links, regardless of chain length; infrastructure
+names can connect members even when excluded from discovery candidates (§27.1).
+The checker reports
 
 - **value disagreements** — two member names carry current positive
   claims with the same verb and attribute but different values
@@ -867,13 +969,18 @@ and the fraction of expectation checks satisfied. Low-confidence claims
 and unsatisfied expectations *are* the frontier — the graph itself says
 what is missing and what needs review.
 
+The stale-day horizon must be finite and non-negative; fractional days are
+allowed. An injected report clock must return a finite millisecond timestamp.
+Invalid report options fail before database reads.
+
 Violations make the check fail (nonzero exit); stale claims, review
 candidates and disagreements are advisory.
 
 ### 20.3 Write gating
 
 The same checks, applied at an append surface instead of after the fact:
-a gated append runs inside one transaction — append, check, and roll back
+a gated append reserves its write transaction before reading baseline
+violations, then appends, checks, and rolls back in that same transaction
 when the append **introduces violations that were not present before**.
 Pre-existing violations never block: the gate compares, it does not
 demand a clean store. `cave add --check` is the first enforcement point;
@@ -913,7 +1020,7 @@ writing when:
 - duplicate current declarations for one field disagree on cardinality, unit,
   direction, or other generated semantics;
 - `#cardinality` is repeated or is not `one`/`some`;
-- `#unit` is repeated, empty, or attached to a relation; or
+- `#unit` is repeated, empty, non-text, or attached to a relation; or
 - the requested output format version is unsupported.
 
 Surfaces: `generateClient(store, { version? })` and
@@ -981,7 +1088,25 @@ pure data — it can only ever append claims — which is why it may live
 in-band where executable content (hooks, agent commands) must not
 (§19.5); derivation still runs only when explicitly invoked.
 
+Declaration files for rules, actions (§25.1), and automations (§29.1) validate
+their entire prelude under the write reservation before consulting its digest
+cache. A prelude problem rejects that declaration call without appending
+prelude rows, a digest, or declarations; earlier stored data is preserved.
+Validation also applies to old cached digests, since a digest is not proof that
+input is valid. Corrected input can be retried normally; successful unchanged
+preludes append nothing. This boundary prevents both hidden retry failures and
+duplicate partial prelude writes. Errors in individual declaration bodies still
+allow other valid declarations to be processed once the prelude is valid.
+`cave derive` reports declaration errors with a nonzero exit code in both text
+and JSON modes; its subsequent derivation still evaluates already-stored rules.
+
 ### 24.2 Firing — forward chaining over current beliefs
+
+Derivation reserves its write transaction before selecting rule declarations
+or reading watermarks and refreshes the vocabulary registry inside that
+transaction. Premise matching and derived writes use the same reservation, so
+declarations revoked before it begins cannot fire, and vocabulary committed by
+another writer is visible even on an already-open connection.
 
 `cave derive` fires every current positive rule to a fixpoint. Premises
 match **current, positive, non-retracted** beliefs (§12's defaults),
@@ -1001,10 +1126,18 @@ explicit independence assumption** (§10.2):
 conf = rule-conf × Π premise-row-conf
 ```
 
+The computed confidence is retained without presentational percentage rounding
+before threshold checks or storage. Confidence revisions are compared exactly,
+so a small representable change is not discarded by an absolute tolerance.
+Multiplication retains ordinary floating-point rounding and underflow behavior.
+
 When several solutions conclude the same claim key in one firing, the
 **strongest derivation wins** — max, not accumulation: many weak paths
 never claim more than the best single one, and cyclic premise graphs
 converge. Conclusions below a floor (default 5%) are not asserted.
+The confidence floor must be finite and in 0..1. The evaluation pass limit
+must be a positive safe integer (default 20). Invalid limits are rejected
+before derivation writes; they cannot retire conclusions or advance watermarks.
 
 Surfaces: `cave derive`, and the MCP `cave_derive` tool (ROADMAP
 item 12) with the same semantics (`dryRun`, `full`, `aliases`,
@@ -1036,6 +1169,10 @@ A derived claim is an ordinary append with three §9/§13 obligations:
 Re-running `cave derive` on an unchanged store appends **nothing** — a
 conclusion equal to its current belief (same key, value, confidence) is
 skipped, so watch loops never accrete identical claims.
+Its original lineage edges remain attached to that historical append even if
+replacement premise rows yield the same conclusion. Support reconciliation
+still evaluates current premise rows (§24.5); historical lineage is not a live
+substitute for that evaluation.
 
 Firing is **incremental by transaction watermark**: after a run, each
 fired rule records the highest transaction it accounted for, in-band:
@@ -1045,12 +1182,31 @@ rule/9f30ac9be4dd HAS derive-watermark: 019f47ba-8f72-7000-… @src:cave-derive
 ```
 
 A later run re-fires a rule only when some row recorded after its
-watermark could extend a premise match — a *shape* test
-(subject/verb/object/attribute/negation plus context and tag
-membership) that deliberately ignores confidence and currency, so a
-retraction row re-fires the rules its claim used to feed. Over-matching
-costs a wasted evaluation; under-matching would be a missed conclusion,
-so ambiguity resolves toward firing. `--full` ignores watermarks.
+watermark could change a premise match — a *shape* test over stable
+subject/verb/relational-object/attribute/negation and context fields.
+Attribute and metric values, tags, confidence and currency are deliberately
+not required by this probe: a replacement can stop matching an old value
+or tag while keeping the same claim key, and must re-fire the rule to
+withdraw unsupported conclusions. Numeric spellings that denote the same
+value must also trigger evaluation. The ordinary query evaluator still
+applies all premise conditions. Over-matching costs a wasted evaluation;
+under-matching could miss a conclusion or retain an unsupported one, so
+ambiguity resolves toward firing. `--full` ignores watermarks.
+
+Vocabulary declaration rows recorded after the watermark also trigger
+re-evaluation (`IS verb`, `REVERSE`, `RENAMED-TO`). A changed mapping can
+make pre-watermark facts match a premise without appending new facts of
+the mapped verb. Alongside its transaction mark, each rule records a
+`derive-vocabulary` fingerprint of the active registry and effective `aliases`
+and `minConf` settings. Changing either setting re-evaluates existing premises
+and reconciles support without requiring `--full`. A differing fingerprint
+also triggers evaluation: qualifier edges can exclude an old declaration
+without adding a claim row. Missing, retracted or declaration-stale fingerprints
+are treated conservatively as unmarked, as are older registry-only fingerprints.
+Equivalent vocabulary and settings after reopen
+keeps the same fingerprint. If vocabulary changes during derivation, discard
+the current support calculation and restart it within the existing pass budget.
+Only complete runs advance either mark; dry runs roll back both.
 
 A watermark is trusted only when it postdates the rule's **current
 declaration row**: retracting a rule retracts what it derived (§24.5),
@@ -1064,15 +1220,36 @@ runs are incremental again.
 
 A derivation's justification must not outlive its premises. On every
 firing the rule's support is recomputed from scratch: previously derived
-claims the rule no longer concludes are retracted `@ 0%` (with the
+non-vocabulary claims the rule no longer concludes are retracted `@ 0%` (with the
 standard comment convention), and while a fired rule's earlier
 derivations are being re-established they are invisible to premise
 matching unless re-supported. The consequence is well-founded support —
 retracting a premise retracts the dependent chain, across rules, and
 mutually-supporting derivation cycles cannot keep each other alive.
 Retractions are ordinary appends, so cascades settle inside the same
-run's fixpoint loop, and `--retract <rule>` retracts the rule's whole
+run's fixpoint loop, and `--retract <rule>` retracts the rule's ordinary
 output the same way.
+
+A pass limit can stop evaluation before support reconciliation settles. Such a
+run reports `complete: false`, retains earlier additions, and advances no
+watermarks. Reconciliation is atomic: any retractions and subsequent writes
+from that phase roll back if the pass limit is reached. Those writes are
+excluded from `appended`, `updated` and `retracted` in the incomplete report.
+Passes, evaluations, final-evaluation solutions and idempotent skips still
+describe attempted work, including the rolled-back phase; they are not counts
+of distinct retained claims. A later run with sufficient passes
+reconciles support; dry runs apply the same reporting rule without persisting.
+
+Vocabulary declarations (`IS verb`, `REVERSE`, `RENAMED-TO`) are the exception:
+they remain additive. Losing their supporting premises or explicitly retracting
+the producing rule does not retract these declarations or remove their registry
+meaning. A dry run rolls back newly derived vocabulary along with other writes.
+
+Explicit rule retraction reserves a write transaction before selecting current
+declarations and checking digest-prefix ambiguity. It retracts every matching
+declaration context for the selected subject and its output within that same
+reservation. Declarations committed before the reservation are included; an
+ambiguous prefix fails without appending any retractions.
 
 One boundary stated honestly: hops inside a transitive (`VERB+`)
 premise are walked over stored edges without suspension, so a derived
@@ -1150,6 +1327,12 @@ which is why it may live in-band where executable content must not
 
 `cave act <name> param=value …` (or the generated MCP tool, §25.5):
 
+The write reservation is acquired before resolving the declaration or reading
+premises and baseline shape violations. Stored vocabulary is refreshed inside
+that transaction. Those reads, effect writes, and the shape re-check therefore
+observe one governed execution: another writer cannot revoke a prerequisite
+between its validation and the effect commit.
+
 1. The current positive `action/<name> HAS action:` declaration is
    resolved and its body parsed.
 2. Arguments are validated: every parameter supplied, no unknown names.
@@ -1193,6 +1376,13 @@ not present before. Pre-existing violations never block. One mechanism,
 two enforcement points: `cave add --check` opts *in*, actions opt *out*
 (`--no-check`) — the governed path is governed until told otherwise.
 
+An entirely unchanged action performs no append and needs no shape snapshots;
+its declaration, parameters and premises are still validated. The baseline is
+captured immediately before the first changed effect, and any changed effect
+requires the complete before/after comparison, even after unchanged effects.
+Malformed shape declarations still prevent checked writes (§20.1). They do not
+prevent an entirely unchanged action from returning its read-only result.
+
 ### 25.4 Hooks — reaching the outside world
 
 A decision recorded in CAVE should be able to reach the outside world;
@@ -1213,6 +1403,14 @@ appended claims arrive as canonical CAVE text on stdin (the data
 channel; placeholders are for routing). The intentional shell is explicit:
 `/bin/sh` on POSIX and Windows PowerShell on Windows. Output is bounded, and
 timeout or limit failure terminates the complete process tree.
+
+A library caller may wrap an action in a store transaction. If that action
+would fire a configured hook, execution fails and its savepoint rolls back:
+releasing a savepoint does not commit the caller's transaction. The caller's
+earlier writes remain intact. Run the action outside that transaction or omit
+hook configuration; dry runs, unchanged effects, and unconfigured hooks remain
+nestable. The synchronous action result does not defer hook delivery to a
+future outer commit.
 
 Hook outcomes are honest and asymmetric by design:
 
@@ -1483,7 +1681,9 @@ adds 0.1 (at most 0.2). Topology alone must not suggest: siblings share
 both parents without being one person.
 
 The pair's score is the strongest generating signal plus boosts, capped
-at 1; pairs below the threshold (default **0.6**) are dropped.
+at 1; pairs below the threshold (default **0.6**) are dropped. The threshold
+must be finite and in 0..1; a supplied result limit must be a positive safe
+integer. Invalid options fail before discovery reads, including on empty stores.
 
 ### 27.3 The suggested claim
 
@@ -1495,7 +1695,13 @@ grandma-maria ALIAS maria #suggested @ 35% ; segments of maria within grandma-ma
 
 - Direction is a readability convention, not a semantic (§13.6 reads
   `ALIAS` undirected): the better-established name — more current rows,
-  then the shorter, then lexicographic — is the object.
+  then the shorter, then lexicographic — is normally the object. Emitters
+  reverse the relation when needed to preserve entity payload identity, such
+  as `42 ALIAS 4-2`; the suggestion's `entity` and `canonical` fields retain
+  their less-/more-established meaning. If neither direction can represent
+  an entity object, discovery MUST report an explicit representation error
+  without writing, rather than returning a numeric value claim or changing
+  an entity into a text literal.
 - **Confidence is half the score**, clamped to 0.3–0.5: a suggestion is
   a question, not an answer — never above 50%, and always inside the
   §20.2 review band, so `cave check` surfaces pending suggestions.
@@ -1506,7 +1712,19 @@ Discovery **emits text by default** — review it, edit it, pipe it into
 `cave add`. Opting into writing (`--write`) appends the suggestions
 stamped `@src:suggest/alias` (§9.5; root precedence class under §26.3 —
 declare `source/suggest HAS precedence:` to move the tier). A written
-pair has `ALIAS` history, so re-runs append nothing.
+pair has `ALIAS` history, so re-runs append nothing. Suggestion writes reserve
+a transaction before rechecking pair history in both directions. They skip
+reviewed pairs and duplicate input pairs, including suggestions retained across
+an external judge call. The recheck protects recorded pair decisions; it does
+not rerun scoring or the judge against changed evidence. Before ingesting,
+validate each fresh suggestion as exactly one positive ALIAS relation between
+its proposed entity names in either direction. Problems, extra claims, value
+payloads, different endpoints, negation or zero confidence reject the whole
+fresh batch without appending.
+
+`--json` returns the selected suggestion array without writing. Combined with
+`--write`, it performs the write and returns `{ suggestions, appended }`: the
+selected proposals and the actual number appended after history filtering.
 
 One consequence stated honestly: a written suggestion is a current
 positive claim, and the §13.6 closure links on any positive confidence —
@@ -1521,7 +1739,9 @@ workflow, and both moves are one append:
   claim identity (§9.2), so a plain `@ 0%` append would start a new
   series and leave the suggested link standing — rejection must name
   the suggestion's source context (§9.5's explicit-context supersede
-  path). Either way the pair stays decided and is never re-suggested.
+  path). Preserve the actual emitted direction too, including when the
+  suggestion reverses its preferred-name order: alias traversal is undirected,
+  but claim series retain subject/object direction. Either way the pair stays decided and is never re-suggested.
 
 ### 27.4 The judge — optional, out-of-band
 
@@ -1533,7 +1753,13 @@ every suggestion with its evidence and each side's current claims; the
 reply is one JSON array of the suggestion numbers that really are the
 same entity (`[1, 3]`; `[]` for none). Replies parse leniently — the
 last well-formed array wins, out-of-range and duplicate entries drop —
-but agent *errors* propagate as failures. The judge filters; it never
+and only numeric integer entries confirm suggestions. Nested arrays and
+strings containing bracketed numbers are discarded as entries, without
+interpreting their contents as separate answers. Complete JSON arrays, objects
+and strings are consumed before recovery from malformed prose resumes. An array
+inside an object such as `{"rejected":[1]}` or a quoted string such as `"[1]"`
+is not a separate answer and MUST NOT confirm a suggestion.
+Agent *errors* propagate as failures. The judge filters; it never
 raises a confidence and never writes.
 
 ### 27.5 Surfaces
@@ -1564,7 +1790,25 @@ Every appended row is minted one UUIDv7 serving as both `id` and `tx`
 (§13.1). That value is the row's **global identity**: merging copies
 rows that are absent *by id* — verbatim, keeping `id`, `tx`,
 `claim_key`, `raw_line` and the side tables byte for byte — and skips
-rows whose id the target already has.
+matching rows whose id the target already has. Before copying rows or edges,
+database sync MUST reject the whole source if an overlapping id has different
+stored claim data (including `tx`, `claim_key`, normalized values, contexts,
+tags, or explicit provenance). Raw authored spelling and metadata ordering
+are not identity differences; omitted sigma level and `2` are equivalent.
+Safely inferred provenance added during migration or sync is compatible;
+legacy sources lacking the dimension table are checked through their claim
+data and contexts. Derived FTS entries are not identity content. Rejection
+reports the conflicting ids and changes no claims, lineage, or merge record,
+including under dry run. Contradictory beliefs with different ids remain legal.
+
+Stored and replayed IDs use canonical lowercase UUIDv7 spelling. Low-level
+explicit-ID replay MUST validate every used ID in the batch before inserting
+rows or observing IDs in the receive clock; a malformed, non-v7, or uppercase
+ID rejects the whole batch without advancing that clock. Database sync likewise
+validates all source identities and requires `id = tx` before copying, including
+dry runs. Missing entries still
+mint fresh IDs. Case-insensitive query boundary input is normalized before
+comparison and does not change this canonical storage requirement.
 
 Everything else follows from identity preservation:
 
@@ -1644,6 +1888,19 @@ idempotency convention; watch loops never accrete records.
 
 ### 28.4 Interchange — transaction annotations
 
+Text replay validates IDs against rows already stored in the target as well
+as repeats within the input. A mismatch in canonical interchange content
+rejects the whole file before rows, lineage edges, or a merge record are added.
+Comparison disregards authored raw spelling and context/tag ordering; an
+equivalent canonical restatement can contribute another legitimate edge.
+
+Annotated-text sync reserves its write transaction before refreshing the
+vocabulary registry, canonicalizing input, and validating annotations. Replay
+uses that same reservation, so inverse vocabulary committed before it begins
+applies even on an already-open connection. Dry runs restore the prior registry
+as well as rolling back rows and preserving UUID generator state. Caller-owned
+transactions remain supported for text sync (§28.5).
+
 Canonical text (§2.2) deliberately omits `tx`: interchange replay mints
 fresh ids, which is right for restoring and wrong for merging. The
 **transaction annotation** is the additive extension that lets text
@@ -1656,6 +1913,39 @@ auth USES jwt @ 90% @src:cli
   ;@ 01980a5e-4c2e-7000-b7d2-8e3a1f6c9b04
   BECAUSE security-review
 ```
+
+An annotation MAY append a JSON payload on the same physical line:
+
+```cave
+;@ 01980a5e-4c2d-7000-8a3f-2b1c9d4e5f60 {"provenance":{"actors":["cli"],"sources":["manual"],"runs":[],"domains":["team/platform"]}}
+auth IS reviewed @src:manual
+```
+
+The only payload key is `provenance`. Its complete object has exactly four
+keys, `actors`, `sources`, `runs`, and `domains`, each an array of nonempty
+strings. These are sets: order and duplicate entries are immaterial. Empty
+arrays are authoritative and MUST NOT acquire inferred entries. Emitters MUST
+include this payload whenever the stored dimensions differ from inference
+through compact contexts; otherwise the bare annotation suffices. Emitted sets
+are sorted and deduplicated. The payload preserves provenance without changing
+claim keys, contexts, or replay stamping.
+
+Sync MUST validate JSON, known keys, dimensions, and repeated/existing identity
+agreement before any write. Explicit dimensions replace inference for newly
+replayed rows; existing rows must agree and are never rewritten. A bare legacy
+annotation retains context inference and makes no explicit provenance assertion
+against an existing row. Repeated occurrences must agree on their effective
+(explicit or inferred) dimensions. Unknown or malformed payloads reject the
+whole file, as do orphaned annotations. In sync input, a physical line beginning
+with `;@` after optional indentation MUST be a valid transaction annotation;
+malformed forms MUST NOT be reinterpreted as comment prose. Ordinary comment
+prose starting with `@` uses `; @...` with separating whitespace.
+Database copying preserves a present
+dimension table exactly; inference is only for legacy sources lacking it.
+
+Plain import recognizes and ignores annotation metadata, so it remains an
+ordinary restamping-free claim import. Older sync readers without payload
+support cannot replay extended annotations and must be upgraded.
 
 A claim whose comment spans several lines (§6.4) opens with its comment
 block; the annotation stays the line directly above the claim line, and
@@ -1672,8 +1962,8 @@ auth/key HAS expiry: 3600s @src:cli ; confirmed by ops
 consumes the text, replaying each
 annotated claim under its recorded id — present ids skip, absent ids
 insert, exactly §28.1 over text. Because comment lines are transparent
-to the grammar (§8), every existing consumer reads an annotated file
-unchanged, and plain `cave import` degrades gracefully to an ordinary
+to the grammar (§8), current readers accept the file unchanged, and plain
+`cave import` degrades gracefully to an ordinary
 tx-less replay. The extension is honest about its strictness the other
 way: `cave sync` of a text source requires **every** claim line
 annotated with a well-formed UUIDv7 — a half-annotated file would merge
@@ -1694,10 +1984,24 @@ forks identity and rejects the file whole. Under plain `cave import`
 a re-statement degrades to the same claim asserted twice: two rows in
 one belief series, which §9.4 already makes legal.
 
+Canonical percentages preserve the full stored confidence (§6.3), so text
+replication and content comparison do not discard fractional precision.
+
+Plain and annotated current exports MUST validate the stored semantic keys of
+all selected current claims before emitting relationships. A mismatch MUST
+reject the export with the affected claim ID, including when a corrupted newer
+claim takes another claim’s key.
+
 A `--current` export with `--tx` is a *seed*: a snapshot whose rows
 keep their identity, so a store grown from it merges back into the
 original without duplication — the branching convention's (§28.6)
 opening move for a working copy that doesn't need the past.
+When current-only export remaps a historical edge endpoint onto a selected
+current row, the historical endpoint's stored claim key MUST agree with the
+semantic key reconstructed from its claim and contexts. A mismatch rejects the
+export with the historical row ID; it MUST NOT redirect the relationship to an
+unrelated claim. This applies to plain and annotated current exports. Endpoint
+verification does not certify historical rows omitted from the export.
 
 ### 28.5 Surfaces
 
@@ -1716,6 +2020,13 @@ opening move for a working copy that doesn't need the past.
 - Sync is an operator command, deliberately not served over MCP: store
   files are machine-local paths, and distribution is the operator's
   concern — an agent's write surface stays the governed §25 vocabulary.
+
+Database-file sync owns its transaction and attachment lifecycle. `syncDb`,
+and `syncFile` for a database source, reject caller-owned transactions before
+attaching or copying, including dry runs: SQLite cannot detach a source read
+by an uncommitted outer transaction. Use a standalone database sync, or
+`syncText` with complete annotated text for a merge that must participate in
+the caller's commit or rollback. Database self-sync remains a no-op.
 
 Merging with the query layer: nothing changes. Current belief stays
 `MAX(tx)` per key (§13.5), as-of reconstruction works across merged
@@ -1772,10 +2083,14 @@ hand-merge the export; rebuild it as the union the two texts already
 are:
 
 ```sh
+(
+set -eu
 t=$(mktemp -d)
-cave sync --db $t/m.db ours.cave --no-record
-cave sync --db $t/m.db theirs.cave --no-record
-cave export --db $t/m.db --tx --max-sensitivity restricted --out knowledge.cave
+trap 'rm -rf "$t"' 0
+cave sync --db "$t/m.db" ours.cave --no-record
+cave sync --db "$t/m.db" theirs.cave --no-record
+cave export --db "$t/m.db" --tx --max-sensitivity restricted --out knowledge.cave
+)
 ```
 
 Git can run that as a merge driver (`.gitattributes`:
@@ -1784,8 +2099,12 @@ Git can run that as a merge driver (`.gitattributes`:
 ```ini
 [merge "cave"]
 	name = CAVE store union
-	driver = sh -euc 't=$(mktemp -d) && cave sync --db $t/m.db $1 --no-record >/dev/null && cave sync --db $t/m.db $2 --no-record >/dev/null && cave export --db $t/m.db --tx --max-sensitivity restricted --out $1 && rm -rf $t' - %A %B
+	driver = "sh -euc 't=$(mktemp -d); cleanup() { rm -rf \"$t\"; }; trap cleanup 0; cave sync --db \"$t/m.db\" \"$1\" --no-record >/dev/null; cave sync --db \"$t/m.db\" \"$2\" --no-record >/dev/null; cave export --db \"$t/m.db\" --tx --max-sensitivity restricted --out \"$1\"' - \"%A\" \"%B\""
 ```
+
+Quote the driver value for Git's configuration parser and its paths for the
+shell. The exit trap cleans up on success and failure; failed input syncs stop
+before export, preserving our side and reporting failure to Git.
 
 The ancestor (`%O`) is deliberately unused: union by identity needs
 no three-way — full annotated exports never lose a row; physical lines may
@@ -1923,6 +2242,18 @@ what it accounted for. Step failures are reported (nonzero exit under
 `--once`), never fatal to the loop, and never roll back the watermark
 or other steps.
 
+Claiming a batch uses one write reservation: reload the current declaration,
+refresh vocabulary, read its watermark, evaluate triggers, and append the new
+watermark in the same transaction. Competing settlers cannot claim the same
+event batch, and the watermark cannot advance past events the evaluation did
+not see. Recheck each automation after earlier steps finish, since those steps
+can await an agent while declarations change. A revocation before the batch
+reservation prevents firing; a later revocation does not cancel steps already
+claimed. Commit the reservation before executing any action, hook, or prompt,
+so other writers remain free while an agent runs. `settle` rejects calls inside
+a caller-owned transaction before deriving or claiming anything: a savepoint
+cannot make the watermark durable before external execution.
+
 - **`action/<name>`** executes the action under §25.2 semantics,
   verbatim: arguments are the action's declared parameters bound from
   same-named trigger variables (a parameter the trigger did not bind
@@ -1939,8 +2270,10 @@ or other steps.
   fired — running without hook configuration is a legitimate,
   side-effect-free mode (§25.4).
 - **a prompt literal** goes to the agent: bound `?var`s substitute
-  into the template (unbound `?tokens` pass through — prompts are
-  prose), and the engine wraps it with the automation's name and
+  into the template once (unbound `?tokens` pass through — prompts are
+  prose). Inserted values are never scanned for further variables or interpreted
+  as replacement syntax (`$&`, `$$`, and similar text stay literal).
+  The engine wraps it with the automation's name and
   description, the solution's premise rows as canonical CAVE, and
   reply instructions. The agent is an out-of-band shell command — the
   `cave ingest` / `cave eval` `--agent` contract (§19.5): prompt on
@@ -1948,7 +2281,10 @@ or other steps.
   leniently as CAVE and appends stamped `@src:automation/<name>`, with
   the §24.4 idempotency convention applied per claim: a reply claim
   equal to its current belief appends nothing, so an agent restating
-  its trigger cannot wake anything twice. No agent configured → the
+  its trigger cannot wake anything twice. Vocabulary refresh, deduplication
+  and reply insertion share one write transaction after the agent completes;
+  competing writers cannot commit between those reads and writes, and thrown
+  failures roll back the reply's claims and vocabulary. No agent configured → the
   step is reported as not fired; agent errors are step failures.
 
 ### 29.4 The settle cycle
@@ -1965,18 +2301,38 @@ every write path is idempotent — derivation (§24.4), action effects
 unless something genuinely new keeps arriving; a pair of automations
 whose agents keep answering each other with fresh values is a design
 error the pass guard bounds per cycle, stated honestly, not prevented.
+The automation pass limit must be a positive safe integer (default 20).
+Invalid limits fail before processing claims, watermarks, or external steps.
+
+The report's `complete` flag is true only when a quiet final pass confirms
+completion and enabled rule derivation reached its fixpoint. Hitting the
+automation pass limit while work continues sets `complete: false`; text output
+says `incomplete`, and `--once` exits nonzero. `settled(report)` requires both
+completion and absence of declaration or step failures. Retrying preserves
+committed watermarks, so already-claimed steps are not replayed. When derivation
+is enabled, malformed stored rules appear in the same structured `problems`
+list as malformed automations and make `settled(report)` false and `--once`
+exit nonzero. Valid declarations continue running; `--no-derive` skips rule
+evaluation and its parse checks. Rule derivation
+has its own pass limit; if it remains incomplete, the report directs the caller
+to run `cave derive` with a higher `--max-passes` limit before retrying.
+An incomplete derivation does not gate automation evaluation in that pass:
+matching events can still claim firing watermarks and run steps against the
+current store. `complete: false` describes unfinished settling, not rollback of
+already-claimed steps. Recovery retains those watermarks and does not replay them.
 
 ### 29.5 Surfaces
 
 - `cave automate [--db <path>]` — the long-running loop: one settle
   cycle at startup, then a cheap `MAX(tx)` poll every `--interval`
-  seconds (default 2) and a cycle whenever it moves. A cycle captures
+  seconds (default 2, accepted range 0.001..2147483.647 to fit the runtime
+  timer) and a cycle whenever it moves. A cycle captures
   its boundary *before* settling and re-settles until `MAX(tx)` is
   unchanged across one, so a write landing mid-cycle is processed by
   that cycle, never marked seen unprocessed. One machine, one SQLite
   file — polling, not a bus, stated honestly.
 - `cave automate --once` — exactly one settle cycle, exit code
-  carrying step failures and declaration problems: cron replaces the
+  carrying incomplete settling, step failures, and declaration problems: cron replaces the
   daemon.
 - `--declare [file…]` / `--list` / `--retract <name>` — the §25.1
   lifecycle moves (non-declaration lines are prelude); declarations
@@ -1988,6 +2344,18 @@ error the pass guard bounds per cycle, stated honestly, not prevented.
 - Programmatic: `@cavelang/automate` — `declareAutomations`,
   `listAutomations`, `retractAutomation`, `settle(store, options)`
   (one cycle, full report).
+- Cancellation: `settle` and `watchCycle` accept `options.signal`.
+  An already-aborted signal rejects before settling writes anything. Further
+  checks run between passes, before batch claims and steps, and after awaiting
+  an agent. Cancellation rejects with the signal's reason; a late agent reply
+  is discarded, and no further steps run. Committed watermarks remain committed,
+  so unfinished steps in an already-claimed batch are not replayed. Programmatic
+  completion callbacks must arrange cancellation of their own work; the engine
+  waits for them before discarding a late reply. CLI agents use the process
+  runner's signal-driven cleanup; synchronous hooks remain bounded by their
+  configured timeout. A changing daemon watch cycle yields to the event loop
+  before resettling so shutdown callbacks can run, and startup cancellation
+  exits cleanly without installing the polling timer.
 - Deliberately **not** an MCP tool (§28.5's reasoning): the loop is a
   process the operator runs, not a call an agent makes. The
   *declarations*, though, are ordinary claims — an agent declares an
@@ -2021,6 +2389,16 @@ reachable by clicking. Source contexts also expose §9.8's parsed source and
 line range; HTTP(S) locations link to the cited fragment.
 
 ### 30.2 The views
+
+Sensitivity projections MUST preserve the stored provenance entries of each
+included claim, including empty attribution. They MUST NOT infer replacement
+actor/source/run/domain values from compatibility contexts. Entries belonging
+to omitted claims MUST remain outside the projection.
+
+Structured claim views (§30.2) MUST also validate canonical UUIDv7 row identity,
+`tx = id`, and semantic claim-key agreement before returning dates or history
+references. These checks apply when the source is read directly at the restricted
+ceiling as well as when a sensitivity projection is used.
 
 - **Dashboard** — the §20.2 report rendered: coverage stats, then the
   frontier — shape violations, review candidates (conf 0.3–0.7), stale
@@ -2068,6 +2446,10 @@ line range; HTTP(S) locations link to the cited fragment.
   `cave add`, the MCP tools and the kinetic layer (§24, §25, §29).
   Every request reads the live store, so a running `cave automate`
   loop's appends show on the next refresh.
+  GET and HEAD share status and cache-protection headers; HEAD has no body.
+  Responses, including errors, use `Cache-Control: no-store`. The page ignores
+  responses from superseded navigation and displays malformed-fragment errors
+  without preventing subsequent navigation.
 - **Local by default**: binds `127.0.0.1` — the store is one person's
   knowledge on one machine; `--host` widens deliberately, and what it
   shares is the selected §9.7 view, read-only. There is no authentication
@@ -2086,12 +2468,14 @@ line range; HTTP(S) locations link to the cited fragment.
 `cave query` prints bindings; `cave export` prints claims; `cave serve`
 (§30) renders the graph. None of them produces the thing knowledge work
 actually ships: a *document* — a status report, an inventory, a briefing
-— whose every stated fact can be traced back to the claim that supports
-it. This section commits `cave report`: templated markdown rendered from
+— with citations that let readers inspect the stored claims behind its query
+results. This section commits `cave report`: templated markdown rendered from
 CAVE-Q results, with claim keys as citations. Like §30 it is a
 convenience surface and non-normative throughout — every semantic it
 renders is defined elsewhere (§9, §12, §13.6, §26) — but the template
 contract below is fixed so templates stay portable.
+Ordinary template prose is neither automatically cited nor checked against the
+store; authors choose which statements to express through queries.
 
 ### 31.1 The template
 
@@ -2118,7 +2502,9 @@ following lines starting with `WHERE` are filters (§12.2); everything
 after — leading blank lines dropped, the rest verbatim — is the
 **fragment**, a markdown template rendered once per solution with each
 `?var` replaced by that solution's binding (entities and values exactly
-as stored). The rendered instances replace the block, joined line by
+as stored). Only occurrences in the original fragment are substituted; inserted
+values are never scanned again for variables or citation placeholders.
+The rendered instances replace the block, joined line by
 line, so a fragment shaped like a bullet renders a list, one shaped like
 `| ?svc | ?who [^?] |` renders table rows under a hand-written header,
 and one shaped like a paragraph (keep a trailing blank line) renders
@@ -2152,6 +2538,17 @@ policy's winner.
 
 ### 31.2 Citations
 
+A cited row MUST have a canonical lowercase UUIDv7 ID and an identical stored
+transaction value. Sensitivity projections MUST validate the same identity
+before copying included rows. Invalid identity MUST abort with the affected row
+ID, rather than emitting a misleading date or silently replacing transaction data.
+
+A cited row's stored claim key MUST agree with the semantic key reconstructed
+from its claim and contexts. A mismatch MUST abort rendering and identify the
+row. Sensitivity projections used by reports and views MUST validate included
+row keys before copying; they MUST NOT silently replace corrupted identities.
+Rows excluded by the sensitivity ceiling remain outside this validation.
+
 Every rendered solution that matched a stored row cites it. The marker
 is a markdown footnote reference — placed at the fragment's `[^?]`
 placeholder when present, appended to the fragment's last line
@@ -2172,8 +2569,10 @@ backtick run the line carries), the tx **date** (when), and the
 (§9.2) — the identity of the belief series, so a reader can pull the
 full history behind any sentence (`cave query --all`, the §30
 timeline) — followed by every §9.8 source-span location, linked for HTTP(S).
-Labels are `c1, c2, …` in order of first citation, a
-namespace hand-written footnotes won't collide with. Transitive
+Labels are `c1, c2, …` in order of first citation, skipping labels already
+occurring in the original template, case-insensitively (including code examples).
+This preserves hand-written references and definitions; repeats still share
+one generated label. Transitive
 (`VERB+`) solutions carry no row (§24.2's rule) and cite nothing —
 their `[^?]` placeholders are dropped.
 

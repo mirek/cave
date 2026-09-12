@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CaveCode } from '../components/CaveCode.tsx'
+import { ScrollableCode } from '../components/ScrollableCode.tsx'
 import { Badge } from '../components/ui/badge.tsx'
-import { Button } from '../components/ui/button.tsx'
+import { ButtonLink } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
 
 const example = `; a small monorepo: which package uses which
@@ -18,7 +19,7 @@ const steps = [
   {
     number: '01',
     title: 'Write a claim',
-    text: 'Three tokens: subject, UPPERCASE verb, object. Names are lowercase; a source, a confidence, or a comment is optional.',
+    text: 'Three tokens: subject, UPPERCASE verb, object. Use lowercase concept names; proper names keep their casing, as in PostgreSQL.',
     code: 'web USES ui',
     language: 'cave',
   },
@@ -53,19 +54,28 @@ const steps = [
   {
     number: '06',
     title: 'React and report',
-    text: 'Automations fire on new claims, actions gate the writes, and a report cites the exact claim behind every sentence.',
+    text: 'Automations fire on new claims, actions gate the writes, and reports cite the stored claims behind query results.',
     code: 'cave automate --once && cave report brief.md',
     language: 'shell',
   },
 ]
 
-export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
-  const [copied, setCopied] = useState(false)
+export const Home = () => {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle')
+  const copying = useRef(false)
   const installCommand = 'pnpm i -g @cavelang/cli\ncopilot mcp add cave -- cave mcp --db "$HOME/cave.db"'
   const copyInstall = async () => {
-    await navigator.clipboard.writeText(installCommand)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1_500)
+    if (copying.current) return
+    copying.current = true
+    setCopyStatus('copying')
+    try {
+      await navigator.clipboard.writeText(installCommand)
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('failed')
+    } finally {
+      copying.current = false
+    }
   }
 
   return (
@@ -79,19 +89,21 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             and answers questions over the whole graph — chains, inverses, confidence, history, and why.
           </p>
           <div className="hero-actions">
-            <Button size="lg" onClick={() => navigate('docs/overview')}>Start the tutorial</Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('playground')}>Try the playground</Button>
+            <ButtonLink size="lg" href="#/docs/overview">Start the tutorial</ButtonLink>
+            <ButtonLink size="lg" variant="outline" href="#/playground">Try the playground</ButtonLink>
           </div>
-          <button className="install-command" onClick={copyInstall} aria-label="Copy install command">
-            <span>$</span> <code>{installCommand}</code> <b>{copied ? 'copied' : 'copy'}</b>
+          <button className="install-command" onClick={copyInstall} aria-disabled={copyStatus === 'copying'} aria-busy={copyStatus === 'copying'} aria-label="Copy install command">
+            <span>$</span> <code>{installCommand}</code> <b>{copyStatus === 'copying' ? 'copying…' : copyStatus === 'copied' ? 'copied' : 'copy'}</b>
           </button>
+          <p className="copy-status" role="status">{copyStatus === 'copied' ? 'Install command copied.' : copyStatus === 'failed' ? 'Copy unavailable. Select the command below and copy it manually, or retry the copy button.' : ''}</p>
+          {copyStatus === 'failed' && <textarea className="install-fallback" aria-label="Install command for manual copying" readOnly rows={3} value={installCommand} onFocus={event => event.currentTarget.select()} />}
         </div>
         <Card className="hero-console" aria-label="CAVE code example">
           <div className="console-bar">
             <span>packages.cave</span>
             <small>plain text</small>
           </div>
-          <pre><CaveCode code={example} lineNumbers /></pre>
+          <ScrollableCode><CaveCode code={example} lineNumbers /></ScrollableCode>
           <div className="query-result">
             <span>QUERY</span>
             <code>?p USES+ core</code>
@@ -127,7 +139,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             <span>{item.number}</span>
             <h3>{item.title}</h3>
             <p>{item.text}</p>
-            <code>{item.language === 'cave' ? <CaveCode code={item.code} /> : item.code}</code>
+            <ScrollableCode><code>{item.language === 'cave' ? <CaveCode code={item.code} /> : item.code}</code></ScrollableCode>
           </Card>
         ))}
       </section>
@@ -141,7 +153,11 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
             the dependency chain. Part II models companies and the themes that move them, lets an LLM read the
             news, derives who is under pressure, and pages for a review when it matters.
           </p>
-          <Button variant="link" onClick={() => navigate('docs/overview')}>Start the tutorial →</Button>
+          <ButtonLink variant="link" href="#/docs/overview">Start the tutorial →</ButtonLink>
+          <p>
+            <a href="#/docs/examples">Browse runnable examples</a> for imports, evaluation, rules, and actions,
+            with setup requirements for each.
+          </p>
         </div>
         <Card className="loop-diagram" aria-label="Write, query, believe, derive, act">
           {['Write', 'Query', 'Believe', 'Derive', 'Act'].map((label, index) => (
@@ -160,7 +176,7 @@ export const Home = ({ navigate }: { navigate: (path: string) => void }) => {
           <h2>Browser playground</h2>
         </div>
         <p>Edit a sample dataset, rebuild the in-memory store, and execute CAVE-Q without sending data to a server.</p>
-        <Button size="lg" onClick={() => navigate('playground')}>Open playground</Button>
+        <ButtonLink size="lg" href="#/playground">Open playground</ButtonLink>
       </Card>
     </main>
   )

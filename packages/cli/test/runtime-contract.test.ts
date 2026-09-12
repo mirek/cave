@@ -19,7 +19,7 @@ test('package engines name the exact minimum Node runtime', () => {
     const manifest = JSON.parse(read(path)) as { name?: string, engines?: { node?: string } }
     if (manifest.engines?.node === undefined) continue
     runtimePackages += 1
-    assert.equal(manifest.engines.node, '^22.18.0 || ^24.0.0 || ^26.0.0',
+    assert.equal(manifest.engines.node, '^24.16.0 || ^26.1.0',
       `${manifest.name ?? path} has a divergent Node engine`)
   }
   assert.ok(runtimePackages > 20, 'the runtime contract did not inspect the package graph')
@@ -27,26 +27,34 @@ test('package engines name the exact minimum Node runtime', () => {
 
 test('CI names exact runtimes and supported operating systems', () => {
   const ci = read('.github/workflows/ci.yml')
-  for (const expected of ['22.18.0', '24.18.0', '26.4.0', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
+  for (const expected of ['24.16.0', '24.21.0', '26.1.0', '26.8.1', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
     assert.ok(ci.includes(expected), `CI omits supported runtime target ${expected}`)
   }
+  const runtime = ci.slice(ci.indexOf('\n  runtime:\n'))
+  const bootstrap = runtime.indexOf('node --test packages/mcp/test/bootstrap-native.test.ts')
+  assert.ok(bootstrap >= 0 && bootstrap < runtime.indexOf('pnpm install --frozen-lockfile'),
+    'the runtime matrix must exercise native bootstrap before installing dependencies')
   assert.doesNotMatch(ci, /node-version:\s*(?:22|24|26)\s*$/m, 'CI must not select a floating Node major')
   assert.doesNotMatch(ci, /runs-on:\s*(?:ubuntu|macos|windows)-latest/, 'CI must name exact runner images')
 })
 
 test('doctor accepts exactly the supported Node release lines', () => {
-  for (const version of ['22.18.0', '22.99.0', '24.0.0', '24.18.0', '26.0.0', '26.4.0']) {
+  for (const version of ['24.16.0', '24.21.0', '24.99.0', '26.1.0', '26.8.1']) {
     assert.equal(isSupportedNodeVersion(version), true, `${version} should be supported`)
   }
-  for (const version of ['22.17.9', '23.0.0', '25.9.0', '27.0.0', 'invalid']) {
+  for (const version of ['22.18.0', '22.99.0', '23.0.0', '24.0.0', '24.15.9', '25.9.0', '26.0.0', '27.0.0', 'invalid']) {
     assert.equal(isSupportedNodeVersion(version), false, `${version} should be unsupported`)
   }
-  for (const version of ['26.0.0-nightly20260829abcdef01', '24.0.0-rc.1', '22.18.0-pre', 'v24.18.0', '24.18']) {
+  for (const version of ['26.0.0-nightly20260829abcdef01', '24.0.0-rc.1', '22.18.0-pre', 'v24.21.0', '24.18']) {
     assert.equal(isSupportedNodeVersion(version), false, `${version} is not a stable supported release`)
   }
 })
 
 test('every workflow job has an explicit timeout and Node workflows use the recommended LTS', () => {
+  const selection = read('.nvmrc')
+  assert.match(selection, /^24\.\d+\.\d+\n$/, 'local development must select one exact LTS version')
+  const recommended = selection.trim()
+  assert.equal(isSupportedNodeVersion(recommended), true)
   const workflows = readdirSync(new URL('.github/workflows/', root))
     .filter(name => name.endsWith('.yml') || name.endsWith('.yaml'))
   for (const name of workflows) {
@@ -65,7 +73,7 @@ test('every workflow job has an explicit timeout and Node workflows use the reco
     }
     for (const match of workflow.matchAll(/node-version:\s*([^\n#]+)/g)) {
       const version = match[1]!.trim()
-      assert.ok(version === '24.18.0' || version === '${{ matrix.node }}',
+      assert.ok(version === recommended || version === '${{ matrix.node }}',
         `${name} selects unsupported Node version ${version}`)
     }
   }
@@ -74,7 +82,7 @@ test('every workflow job has an explicit timeout and Node workflows use the reco
 test('runtime documentation agrees with the tested support policy', () => {
   for (const path of ['README.md', 'ARCHITECTURE.md', 'IMPLEMENTATION.md', 'packages/cli/README.md']) {
     const document = read(path).replace(/\s+/g, ' ')
-    for (const expected of ['22.18.0', '24.18.0', '26.4.0', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
+    for (const expected of ['24.16.0', '24.21.0', '26.1.0', '26.8.1', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
       assert.ok(document.includes(expected), `${path} omits ${expected}`)
     }
   }

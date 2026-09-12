@@ -32,6 +32,7 @@ import {
   heuristicPolicy, llmPolicy, memoryStoreOfText, reconstruct, reconstructAsync, shellComplete
 } from '@cavelang/loop'
 import type { Reconstruction } from '@cavelang/loop'
+import { throwIfCancelled } from './cleanup.ts'
 
 export type Spec = {
   /** Seed entities, in file order — the initial frontier. */
@@ -84,8 +85,8 @@ export const parseSpec = (
         continue
       }
       if ((budgetAttributes as readonly string[]).includes(attribute)) {
-        if (value.num === undefined || !Number.isInteger(value.num) || value.num < 1) {
-          problem(`${attribute} must be a positive integer, got '${value.raw}'`)
+        if (value.num === undefined || !Number.isSafeInteger(value.num) || value.num < 1) {
+          problem(`${attribute} must be a positive safe integer, got '${value.raw}'`)
         } else {
           budgets.set(attribute, value.num)
         }
@@ -128,12 +129,14 @@ export type RunOptions = {
  * without an agent, `llmPolicy` over the agent otherwise. Both policies
  * get the same budgets, so their scores compare like for like.
  */
-export const runSpec = (
+export const runSpec = async (
   knowledge: string,
   spec: Spec,
   registry: Registry.t,
   options: RunOptions = {}
 ): Promise<Reconstruction> => {
+  const signal = options.signal
+  signal?.throwIfAborted()
   const store = memoryStoreOfText(knowledge, registry)
   const budgets = {
     ...spec.maxSteps === undefined ? {} : { maxSteps: spec.maxSteps },
@@ -149,7 +152,17 @@ export const runSpec = (
       ...options.cwd === undefined ? {} : { cwd: options.cwd },
       ...options.signal === undefined ? {} : { signal: options.signal }
     })
-  const policy = llmPolicy(complete, {
+  const policy = llmPolicy(async prompt => {
+    signal?.throwIfAborted()
+    try {
+      const result = await complete(prompt)
+      signal?.throwIfAborted()
+      return result
+    } catch (error) {
+      throwIfCancelled(signal, error)
+      throw error
+    }
+  }, {
     ...spec.query === undefined ? {} : { query: spec.query },
     ...budgets
   })

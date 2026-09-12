@@ -173,3 +173,53 @@ outage CAUSE lost customer trust
       (entity)
       (entity)
       (entity))))
+
+==================
+explicit full claims and trailing context
+==================
+@claim WHEN EXISTS @claim
+@claim IS EXISTS
+---
+
+(document
+  (claim_line
+    (claim_marker)
+    (entity)
+    (verb)
+    (context))
+  (claim_line
+    (claim_marker)
+    (entity)
+    (verb)))
+
+==================
+explicit qualifier subjects
+==================
+parent EXISTS
+  WHEN @claim NOT EXISTS
+  WHEN NOT @claim WHEN IS ready
+---
+
+(document
+  (claim_line (entity) (verb))
+  (qualifier_line (qualifier_verb) (claim_marker) (entity) (verb))
+  (qualifier_line (qualifier_verb) (negation) (claim_marker) (entity) (verb) (object (entity))))
+
+==================
+explicit numeric-looking subjects
+==================
+@claim 42 EXISTS
+@claim 2026-01-01 EXISTS
+@claim -1 EXISTS
+@claim 3.14 EXISTS
+  WHEN @claim 42 EXISTS
+  WHEN NOT @claim 2026-01-01 EXISTS
+---
+
+(document
+  (claim_line (claim_marker) (entity) (verb))
+  (claim_line (claim_marker) (entity) (verb))
+  (claim_line (claim_marker) (entity) (verb))
+  (claim_line (claim_marker) (entity) (verb))
+  (qualifier_line (qualifier_verb) (claim_marker) (entity) (verb))
+  (qualifier_line (qualifier_verb) (negation) (claim_marker) (entity) (verb)))

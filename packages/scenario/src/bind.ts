@@ -1,8 +1,10 @@
+import { captureDefinition } from './capture.ts'
 import { createHash } from 'node:crypto'
+import { Time } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
-import { Uuidv7 } from '@cavelang/core'
 import { Pattern, query, type Match, type Options as QueryOptions } from '@cavelang/query'
 import { Exact } from '@cavelang/solver'
+import { QuerySql } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { ScenarioInputError } from './error.ts'
 import * as Numeric from './exact.ts'
@@ -43,13 +45,59 @@ const stableStringify = (value: Json): string => {
 const sha256 = (text: string): string =>
   `sha256:${createHash('sha256').update(text).digest('hex')}`
 
+/** Freeze owned result data, including shared value/evidence arrays. */
+const freezeInputs = (record: InputRecord): InputRecord => {
+  const pending: object[] = [record]
+  while (pending.length > 0) {
+    const value = pending.pop()!
+    if (Object.isFrozen(value)) continue
+    Object.freeze(value)
+    for (const child of Object.values(value)) {
+      if (child !== null && typeof child === 'object') pending.push(child)
+    }
+  }
+  return record
+}
+
+/** JSON semantics omit undefined optional fields before stable key ordering. */
+export const definitionDigest = (definition: Definition): string =>
+  sha256(stableStringify(JSON.parse(JSON.stringify(definition)) as Json))
+
+export const inputDigest = (record: Omit<InputRecord, 'digest'>): string =>
+  sha256(stableStringify(JSON.parse(JSON.stringify(record)) as Json))
+
 const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/
 
 const invalid = (message: string, bindingId?: string): never => {
   throw new ScenarioInputError('invalid-definition', message, bindingId)
 }
 
+const choice = (value: unknown, choices: readonly string[], name: string, bindingId?: string): void => {
+  if (typeof value !== 'string' || !choices.includes(value)) {
+    invalid(`${name} must be one of ${choices.join(', ')}`, bindingId)
+  }
+}
+
+const requireObject = (value: unknown, name: string, bindingId?: string): void => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    invalid(`${name} must be an object`, bindingId)
+  }
+}
+
 const validateBinding = (binding: Binding): void => {
+  requireObject(binding, 'binding')
+  if (typeof binding.id !== 'string') invalid('binding identifier must be a string')
+  requireObject(binding.expected, 'expected', binding.id)
+  requireObject(binding.policies, 'policies', binding.id)
+  if (typeof binding.query !== 'string') invalid('query must be a string', binding.id)
+  choice(binding.cardinality, ['one', 'optional', 'many'], 'cardinality', binding.id)
+  choice(binding.expected.kind, ['boolean', 'integer', 'number', 'enum', 'text'], 'expected.kind', binding.id)
+  choice(binding.policies.missing, ['reject', 'omit', 'empty'], 'missing policy', binding.id)
+  choice(binding.policies.contested, ['reject', 'allow'], 'contested policy', binding.id)
+  choice(binding.policies.retracted, ['reject', 'exclude', 'include'], 'retracted policy', binding.id)
+  choice(binding.policies.unresolved, ['reject', 'allow'], 'unresolved policy', binding.id)
+  if (typeof binding.scenarioOverride !== 'boolean') invalid('scenarioOverride must be a boolean', binding.id)
+  if (binding.cardinality === 'many') choice(binding.reduce, ['all', 'min', 'max', 'sum'], 'reduce', binding.id)
   if (!identifierPattern.test(binding.id)) invalid('identifier must use letters, numbers, dot, underscore, slash, or dash', binding.id)
   if (binding.expected.kind !== 'boolean' && binding.select === undefined) {
     invalid('select is required for non-Boolean inputs', binding.id)
@@ -67,15 +115,54 @@ const validateBinding = (binding: Binding): void => {
       binding.expected.kind !== 'number' && binding.expected.kind !== 'integer') {
     invalid(`reduction ${binding.reduce} requires a numeric input`, binding.id)
   }
+  if (binding.expected.kind === 'boolean') {
+    const { trueValue, falseValue } = binding.expected
+    if ((trueValue !== undefined && typeof trueValue !== 'string') ||
+        (falseValue !== undefined && typeof falseValue !== 'string')) {
+      invalid('Boolean trueValue and falseValue must be strings when supplied', binding.id)
+    }
+    if ((trueValue ?? 'true') === (falseValue ?? 'false')) {
+      invalid('Boolean true and false values must be distinct', binding.id)
+    }
+  }
   if (binding.expected.kind === 'enum') {
-    if (binding.expected.values.length === 0 || new Set(binding.expected.values).size !== binding.expected.values.length) {
-      invalid('enum values must be non-empty and unique', binding.id)
+    const values = binding.expected.values
+    if (!Array.isArray(values) || values.length === 0) {
+      invalid('enum values must be a non-empty array of unique strings', binding.id)
+    }
+    const seen = new Set<string>()
+    for (const value of values) {
+      if (typeof value !== 'string' || seen.has(value)) {
+        invalid('enum values must be a non-empty array of unique strings', binding.id)
+      }
+      seen.add(value)
     }
   }
   if (binding.expected.kind === 'number' || binding.expected.kind === 'integer') {
-    for (const conversion of binding.expected.conversions ?? []) {
+    if (binding.expected.unit !== undefined &&
+        (typeof binding.expected.unit !== 'string' || binding.expected.unit === '')) {
+      invalid('target unit must be a non-empty string when supplied', binding.id)
+    }
+    const conversions = binding.expected.conversions
+    if (conversions !== undefined && !Array.isArray(conversions)) {
+      invalid('unit conversions must be an array', binding.id)
+    }
+    const pairs = new Set<string>()
+    for (const conversion of conversions ?? []) {
+      if (conversion === null || typeof conversion !== 'object' ||
+          typeof conversion.from !== 'string' || conversion.from === '' ||
+          typeof conversion.to !== 'string' || conversion.to === '') {
+        invalid('unit conversion endpoints must be non-empty strings', binding.id)
+      }
       if (conversion.from === conversion.to) invalid('unit conversion must change the unit', binding.id)
-      if (Exact.compare(conversion.factor, '0') <= 0) invalid('unit conversion factor must be positive', binding.id)
+      const pair = JSON.stringify([conversion.from, conversion.to])
+      if (pairs.has(pair)) invalid('unit conversion pairs must be unique', binding.id)
+      pairs.add(pair)
+      let positive = false
+      try { positive = Exact.compare(conversion.factor, '0') > 0 } catch {
+        invalid('unit conversion factor must be a positive exact rational', binding.id)
+      }
+      if (!positive) invalid('unit conversion factor must be positive', binding.id)
     }
   }
   const pattern: Pattern.t = (() => {
@@ -85,40 +172,62 @@ const validateBinding = (binding: Binding): void => {
       return invalid(`invalid CAVE-Q pattern: ${error instanceof Error ? error.message : String(error)}`, binding.id)
     }
   })()
+  if (binding.select !== undefined) {
+    if (typeof binding.select !== 'string') invalid('select must be a variable name string', binding.id)
+    const slots = [pattern.subject, pattern.verb,
+      ...(pattern.payload.kind === 'object' ? [pattern.payload.object] :
+        pattern.payload.kind === 'attribute' ? [pattern.payload.value] : [])]
+    if (!slots.some(slot => slot.kind === 'var' && slot.name === binding.select)) {
+      invalid('select must name a variable bound by the CAVE-Q pattern', binding.id)
+    }
+  }
   if (pattern.verb.kind === 'verb' && pattern.verb.transitive) {
     invalid('transitive bindings are deferred until snapshot-aware shared query primitives are available', binding.id)
   }
 }
 
 const validateDefinition = (definition: Definition): void => {
-  if (!identifierPattern.test(definition.id)) invalid('scenario identifier must use letters, numbers, dot, underscore, slash, or dash')
-  if (!/^sha256:[0-9a-f]{64}$/.test(definition.modelDigest)) invalid('modelDigest must be a lowercase SHA-256 digest')
+  requireObject(definition, 'definition')
+  requireObject(definition.snapshot, 'snapshot')
+  if (!Array.isArray(definition.bindings)) invalid('bindings must be an array')
+  if (definition.overlay !== undefined && typeof definition.overlay !== 'string') {
+    invalid('overlay must be a string when supplied')
+  }
+  choice(definition.snapshot.aliases, ['exact', 'closure'], 'snapshot.aliases')
+  choice(definition.snapshot.resolution, ['coexisting', 'winner'], 'snapshot.resolution')
+  const { asOf, at } = definition.snapshot
+  if (asOf !== undefined && (typeof asOf !== 'string' || QuerySql.asOfBoundary(asOf) === undefined)) {
+    invalid('asOf must be a valid date-like period, timestamp or UUIDv7 string')
+  }
+  if (at !== undefined && (typeof at !== 'string' || Time.parseInstant(at) === undefined)) {
+    invalid('at must be a valid date-like period or timestamp string')
+  }
+  if (typeof definition.id !== 'string' || !identifierPattern.test(definition.id)) {
+    invalid('scenario identifier must be a string using letters, numbers, dot, underscore, slash, or dash')
+  }
+  if (typeof definition.modelDigest !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(definition.modelDigest)) {
+    invalid('modelDigest must be a lowercase SHA-256 digest string')
+  }
   if (!Number.isFinite(definition.snapshot.minimumConfidence) ||
       definition.snapshot.minimumConfidence < 0 || definition.snapshot.minimumConfidence > 1) {
     invalid('minimumConfidence must be between 0 and 1')
   }
   const ids = new Set<string>()
   for (const binding of definition.bindings) {
+    validateBinding(binding)
     if (ids.has(binding.id)) invalid(`duplicate binding identifier ${JSON.stringify(binding.id)}`)
     ids.add(binding.id)
-    validateBinding(binding)
   }
-}
-
-const boundaryUpper = (text: string): string => {
-  const start = Date.parse(text.includes('T') ? text : `${text}T00:00:00Z`)
-  if (Number.isNaN(start)) throw new ScenarioInputError('invalid-definition', `cannot parse as-of boundary ${JSON.stringify(text)}`)
-  return Uuidv7.at(start + (text.includes('T') ? 1_000 : 86_400_000), 0, new Uint8Array(8))
 }
 
 const transactionTime = (store: Store, asOf: string | undefined): string | null => {
   if (asOf === undefined) {
     return (store.db.prepare('SELECT MAX(tx) AS tx FROM cave_claim').get() as { tx: string | null }).tx
   }
-  const id = asOf.toLowerCase()
-  return Uuidv7.is(id) ?
-    (store.db.prepare('SELECT MAX(tx) AS tx FROM cave_claim WHERE tx <= ?').get(id) as { tx: string | null }).tx :
-    (store.db.prepare('SELECT MAX(tx) AS tx FROM cave_claim WHERE tx < ?').get(boundaryUpper(asOf)) as { tx: string | null }).tx
+  const boundary = QuerySql.asOfBoundary(asOf)
+  if (boundary === undefined) throw new ScenarioInputError('invalid-definition', `cannot parse as-of boundary ${JSON.stringify(asOf)}`)
+  return (store.db.prepare(`SELECT MAX(tx) AS tx FROM cave_claim WHERE tx ${boundary.operator} ?`)
+    .get(boundary.tx) as { tx: string | null }).tx
 }
 
 const queryOptions = (snapshot: Snapshot, resolve: boolean): QueryOptions => ({
@@ -137,10 +246,11 @@ const supportIds = (match: Match): readonly string[] =>
 
 const rawBaseCandidates = (store: Store, binding: Binding, snapshot: Snapshot): RawCandidate[] => {
   const pattern = includingRetractions(binding.query)
-  const unresolved = query(store, pattern, queryOptions(snapshot, false))
+  const unresolved = snapshot.resolution === 'coexisting'
+    ? query(store, pattern, queryOptions(snapshot, false)) : undefined
   const winners = query(store, pattern, queryOptions(snapshot, true))
   const winnerIds = new Set(winners.flatMap(supportIds))
-  const selected = snapshot.resolution === 'winner' ? winners : unresolved
+  const selected = unresolved ?? winners
   return selected.map(match => {
     const ids = supportIds(match)
     return {
@@ -218,7 +328,7 @@ const uncertainty = (candidate: RawCandidate, expected: Extract<Expected, { kind
   }
 }
 
-const valueOf = (candidate: RawCandidate, binding: Binding): Value => {
+const valueOf = (candidate: RawCandidate, binding: Binding, selectsAttributeValue: boolean): Value => {
   const expected = binding.expected
   const text = selectedText(candidate, binding)
   switch (expected.kind) {
@@ -246,10 +356,10 @@ const valueOf = (candidate: RawCandidate, binding: Binding): Value => {
       return { kind: 'text', value: plain(text) }
     case 'integer':
     case 'number': {
-      const authored = candidate.match.at?.text ?? candidate.match.row?.value_text ?? text
+      const authored = text
       if (authored === undefined) throw new ScenarioInputError('invalid-value', 'matched row has no numeric value', binding.id)
       const parsed = Numeric.convert(Numeric.parse(authored, binding.id), expected.unit, expected.conversions, binding.id)
-      const uncertainty_ = uncertainty(candidate, expected, binding.id)
+      const uncertainty_ = selectsAttributeValue ? uncertainty(candidate, expected, binding.id) : undefined
       const common = {
         ...(parsed.unit === undefined ? {} : { unit: parsed.unit }),
         authored,
@@ -271,8 +381,8 @@ const evidenceOf = (candidate: RawCandidate): readonly Evidence[] => candidate.o
   [{ origin: 'scenario', claimIds: [candidate.scenarioClaimId!] }] :
   [{ origin: 'belief', rowIds: supportIds(candidate.match) }]
 
-const publicCandidate = (candidate: RawCandidate, binding: Binding): Candidate => ({
-  value: valueOf(candidate, binding),
+const publicCandidate = (candidate: RawCandidate, binding: Binding, selectsAttributeValue: boolean): Candidate => ({
+  value: valueOf(candidate, binding, selectsAttributeValue),
   confidence: candidate.match.row?.conf ?? 1,
   evidence: evidenceOf(candidate)
 })
@@ -283,12 +393,16 @@ const evidenceKey = (candidate: RawCandidate): string => candidate.origin === 's
 const reduce = (values: readonly Value[], binding: Binding): Value | readonly Value[] => {
   if (binding.cardinality !== 'many' || binding.reduce === 'all') return values
   const numeric = values as readonly Extract<Value, { kind: 'number' | 'integer' }>[]
+  const unit = numeric[0]?.unit
+  if (numeric.some(value => value.unit !== unit)) {
+    throw new ScenarioInputError('incompatible-unit',
+      'numeric reduction requires a common unit; declare a target unit and explicit conversions', binding.id)
+  }
   if (binding.reduce === 'sum') {
     const exact = numeric.reduce(
       (total, value) => Numeric.add(total, value.kind === 'integer' ? { numerator: value.value, denominator: '1' } : value.value),
       { numerator: '0', denominator: '1' }
     )
-    const unit = numeric[0]?.unit
     const approximate = numeric.some(value => value.approximate)
     return binding.expected.kind === 'integer' ?
       { kind: 'integer', value: exact.numerator, ...(unit === undefined ? {} : { unit }), approximate } :
@@ -334,7 +448,10 @@ const bindOne = (
     throw new ScenarioInputError('missing-input', 'query matched no eligible value', binding.id)
   }
 
-  const candidates = selected.map(candidate => publicCandidate(candidate, binding))
+  const { payload } = Pattern.parse(binding.query)
+  const selectsAttributeValue = payload.kind === 'attribute' && payload.value.kind === 'var' &&
+    payload.value.name === binding.select
+  const candidates = selected.map(candidate => publicCandidate(candidate, binding, selectsAttributeValue))
   if (selected.length === 0 && binding.policies.missing === 'omit') return { id: binding.id, candidates }
   if (selected.length === 0) return { id: binding.id, candidates, value: [] }
   const values = candidates.map(candidate => candidate.value)
@@ -342,8 +459,26 @@ const bindOne = (
   return { id: binding.id, candidates, ...(values[0] === undefined ? {} : { value: values[0] }) }
 }
 
+const revisionOf = (store: Store): { external: string, local: string } => ({
+  external: String(store.db.prepare('PRAGMA data_version').get()!['data_version']),
+  local: String(store.db.prepare('SELECT total_changes() AS changes').get()!['changes'])
+})
+
+const snapshotChanged = (): never => {
+  throw new ScenarioInputError('snapshot-changed', 'store changed while binding scenario inputs; retry binding the scenario')
+}
+
+
 export const bind = (store: Store, definition: Definition): InputRecord => {
+  definition = captureDefinition(definition)
   validateDefinition(definition)
+  let authoredDigest: string
+  try {
+    authoredDigest = definitionDigest(definition)
+  } catch {
+    return invalid('definition must be JSON serializable within the supported serialization depth')
+  }
+  const initialRevision = revisionOf(store)
 
   const frozenTx = transactionTime(store, definition.snapshot.asOf)
   const effectiveSnapshot: Snapshot = definition.snapshot.asOf === undefined && frozenTx !== null ?
@@ -363,11 +498,17 @@ export const bind = (store: Store, definition: Definition): InputRecord => {
     binding.id,
     rawBaseCandidates(store, binding, effectiveSnapshot)
   ])) as Readonly<Record<string, readonly RawCandidate[]>>
+  const baseRevision = revisionOf(store)
+  if (baseRevision.external !== initialRevision.external || baseRevision.local !== initialRevision.local) snapshotChanged()
   const overlay = overlayResult(store, { ...definition, snapshot: effectiveSnapshot }, canonical, claimIds)
+  // Rolled-back overlay inserts advance this connection's total_changes.
+  // Peer commits still invalidate the read, including commits below frozenTx.
+  const materializedRevision = revisionOf(store)
+  if (materializedRevision.external !== initialRevision.external) snapshotChanged()
   const bindings = definition.bindings.map(binding => bindOne(
     binding,
     base[binding.id] ?? [],
-    overlay[binding.id] ?? [],
+    Object.hasOwn(overlay, binding.id) ? overlay[binding.id]! : [],
     definition.snapshot.minimumConfidence
   ))
   const values: Record<string, Value | readonly Value[]> = {}
@@ -382,15 +523,25 @@ export const bind = (store: Store, definition: Definition): InputRecord => {
     schema,
     scenarioId: definition.id,
     modelDigest: definition.modelDigest,
-    snapshot: { ...definition.snapshot, transactionTime: frozenTx },
+    definitionDigest: authoredDigest,
+    snapshot: {
+      aliases: definition.snapshot.aliases,
+      resolution: definition.snapshot.resolution,
+      minimumConfidence: definition.snapshot.minimumConfidence,
+      ...definition.snapshot.asOf === undefined ? {} : { asOf: definition.snapshot.asOf },
+      ...definition.snapshot.at === undefined ? {} : { at: definition.snapshot.at },
+      transactionTime: frozenTx
+    },
     overlay: { digest: overlayDigest, source: `scenario/${definition.id}`, claimIds },
     values,
     bindings,
     supportingRowIds,
     scenarioClaimIds
   }
-  const digest = sha256(stableStringify(withoutDigest as unknown as Json))
-  return { ...withoutDigest, digest }
+  const digest = inputDigest(withoutDigest)
+  const finalRevision = revisionOf(store)
+  if (finalRevision.external !== materializedRevision.external || finalRevision.local !== materializedRevision.local) snapshotChanged()
+  return freezeInputs({ ...withoutDigest, digest })
 }
 
 /** Materializes and rolls back inputs before `evaluate` is invoked. */

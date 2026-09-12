@@ -3,7 +3,10 @@
  * `--watch`, `--query`), and report rendering around `run.ts`.
  */
 
-import { existsSync, readFileSync, watch as watchFs } from 'node:fs'
+import { rethrowFetchFailure } from './fetch-failure.ts'
+import { errorMessage } from './error-message.ts'
+import { existsSync, watch as watchFs } from 'node:fs'
+import { readText } from './utf8.ts'
 import { basename, dirname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
@@ -14,7 +17,8 @@ import type { Match } from '@cavelang/query'
 import * as Declared from './declared.ts'
 import * as Source from './source.ts'
 import * as Template from './template.ts'
-import { connect, federatedQuery } from './run.ts'
+import { connect } from './run.ts'
+import { withFederatedSource } from './federation.ts'
 import type { Report } from './run.ts'
 
 const usage = `cave connect — deterministic structured ingestion through a mapping template (spec §23)
@@ -26,7 +30,7 @@ Usage:
   cave connect [--db <path>] --query '<pattern>'
 
 The source is a .csv/.tsv/.json/.jsonl/.ndjson file, a SQLite database
-(with --table or --sql), or an http(s) URL serving JSON or CSV. The
+(with --table or --sql), or an http(s) URL serving JSON, JSONL, CSV or TSV. The
 mapping is an ordinary CAVE document whose ?field variables stand for
 record fields; variable-free blocks append once per run, variable blocks
 instantiate once per record — no LLM in the loop, same input, same claims.
@@ -128,7 +132,7 @@ export type RunContext = {
 export type WatchLike = (
   path: string,
   listener: (event: string, filename: string | Buffer | null) => void
-) => { close(): void }
+) => { close(): void, on?(event: 'error', listener: (error: Error) => void): unknown }
 
 export type ScheduleLike = (callback: () => Promise<void>, delayMs: number) => unknown
 
@@ -138,8 +142,19 @@ type IO = {
   readonly signal?: AbortSignal
 }
 
-const waitForAbort = (signal?: AbortSignal): Promise<void> =>
-  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+/** Abort and fatal callbacks share one owned completion boundary. */
+const watchEnd = (signal?: AbortSignal) => {
+  let failure: { error: unknown } | undefined
+  let wake!: () => void
+  const done = new Promise<void>(resolve => { wake = resolve })
+  signal?.addEventListener('abort', wake, { once: true })
+  if (signal?.aborted) wake()
+  return {
+    fail(error: unknown): void { failure ??= { error }; wake() },
+    async wait(): Promise<void> { await done; if (failure !== undefined) throw failure.error },
+    close(): void { signal?.removeEventListener('abort', wake) }
+  }
+}
 
 const renderReport = (report: Report): string => {
   const lines = [
@@ -155,7 +170,7 @@ const renderReport = (report: Report): string => {
   }
   for (const failure of report.failures) {
     lines.push(`  ${failure.record}: FAILED`)
-    lines.push(...failure.problems.map(problem => `    ${problem}`))
+    for (const problem of failure.problems) lines.push(`    ${problem}`)
   }
   return lines.join('\n')
 }
@@ -164,7 +179,7 @@ const renderReport = (report: Report): string => {
 const loadMapping = (spec: string): { mapping?: Template.Mapping, problems: readonly string[] } =>
   Template.isInline(spec) && !existsSync(spec) ?
     Template.parse(Template.inlineDocument(spec)) :
-    Template.parse(readFileSync(spec, 'utf8'))
+    Template.parse(readText(spec))
 
 const sourceOptions = (values: Values, context: RunContext): Source.Options => ({
   ...values.format === undefined ? {} : { format: values.format as Source.Format },
@@ -172,14 +187,19 @@ const sourceOptions = (values: Values, context: RunContext): Source.Options => (
   ...values.table === undefined ? {} : { table: values.table },
   ...values.sql === undefined ? {} : { sql: values.sql },
   ...values.records === undefined ? {} : { records: values.records },
+  ...context.signal === undefined ? {} : { signal: context.signal },
   ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl }
 })
 
 const loadSource = async (source: string, values: Values, context: RunContext): Promise<Source.Loaded> => {
   try {
-    return await Source.load(source, sourceOptions(values, context))
+    context.signal?.throwIfAborted()
+    const loaded = await Source.load(source, sourceOptions(values, context))
+    context.signal?.throwIfAborted()
+    return loaded
   } catch (error) {
-    throw new Error(`load ${source}: ${error instanceof Error ? error.message : String(error)}`)
+    if (context.signal?.aborted) rethrowFetchFailure(context.signal, error)
+    throw new Error(`load ${source}: ${errorMessage(error)}`, { cause: error })
   }
 }
 
@@ -237,6 +257,23 @@ const runDry = async (source: string, values: Values, io: IO, context: RunContex
   return failures > 0 ? 1 : 0
 }
 
+/** Own the command store until its work settles, preserving cleanup failures. */
+const withCommandStore = async <T>(store: Store, run: () => T | Promise<T>): Promise<T> => {
+  let result: T
+  try {
+    result = await run()
+  } catch (error) {
+    try { store.close() } catch (closeError) {
+      const messages = [error, closeError].map(errorMessage)
+      throw new AggregateError([error, closeError],
+        `command failed: ${messages[0]}; store close also failed: ${messages[1]}`, { cause: error })
+    }
+    throw error
+  }
+  store.close()
+  return result
+}
+
 const runQuery = async (
   source: string,
   values: Values,
@@ -254,8 +291,8 @@ const runQuery = async (
   const registry = values['no-prelude'] === true ? { registry: Registry.empty } : {}
   // Federation over a store that does not exist yet queries the source alone.
   const store = kindOf(db) === 'missing' ? open(':memory:', registry) : openAt(db, { intent: 'scratch', assemble: Declared.assemble, ...registry })
-  try {
-    const { matches, report } = federatedQuery(
+  return await withCommandStore(store, () => {
+    const { result: { matches, records }, report } = withFederatedSource(
       store, mapping, loaded.records,
       {
         name,
@@ -263,8 +300,10 @@ const runQuery = async (
         ...loaded.spans === undefined ? {} : { spans: loaded.spans },
         ...values.key === undefined ? {} : { key: values.key }
       },
-      values.query!,
-      { all: values.all === true, aliases: values.aliases === true }
+      () => {
+        const matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
+        return { matches, records: values.json === true ? matches.map(match => QueryRecord.of(store, match)) : undefined }
+      }
     )
     // A failed record means the union was incomplete — matches still print
     // as partial results, but the exit code must not read as success.
@@ -273,7 +312,7 @@ const runQuery = async (
       io.stderr.write(`${renderReport(report)}\n`)
     }
     if (values.json === true) {
-      io.stdout.write(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
+      io.stdout.write(`${JSON.stringify(records, undefined, 2)}\n`)
       return code
     }
     if (matches.length === 0) {
@@ -288,9 +327,31 @@ const runQuery = async (
     })
     io.stdout.write(`${lines.join('\n')}\n`)
     return code
-  } finally {
-    store.close()
+  })
+}
+
+/** Finish every owned watch resource before returning or propagating failures. */
+const watchSession = async <T>(
+  run: () => Promise<T>,
+  stop: () => void,
+  watchers: () => Iterable<{ close(): void }>,
+  active: () => undefined | Promise<void>
+): Promise<T> => {
+  const errors: unknown[] = []
+  let result!: T
+  try { result = await run() } catch (error) { errors.push(error) }
+  try { stop() } catch (error) { errors.push(error) }
+  for (const watcher of watchers()) {
+    try { watcher.close() } catch (error) { errors.push(error) }
   }
+  try { await active() } catch (error) { errors.push(error) }
+  if (errors.length === 1) throw errors[0]
+  if (errors.length > 1) {
+    throw new AggregateError(errors,
+      `watch session failed: ${errors.map(errorMessage).join('; ')}`,
+      { cause: errors[0] })
+  }
+  return result
 }
 
 const runWatch = async (
@@ -301,11 +362,14 @@ const runWatch = async (
   io: IO,
   context: RunContext
 ): Promise<number> => {
+  let stopped = false
+  const end = watchEnd(io.signal)
+  const fail = (error: unknown): void => { stopped = true; end.fail(error) }
   const passOnce = async (): Promise<void> => {
     try {
       await runPass(store, source, values, name, io, context)
     } catch (error) {
-      io.stderr.write(`cave connect watch pass: ${error instanceof Error ? error.message : String(error)}\n`)
+      io.stderr.write(`cave connect watch pass: ${errorMessage(error)}\n`)
     }
   }
   let running = false
@@ -318,60 +382,66 @@ const runWatch = async (
       return
     }
     running = true
-    do {
-      queued = false
-      await passOnce()
-    } while (queued)
-    running = false
+    try {
+      do {
+        queued = false
+        await passOnce()
+      } while (queued && !stopped && !io.signal?.aborted)
+    } finally { running = false }
   }
   const schedule: ScheduleLike = context.schedule ?? ((callback, delayMs) =>
     setTimeout(() => { void callback() }, delayMs))
   const cancelScheduled = context.cancelScheduled ?? (handle =>
     clearTimeout(handle as ReturnType<typeof setTimeout>))
   const trigger = (): void => {
+    if (stopped || io.signal?.aborted) return
     if (running) {
       queued = true
       return
     }
-    if (timer !== undefined) cancelScheduled(timer)
-    timer = schedule(async () => {
-      timer = undefined
-      const pass = fire()
-      active = pass
-      await pass
-      if (active === pass) active = undefined
-    }, 200)
+    try {
+      if (timer !== undefined) cancelScheduled(timer)
+      timer = schedule(async () => {
+        timer = undefined
+        if (stopped) return
+        const pass = fire()
+        active = pass
+        try { await pass } catch (error) { fail(error) }
+        if (active === pass) active = undefined
+      }, 200)
+    } catch (error) { fail(error) }
   }
   // Watch the parent directories — editors replace files on save, and a
   // watcher on the file itself dies with the old inode.
   const targets = [...new Set([resolve(source), ...Template.isInline(values.map!) && !existsSync(values.map!) ? [] : [resolve(values.map!)]])]
   const watch: WatchLike = context.watch ?? ((path, listener) => watchFs(path, listener))
-  const watchers = targets.map(target =>
-    watch(dirname(target), (_event, filename) => {
-      // Some platforms and watcher backends cannot identify the changed
-      // directory entry. A filename-less event is therefore a rescan signal,
-      // while Buffer filenames retain the same exact target filtering.
-      if (filename === null || filename.toString() === basename(target)) {
-        trigger()
-      }
-    }))
-  try {
+  const watchers: { close(): void }[] = []
+  return watchSession(async () => {
+    for (const target of targets) {
+      const subscription = watch(dirname(target), (_event, filename) => {
+        // Filename-less events rescan; editors may replace the watched file.
+        if (filename === null || filename.toString() === basename(target)) trigger()
+      })
+      watchers.push(subscription)
+      subscription.on?.('error', error => { if (!stopped) fail(error) })
+    }
     // Install watchers before the initial pass. A save during startup is
     // therefore either read by this pass or queued for the next one.
-    await passOnce()
+    await fire()
+    if (stopped || io.signal?.aborted) { await end.wait(); return 0 }
     io.stdout.write('watching (ctrl-c to stop)\n')
-    await waitForAbort(io.signal)
+    await end.wait()
     return 0
-  } finally {
+  }, () => {
+    stopped = true
+    end.close()
     if (timer !== undefined) cancelScheduled(timer)
-    watchers.forEach(watcher => watcher.close())
-    await active
-  }
+  }, () => watchers, () => active)
 }
 
-const printMatches = (store: Store, matches: readonly Match[], pattern: string, values: Values, io: IO): void => {
-  if (values.json === true) {
-    io.stdout.write(`${JSON.stringify(matches.map(match => QueryRecord.of(store, match)), undefined, 2)}\n`)
+const printMatches = (matches: readonly Match[], pattern: string, io: IO, records: readonly QueryRecord.t[] | undefined): void => {
+  if (records !== undefined) {
+    io.stdout.write(`${JSON.stringify(records, undefined, 2)}\n`)
     return
   }
   if (matches.length === 0) {
@@ -424,6 +494,7 @@ const declaredPass = async (
     new Set(Declared.closure(store, selectDeclared(store, values).map(declared => declared.name)).map(declared => declared.name))
   const version = Declared.versionCounter()
   for (;;) {
+    io.signal?.throwIfAborted()
     const next = Declared.declaredSources(store)
       .find(declared => (allowed === undefined || allowed.has(declared.name)) && done.get(declared.name) !== Declared.signature(declared))
     if (next === undefined) {
@@ -432,7 +503,8 @@ const declaredPass = async (
     version(next.name)
     done.set(next.name, Declared.signature(next))
     try {
-      const ready = await Declared.prepare(next, dir, context.fetchImpl)
+      const ready = await Declared.prepare(next, dir, context.fetchImpl, io.signal)
+      io.signal?.throwIfAborted()
       const before = Declared.signatures(Declared.declaredSources(store))
       const report = Declared.run(store, ready, { force: values.force === true, prune: values.prune === true })
       if (allowed !== undefined) {
@@ -445,7 +517,8 @@ const declaredPass = async (
       io.stdout.write(`source/${next.name}: ${renderReport(report).replace(/^connect: /, '')}\n`)
       if (report.failures.length > 0) failed += 1
     } catch (error) {
-      io.stderr.write(`source/${next.name} (${next.path}): ${error instanceof Error ? error.message : String(error)}\n`)
+      io.signal?.throwIfAborted()
+      io.stderr.write(`source/${next.name} (${next.path}): ${errorMessage(error)}\n`)
       failed += 1
     }
   }
@@ -454,6 +527,7 @@ const declaredPass = async (
 const discoverOptions = (values: Values, context: RunContext, force = values.force === true): Declared.DiscoverOptions => ({
   ...values.name === undefined ? {} : { only: values.name },
   ...context.fetchImpl === undefined ? {} : { fetchImpl: context.fetchImpl },
+  ...context.signal === undefined ? {} : { signal: context.signal },
   force,
   prune: values.prune === true
 })
@@ -462,7 +536,9 @@ const discoverOptions = (values: Values, context: RunContext, force = values.for
 const declaredDry = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
   const sections: string[] = []
   let failures = 0
-  for (const ready of await Declared.discover(store, root, discoverOptions(values, context))) {
+  const sequence = await Declared.discover(store, root, discoverOptions(values, context))
+  io.signal?.throwIfAborted()
+  for (const ready of sequence) {
     sections.push(`; === source/${ready.declared.name} (${ready.declared.path})`)
     if (ready.mapping.prelude !== '') {
       sections.push(`; --- prelude\n\n${ready.mapping.prelude.trimEnd()}`)
@@ -496,7 +572,9 @@ const declaredQuery = async (store: Store, root: string, values: Values, io: IO,
   // the declarations since, so the replay checks and rediscovers if so.
   for (let attempt = 0; attempt < Declared.overlayAttempts; attempt += 1) {
     const { sequence, baseline } = await Declared.discovery(store, root, discoverOptions(values, context, true))
+    io.signal?.throwIfAborted()
     let matches: undefined | readonly Match[]
+    let records: undefined | readonly QueryRecord.t[]
     let failed = 0
     try {
       store.transaction(() => {
@@ -511,6 +589,7 @@ const declaredQuery = async (store: Store, root: string, values: Values, io: IO,
           }
         }
         matches = caveQuery(store, values.query!, { all: values.all === true, aliases: values.aliases === true })
+        if (values.json === true) records = matches.map(match => QueryRecord.of(store, match))
         throw rollback
       })
     } catch (error) {
@@ -521,21 +600,29 @@ const declaredQuery = async (store: Store, root: string, values: Values, io: IO,
         throw error
       }
     }
-    printMatches(store, matches!, values.query!, values, io)
+    printMatches(matches!, values.query!, io, records)
     return failed > 0 ? 1 : 0
   }
   throw Declared.staleOverlay()
 }
 
 const declaredWatch = async (store: Store, root: string, values: Values, io: IO, context: RunContext): Promise<number> => {
+  let stopped = false
+  const end = watchEnd(io.signal)
+  const fail = (error: unknown): void => { stopped = true; end.fail(error) }
   const dir = Declared.directoryOf(root)
   const passOnce = async (): Promise<void> => {
     try {
       await declaredPass(store, root, values, io, context)
     } catch (error) {
-      io.stderr.write(`cave connect watch pass: ${error instanceof Error ? error.message : String(error)}\n`)
+      io.stderr.write(`cave connect watch pass: ${errorMessage(error)}\n`)
     }
-    refreshWatchers()
+    try {
+      if (!stopped && !io.signal?.aborted) refreshWatchers()
+    } catch (error) {
+      // Keep current subscriptions available to retry on the next save.
+      io.stderr.write(`cave connect watch subscriptions: ${errorMessage(error)}\n`)
+    }
   }
   let running = false
   let queued = false
@@ -547,31 +634,36 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
       return
     }
     running = true
-    do {
-      queued = false
-      await passOnce()
-    } while (queued)
-    running = false
+    try {
+      do {
+        queued = false
+        await passOnce()
+      } while (queued && !stopped && !io.signal?.aborted)
+    } finally { running = false }
   }
   const schedule: ScheduleLike = context.schedule ?? ((callback, delayMs) =>
     setTimeout(() => { void callback() }, delayMs))
   const cancelScheduled = context.cancelScheduled ?? (handle =>
     clearTimeout(handle as ReturnType<typeof setTimeout>))
   const trigger = (): void => {
+    if (stopped || io.signal?.aborted) return
     if (running) {
       queued = true
       return
     }
-    if (timer !== undefined) cancelScheduled(timer)
-    timer = schedule(async () => {
-      timer = undefined
-      // Retained so shutdown waits for a pass in flight (a URL fetch, say)
-      // instead of closing the store under it.
-      const pass = fire()
-      active = pass
-      await pass
-      if (active === pass) active = undefined
-    }, 200)
+    try {
+      if (timer !== undefined) cancelScheduled(timer)
+      timer = schedule(async () => {
+        timer = undefined
+        if (stopped) return
+        // Retained so shutdown waits for a pass in flight (a URL fetch, say)
+        // instead of closing the store under it.
+        const pass = fire()
+        active = pass
+        try { await pass } catch (error) { fail(error) }
+        if (active === pass) active = undefined
+      }, 200)
+    } catch (error) { fail(error) }
   }
   // Every local declared file and mapping; URL sources only run on file
   // changes. A followed .cave source may declare more, so the set is
@@ -588,37 +680,56 @@ const declaredWatch = async (store: Store, root: string, values: Values, io: IO,
     } catch {
       return
     }
-    for (const target of new Set(declared.flatMap(source => [
+    const targets = new Set(declared.flatMap(source => [
       ...Source.isUrl(source.path) ? [] : [Declared.resolvePath(source.path, dir)],
       // A map is a file when it resolves to one, as the loader decides; only
       // otherwise is it inline and nothing to watch.
       ...source.map === undefined || (Template.isInline(source.map) && !existsSync(Declared.resolvePath(source.map, dir))) ?
         [] : [Declared.resolvePath(source.map, dir)]
-    ]))) {
+    ]))
+    for (const target of targets) {
       if (watched.has(target)) continue
-      watched.set(target, watch(dirname(target), (_event, filename) => {
+      let active = true
+      const subscription = watch(dirname(target), (_event, filename) => {
+        if (!active) return
         if (filename === null || filename.toString() === basename(target)) {
           trigger()
         }
-      }))
+      })
+      watched.set(target, { close: () => { active = false; subscription.close() } })
+      subscription.on?.('error', error => { if (active && !stopped) fail(error) })
+    }
+    const errors: unknown[] = []
+    for (const [target, subscription] of watched) {
+      if (targets.has(target)) continue
+      // Retire ownership before closing: a failed close must not suppress a
+      // fresh subscription if this path is declared again on a later pass.
+      watched.delete(target)
+      try { subscription.close() } catch (error) { errors.push(error) }
+    }
+    if (errors.length === 1) throw errors[0]
+    if (errors.length > 1) {
+      throw new AggregateError(errors,
+        `retiring watch subscriptions failed: ${errors.map(errorMessage).join('; ')}`,
+        { cause: errors[0] })
     }
   }
-  refreshWatchers()
-  if (watched.size === 0) {
-    io.stderr.write('cave connect: nothing to watch — no declared local source\n')
-    return 1
-  }
-  try {
-    await passOnce()
+  return watchSession(async () => {
     refreshWatchers()
+    if (watched.size === 0) {
+      io.stderr.write('cave connect: nothing to watch — no declared local source\n')
+      return 1
+    }
+    await fire()
+    if (stopped || io.signal?.aborted) { await end.wait(); return 0 }
     io.stdout.write('watching (ctrl-c to stop)\n')
-    await waitForAbort(io.signal)
+    await end.wait()
     return 0
-  } finally {
+  }, () => {
+    stopped = true
+    end.close()
     if (timer !== undefined) cancelScheduled(timer)
-    for (const watcher of watched.values()) watcher.close()
-    if (active !== undefined) await active
-  }
+  }, () => watched.values(), () => active)
 }
 
 /**
@@ -639,46 +750,52 @@ const runDeclared = async (values: Values, io: IO, context: RunContext): Promise
   try {
     if (values.list === true) {
       const store = openAt(db, { intent: 'read', assemble: Declared.assemble, ...registryOf(values) })
-      try {
+      return await withCommandStore(store, () => {
         const declared = selectDeclared(store, values)
         io.stdout.write(declared.length === 0 ? 'no declared sources\n' : `${declared.map(Declared.describe).join('\n')}\n`)
         return 0
-      } finally {
-        store.close()
-      }
+      })
     }
     if (values['dry-run'] === true || values.query !== undefined) {
       // Discovery works on a private snapshot, so the dry run only reads;
       // the overlay appends into the store's own rolled-back transaction.
       const store = openAt(db, { intent: values.query === undefined ? 'read' : 'scratch', assemble: Declared.assemble, ...registryOf(values) })
-      try {
+      return await withCommandStore(store, async () => {
         return values.query === undefined ?
           await declaredDry(store, db, values, io, context) :
           await declaredQuery(store, db, values, io, context)
-      } finally {
-        store.close()
-      }
+      })
     }
     const store = openAt(db, { intent: 'write', ...registryOf(values) })
-    try {
+    return await withCommandStore(store, async () => {
       return values.watch === true ?
         await declaredWatch(store, db, values, io, context) :
         await declaredPass(store, db, values, io, context)
-    } finally {
-      store.close()
-    }
+    })
   } catch (error) {
-    io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+    io.stderr.write(`cave connect: ${errorMessage(error)}\n`)
     return error instanceof LocateError ? 1 : 1
   }
 }
 
 export const runConnect = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const signal = context.signal
+  if (signal?.aborted === true) return 0
+  context = {
+    signal,
+    stdout: context.stdout,
+    stderr: context.stderr,
+    fetchImpl: context.fetchImpl,
+    watch: context.watch,
+    schedule: context.schedule,
+    cancelScheduled: context.cancelScheduled
+  }
   const io: IO = {
     stdout: context.stdout ?? process.stdout,
     stderr: context.stderr ?? process.stderr,
-    ...context.signal === undefined ? {} : { signal: context.signal }
+    ...signal === undefined ? {} : { signal }
   }
+  if (Boolean(io.signal?.aborted)) return 0
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -749,16 +866,14 @@ export const runConnect = async (argv: readonly string[], context: RunContext = 
       intent: 'write',
       ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
     })
-    try {
+    return await withCommandStore(store, async () => {
       if (values.watch === true) {
         return await runWatch(store, source, values, name, io, context)
       }
       return await runPass(store, source, values, name, io, context)
-    } finally {
-      store.close()
-    }
+    })
   } catch (error) {
-    io.stderr.write(`cave connect: ${error instanceof Error ? error.message : String(error)}\n`)
+    io.stderr.write(`cave connect: ${errorMessage(error)}\n`)
     return 1
   }
 }

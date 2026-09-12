@@ -1,13 +1,15 @@
+import assert from 'node:assert/strict'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import { gzipSync } from 'node:zlib'
 import { performance } from 'node:perf_hooks'
-import { Model, Solve } from '@cavelang/solver'
+import { Canonical, Model, Solve } from '@cavelang/solver'
 import { create } from '@cavelang/solver-z3'
 
 const require = createRequire(import.meta.url)
 const packageRoot = dirname(require.resolve('z3-solver/package.json'))
+const dependencyVersion = (JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version
 
 const files = async (directory: string): Promise<string[]> => {
   const entries = await readdir(directory, { withFileTypes: true })
@@ -54,23 +56,42 @@ const architecture: Model.t = {
   objectives: [{ id: 'min-monthly-cost', direction: 'minimize', expression: ref('monthly-cost') }]
 }
 
-const beforeRssBytes = process.memoryUsage().rss
-const runtime = await create()
-const firstStarted = performance.now()
-const first = await Solve.run(runtime, architecture)
-const firstCheckMs = performance.now() - firstStarted
-if (first.status !== 'optimal') throw new Error(`benchmark fixture returned ${first.status}`)
-
-const warmRuns = 25
-const warm: number[] = []
-for (let index = 0; index < warmRuns; index += 1) {
-  const started = performance.now()
-  const result = await Solve.run(runtime, architecture)
-  if (result.status !== 'optimal') throw new Error(`warm fixture returned ${result.status}`)
-  warm.push(performance.now() - started)
+const verify = (result: Awaited<ReturnType<typeof Solve.run>>, phase: string): void => {
+  if (result.status !== 'optimal') throw new Error(`${phase} fixture returned ${result.status}`)
+  assert.equal(result.optimalityProved, true, `${phase}: optimality must be proved`)
+  const cost = { sort: 'real', numerator: '321', denominator: '4' }
+  assert.deepEqual(result.assignment, {
+    choice: { sort: 'enum', domain: 'architecture', value: 'monolith' },
+    'team-size': { sort: 'int', value: '12' },
+    'monthly-cost': cost
+  }, `${phase}: incorrect benchmark assignment`)
+  assert.equal(result.objectives.length, 1, `${phase}: expected one objective`)
+  assert.equal(result.objectives[0]?.objectiveId, 'min-monthly-cost')
+  assert.deepEqual(result.objectives[0]?.value, cost, `${phase}: incorrect exact optimum`)
 }
 
-await runtime.close()
+const beforeRssBytes = process.memoryUsage().rss
+const runtime = await create()
+let firstCheckMs: number
+const warmRuns = 25
+const warm: number[] = []
+try {
+  const firstStarted = performance.now()
+  const first = await Solve.run(runtime, architecture)
+  firstCheckMs = performance.now() - firstStarted
+  verify(first, 'benchmark')
+
+  for (let index = 0; index < warmRuns; index += 1) {
+    const started = performance.now()
+    const result = await Solve.run(runtime, architecture)
+    const elapsed = performance.now() - started
+    verify(result, 'warm')
+    warm.push(elapsed)
+  }
+} finally {
+  await runtime.close()
+}
+
 warm.sort((left, right) => left - right)
 const mean = warm.reduce((sum, value) => sum + value, 0) / warm.length
 
@@ -79,6 +100,8 @@ console.log(JSON.stringify({
   platform: `${process.platform}-${process.arch}`,
   node: process.version,
   backend: runtime.backend,
+  dependency: { name: 'z3-solver', version: dependencyVersion },
+  fixture: { modelDigest: Canonical.digest(architecture), verifiedChecks: warm.length + 1 },
   artifacts: {
     files: paths.length,
     installedBytes,

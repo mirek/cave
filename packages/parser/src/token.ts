@@ -105,7 +105,7 @@ export const joinComment = (head: string, comment?: string): string => {
   return [...lines.map(line => line === '' ? ';' : `; ${line}`), `${head} ; ${last}`].join('\n')
 }
 
-const txLineRe = /^\s*;@\s+(\S+)\s*$/
+const txLineRe = /^\s*;@[^\S\r\n]+(\S+)(?:[^\S\r\n]+(\{[^\r\n]*?))?[^\S\r\n]*$/
 
 /**
  * @returns the transaction id carried by a physical line when it is a spec
@@ -115,6 +115,11 @@ const txLineRe = /^\s*;@\s+(\S+)\s*$/
  */
 export const txOfLine = (raw: string): undefined | string =>
   txLineRe.exec(raw)?.[1]
+
+/** Optional opaque JSON payload on a transaction annotation; sync validates its schema. */
+export const txDataOfLine = (raw: string): undefined | string =>
+  txLineRe.exec(raw)?.[2] || undefined
+
 
 /**
  * Positions of `needle` occurrences outside `"…"` and `` `…` `` literals —

@@ -25,7 +25,7 @@ const lineFragment = (span: LineSpan): string =>
   span.startLine === span.endLine ? `L${span.startLine}` : `L${span.startLine}-L${span.endLine}`
 
 const validSpan = (span: LineSpan): boolean =>
-  Number.isInteger(span.startLine) && Number.isInteger(span.endLine) &&
+  Number.isSafeInteger(span.startLine) && Number.isSafeInteger(span.endLine) &&
   span.startLine >= 1 && span.endLine >= span.startLine
 
 /** Percent-escape a source while keeping readable path and URL separators. */
@@ -35,10 +35,12 @@ export const escape = (source: string): string =>
     .replaceAll('%2F', '/')
     .replaceAll('%3A', ':')
 
-/** Reverse {@link escape}; malformed percent encodings are rejected. */
+/** Reverse {@link escape}; malformed percent encodings or UTF-16 are rejected. */
 export const unescape = (source: string): undefined | string => {
   try {
-    return decodeURIComponent(source)
+    const decoded = decodeURIComponent(source)
+    // decodeURIComponent rejects malformed escapes but retains raw surrogates.
+    return /[\uD800-\uDFFF]/u.test(decoded) ? undefined : decoded
   } catch {
     return undefined
   }
@@ -49,8 +51,14 @@ export const context = (source: string, span?: LineSpan): Context => {
   if (source === '') {
     throw new Error('source must not be empty')
   }
+  if (span !== undefined) {
+    const { startLine, endLine } = span
+    span = { startLine, endLine }
+  }
   if (span !== undefined && !validSpan(span)) {
-    throw new Error(`invalid source line span ${JSON.stringify(span)}`)
+    let description: string
+    try { description = JSON.stringify(span) } catch { description = '[unprintable span]' }
+    throw new Error(`invalid source line span ${description}`)
   }
   return `src:${escape(source)}${span === undefined ? '' : `#${lineFragment(span)}`}`
 }
@@ -79,14 +87,21 @@ export const parse = (value: Context): undefined | Reference => {
     return undefined
   }
   const location = `${source}${span === undefined ? '' : `#${lineFragment(span)}`}`
-  const href = /^https?:\/\//i.test(source) && !source.includes('#') ?
-    `${encodeURI(source)}${span === undefined ? '' : `#${lineFragment(span)}`}` : undefined
+  // Sources can already contain URL escapes. Encode raw characters without
+  // turning an existing %20 (or an encoded separator such as %2F) into %2520.
+  let href = /^https?:\/\//i.test(source) && (span === undefined || !source.includes('#')) ?
+    `${encodeURI(source).replace(/%25([0-9a-f]{2})/gi, '%$1')}${span === undefined ? '' : `#${lineFragment(span)}`}` : undefined
+  // IPv6 host brackets are URI delimiters, unlike brackets in userinfo/paths.
+  // Require literal host brackets in the source; encoded hosts stay invalid.
+  if (href !== undefined && /^https?:\/\/(?:[^/?#]*@)?\[[^\]]+\](?=[:/?#]|$)/i.test(source)) {
+    href = href.replace(/^(https?:\/\/(?:[^/?#]*@)?)%5B([^/?#]*?)%5D(?=[:/?#]|$)/i, '$1[$2]')
+  }
   return {
     context: value,
     source,
     ...span === undefined ? {} : { span },
     location,
-    ...href === undefined ? {} : { href }
+    ...href === undefined || !URL.canParse(href) ? {} : { href }
   }
 }
 

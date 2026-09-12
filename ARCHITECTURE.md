@@ -33,6 +33,30 @@ The arrows show dependency direction, not a mandatory request path. A simple
 directly; `cave ingest` adds an agent-mediated workflow before reaching the
 same store.
 
+Publication is tied to the committed version identity. The publisher binds
+validation to its own checkout, overriding any inherited `CAVE_RELEASE_ROOT`
+for all child commands. Preflight rejects
+tracked edits and non-ignored untracked files; ignored build products remain
+allowed at preflight, then release preparation cleans emitted output and build
+metadata before regeneration. Incremental caches cannot authenticate ignored
+output bytes or remove obsolete files. Validation repeats after preparation
+and before npm publication, and
+before final tagging, so dirty source inputs cannot silently share a release
+identity with their committed counterparts. Registry probes distinguish a
+matching identity, an unambiguous npm `E404` code record, and an error.
+Code recognition excludes URL/prose matches and conflicting codes. Missing
+versions may publish only for the freshly fetched `origin/main` version; an
+older fully published release can recover its tag without publishing packages. Unexpected
+output or transport failure cannot authorize publication, and retry settings
+are validated before requests.
+
+Registry name/version probes establish presence, not equality with local
+build bytes. `pnpm release:audit` separately installs the declared public
+versions in a temporary directory with lifecycle scripts disabled and verifies
+registry signatures and available attestations through npm. It does not require
+optional `gitHead` metadata or provenance on every package, preserving local
+first-publication bootstrap. See `IMPLEMENTATION.md` for the audit's scope.
+
 Workspace boundaries and release boundaries are intentionally different.
 Core libraries with independent consumers remain public npm packages. Rules,
 actions, automation, ingestion, MCP, views, and related command
@@ -61,6 +85,12 @@ whole-tree termination for timeouts, cancellation, and output overflow. A
 worker-backed synchronous facade preserves action and doctor APIs without
 weakening those lifecycle guarantees.
 
+The agent layer also owns the iterative JSON syntax index shared by evaluation
+and alias judges. It validates candidate spans in linear work before native
+decoding. Shared array extraction excludes nested answers inside complete
+strings and objects, with an explicit `pairs` wrapper for evaluation. Each
+consumer retains its own entry validation and scoring rules.
+
 Three boundaries shape the design:
 
 1. **Text becomes data once.** CAVE text is parsed and canonicalized before it
@@ -82,6 +112,10 @@ The domain model lives in `@cavelang/core`. A canonical claim contains:
 - one of four payloads: relation, attribute/value, metric, or no payload;
 - negation, confidence, importance, uncertainty, contexts, tags, and comment;
 - the original authored line for display and interchange.
+
+Canonical text preserves the full stored confidence using decimal percentages.
+`Confidence.formatExact` provides lossless interchange; `Confidence.format`
+provides percentages rounded to two decimal places for presentation.
 
 The store adds two UUIDv7 fields. Today the same UUID is used for both:
 
@@ -114,6 +148,24 @@ HTTP view share this policy, including indirect outputs such as counts,
 aliases, history, search, lineage, and edge traversal. The label is routing
 metadata—not encryption, authorization, erasure, or a retention boundary.
 
+The human HTTP view marks responses, including errors, `no-store`; HEAD
+preserves GET status and cache protection without a body. Its browser navigation
+uses a generation counter so superseded requests cannot overwrite the current
+view, and malformed fragments remain recoverable through normal navigation.
+
+Report fragments and automation prompts substitute only original template
+tokens. Inserted binding text is never reinterpreted as another variable or a
+replacement directive. Reports resolve authored citation placeholders before
+inserting bindings and reserve existing template footnote labels before assigning
+generated citations, preserving both stored values and handwritten references.
+
+The fusion boundary validates finite means, positive finite uncertainty, and
+confidence in `[0, 1]` before weighting. It scales means and square-root
+precisions to avoid intermediate overflow, and rejects posteriors whose
+precision or spread cannot be represented as positive finite numbers.
+Duration conversion uses only the declared unit table; arbitrary unit names
+remain compatible only with themselves.
+
 Source provenance can carry a stable line anchor (§9.8):
 `@src:<percent-escaped-locator>#Lx-Ly`. `@cavelang/core` owns the only
 formatter/parser, preserving both the exact stored context and the decoded
@@ -130,11 +182,48 @@ contexts cannot impersonate or displace engine ownership. Existing claim keys,
 context queries, and canonical exports stay compatible; opening old stores
 backfills only safely inferable dimensions.
 
+Shape binding follows the complete reachable `EXTENDS` taxonomy. A visited
+set terminates cycles without a semantic depth cutoff; deep inheritance
+therefore receives the same checks and write-gate enforcement as direct types.
+The append gate reads its violation baseline after reserving the write
+transaction, so a concurrent repair cannot be mistaken for an old violation
+that the current append may reintroduce.
+
+Suggestion appends reserve their transaction before checking pair history in
+both directions. A human decision committed while an external judge is running
+therefore prevents that retained proposal from being appended. Duplicate input
+pairs are written once; scoring and judge decisions remain based on their
+original evidence.
+
+Health and discovery readers validate their numeric options before database
+reads: finite non-negative stale horizons, finite report timestamps, finite
+0..1 score thresholds, and positive safe-integer suggestion limits.
+
+Health reports and alias discovery share an iterative, path-compressing
+alias-root lookup. Long alias chains retain their full closure without
+recursive calls proportional to chain length. Infrastructure names remain
+part of the closure even when excluded from discovery candidates. Health
+reports group one ordered read of current non-alias rows in memory, preserving
+row order without generating a SQL parameter list per alias group.
+
 Typed clients are derived, not authoritative (§20.4). Current `EXPECTS`
 claims normalize to a versioned, SHA-256-stamped TypeScript module whose
 readers reuse store traversal and current-belief SQL. Generation is strict on
 ambiguous static semantics and deterministic across declaration order and
 locale; CAVE text and CAVE-Q remain the source interfaces.
+
+Canonical text export holds one deferred read snapshot across claim selection,
+row decoding, metadata, lineage and provenance. It works on read-only connections
+and nests inside caller transactions. Concurrent commits appear together on the
+next export, preserving a consistent interchange view.
+
+Resolved beliefs, contests and resolved traversals use the same deferred-read
+mechanism for policy lookup and claim selection. This prevents a concurrent
+commit from applying old precedence/reliability policy to newer claims. Reverse
+reads also hold a snapshot across vocabulary refresh and fact selection, even
+without resolution. Other unresolved traversals retain their existing query path.
+Read snapshots release
+after failures and preserve both read and release errors when both fail.
 
 ### Canonical direction and the verb registry
 
@@ -181,7 +270,9 @@ explicit `WHEN`, `VIA`, `BECAUSE`, or `QUALIFIES` edges.
 `@cavelang/store` owns persistence and transaction identity. It can stamp an
 actor context such as `@src:cli`, `@src:agent/<client>`, or
 `@src:action/<name>` before keying. Replay paths deliberately avoid stamping
-so exported identities remain stable.
+so exported identities remain stable. Low-level explicit replay validates all
+used IDs as canonical lowercase UUIDv7 before inserting rows or advancing the
+receive clock; a rejected batch changes neither.
 
 An outer write takes SQLite's immediate reservation lock before allocating
 transaction IDs; concurrent processes wait, then observe the committed
@@ -189,6 +280,46 @@ transaction IDs; concurrent processes wait, then observe the committed
 Shape-gated ingest, action effects, connector record updates, sync, and dry
 runs all use the same transaction mechanism. Rolling back also restores the
 in-memory verb registry.
+Ordinary ingest also canonicalizes inside that reservation. It checks SQLite's
+`data_version` and refreshes the registry after another connection commits;
+local writes reuse the existing registry. Rollback restores the registry's
+version marker too, so a failed strict ingest cannot hide peer vocabulary on
+retry. Pre-canonicalized `insertResult` callers own their vocabulary snapshot;
+raw SQL declaration writers explicitly reload the registry. Annotated-text sync
+uses version-aware access under its write reservation; database sync explicitly
+rebuilds after copying declarations and lineage through SQL.
+Rule derivation, automation trigger reservations and rule/action/automation
+declaration entry points use version-aware registry access under their existing
+write reservation. Unchanged vocabulary does not require a forced replay at each
+entry. Generated vocabulary claims extend the current registry through the
+canonicalizer at insertion time, rather than reusing the earlier conclusion
+snapshot or replaying all history. Conflicting declarations retain first-
+declaration-wins behavior. Lineage edges can exclude existing declarations;
+the store still rebuilds when those edges change the active vocabulary.
+
+`scripts/governed-registry-bench.mjs` measures idle derivation/settling and
+unchanged declaration calls with 100, 1,000 and 3,000 verb declarations. Run it
+alone; setup and result/history assertions are outside five timed samples.
+Local medians with 3,000 declarations, before → after, were:
+
+| Operation | Node 24.16.0 | Node 26.5.0 |
+|---|---:|---:|
+| Idle derive | 28.65 → 0.55 ms | 22.95 → 0.54 ms |
+| Idle settle | 58.83 → 0.70 ms | 47.20 → 0.73 ms |
+| Unchanged rule declaration | 27.65 → 0.046 ms | 23.35 → 0.096 ms |
+| Unchanged action declaration | 27.51 → 0.050 ms | 23.39 → 0.046 ms |
+| Unchanged automation declaration | 27.78 → 0.047 ms | 23.20 → 0.121 ms |
+
+These fixtures do not measure changed rule effects, large joins, shape gates or
+agent/hook execution. Peer commits still invalidate the cache and may require
+replaying declaration history.
+
+Registry access and inverse reads also check the data-version counter, so live
+query connections see peer vocabulary without ingesting or reopening. This
+refresh performs only reads and works on read-only database connections.
+Transaction callbacks receive `{ outermost }`, distinguishing the scope that
+commits the database from one that only releases a nested savepoint. This is
+store-owned state and is available for every adapter.
 
 ### Physical schema
 
@@ -220,6 +351,14 @@ Edges refer to immutable row IDs so derivation and qualifier lineage names the
 exact evidence, not merely its current replacement. FTS indexes the searchable
 claim text.
 
+`cave doctor` validates current SQLite stores without writing. Besides schema,
+SQLite integrity, and foreign-key checks, its `store.search` check compares
+the FTS content rows with the claims in one SQL snapshot. Counts and full-row
+set comparison detect duplicates as well as missing, orphaned, and stale
+entries; this checks the search content projection, not the FTS engine's
+internal posting lists. Diagnostics expose no claim contents or paths, even
+when loading a CAVE text store or one of its declared sources fails.
+
 `PRAGMA user_version` is the schema compatibility boundary (§13.2.1).
 Unversioned stores start at version 0; ordered forward migrations run one
 transaction per version, including backfills, validation, and the version
@@ -242,6 +381,17 @@ allowing WAL readers and writers to remain online during backup.
 Normal patterns become filtered selects; transitive `VERB+` patterns become
 recursive CTEs with a depth cap. Lifecycle spellings resolve to stable storage
 verbs, and inverse verbs swap query endpoints against the same canonical rows.
+Historical vocabulary reconstruction bounds both declaration rows and qualifier
+parents at the requested time. Attaching a later parent cannot retroactively
+hide a declaration from earlier queries.
+
+Paged reads pin a transaction cutoff and carry a database-local append revision
+in their cursor. Counts and rowid tails cover historical claims and every edge
+touching them, including a future parent attached to an old declaration. Each
+page compares the revision before and after materialization, rejecting changed
+history with a restart error. Later rows and wholly future edges do not
+invalidate continuation. This uses only reads and constant-size cursor state;
+it does not keep SQLite transactions open between requests.
 
 The default row universe is current belief: latest row per `claim_key`, with
 positive queries excluding retracted rows. Callers can change that universe
@@ -289,6 +439,25 @@ Rules are stored under `rule/<digest>`, actions under `action/<name>`, and
 automations under `automation/<name>`. Derived or governed writes link to exact
 premise rows with `BECAUSE` edges and to their declaration with a `VIA` edge.
 
+All three declaration APIs validate the complete prelude inside the write
+reservation before trusting its digest cache. An invalid prelude rejects the
+call without new rows or declarations, including when an older version cached
+that invalid text. Corrected retries work normally, and unchanged successful
+preludes append nothing. This avoids hidden errors and duplicated partial
+prelude writes while retaining per-body error reporting after a valid prelude.
+
+Derivation reserves a write transaction before selecting rules or reading
+watermarks, refreshes the vocabulary registry within it, and holds the
+reservation through premise matching and derived writes. Already-open stores
+therefore observe another writer's committed vocabulary and rule revocations.
+Support reconciliation has a nested savepoint spanning retractions and their
+subsequent evaluation passes. If the pass budget expires, that phase rolls back
+and report write counts revert to its entry values; earlier additive work stays
+available for retry. Watermarks advance only after complete reconciliation.
+Explicit rule retraction likewise selects declarations and validates prefix
+ambiguity inside its write reservation, so concurrent declarations cannot
+escape retraction or make the selected prefix ambiguous before the writes.
+
 ```mermaid
 flowchart TB
     append["New claim rows"]
@@ -303,27 +472,83 @@ flowchart TB
     settle -->|new claims| derive
 ```
 
-The watermark advances before automation steps execute. This gives hooks and
+An automation batch reserves a write transaction, reloads its declaration and
+vocabulary, evaluates triggers against its watermark, and serializes all matched
+premise claims before committing the new watermark. Preparation failure leaves
+that batch unclaimed for repair and retry; prepared text retains the selection
+snapshot across awaited steps. The watermark commits before any step executes. Competing settlers cannot claim the same
+batch. Each automation is rechecked after earlier steps finish; revocations
+before its reservation prevent firing, while already-claimed steps continue.
+Parsed declarations and vocabulary are reused only while `MAX(tx)`, checked
+inside the reservation, is unchanged; the engine's own watermark append can
+advance that cache version because it changes neither. Other writes invalidate
+the cache, avoiding repeated full declaration parsing during quiet cycles.
+The write lock is released before actions, hooks, or asynchronous prompts run.
+Settling inside a caller-owned transaction is rejected before any derivation or
+batch claim, since nested savepoints cannot commit the firing log independently.
+Reports distinguish completion from successful steps: `complete` requires a
+quiet final pass and completed rule derivation, while `settled(report)` also
+requires no declaration or step errors. Exhaustion prints `incomplete` and
+makes `--once` exit nonzero; retrying retains already-committed watermarks.
+Enabled derivation's malformed rule declarations join automation declaration
+errors in the structured `problems` list and make `--once` fail. Valid rules
+and automations continue; disabling derivation also skips its rule checks.
+Automation cancellation checks the signal before settling, passes, batch
+claims, and steps, and after agent completion. Late replies are discarded;
+already-committed batch watermarks persist. Custom completion callbacks own
+their work's cancellation, while CLI agents use the process runner's cleanup.
+The daemon yields between repeated settles so signal callbacks can run and
+does not start polling after a cancelled startup cycle.
+This gives hooks and
 other outside-world effects at-most-once behavior across retries: a crash may
 drop a notification, but it does not replay one. Hooks are never stored as
 commands; claims name a hook while an out-of-band configuration supplies its
-shell template. Action hooks run only after the database transaction commits.
+shell template. Standalone action execution reserves its write transaction
+before loading the declaration, refreshing vocabulary, matching premises, or
+reading baseline shape violations. These reads and effect writes share the
+same transaction, so a competing revocation cannot slip between validation
+and commit. The baseline shape snapshot is taken immediately before the first
+changed effect. Entirely unchanged actions skip both shape snapshots while
+retaining declaration, argument and premise checks. Action hooks run after an
+outermost action transaction commits.
+If a configured hook would fire inside a caller-owned transaction, the action
+fails and rolls back only its own savepoint. No-op executions, dry runs, and
+actions without configured hooks remain nestable. This preserves the
+synchronous hook result contract without allowing effects to escape a later
+outer rollback or silently deferring delivery.
 
 ## Ingestion and integration boundaries
 
 - **`@cavelang/connect`** handles structured sources deterministically. It
   maps CSV, TSV, JSON, JSONL, SQLite, or URL records through templates, tracks
   per-record digests, and retracts stale output from changed or removed
-  records. Federated queries temporarily append mapped rows inside a
+  records. A pass with failed records whose prior identity is unknown skips
+  disappearance pruning, while valid records still update. A changed source
+  declaration replaces its data atomically: any failed replacement record
+  rolls back retirement, new rows, and declaration bookkeeping together.
+  Federated queries temporarily append mapped rows inside a
   transaction and then roll it back. Sources declared in-band as
   `source/<name>` claims run the same pass without arguments, and the
   package's `assemble` is what the CLI, MCP, serve, automate, and ingest
   surfaces hand to `openAt` so a CAVE text file used as a store follows the
   sources it declares.
-- **`@cavelang/ingest`** orchestrates unstructured extraction. Files and web
+- **`@cavelang/ingest`** orchestrates unstructured extraction. Strict
+  staging uses an exact SQLite snapshot to preserve explicit provenance and
+  stored data, and checks the final sync report before returning success.
+  A rejected identity merge fails without applying the stage. Files and web
   pages are batched, optional store context is included in the prompt, and a
-  headless agent writes through MCP or returns CAVE text. Source digests are
-  recorded only after a successful batch.
+  headless agent writes through MCP or returns CAVE text. Store context refreshes
+  between batches from current, non-retracted beliefs, including prior staged
+  updates in strict mode. Related-claim search has a bounded candidate window;
+  [context selection and limits](packages/ingest/README.md#api-access-context-slice--full-tools)
+  describe what the prompt includes. URL selection uses
+  at most eight concurrent fetches, including body reads, and retains source
+  order; cancellation prevents queued fetches from starting. This does not cap
+  total retained source content. Source digests are recorded only after a
+  successful batch; strict mode publishes those staged digests only when the
+  whole run succeeds. A source reported as accepted can still belong to a
+  discarded stage: [publication and retry semantics](packages/ingest/README.md#exit-codes-retries-and-agent-calls)
+  distinguish batch outcome from target-store changes.
 - **`@cavelang/mcp`** is a tools-only stdio JSON-RPC server. Static tools expose
   version-matched operating guidance plus core reads and writes; current action
   declarations generate `act_<name>` tools dynamically. Tool allowlists and
@@ -331,11 +556,34 @@ shell template. Action hooks run only after the database transaction commits.
 - **`@cavelang/sync`** unions stores by immutable row ID. Database sync copies
   rows and side tables verbatim; annotated text sync replays the same IDs
   through the canonical pipeline. Contradictions coexist and are resolved on
-  read, so merge itself is idempotent and conflict-free.
+  read, so valid replicas merge idempotently without belief conflicts.
+  Database sync checks overlapping identities under its write reservation:
+  stored claim fields, contexts, tags, and explicit provenance must agree
+  before any rows or edges copy. Raw spelling, metadata order, and safely
+  inferred provenance differences are compatible; legacy sources without
+  provenance tables are checked through their claim data and contexts.
+  Conflicts return structured problems and CLI failure, including dry runs.
+  Database-file sync owns its transaction and attachment lifecycle; it rejects
+  caller-owned transactions before attaching, because SQLite cannot detach a
+  source used by an uncommitted outer transaction. Annotated-text sync remains
+  nestable and follows the caller's commit or rollback.
+  Text sync refreshes vocabulary, validates and canonicalizes input, and replays
+  rows under one write reservation; dry runs restore the prior registry and
+  UUID state along with rolling back rows.
+  Annotated export carries a complete JSON provenance object when compact
+  contexts cannot reconstruct the stored dimensions. Replay validates payloads
+  before any write and preserves exact sets, including empty dimensions.
+  Database copying infers dimensions only when the source lacks their table.
+  Text replay compares reused IDs with both input restatements and existing
+  target rows before copying anything. Canonical interchange content must
+  agree, independent of raw spelling and metadata ordering, so mismatched
+  restatements cannot attach misleading lineage to existing rows.
 - **`@cavelang/eval`** runs extraction and reconstruction fixtures in fresh
   stores. It tests both claim-key accuracy and query behavior, keeping quality
   measurement outside the production store.
-- **`@cavelang/scenario`** freezes CAVE-Q snapshot options and binds typed
+- **`@cavelang/scenario`** shares exact fraction reduction with the solver's
+  `Exact.fromBigInts` entry point, avoiding duplicate GCD code and intermediate
+  decimal serialization. It freezes CAVE-Q snapshot options and binds typed
   evaluator inputs. Hypothetical claims live only inside a rolled-back
   savepoint, while the resulting exact values and evidence identifiers are
   plain replayable data passed to decision evaluators or solver adapters. Its
@@ -350,7 +598,24 @@ shell template. Action hooks run only after the database transaction commits.
   tie-breaking, explicit scope, transitions, and unknown regions stay above
   adapters. Reports map assignments, evaluated constraints, objective
   contributions, and unsatisfiable cores to stable model locations, CAVE rows,
-  and scenario inputs.
+  and scenario inputs. Solve calls copy and freeze the validated model before
+  adapter execution; explanation calls also copy context and reject mismatched
+  replay digests before solving. Later caller edits cannot change submitted
+  identity or evidence. Validation budgets aggregate pre-reduction numeric digits
+  across bounds, literal occurrences, and soft weights before exact parsing;
+  this input budget does not bound intermediate arithmetic. Local hard/soft
+  evaluation separately checks estimated integer sizes (`maxExplanationBits`)
+  and cumulative estimated-bit work (`maxExplanationWork`) before guarded
+  arithmetic. Exhaustion makes the affected evaluation indeterminate while
+  preserving the backend result. Each report shares one allowance and reuses
+  completed identical ordered expressions; a new report starts fresh. These
+  guards do not bound all report phases, standalone exact helpers, linear
+  classification, process memory or elapsed time.
+  Workflows snapshot model, options, and context for the whole operation;
+  sensitivity also snapshots its request so successive samples keep the same
+  submitted bindings and limits. Replay mismatch fails before backend execution.
+  Scope theories include requirements from expressions and literals, using the
+  same capability analysis as preflight; domains list declared variables only.
 - **`@cavelang/solver-z3`** is the optional Node.js search backend. It lazily
   loads the official threaded Z3 Wasm package, compiles only solver-neutral
   models, queues checks through one process runtime, and shuts workers down
@@ -382,9 +647,9 @@ immutable domain values rather than class-based domain entities; conventional
 
 ## Runtime variants
 
-The supported Node.js lines are 22, 24, and 26. Node.js 22.18.0 is the exact
-minimum, Node.js 24.18.0 Active LTS is the recommended production runtime, and
-Node.js 26.4.0 Current is also tested; other Node lines are outside the support
+The supported Node.js lines are 24 and 26, starting at 24.16.0 and 26.1.0
+respectively; Node.js 24.21.0 Active LTS is the recommended production runtime, and
+Node.js 26.8.1 Current is also tested; other Node lines are outside the support
 contract. Linux, macOS, and Windows are supported, represented in CI
 by Ubuntu 24.04, macOS 15, and Windows Server 2022. The full suite runs on the
 recommended runtime, while a focused matrix proves the exact minimum, Node 26,
@@ -398,6 +663,9 @@ consumed by packed npm artifacts.
 The website playground reuses `core`, `parser`, `canonical`, `store`, and
 `query`. It passes a SQL.js/WASM implementation to the store's explicit SQLite
 adapter boundary; the database is in memory and isolated to the browser tab.
+Rebuilds prepare a replacement database before closing the active one. Failed
+strict ingestion closes only the candidate, preserving the previous claims and
+verb registry so the user can query the last good state and correct the editor.
 The Node adapter declares FTS5, extension loading, and exact snapshot support;
 the browser adapter declares FTS4 and no file backup. Shared contract tests
 exercise SQL, transactions, and full-text behavior for both. Node-only
@@ -407,6 +675,12 @@ the local HTTP server remain outside the browser bundle.
 The Tree-sitter grammar is a parallel syntax artifact for highlighting. It is
 the shared source for terminal, website, and VS Code highlighting, but the
 semantic parser remains `@cavelang/parser`.
+The VS Code activation owns its parser and query: disposal unregisters the
+provider before releasing both resources, and failed setup releases partial
+allocations. Each token request releases its document tree even on query errors.
+The Node and website highlighter loaders share pending and successful loads,
+but discard rejected promises so later calls can recover. The website retains
+plain source on failure and retries on later mounts or edits, not on a timer.
 
 Shared SQL semantics live in `@cavelang/store`'s public `QuerySql` namespace.
 Store reads, CAVE-Q, shape discovery, generated typed clients, and view models
@@ -426,8 +700,41 @@ Scenario evaluation is outside the language core. A frozen
 deterministic evaluator after every hypothetical overlay has rolled back.
 Durable evaluation, recommendation, human decision, action audit, and external
 effect audit are separate append-only artifacts with checked predecessors.
+Each artifact ID must preserve its exact namespaced entity spelling. Both reads
+and writes validate that generated CAVE text is one artifact claim with that
+subject and payload; IDs cannot introduce additional claims or redirect a
+predecessor lookup through comments or whitespace normalization.
+Artifact writers compare the complete claim series inside their transaction:
+retraction does not free an ID for different content. Identical content can be
+explicitly restored, while reads and predecessor checks continue to treat a
+currently retracted record as absent.
+Canonical artifact serialization sorts object keys and omits undefined optional
+fields, but rejects sparse arrays, cycles, non-finite numbers, and non-JSON
+objects before insertion. Shared non-cyclic objects serialize normally; validation
+tracks the current ancestor path rather than rejecting all repeated references.
+Frozen scenario inputs also carry a digest of their complete authored
+definition. Explanation conversion checks that digest and the record's own
+content digest before joining definition queries to evidence. Thus an unchanged
+scenario ID and model digest cannot conceal changed binding queries or policies.
+Legacy records without a definition digest require rebinding for this conversion.
+Scenario transaction metadata uses the store's shared CAVE-Q boundary parser,
+so year/month/day periods and exact UUID cutoffs select the same historical
+head as the binding queries. Missing overlay entries use own-key lookup.
+Binding definitions validate enumerated snapshot and input policies before
+reading the store. Unknown choices cannot silently select exact matching,
+coexisting resolution, permissive input handling, or first-value reduction.
+Scenario materialization also guards SQLite data_version and local total_changes
+around its reads. Peer commits, including backdated imports, invalidate an
+attempt before the evaluator receives it. The overlay's own rolled-back writes
+advance the local counter and are accounted for separately. A `snapshot-changed`
+error requests rebinding; stable reads without overlays need no write lock.
 
 ## Architectural invariants
+
+Shape evaluation and client generation share validation of the reserved
+cardinality/unit tags. Runtime readers reject malformed declarations, generators
+collect the same diagnostics, and gated writes roll back newly introduced
+malformed constraints. Unrelated classification tags retain their normal meaning.
 
 Changes should preserve these properties:
 

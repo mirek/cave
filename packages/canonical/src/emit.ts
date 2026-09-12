@@ -8,39 +8,125 @@
  * (`QUALIFIES` edges) re-indent as full lines.
  */
 
-import { Claim, Confidence, Tag, Value } from '@cavelang/core'
-import { parseDocument, Token } from '@cavelang/parser'
+import { Claim, Confidence, Entity, Tag, Uncertainty, Value, Verb } from '@cavelang/core'
+import { parseDocument, Token, Line } from '@cavelang/parser'
 import type * as Canonicalize from './canonicalize.ts'
+
+const checkLiteral = (kind: string, text: string): void => {
+  if (typeof text !== 'string') throw new TypeError('CAVE term and value text must be a string')
+  const delimiter = kind === 'text' ? '"' : kind === 'code' ? '`' : undefined
+  if (delimiter !== undefined && text.includes(delimiter)) {
+    throw new TypeError(`CAVE ${kind} literal cannot contain its own delimiter`)
+  }
+}
+
+const termText = (term: Claim.Term): string => {
+  if (term.kind !== 'entity' && term.kind !== 'text' && term.kind !== 'code') {
+    throw new TypeError('CAVE term kind must be entity, text or code')
+  }
+  checkLiteral(term.kind, term.text)
+  return Claim.formatTerm(term)
+}
+
+// Letter/underscore-led names exclude numeric/date prefixes and payload syntax.
+// The separate NOT check retains the only bare negation token in this subset.
+const simpleObject = /^[A-Za-z_][A-Za-z0-9_./-]*(?![\s\S])/
+
+// This subset cannot contain token separators, literal delimiters, comments or metadata.
+const simpleSubject = /^[A-Za-z0-9_][A-Za-z0-9_./:-]*(?![\s\S])/
+
+const subjectText = (subject: Claim.Term): string => {
+  if (subject.kind === 'entity') {
+    if (typeof subject.text !== 'string') throw new TypeError('CAVE entity subject must be one non-metadata atom')
+    if (!simpleSubject.test(subject.text)) {
+      const head = Token.splitComment(subject.text).head
+      const tokens = Token.tokenize(head)
+      const token = tokens[0]
+      if (head !== subject.text || tokens.length !== 1 || token?.kind !== 'word' ||
+          token.text !== subject.text || Line.isMetaStart(token)) {
+        throw new TypeError('CAVE entity subject must be one non-metadata atom; use a text or code literal')
+      }
+    }
+  }
+  return termText(subject)
+}
+
+const valueText = (value: Value.t): string => {
+  checkLiteral(value.kind, value.raw)
+  const parsed = value.kind === 'text' ? Value.ofText(value.raw) :
+    value.kind === 'code' ? Value.ofCode(value.raw) : Value.parse(value.raw)
+  if (value.kind !== parsed.kind || value.approx !== parsed.approx ||
+      value.num !== parsed.num || value.from !== parsed.from || value.to !== parsed.to || value.unit !== parsed.unit) {
+    throw new TypeError('CAVE value fields must agree with their emitted raw text')
+  }
+  if (value.kind !== 'text' && value.kind !== 'code') {
+    const tokens = Token.tokenize(value.raw)
+    if (tokens.length === 0 || tokens.some(token => token.kind !== 'word' || Line.isMetaStart(token)) ||
+        tokens.map(token => token.text).join(' ') !== value.raw) {
+      throw new TypeError('CAVE unquoted value must retain its text and remain outside metadata; use a text or code literal')
+    }
+  }
+  return Value.format(value)
+}
+
+const attributeText = (attribute: string): string => {
+  const text = `${attribute}:`
+  const head = Token.splitComment(text).head
+  const tokens = Token.tokenize(head), token = tokens[0]
+  if (typeof attribute !== 'string' || attribute.length === 0 || head !== text ||
+      tokens.length !== 1 || token?.kind !== 'word' || token.text !== text || Line.isMetaStart(token)) {
+    throw new TypeError('CAVE attribute name must retain one non-metadata word before its value')
+  }
+  return text
+}
 
 const payloadText = (payload: Claim.Payload): undefined | string => {
   switch (payload.kind) {
     case 'relation':
-      return Claim.formatTerm(payload.object)
+      return termText(payload.object)
     case 'attribute':
-      return `${payload.attribute}: ${Value.format(payload.value)}`
+      return `${attributeText(payload.attribute)} ${valueText(payload.value)}`
     case 'metric':
-      return Value.format(payload.value)
+      return valueText(payload.value)
     case 'none':
       return undefined
+    default:
+      throw new TypeError('CAVE payload kind must be relation, attribute, metric or none')
   }
 }
 
+const metadataWord = (text: string): string => {
+  const head = Token.splitComment(text).head
+  const tokens = Token.tokenize(head), token = tokens[0]
+  if (head !== text || tokens.length !== 1 || token?.kind !== 'word' || token.text !== text || text === '@' || text === '#') {
+    throw new TypeError('CAVE metadata must retain one nonempty context or tag token')
+  }
+  return text
+}
+
 const metaText = (claim: Claim.t): string[] => {
+  for (const name of ['contexts', 'tags'] as const) {
+    if (!Array.isArray(claim[name])) throw new TypeError(`CAVE claim ${name} must be an array`)
+  }
   const parts: string[] = []
   if (claim.delta !== undefined) {
-    parts.push(`+/- ${Value.format(claim.delta)}`)
+    Uncertainty.validateDelta(claim.delta.num)
+    parts.push(`+/- ${valueText(claim.delta)}`)
   }
   if (claim.sigmaLevel !== undefined) {
-    parts.push(`(${claim.sigmaLevel}σ)`)
+    parts.push(`(${Value.formatNumber(Uncertainty.validateSigmaLevel(claim.sigmaLevel))}σ)`)
   }
   for (const context of claim.contexts) {
-    parts.push(`@${context}`)
+    if (typeof context !== 'string') throw new TypeError('CAVE context metadata must be a string')
+    parts.push(metadataWord(`@${context}`))
   }
   for (const tag of claim.tags) {
-    parts.push(Tag.format(tag))
+    const text = metadataWord(Tag.format(tag))
+    if (!Tag.equals(Tag.parse(text.slice(1)), tag)) throw new TypeError('CAVE tag must retain its key and value through emission')
+    parts.push(text)
   }
   if (claim.conf !== 1) {
-    parts.push(`@ ${Confidence.format(claim.conf)}`)
+    parts.push(`@ ${Confidence.formatExact(claim.conf)}`)
   }
   if (claim.importance) {
     parts.push('!')
@@ -48,9 +134,26 @@ const metaText = (claim: Claim.t): string[] => {
   return parts
 }
 
+const singleLine = (line: string): string => {
+  if (line.includes('\n')) throw new TypeError('CAVE claim fields cannot contain a newline; use comment lines for multiline commentary')
+  if (/["`;]/.test(line) && Token.splitComment(`${line};`).head !== line) {
+    throw new TypeError('CAVE claim fields must not open a comment or leave an unmatched literal delimiter')
+  }
+  return line
+}
+
+const validateFlags = (claim: Claim.t): void => {
+  for (const name of ['negated', 'importance'] as const) {
+    if (typeof claim[name] !== 'boolean') throw new TypeError(`CAVE claim ${name} must be a boolean`)
+  }
+}
+
 /** @returns the canonical claim line without its comment. */
 const claimLine = (claim: Claim.t): string => {
-  const parts = [Claim.formatTerm(claim.subject), claim.verb]
+  validateFlags(claim)
+  if (typeof claim.verb !== 'string' || !Verb.isVerbToken(claim.verb)) throw new TypeError('CAVE claim verb must be an uppercase atom')
+  if (claim.payload.kind === 'none' && claim.verb !== 'EXISTS') throw new TypeError('CAVE claim requires an object or value payload unless its verb is EXISTS')
+  const parts = [subjectText(claim.subject), claim.verb]
   if (claim.negated) {
     parts.push('NOT')
   }
@@ -58,8 +161,28 @@ const claimLine = (claim: Claim.t): string => {
   if (payload !== undefined) {
     parts.push(payload)
   }
-  parts.push(...metaText(claim))
-  return parts.join(' ')
+  for (const metadata of metaText(claim)) parts.push(metadata)
+  const line = singleLine(parts.join(' '))
+  if (claim.payload.kind === 'metric' && !['number', 'date', 'trajectory'].includes(claim.payload.value.kind)) {
+    throw new TypeError('CAVE metric payload requires a number, date or trajectory; use a relation or attribute for other values')
+  }
+  if (claim.payload.kind === 'relation' && claim.payload.object.kind === 'entity' &&
+      (claim.payload.object.text === 'NOT' || !simpleObject.test(claim.payload.object.text))) {
+    const parsed = Line.parseBody(Token.tokenize(`${claim.verb} ${payload}`))
+    if (!parsed.ok || parsed.problems.length > 0 || parsed.value.negated ||
+        parsed.value.payload.kind !== 'relation' || parsed.value.payload.object.kind !== 'entity' ||
+        Entity.normalize(parsed.value.payload.object.text) !== Entity.normalize(claim.payload.object.text)) {
+      throw new TypeError('CAVE entity relation object must retain its payload identity; use an explicit value or literal when needed')
+    }
+  }
+  return line
+}
+
+const fullClaimLine = (claim: Claim.t): string => {
+  const line = claimLine(claim)
+  if (claim.subject.kind === 'entity' && Verb.isVerbToken(claim.subject.text) &&
+      parseDocument(line).lines[0]?.kind !== 'claim') return `@claim ${line}`
+  return line
 }
 
 /**
@@ -68,18 +191,28 @@ const claimLine = (claim: Claim.t): string => {
  * lines above the claim line, the last comment line riding on the claim.
  */
 export const emitClaim = (claim: Claim.t): string =>
-  Token.joinComment(claimLine(claim), claim.comment)
+  Token.joinComment(fullClaimLine(claim), claim.comment)
 
 /**
- * @returns the qualifier-payload text of a condition claim. Negation always
- * emits as a `NOT` *prefix* — the §8.2 canonical `WHEN NOT x` shape — never
- * as the claim-internal `VERB NOT` form: a postfix `NOT` after a symbolic
+ * @returns the qualifier-payload text of a condition claim. Negation
+ * normally emits as a `NOT` *prefix* — the §8.2 canonical `WHEN NOT x` shape —
+ * rather than the claim-internal `VERB NOT` form: a postfix `NOT` after a symbolic
  * comparison verb (`WHEN cpu >= NOT 900`) would be unreadable to the
- * parser and silently invert the condition on round trip.
+ * parser and silently invert the condition on round trip. The reserved entity
+ * name NOT uses an explicit claim marker for an affirmative condition, as does
+ * a condition whose verb is NOT.
  */
 const conditionText = (claim: Claim.t): string => {
+  validateFlags(claim)
+  // A leading entity named NOT would be consumed as qualifier negation.
+  // An explicit full claim preserves its affirmative reading and also allows
+  // NOT in the verb position, which unmarked qualifier parsing excludes.
+  if (claim.verb === 'NOT' || (claim.subject.kind === 'entity' && claim.subject.text === 'NOT' && !claim.negated)) {
+    const body = `@claim ${claimLine({ ...claim, negated: false })}`
+    return claim.negated ? `NOT ${body}` : body
+  }
   const body = claim.verb === 'EXISTS' && claim.payload.kind === 'none' ?
-    [Claim.formatTerm(claim.subject), ...metaText(claim)].join(' ') :
+    singleLine([subjectText(claim.subject), ...metaText(claim)].join(' ')) :
     claimLine({ ...claim, negated: false })
   return claim.negated ? `NOT ${body}` : body
 }
@@ -102,12 +235,18 @@ export const txComment = (tx: string): string =>
  */
 export const txOfLine = Token.txOfLine
 
+/** Optional annotation payload, interpreted by the interchange reader. */
+export const txDataOfLine = Token.txDataOfLine
+
 export type EmitOptions = {
   /**
    * Per-claim annotation lines (spec §28.4): when defined for a claim
    * index, the returned text is emitted verbatim as its own line directly
    * above that claim, at the claim's indentation. Used by tx-carrying
    * export ({@link txComment}); return `undefined` to annotate nothing.
+   * Called in depth-first appearance order, including every re-statement
+   * of a shared or cyclic claim. Repeated appearances use the same index;
+   * return a stable transaction identity for that index when enabling replay.
    */
   readonly annotate?: (index: number) => undefined | string
 }
@@ -137,7 +276,7 @@ const tokenText = (token: Token.t): string => {
 }
 
 const commonPrefixLength = (items: readonly RenderItem[]): number => {
-  const shortest = Math.min(...items.map(item => item.tokens.length))
+  const shortest = items.reduce((minimum, item) => Math.min(minimum, item.tokens.length), Infinity)
   let length = 0
   while (
     length < shortest &&
@@ -167,17 +306,31 @@ const emitForest = (
   inherited: readonly string[],
   lines: string[]
 ): void => {
-  let at = 0
-  while (at < forest.length) {
-    const firstToken = forest[at]!.tokens[0]
-    let end = at + 1
-    while (end < forest.length && forest[end]!.tokens[0] === firstToken) {
-      end += 1
+  const stack = [{ forest, depth, topLevel, inherited, at: 0, runEnd: 0, canFactor: undefined as boolean | undefined }]
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1]!
+    const { forest, depth, topLevel, inherited, at } = frame
+    if (at >= forest.length) {
+      stack.pop()
+      continue
     }
-    const run = forest.slice(at, end)
-    if (run.length > 1) {
+    const firstToken = forest[at]!.tokens[0]
+    if (at >= frame.runEnd) {
+      frame.canFactor = undefined
+      frame.runEnd = at + 1
+      while (frame.runEnd < forest.length && forest[frame.runEnd]!.tokens[0] === firstToken) {
+        frame.runEnd += 1
+      }
+    }
+    const end = frame.runEnd
+    // A one-token line cannot lose a prefix and still retain a leaf token.
+    // Every suffix shares this first token. If it already completes a claim,
+    // none can form a safe header, so avoid copying and scanning each suffix.
+    if (end - at > 1 && forest[at]!.tokens.length > 1 &&
+        (frame.canFactor ??= isIncomplete([...inherited, firstToken!], topLevel))) {
+      const run = forest.slice(at, end)
       const common = commonPrefixLength(run)
-      const shortest = Math.min(...run.map(item => item.tokens.length))
+      const shortest = run.reduce((minimum, item) => Math.min(minimum, item.tokens.length), Infinity)
       const maximum = Math.min(common, shortest - 1)
       let safe = 0
       for (let length = 1; length <= maximum; length += 1) {
@@ -190,14 +343,16 @@ const emitForest = (
       if (safe > 0) {
         const prefix = run[0]!.tokens.slice(0, safe)
         lines.push(`${'  '.repeat(depth)}${prefix.join(' ')}`)
-        emitForest(
-          run.map(item => ({ node: item.node, tokens: item.tokens.slice(safe) })),
-          depth + 1,
+        frame.at = end
+        stack.push({
+          forest: run.map(item => ({ node: item.node, tokens: item.tokens.slice(safe) })),
+          depth: depth + 1,
           topLevel,
-          [...inherited, ...prefix],
-          lines
-        )
-        at = end
+          inherited: [...inherited, ...prefix],
+          at: 0,
+          runEnd: 0,
+          canFactor: undefined
+        })
         continue
       }
     }
@@ -208,19 +363,23 @@ const emitForest = (
     // annotation stays the line directly above the claim.
     const rendered = Token.joinComment(item.tokens.join(' '), item.node.comment).split('\n')
     const last = rendered.pop()!
-    lines.push(...rendered.map(line => `${indent}${line}`))
+    for (const line of rendered) lines.push(`${indent}${line}`)
     if (item.node.annotation !== undefined) {
       lines.push(`${indent}${item.node.annotation}`)
     }
     lines.push(`${indent}${last}`)
-    emitForest(
-      item.node.children.map(node => ({ node, tokens: node.tokens })),
-      depth + 1,
-      false,
-      [],
-      lines
-    )
-    at += 1
+    frame.at += 1
+    if (item.node.children.length > 0) {
+      stack.push({
+        forest: item.node.children.map(node => ({ node, tokens: node.tokens })),
+        depth: depth + 1,
+        topLevel: false,
+        inherited: [],
+        at: 0,
+        runEnd: 0,
+        canFactor: undefined
+      })
+    }
   }
 }
 
@@ -239,9 +398,22 @@ const emitForest = (
  * the re-statement.
  */
 export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, options: EmitOptions = {}): string => {
+  if (!Array.isArray(result.claims)) throw new TypeError('CAVE claims must be a dense array')
+  for (let index = 0; index < result.claims.length; index++) {
+    if (!Object.hasOwn(result.claims, index)) throw new TypeError('CAVE claims must be a dense array')
+  }
   const childEdges = new Map<number, Canonicalize.Edge[]>()
   const isChild = new Set<number>()
-  for (const edge of result.edges) {
+  for (const { parent, child, role } of result.edges) {
+    for (const [field, index] of [['parent', parent], ['child', child]] as const) {
+      if (!Number.isSafeInteger(index) || index < 0 || index >= result.claims.length) {
+        throw new TypeError(`CAVE edge ${field} must index an existing claim`)
+      }
+    }
+    if (role !== 'WHEN' && role !== 'VIA' && role !== 'BECAUSE' && role !== 'QUALIFIES') {
+      throw new TypeError('CAVE edge role must be WHEN, VIA, BECAUSE or QUALIFIES')
+    }
+    const edge = { parent, child, role }
     isChild.add(edge.child)
     const existing = childEdges.get(edge.parent)
     if (existing === undefined) {
@@ -252,29 +424,33 @@ export const emit = (result: Pick<Canonicalize.Result, 'claims' | 'edges'>, opti
   }
   const expanded = new Set<number>()
   const nodeAt = (index: number, role: undefined | Canonicalize.EdgeRole): RenderNode => {
-    const { claim } = result.claims[index]!
-    const text = role === undefined || role === 'QUALIFIES' ?
-      claimLine(claim) :
-      `${role} ${conditionText(claim)}`
-    const tokens = Token.tokenize(text).map(tokenText)
-    const annotation = options.annotate?.(index)
-    if (expanded.has(index)) {
-      return {
+    const roots: RenderNode[] = []
+    const pending: { index: number, role: undefined | Canonicalize.EdgeRole, target: RenderNode[] }[] =
+      [{ index, role, target: roots }]
+    while (pending.length > 0) {
+      const { index, role, target } = pending.pop()!
+      const { claim } = result.claims[index]!
+      const text = role === undefined || role === 'QUALIFIES' ?
+        fullClaimLine(claim) : `${role} ${conditionText(claim)}`
+      const tokens = Token.tokenize(text).map(tokenText)
+      const annotation = options.annotate?.(index)
+      const children: RenderNode[] = []
+      target.push({
         index,
         tokens,
         ...claim.comment === undefined ? {} : { comment: claim.comment },
         ...annotation === undefined ? {} : { annotation },
-        children: []
+        children
+      })
+      if (expanded.has(index)) continue
+      expanded.add(index)
+      const edges = childEdges.get(index) ?? []
+      for (let at = edges.length - 1; at >= 0; at--) {
+        const edge = edges[at]!
+        pending.push({ index: edge.child, role: edge.role, target: children })
       }
     }
-    expanded.add(index)
-    return {
-      index,
-      tokens,
-      ...claim.comment === undefined ? {} : { comment: claim.comment },
-      ...annotation === undefined ? {} : { annotation },
-      children: (childEdges.get(index) ?? []).map(edge => nodeAt(edge.child, edge.role))
-    }
+    return roots[0]!
   }
   const forest: RenderNode[] = []
   result.claims.forEach((_, index) => {

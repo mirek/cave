@@ -1,0 +1,1225 @@
+{
+  "description": "Projection-local context/tag statement reuse with the same reads, row decoding, identity validation and explicit provenance copying.",
+  "method": "Five fresh script processes per runtime per implementation, all sequential and alone. Baseline processes first, then implementation change, then optimized processes. Per-size cold and invalidated medians across five processes; cached figures are medians of per-process five-sample medians. Fixed order and small sample count limit causal precision.",
+  "command": "node scripts/view-projection-bench.mjs",
+  "beforeScopeSha256": "786da18de0c7268275b685729187e7b094ff80d63cb3f9d82a055436f7a11009",
+  "afterSources": {
+    "packages/view/src/scope.ts": "8940e60a92e2cea240037660a067be77c1b37e6f25d2f45fd6a802f3ddbd8691",
+    "packages/view/src/api.ts": "aeb42b5736c19eac599f2e83a217c7c93561ccbc1b5d00d202474ce0888d2d00",
+    "scripts/view-projection-bench.mjs": "eb2e5f55ae104d0d6fc79fef1efcd61c1d035c46caa49fee69708f27d3949a71"
+  },
+  "runs": {
+    "before": {
+      "24.21.0": [
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.670209,
+              "warmSamplesMs": [
+                2.6507500000000164,
+                2.296333000000004,
+                2.0010409999999865,
+                2.058125000000018,
+                1.90625
+              ],
+              "warmMedianMs": 2.058125000000018,
+              "invalidatedMs": 11.509624999999971,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 89.47562499999998,
+              "warmSamplesMs": [
+                14.902791999999977,
+                14.510625000000005,
+                13.780209000000013,
+                13.768000000000029,
+                15.00766699999997
+              ],
+              "warmMedianMs": 14.510625000000005,
+              "invalidatedMs": 87.20854100000008,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.807582999999994,
+              "warmSamplesMs": [
+                2.614040999999986,
+                2.126041999999984,
+                1.9527920000000165,
+                2.015291999999988,
+                1.8930839999999876
+              ],
+              "warmMedianMs": 2.015291999999988,
+              "invalidatedMs": 11.339584000000002,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 91.68449999999999,
+              "warmSamplesMs": [
+                15.058042,
+                14.357458000000008,
+                13.804665999999997,
+                13.761500000000012,
+                15.024249999999995
+              ],
+              "warmMedianMs": 14.357458000000008,
+              "invalidatedMs": 85.057459,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.500749999999996,
+              "warmSamplesMs": [
+                2.512625000000014,
+                2.0912079999999946,
+                1.9437090000000126,
+                2.2133340000000032,
+                2.00883300000001
+              ],
+              "warmMedianMs": 2.0912079999999946,
+              "invalidatedMs": 11.427999999999997,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 87.84675000000001,
+              "warmSamplesMs": [
+                15.65662500000002,
+                14.985374999999976,
+                14.197334000000012,
+                15.00345900000002,
+                13.978791000000001
+              ],
+              "warmMedianMs": 14.985374999999976,
+              "invalidatedMs": 86.08275000000003,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.725375,
+              "warmSamplesMs": [
+                2.555250000000001,
+                2.2121669999999938,
+                2.0468330000000208,
+                2.1444580000000144,
+                1.9428749999999866
+              ],
+              "warmMedianMs": 2.1444580000000144,
+              "invalidatedMs": 11.718707999999992,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 89.60300000000001,
+              "warmSamplesMs": [
+                15.516291999999964,
+                15.126458000000014,
+                14.674832999999978,
+                15.250207999999986,
+                14.722540999999978
+              ],
+              "warmMedianMs": 15.126458000000014,
+              "invalidatedMs": 90.16929200000004,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.92316599999998,
+              "warmSamplesMs": [
+                2.7850830000000144,
+                2.173124999999999,
+                2.075290999999993,
+                2.187416999999982,
+                1.9451249999999902
+              ],
+              "warmMedianMs": 2.173124999999999,
+              "invalidatedMs": 11.797957999999994,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 89.89175,
+              "warmSamplesMs": [
+                15.560000000000002,
+                15.301667000000009,
+                14.48054099999996,
+                15.255209000000036,
+                14.265041999999994
+              ],
+              "warmMedianMs": 15.255209000000036,
+              "invalidatedMs": 86.81774999999999,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        }
+      ],
+      "26.8.1": [
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.246875000000045,
+              "warmSamplesMs": [
+                2.145290999999986,
+                2.4827080000000024,
+                1.9097079999999664,
+                1.84050000000002,
+                1.9166250000000105
+              ],
+              "warmMedianMs": 1.9166250000000105,
+              "invalidatedMs": 11.518333000000041,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 86.40824999999995,
+              "warmSamplesMs": [
+                14.127957999999921,
+                13.960332999999991,
+                13.604165999999964,
+                13.687041999999906,
+                14.114542000000029
+              ],
+              "warmMedianMs": 13.960332999999991,
+              "invalidatedMs": 96.51358300000004,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.188665999999998,
+              "warmSamplesMs": [
+                2.2391250000000014,
+                2.070999999999998,
+                2.0090419999999938,
+                1.988334000000009,
+                1.9925839999999937
+              ],
+              "warmMedianMs": 2.0090419999999938,
+              "invalidatedMs": 11.470708000000002,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 86.15937500000001,
+              "warmSamplesMs": [
+                14.09212500000001,
+                13.990250000000003,
+                14.328000000000031,
+                13.51483300000001,
+                14.891957999999988
+              ],
+              "warmMedianMs": 14.09212500000001,
+              "invalidatedMs": 87.230208,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.467082999999988,
+              "warmSamplesMs": [
+                2.1221660000000213,
+                2.06412499999999,
+                2.0187080000000037,
+                1.9952499999999986,
+                1.969458000000003
+              ],
+              "warmMedianMs": 2.0187080000000037,
+              "invalidatedMs": 11.456500000000005,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 88.31174999999999,
+              "warmSamplesMs": [
+                14.052707999999996,
+                13.967332999999996,
+                13.828041999999982,
+                13.41983399999998,
+                14.750124999999969
+              ],
+              "warmMedianMs": 13.967332999999996,
+              "invalidatedMs": 85.481333,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.07720900000001,
+              "warmSamplesMs": [
+                2.137500000000017,
+                2.3351659999999868,
+                1.7714169999999854,
+                1.7948749999999905,
+                1.8643339999999853
+              ],
+              "warmMedianMs": 1.8643339999999853,
+              "invalidatedMs": 11.324833000000012,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 86.059,
+              "warmSamplesMs": [
+                13.997375000000034,
+                13.931874999999991,
+                13.691417000000001,
+                13.526832999999954,
+                13.883458000000019
+              ],
+              "warmMedianMs": 13.883458000000019,
+              "invalidatedMs": 87.13037500000002,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 12.28479200000001,
+              "warmSamplesMs": [
+                2.1537500000000023,
+                2.0427500000000123,
+                2.0422499999999957,
+                1.9900840000000244,
+                2.013875000000013
+              ],
+              "warmMedianMs": 2.0422499999999957,
+              "invalidatedMs": 11.50883300000001,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 86.03745899999998,
+              "warmSamplesMs": [
+                14.060374999999965,
+                13.815207999999984,
+                13.863749999999982,
+                13.324791000000005,
+                14.702583000000004
+              ],
+              "warmMedianMs": 13.863749999999982,
+              "invalidatedMs": 85.17400000000004,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "24.21.0": [
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.75633300000004,
+              "warmSamplesMs": [
+                2.526166000000046,
+                2.11850000000004,
+                1.9507090000000176,
+                2.0602079999999887,
+                1.927082999999982
+              ],
+              "warmMedianMs": 2.0602079999999887,
+              "invalidatedMs": 10.515833000000043,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 80.53375,
+              "warmSamplesMs": [
+                15.270917000000054,
+                14.669542000000092,
+                13.998334,
+                14.022749999999974,
+                15.423125000000027
+              ],
+              "warmMedianMs": 14.669542000000092,
+              "invalidatedMs": 81.388959,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.915874999999986,
+              "warmSamplesMs": [
+                2.556707999999986,
+                2.516750000000002,
+                1.9920829999999796,
+                2.315459000000004,
+                1.940542000000022
+              ],
+              "warmMedianMs": 2.315459000000004,
+              "invalidatedMs": 10.871749999999992,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 83.36854199999999,
+              "warmSamplesMs": [
+                15.28974999999997,
+                14.986582999999996,
+                14.174500000000023,
+                13.898292000000026,
+                15.03816599999999
+              ],
+              "warmMedianMs": 14.986582999999996,
+              "invalidatedMs": 82.78979199999998,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.821750000000009,
+              "warmSamplesMs": [
+                2.5431250000000034,
+                2.2398749999999836,
+                2.0386660000000063,
+                2.0331669999999917,
+                1.8858749999999986
+              ],
+              "warmMedianMs": 2.0386660000000063,
+              "invalidatedMs": 10.685791999999992,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 84.518583,
+              "warmSamplesMs": [
+                15.040458000000001,
+                14.706874999999968,
+                14.292417,
+                13.766791000000012,
+                14.995124999999973
+              ],
+              "warmMedianMs": 14.706874999999968,
+              "invalidatedMs": 81.52391699999998,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.781834000000003,
+              "warmSamplesMs": [
+                2.673124999999999,
+                2.209625000000017,
+                2.004708999999991,
+                2.0832080000000133,
+                1.9817920000000129
+              ],
+              "warmMedianMs": 2.0832080000000133,
+              "invalidatedMs": 10.617250000000013,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 81.67558299999999,
+              "warmSamplesMs": [
+                15.464374999999961,
+                14.860915999999975,
+                14.813333,
+                14.24754200000001,
+                15.440791999999988
+              ],
+              "warmMedianMs": 14.860915999999975,
+              "invalidatedMs": 82.439209,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v24.21.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.703833000000017,
+              "warmSamplesMs": [
+                2.5500419999999906,
+                2.1160840000000007,
+                1.977708000000007,
+                2.0187080000000037,
+                1.8640839999999912
+              ],
+              "warmMedianMs": 2.0187080000000037,
+              "invalidatedMs": 10.52249999999998,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 80.03012500000003,
+              "warmSamplesMs": [
+                16.64754099999999,
+                15.143167000000005,
+                14.395417000000009,
+                13.76766699999996,
+                14.892500000000041
+              ],
+              "warmMedianMs": 14.892500000000041,
+              "invalidatedMs": 79.54641700000002,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        }
+      ],
+      "26.8.1": [
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.49958399999997,
+              "warmSamplesMs": [
+                2.277750000000026,
+                2.5677499999999895,
+                1.901666999999975,
+                1.8304160000000138,
+                1.995584000000008
+              ],
+              "warmMedianMs": 1.995584000000008,
+              "invalidatedMs": 10.643582999999978,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 89.45541700000001,
+              "warmSamplesMs": [
+                13.968958000000043,
+                14.299457999999959,
+                13.725790999999958,
+                13.629625000000033,
+                13.830874999999992
+              ],
+              "warmMedianMs": 13.830874999999992,
+              "invalidatedMs": 79.7071249999999,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.241416999999984,
+              "warmSamplesMs": [
+                2.1340419999999938,
+                2.043207999999993,
+                2.006582999999978,
+                1.9502919999999904,
+                1.9565409999999872
+              ],
+              "warmMedianMs": 2.006582999999978,
+              "invalidatedMs": 10.658417000000014,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 80.64416600000001,
+              "warmSamplesMs": [
+                13.814958999999988,
+                13.95658400000002,
+                13.911707999999976,
+                13.209416000000033,
+                16.013374999999996
+              ],
+              "warmMedianMs": 13.911707999999976,
+              "invalidatedMs": 85.13499999999999,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.558125000000004,
+              "warmSamplesMs": [
+                2.160542000000021,
+                2.0843329999999867,
+                2.029042000000004,
+                1.9994580000000042,
+                1.9675000000000011
+              ],
+              "warmMedianMs": 2.029042000000004,
+              "invalidatedMs": 10.951084000000009,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 79.94133300000001,
+              "warmSamplesMs": [
+                14.434458000000006,
+                14.034416999999962,
+                14.011500000000012,
+                13.429500000000019,
+                14.915124999999989
+              ],
+              "warmMedianMs": 14.034416999999962,
+              "invalidatedMs": 82.54229099999998,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.32112499999998,
+              "warmSamplesMs": [
+                2.126166000000012,
+                2.23762499999998,
+                1.8121250000000089,
+                1.8103330000000142,
+                1.916957999999994
+              ],
+              "warmMedianMs": 1.916957999999994,
+              "invalidatedMs": 10.020165999999989,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 78.46999999999997,
+              "warmSamplesMs": [
+                14.362416999999994,
+                14.597875000000045,
+                13.448041999999987,
+                13.663917000000026,
+                13.820042
+              ],
+              "warmMedianMs": 13.820042,
+              "invalidatedMs": 78.157333,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        },
+        {
+          "format": "cave.view-projection-benchmark",
+          "version": 1,
+          "runtime": {
+            "node": "v26.8.1",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "method": "In-memory native SQLite. One cold complete entity view, five cached views and one view after a provenance-only edit. All returned view rows equal the restricted-source baseline. Provenance equality and cache build counts checked outside timing. Setup, assertions, HTTP and browser rendering excluded. Cold and invalidated times are single observations, warm time is the median of five samples. Run alone.",
+          "measurements": [
+            {
+              "rows": 100,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 11.511291999999997,
+              "warmSamplesMs": [
+                2.2365830000000244,
+                2.0850420000000156,
+                1.8255420000000129,
+                1.798833000000002,
+                1.8215000000000146
+              ],
+              "warmMedianMs": 1.8255420000000129,
+              "invalidatedMs": 10.822291000000007,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 100,
+                "cachedEdges": 0,
+                "cachedBytes": 352256
+              }
+            },
+            {
+              "rows": 1000,
+              "provenanceEntriesPerClaim": 6,
+              "coldMs": 78.31229100000002,
+              "warmSamplesMs": [
+                14.853665999999976,
+                14.028875000000028,
+                14.000083000000018,
+                13.484082999999998,
+                13.807292000000018
+              ],
+              "warmMedianMs": 14.000083000000018,
+              "invalidatedMs": 75.328667,
+              "cache": {
+                "projections": 1,
+                "hits": 7,
+                "builds": 2,
+                "invalidations": 1,
+                "retries": 0,
+                "cachedClaims": 1000,
+                "cachedEdges": 0,
+                "cachedBytes": 2277376
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

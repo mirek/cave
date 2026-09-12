@@ -1,0 +1,268 @@
+{
+  "format": "cave.explanation-assignment-reuse-review",
+  "version": 1,
+  "date": "2026-09-09",
+  "method": "Sequential isolated baseline Node 24/26 runs, then per-report normalized assignment reuse Node 24/26 runs. Uses the equality benchmark unchanged, with one warmup and five complete-report samples per case. Fixed-order results apply to repeated assignment references, not all models or general work limits.",
+  "comparisons": [
+    {
+      "before": {
+        "format": "cave.explanation-equality-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete Explain.report calls per case, with 64 alternating equality/inequality constraints. Fractions near one, distinct or equivalent after reduction. Default limits; includes capture, validation, digesting and evaluation. Excludes fixture construction, assertions and backend solving. Not a general work-limit test.",
+        "measurements": [
+          {
+            "digits": 4096,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 29.49762499999997,
+            "samplesMs": [
+              31.567499999999995,
+              29.49762499999997,
+              29.65329200000002,
+              29.47845799999999,
+              29.125749999999982
+            ]
+          },
+          {
+            "digits": 4096,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 29.74479199999996,
+            "samplesMs": [
+              29.34995900000007,
+              30.61804200000006,
+              30.176917000000003,
+              29.74479199999996,
+              29.243749999999977
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 175.2197920000001,
+            "samplesMs": [
+              174.72066600000005,
+              175.2197920000001,
+              175.66883299999995,
+              174.60620799999992,
+              178.79441599999996
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 175.7203340000001,
+            "samplesMs": [
+              175.7203340000001,
+              176.1087500000001,
+              174.79441700000007,
+              175.13366700000006,
+              175.8760830000001
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.explanation-equality-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete Explain.report calls per case, with 64 alternating equality/inequality constraints. Fractions near one, distinct or equivalent after reduction. Default limits; includes capture, validation, digesting and evaluation. Excludes fixture construction, assertions and backend solving. Not a general work-limit test.",
+        "measurements": [
+          {
+            "digits": 4096,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 1.87175000000002,
+            "samplesMs": [
+              3.024499999999989,
+              2.362042000000031,
+              1.87175000000002,
+              1.7253329999999778,
+              1.8374170000000163
+            ]
+          },
+          {
+            "digits": 4096,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 1.8233749999999986,
+            "samplesMs": [
+              1.8350829999999974,
+              1.8212919999999713,
+              1.8233749999999986,
+              2.0370829999999955,
+              1.793292000000008
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 3.981583999999998,
+            "samplesMs": [
+              4.265792000000033,
+              4.043749999999989,
+              3.899583000000007,
+              3.981583999999998,
+              3.832290999999998
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 4.07241700000003,
+            "samplesMs": [
+              4.32429099999996,
+              4.311916999999994,
+              4.07241700000003,
+              4.023833999999965,
+              3.947749999999985
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "format": "cave.explanation-equality-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete Explain.report calls per case, with 64 alternating equality/inequality constraints. Fractions near one, distinct or equivalent after reduction. Default limits; includes capture, validation, digesting and evaluation. Excludes fixture construction, assertions and backend solving. Not a general work-limit test.",
+        "measurements": [
+          {
+            "digits": 4096,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 29.59508299999999,
+            "samplesMs": [
+              31.96674999999999,
+              29.59508299999999,
+              29.328291999999976,
+              29.55091600000003,
+              29.690249999999992
+            ]
+          },
+          {
+            "digits": 4096,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 29.44466699999998,
+            "samplesMs": [
+              31.23395800000003,
+              30.380958000000078,
+              29.44466699999998,
+              29.285750000000007,
+              29.169374999999945
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 172.99487499999987,
+            "samplesMs": [
+              175.088167,
+              172.99487499999987,
+              173.29224999999997,
+              171.673583,
+              172.9427079999998
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 174.2731249999997,
+            "samplesMs": [
+              174.33449999999993,
+              174.37437499999987,
+              173.9276249999998,
+              173.7889580000001,
+              174.2731249999997
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.explanation-equality-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete Explain.report calls per case, with 64 alternating equality/inequality constraints. Fractions near one, distinct or equivalent after reduction. Default limits; includes capture, validation, digesting and evaluation. Excludes fixture construction, assertions and backend solving. Not a general work-limit test.",
+        "measurements": [
+          {
+            "digits": 4096,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 2.082833999999991,
+            "samplesMs": [
+              2.853666999999973,
+              2.082833999999991,
+              2.0386669999999754,
+              2.7732500000000186,
+              1.7299580000000105
+            ]
+          },
+          {
+            "digits": 4096,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 1.6967500000000086,
+            "samplesMs": [
+              1.8063339999999926,
+              1.725999999999999,
+              1.6777920000000108,
+              1.591542000000004,
+              1.6967500000000086
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": false,
+            "comparisons": 64,
+            "medianMs": 3.886332999999979,
+            "samplesMs": [
+              4.086124999999981,
+              3.7541249999999877,
+              3.938374999999951,
+              3.886332999999979,
+              3.763959
+            ]
+          },
+          {
+            "digits": 16384,
+            "equal": true,
+            "comparisons": 64,
+            "medianMs": 4.007249999999999,
+            "samplesMs": [
+              4.068833999999981,
+              4.007249999999999,
+              4.0326670000000036,
+              3.7719170000000304,
+              3.8070829999999773
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

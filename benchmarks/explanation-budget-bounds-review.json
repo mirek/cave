@@ -1,0 +1,50 @@
+{
+  "description": "Independent Python bit-length references validate conservative explanation fraction bounds across 600 signed/cancellation fixtures, alongside the existing exact-result oracle.",
+  "sources": {
+    "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+    "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/explain.ts": "8addc12482df8f84588a5793d8b3fc8752a72bed86918114ad70e282531c37e1",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69"
+  },
+  "results": {
+    "node24": {
+      "format": "cave.exact-oracle-check",
+      "version": 4,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872,
+      "budgetChecks": 7200,
+      "sources": {
+        "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58"
+      }
+    },
+    "node26": {
+      "format": "cave.exact-oracle-check",
+      "version": 4,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872,
+      "budgetChecks": 7200,
+      "sources": {
+        "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58"
+      }
+    }
+  }
+}

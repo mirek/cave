@@ -1,0 +1,606 @@
+{
+  "format": "cave.view-search-cache-validation-review",
+  "version": 1,
+  "method": "Sequential isolated runs: baseline Node 24, baseline Node 26, current Node 24, current Node 26. The benchmark-only import hook omits exactly the five cached projection checks and verifies one transformation; runtime files are unchanged. One warmup and five timed full search calls per fixture; setup and assertions excluded. Fixed order and small in-memory fixtures do not establish general overhead or latency limits.",
+  "rowSourceSha256": "30f8a7ae69818e7eb9636bb6d6193da6484bfef3ea1f7132f40a5fec21a41073",
+  "baselineCommand": "node --import ./benchmarks/view-search-cache-baseline.mjs scripts/view-search-bench.mjs",
+  "currentCommand": "node scripts/view-search-bench.mjs",
+  "comparisons": [
+    {
+      "before": {
+        "format": "cave.view-search-benchmark",
+        "version": 2,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Empty metadata or three contexts, three tags, five incoming and five outgoing BECAUSE edges per claim. Seeding and result assertions excluded. Includes query, metadata reads and view construction, primary-field validation; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.315417000000025,
+            "samplesMs": [
+              1.561667,
+              1.2224580000000174,
+              1.3694999999999595,
+              1.315417000000025,
+              1.2059580000000096
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 8.703165999999953,
+            "samplesMs": [
+              9.162082999999996,
+              8.703165999999953,
+              8.191958999999997,
+              8.102958000000001,
+              8.982167000000004
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.1794170000000008,
+            "samplesMs": [
+              1.1422079999999823,
+              1.1794170000000008,
+              1.1433749999999918,
+              1.1796659999999974,
+              1.3047500000000127
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 20.82899999999995,
+            "samplesMs": [
+              22.903332999999975,
+              17.764167000000043,
+              20.82899999999995,
+              22.06516600000009,
+              18.504542000000015
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.8427920000000313,
+            "samplesMs": [
+              1.9800000000000182,
+              1.8427920000000313,
+              1.8578339999999116,
+              1.8369579999999814,
+              1.788041000000021
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 18.333374999999933,
+            "samplesMs": [
+              18.333374999999933,
+              17.02995800000008,
+              18.035624999999982,
+              20.334084000000075,
+              19.027582999999936
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 2.0007920000000468,
+            "samplesMs": [
+              1.998207999999977,
+              2.1195000000000164,
+              2.0007920000000468,
+              1.9502499999999827,
+              2.916082999999958
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 32.14820800000007,
+            "samplesMs": [
+              35.66933400000016,
+              32.14820800000007,
+              40.45187499999997,
+              26.60262499999999,
+              31.861958999999842
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.view-search-benchmark",
+        "version": 2,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Empty metadata or three contexts, three tags, five incoming and five outgoing BECAUSE edges per claim. Seeding and result assertions excluded. Includes query, metadata reads and view construction, primary-field validation; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.1635829999999885,
+            "samplesMs": [
+              1.355916999999991,
+              1.1616669999999942,
+              1.1635829999999885,
+              1.0322079999999971,
+              1.5121249999999975
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 9.144291999999979,
+            "samplesMs": [
+              8.798332999999985,
+              9.144291999999979,
+              9.770292000000012,
+              9.140124999999983,
+              10.024249999999995
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.2506659999999954,
+            "samplesMs": [
+              1.2570829999999944,
+              1.2987080000000049,
+              1.2506659999999954,
+              1.2347910000000013,
+              1.249167
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 19.321416000000056,
+            "samplesMs": [
+              23.424667,
+              19.900125000000003,
+              18.68987500000003,
+              19.321416000000056,
+              19.161958000000027
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.9135420000000067,
+            "samplesMs": [
+              2.339416999999969,
+              1.9489580000000046,
+              1.9135420000000067,
+              1.8540000000000418,
+              1.8368749999999636
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 18.252917000000025,
+            "samplesMs": [
+              18.252917000000025,
+              17.321874999999977,
+              17.837458000000083,
+              18.27895799999999,
+              18.45666700000004
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.9287500000000364,
+            "samplesMs": [
+              1.9287500000000364,
+              1.9224590000000035,
+              1.9143339999999398,
+              1.9493749999999181,
+              2.391750000000002
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 28.560374999999908,
+            "samplesMs": [
+              28.560374999999908,
+              26.418166999999926,
+              26.536166999999978,
+              30.44454200000007,
+              28.590583000000038
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "format": "cave.view-search-benchmark",
+        "version": 2,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Empty metadata or three contexts, three tags, five incoming and five outgoing BECAUSE edges per claim. Seeding and result assertions excluded. Includes query, metadata reads and view construction, primary-field validation; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.1101249999999823,
+            "samplesMs": [
+              2.0601670000000354,
+              1.1101249999999823,
+              1.1578339999999798,
+              1.044083999999998,
+              1.0352920000000267
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 8.05520899999999,
+            "samplesMs": [
+              8.05520899999999,
+              7.9001669999999535,
+              8.230416999999989,
+              8.049041999999986,
+              8.194582999999966
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.1476660000000152,
+            "samplesMs": [
+              1.315417000000025,
+              1.8764580000000137,
+              1.1363329999999792,
+              1.1134590000000344,
+              1.1476660000000152
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 18.433084000000008,
+            "samplesMs": [
+              18.601417000000083,
+              18.252291000000014,
+              18.776792,
+              18.433084000000008,
+              17.66833299999996
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.807957999999985,
+            "samplesMs": [
+              1.9961250000000064,
+              1.8238750000000437,
+              1.7315419999999904,
+              1.807957999999985,
+              1.6986670000000004
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 17.325582999999938,
+            "samplesMs": [
+              17.325582999999938,
+              15.877917000000025,
+              17.570249999999987,
+              17.62916599999994,
+              16.160875000000033
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.9534999999999627,
+            "samplesMs": [
+              1.8722920000000158,
+              1.9534999999999627,
+              1.9240419999999858,
+              1.970209000000068,
+              2.6761659999999665
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 26.706833999999844,
+            "samplesMs": [
+              26.66470800000002,
+              26.706833999999844,
+              27.370333999999957,
+              26.949583000000075,
+              26.302208000000064
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.view-search-benchmark",
+        "version": 2,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Empty metadata or three contexts, three tags, five incoming and five outgoing BECAUSE edges per claim. Seeding and result assertions excluded. Includes query, metadata reads and view construction, primary-field validation; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.0953750000000042,
+            "samplesMs": [
+              1.0953750000000042,
+              1.0876669999999962,
+              1.2962080000000071,
+              1.102917000000005,
+              1.0534999999999997
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 8.802375000000012,
+            "samplesMs": [
+              8.802375000000012,
+              8.681457999999992,
+              8.674541999999974,
+              9.283166999999992,
+              8.833292
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.4197499999999934,
+            "samplesMs": [
+              1.4004170000000045,
+              1.4197499999999934,
+              1.4151669999999967,
+              1.445999999999998,
+              1.776584000000014
+            ]
+          },
+          {
+            "metadata": "empty",
+            "contextsPerClaim": 0,
+            "tagsPerClaim": 0,
+            "edgesPerClaim": 0,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 21.80404199999998,
+            "samplesMs": [
+              21.438333999999998,
+              18.772290999999996,
+              22.286249999999995,
+              21.80404199999998,
+              22.082333999999946
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 1.8682079999999814,
+            "samplesMs": [
+              2.300584000000015,
+              1.930291000000011,
+              1.8682079999999814,
+              1.8460830000000215,
+              1.6908750000000055
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 17.12312499999996,
+            "samplesMs": [
+              15.955917,
+              17.12312499999996,
+              17.683042,
+              16.568166999999903,
+              17.170167000000106
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 1.9110409999999547,
+            "samplesMs": [
+              2.14320900000007,
+              2.627166999999986,
+              1.8477080000000115,
+              1.9110409999999547,
+              1.9109579999999369
+            ]
+          },
+          {
+            "metadata": "populated",
+            "contextsPerClaim": 3,
+            "tagsPerClaim": 3,
+            "edgesPerClaim": 5,
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 28.135167000000024,
+            "samplesMs": [
+              27.348291000000017,
+              30.90787499999999,
+              27.407125000000065,
+              29.43833399999994,
+              28.135167000000024
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -29,6 +29,10 @@ assertion, and its premises are gates, not evidence. The companion claim
 `action/reorder/lot IS param` documents the parameter; its comment surfaces
 in `cave act --list` and in the MCP tool schema.
 
+The declaration call validates the whole prelude before appending it or
+declaring actions. A prelude error leaves the call without writes; corrected
+retries work normally, and successful unchanged preludes append nothing.
+
 The name is the identity. Redeclaring appends to the same claim key, so an
 action has exactly one current definition and its evolution is an ordinary
 belief series. Retracting the declaration disables the action; effects of
@@ -103,6 +107,12 @@ executes once, deterministically, or not at all. Then the effects append in
 one transaction. The second call appended nothing because every effect
 already equalled its current belief.
 
+The write transaction starts before the declaration, premises, or baseline
+shape violations are read, and refreshes the stored vocabulary first. A
+competing writer cannot revoke a prerequisite between its validation and the
+effect commit; a revocation committed before the write lock is acquired is
+seen by the action's checks.
+
 == What an execution leaves behind
 
 Effects are stamped `@src:action/<name>` and carry lineage: `BECAUSE`
@@ -130,6 +140,13 @@ Actions run inside the shape gate of Chapter 13 by default: if an
 execution would introduce a new `EXPECTS` violation, it rolls back.
 `--no-check` opts out, and `--dry-run` reports inside a rolled-back
 transaction without firing anything.
+
+For library callers, an enclosing store transaction is still allowed when
+the action will not fire a configured hook. Otherwise the action rejects
+and rolls back its own savepoint: the enclosing transaction could still be
+cancelled after a hook escaped. Run that action outside the caller-owned
+transaction or omit hook configuration. No-op actions and dry runs remain
+nestable; hook delivery is never silently deferred.
 
 A decision recorded in the store often needs to reach the outside world.
 Executable content must never live in the store, so the action *names* a

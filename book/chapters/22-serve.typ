@@ -61,6 +61,10 @@ cited fragment.
 endpoint writes. Recording knowledge stays with `cave add`, the MCP tools,
 and the kinetic layer. Every request reads the live store, so a running
 automation's appends show on the next refresh.
+Responses are marked `no-store`; `HEAD` preserves the status and cache protection
+of `GET` without a body. The page ignores responses from earlier navigation, so
+a slow request cannot replace the selected view. A malformed URL fragment shows
+an error and leaves normal navigation available.
 
 *Local by default.* The store is one person's knowledge on one machine.
 There is no authentication layer and none is planned; wider serving belongs
@@ -113,5 +117,5 @@ neighbourhood tools; the page is for the human outside the loop.
 
 #recap[`cave serve` renders a dashboard, entity pages, belief-history
 timelines, lineage trees, and search from one self-contained page.
-`GET`-only, localhost, `internal` ceiling by default, live reads. JSON
+`GET`/`HEAD` only, localhost, `internal` ceiling by default, live reads. JSON
 endpoints under `/api/` serve the same views.]

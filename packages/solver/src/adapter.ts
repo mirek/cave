@@ -25,6 +25,12 @@ export type Limits = {
   readonly maxEnumValues: number
   readonly maxExpressionNodes: number
   readonly maxExpressionDepth: number
+  /** Aggregate pre-reduction decimal digits in numeric bounds, literals and weights. */
+  readonly maxNumericDigits: number
+  /** Conservative bit-size ceiling for local explanation fraction arithmetic. */
+  readonly maxExplanationBits: number
+  /** Cumulative estimated-bit charges for local explanation arithmetic in one report. */
+  readonly maxExplanationWork: number
   readonly maxOutputBytes: number
 }
 
@@ -37,6 +43,9 @@ export const defaultLimits: Limits = Object.freeze({
   maxEnumValues: 1_000,
   maxExpressionNodes: 100_000,
   maxExpressionDepth: 128,
+  maxNumericDigits: 100_000,
+  maxExplanationBits: 1_000_000,
+  maxExplanationWork: 10_000_000,
   maxOutputBytes: 1_000_000
 })
 

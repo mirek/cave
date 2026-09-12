@@ -102,7 +102,10 @@ lines properly only because the language kept the two uncertainties apart.
 a spread and a confidence, a precision-weighted average gives a fused value
 and spread; confidence acts as a weight. The MCP server offers this as the
 `cave_fuse` tool so that agents do not do the arithmetic in tokens. The math
-is spec §10.1; it is an implementation layer, not syntax.])
+is spec §10.1; it is an implementation layer, not syntax. The library validates
+finite estimates and confidence in `[0, 1]`, scales the arithmetic to avoid
+intermediate overflow, and reports an error when the posterior cannot be
+represented with finite positive precision and spread.])
 
 == Competing hypotheses
 

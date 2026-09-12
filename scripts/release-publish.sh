@@ -18,12 +18,22 @@
 # `make publish` once from a machine with npm auth, configure the
 # trusted publisher for the new package on npmjs.com, then re-run this
 # (or just push to main) — the retry publishes whatever is missing and
-# tags. Do not replace that command with `npm publish`: pnpm applies the
+# tags. Missing packages are published only while this is origin/main's
+# current version; fully published older versions may still recover a tag.
+# Do not replace that command with `npm publish`: pnpm applies the
 # production export/bin overrides stored in publishConfig.
 set -euo pipefail
 
+if [ "$#" -ne 0 ]; then
+  echo 'usage: release-publish.sh (takes no arguments; no dry-run mode)' >&2
+  exit 2
+fi
+
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
+# The validator supports external roots for fixtures and manual tag checks;
+# this entrypoint must validate the same checkout it builds and publishes.
+export CAVE_RELEASE_ROOT="$root"
 
 # This must remain ahead of every npm registry lookup and build. The workflow
 # also runs it in a separate preflight job before configuring npm OIDC.
@@ -66,18 +76,34 @@ npm_view() {
     attempts="${CAVE_NPM_VIEW_ATTEMPTS:-4}"
     delay="${CAVE_NPM_VIEW_RETRY_DELAY_SECONDS:-2}"
   fi
-  local attempt output status error_file
-  error_file="$(mktemp)"
+  # Validate before shell arithmetic: zero attempts previously returned success
+  # without consulting npm, and oversized values can wrap Bash integers.
+  if ! [[ "$attempts" =~ ^[0-9]{1,16}$ ]] ||
+      (( 10#$attempts < 1 || 10#$attempts > 9007199254740991 )); then
+    echo "error: npm retry attempts must be a positive safe integer" >&2
+    return 2
+  fi
+  if ! [[ "$delay" =~ ^[0-9]{1,2}$ ]] || (( 10#$delay > 60 )); then
+    echo "error: npm retry delay must be an integer from 0 to 60 seconds" >&2
+    return 2
+  fi
+  attempts=$((10#$attempts))
+  delay=$((10#$delay))
+  local attempt output status error_file codes
+  error_file="$(mktemp)" || return 2
 
   for ((attempt = 1; attempt <= attempts; attempt++)); do
-    if output="$(npm view "$selector" "$field" 2>"$error_file")"; then
+    if output="$(npm view "$selector" "$field" --color=false --json=false --loglevel=error 2>"$error_file")"; then
       rm -f "$error_file"
       printf '%s' "$output"
       return 0
     else
       status=$?
     fi
-    if grep -Eqi 'E404|404 Not Found|is not in this registry' "$error_file"; then
+    # Match npm's explicit code records, not substrings in URLs or prose.
+    # More than one distinct code is ambiguous and remains a probe failure.
+    if codes="$(sed -nE 's/^npm (ERR!|error) code ([^[:space:]]+)[[:space:]]*$/\2/p' "$error_file" | sort -u)" &&
+        [ "$codes" = 'E404' ]; then
       if [ "$retry_missing" != "true" ] || [ "$attempt" -eq "$attempts" ]; then
         rm -f "$error_file"
         return 4
@@ -88,10 +114,11 @@ npm_view() {
       continue
     fi
     if [ "$attempt" -eq "$attempts" ]; then
-      echo "error: npm view ${selector} failed after ${attempts} attempts" >&2
+      echo "error: npm view ${selector} failed after ${attempts} attempts (exit ${status})" >&2
       cat "$error_file" >&2
       rm -f "$error_file"
-      return "$status"
+      # Exit 4 is our confirmed-absence sentinel, never an npm error code.
+      return 2
     fi
     echo "warning: npm view ${selector} failed (attempt ${attempt}/${attempts}); retrying in ${delay}s" >&2
     sleep "$delay"
@@ -106,8 +133,9 @@ registry_has() {
   local retry_missing="${4:-false}"
   local found status
   if found="$(npm_view "$selector" "$field" "$retry_missing")"; then
-    [ "$found" = "$expected" ]
-    return
+    if [ "$found" = "$expected" ]; then return 0; fi
+    echo "error: npm view ${selector} returned an unexpected ${field}; refusing to infer absence" >&2
+    return 2
   else
     status=$?
   fi
@@ -166,6 +194,9 @@ if [ "${#first_time[@]}" -gt 0 ]; then
 fi
 
 echo "==> building, testing, and smoke-checking v${version}"
+# Incremental metadata cannot authenticate ignored output bytes or remove
+# obsolete files. Start release preparation from freshly generated artifacts.
+pnpm clean
 # Regenerate the committed parser and WASM with the digest-pinned toolchain.
 # The package build verifies cached archives before using them.
 pnpm --filter @cavelang/tree-sitter-cave build
@@ -179,7 +210,21 @@ bash scripts/smoke.sh
 if [ "${#unpublished[@]}" -eq 0 ]; then
   echo "v${version} is fully published — nothing to publish"
   ensure_tag # heals a prior run that published everything but died before tagging
+  node scripts/release-output.mjs "$version"
   exit 0
+fi
+
+# Builds and hooks may modify tracked sources or leave new package inputs.
+# Reject that drift before npm mutation, not only when creating the final tag.
+node scripts/release-validate.mjs --mode=publish
+
+# The validation immediately above refreshed origin/main. A superseded
+# version may recover an existing release tag, but must not publish missing
+# packages with the default latest dist-tag.
+main_version="$(git show refs/remotes/origin/main:package.json | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).version')"
+if [ "$main_version" != "$version" ]; then
+  echo "error: release ${version} is superseded by origin/main version ${main_version}; refusing to publish missing versions under latest" >&2
+  exit 1
 fi
 
 echo "==> publishing v${version} to npm"
@@ -207,3 +252,5 @@ if [ "${#missing[@]}" -gt 0 ]; then
   exit 1
 fi
 ensure_tag
+# Report only after registry verification and validated tag handling succeeded.
+node scripts/release-output.mjs "$version" "${unpublished[@]}"

@@ -19,7 +19,7 @@ jobs:
   # concurrent PRs conflict. The automated version packages PR is the one
   # exception: it consumes changesets rather than adding them.
   changeset:
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -28,9 +28,27 @@ jobs:
           fetch-depth: 0
 
       - name: Require a changeset
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          added="$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- '.changeset/*.md' | grep -v '^\.changeset/README\.md$' || true)"
-          if [ -z "$added" ]; then
+          if [ "${HEAD_REF:-}" = 'changeset-release/main' ] && [ "$BASE_REF" = main ] && [ -n "${REPOSITORY:-}" ] && [ "${HEAD_REPOSITORY:-}" = "$REPOSITORY" ]; then
+            echo 'Version PR consumes changesets; no new changeset required.'
+            exit 0
+          fi
+          changeset_paths="$(mktemp)"
+          trap 'rm -f "$changeset_paths"' EXIT
+          if ! git diff --name-only -z --diff-filter=A "origin/$BASE_REF...HEAD" -- '.changeset/*.md' > "$changeset_paths"; then
+            echo "::error::Could not compare changesets with the PR base." >&2
+            exit 1
+          fi
+          added=()
+          while IFS= read -r -d '' file; do
+            if [ "$file" != '.changeset/README.md' ]; then added+=("$file"); fi
+          done < "$changeset_paths"
+          if [ "${#added[@]}" -eq 0 ]; then
             echo "::error::This PR adds no changeset. Add a file like .changeset/<slug>.md:"
             echo ''
             echo '  ---'
@@ -43,20 +61,8 @@ jobs:
             exit 1
           fi
           echo "changesets added:"
-          echo "$added"
-          # A changeset that names only packages outside the fixed release
-          # group (private workspaces such as @cavelang/mcp) would not advance
-          # the release; scripts/release-validate.mjs enforces the same rule.
-          fixed="$(node -e "console.log(JSON.parse(require('fs').readFileSync('.changeset/config.json', 'utf8')).fixed[0].join('\n'))")"
-          for file in $added; do
-            names="$(tr -d '\r' < "$file" \
-              | awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { exit } inside' \
-              | sed -nE "s/^[\"']([^\"']+)[\"']: *(major|minor|patch)\$/\1/p")"
-            if [ -n "$names" ] && ! printf '%s\n' "$names" | grep -qxF -f <(printf '%s\n' "$fixed"); then
-              echo "::error::$file names only packages outside the fixed release group; name a public @cavelang package (see CLAUDE.md)."
-              exit 1
-            fi
-          done
+          printf '%q\n' "${added[@]}"
+          node scripts/check-changesets.mjs "${added[@]}"
 
   suite:
     runs-on: ubuntu-24.04
@@ -68,7 +74,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24.18.0
+          node-version: 24.21.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -109,18 +115,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: node-22.18.0 / ubuntu-24.04
+          - name: node-24.16.0 / ubuntu-24.04
             os: ubuntu-24.04
-            node: 22.18.0
-          - name: node-24.18.0 / macos-15
+            node: 24.16.0
+          - name: node-24.21.0 / macos-15
             os: macos-15
-            node: 24.18.0
-          - name: node-24.18.0 / windows-2022
+            node: 24.21.0
+          - name: node-24.21.0 / windows-2022
             os: windows-2022
-            node: 24.18.0
-          - name: node-26.4.0 / ubuntu-24.04
+            node: 24.21.0
+          - name: node-26.1.0 / ubuntu-24.04
             os: ubuntu-24.04
-            node: 26.4.0
+            node: 26.1.0
+          - name: node-26.8.1 / ubuntu-24.04
+            os: ubuntu-24.04
+            node: 26.8.1
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -135,6 +144,12 @@ jobs:
 
       - name: Verify the exact Node runtime
         run: node -e "if (process.version !== 'v${{ matrix.node }}') throw new Error('expected v${{ matrix.node }}, received ' + process.version)"
+
+      - name: Verify native bootstrap launchers before dependency installation
+        run: node --test packages/mcp/test/bootstrap-native.test.ts
+
+      - name: Verify lossless native SQLite text
+        run: node --disable-warning=ExperimentalWarning scripts/check-sqlite-text.mjs
 
       - run: pnpm install --frozen-lockfile
 
@@ -152,6 +167,13 @@ jobs:
 
       - name: Test the Node SQLite adapter and filesystem behavior
         run: pnpm --filter @cavelang/store test
+
+      - name: Test portable solver and native adapter contracts
+        run: pnpm --filter @cavelang/solver --filter @cavelang/solver-z3 test
+
+      - name: Verify Z3 cleanup under forced garbage collection
+        timeout-minutes: 5
+        run: pnpm --filter @cavelang/solver-z3 test:memory-stress --large
 
       - name: Build the consolidated CLI package layout
         run: pnpm --filter @cavelang/cli build
@@ -175,7 +197,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24.18.0
+          node-version: 24.21.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -192,7 +214,7 @@ jobs:
       - name: Install the browser runtime
         run: pnpm --filter @cavelang/website exec playwright install --with-deps chromium
 
-      - name: Exercise the production website
+      - name: Exercise the production website and local viewer
         run: pnpm --filter @cavelang/website test:browser
 
       - name: Retain browser diagnostics
@@ -219,7 +241,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24.18.0
+          node-version: 24.21.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -245,7 +267,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24.18.0
+          node-version: 24.21.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -271,6 +293,7 @@ jobs:
       - browser
       - smoke
       - vscode
+      - changeset
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -281,7 +304,15 @@ jobs:
           BROWSER_RESULT: ${{ needs.browser.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           VSCODE_RESULT: ${{ needs.vscode.result }}
+          CHANGESET_RESULT: ${{ needs.changeset.result }}
+          REQUIRE_CHANGESET: ${{ github.event_name == 'pull_request' }}
         run: |
+          if [ "$CHANGESET_RESULT" != success ]; then
+            if [ "$REQUIRE_CHANGESET" != false ] || [ "$CHANGESET_RESULT" != skipped ]; then
+              echo "changeset check: $CHANGESET_RESULT (required: $REQUIRE_CHANGESET)" >&2
+              exit 1
+            fi
+          fi
           if [ "$SUITE_RESULT" != success ] || [ "$RUNTIME_RESULT" != success ] || [ "$BROWSER_RESULT" != success ] || [ "$SMOKE_RESULT" != success ] || [ "$VSCODE_RESULT" != success ]; then
             echo "source suite: $SUITE_RESULT" >&2
             echo "runtime matrix: $RUNTIME_RESULT" >&2

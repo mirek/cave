@@ -90,7 +90,26 @@ For normally distributed estimates with `+/- Δ` at kσ: σ = Δ/k, precision = 
 
 Worked: A gives σ=1.5B, w=0.444×0.60=0.267; B gives σ=0.25B, w=16.0×0.95=15.2. Posterior μ ≈ 19.97B, σ ≈ 0.25B. The filing dominates — more precise and higher confidence.
 
+The numeric library requires finite means, positive finite σ, and finite
+confidence in `[0, 1]`; it validates every estimate before skipping confidence
+zero. Conditional and hypothesis helpers enforce the same probability range.
+Fusion scales its arithmetic to avoid intermediate overflow. If unit conversion
+or the posterior's positive precision/spread cannot fit finite JavaScript
+numbers, it raises a range error instead of returning a non-finite result or
+silently discarding the estimate. Fixed durations (`ms`, `s`, `min`, `h`) convert
+to the first contributing estimate's unit; other units match only by exact name.
+
+The pure library functions weight each supplied estimate occurrence. They do not
+resolve historical revisions or deduplicate source contexts: a zero-confidence
+claim does not retract a separate earlier entry in the supplied array. Callers
+select current evidence and account for repeated or correlated observations
+before invoking the numeric helper.
+
 The engine serves this computation by name: the MCP `cave_fuse` tool fuses estimates selected by CAVE-Q pattern, by entity (`about` — the reach into metric `IS` series, whose values CAVE-Q variables never bind), or from literal CAVE lines, so agents delegate the arithmetic instead of doing it in tokens. Fused estimates must agree on one quantity — one claim key modulo `@src:` contexts (§26.1's group identity, widened through the §13.6 alias closure on request) — and one unit; selections that span quantities or mix units fail loudly.
+
+For historical `pattern` fusion with `asOf` and aliases enabled, estimate
+selection and quantity grouping use the alias graph at the same requested
+cutoff. Later merges or alias retractions do not regroup the historical result.
 
 ### 10.2 Conditional confidence (noisy-AND)
 

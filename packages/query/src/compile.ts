@@ -24,6 +24,7 @@ import { Registry } from '@cavelang/canonical'
 import { QuerySql, Resolve, Row } from '@cavelang/store/adapter'
 import type { Store } from '@cavelang/store/adapter'
 import * as Pattern from './pattern.ts'
+import { assertQueryUnicode } from './unicode.ts'
 
 /**
  * One storage-oriented query solution. `row`/`rows` expose SQLite-shaped
@@ -49,9 +50,9 @@ export type Match = {
 }
 
 export type Options = {
-  /** Maximum rows SQLite may return. Prefer the snapshot-aware page API for continuations. */
+  /** Positive safe-integer row bound. Prefer the snapshot-aware page API for continuations. */
   readonly limit?: number
-  /** Internal SQL offset used by the snapshot-aware page API. */
+  /** Non-negative safe-integer SQL offset used by the snapshot-aware page API. */
   readonly offset?: number
   /** Match all appended rows, not only current beliefs. */
   readonly all?: boolean
@@ -198,18 +199,33 @@ type Compiled = {
 
 const bounded = (compiled: Compiled, options: Options): Compiled => {
   if (options.limit === undefined) return compiled
-  if (!Number.isInteger(options.limit) || options.limit < 1 ||
-      !Number.isInteger(options.offset ?? 0) || (options.offset ?? 0) < 0) {
-    throw new Error('CAVE-Q: limit must be positive and offset must be non-negative')
+  const offset = options.offset === undefined ? 0 : options.offset
+  if (!Number.isSafeInteger(options.limit) || options.limit < 1 ||
+      !Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error('CAVE-Q: limit must be a positive safe integer and offset must be a non-negative safe integer')
   }
   return {
     ...compiled,
     sql: `${compiled.sql}\nLIMIT ? OFFSET ?`,
-    params: [...compiled.params, options.limit, options.offset ?? 0]
+    params: [...compiled.params, options.limit, offset]
   }
 }
 
 export const compile = (pattern: Pattern.t, registry: Registry.t, options: Options, policy?: readonly Resolve.Entry[]): Compiled => {
+  // Structured callers can bypass Pattern.parse; validate every string-bearing
+  // slot and filter before SQL parameters or traversal state are constructed.
+  const parts = [pattern.subject, pattern.verb, pattern.payload, ...pattern.tags, ...pattern.filters,
+    ...pattern.payload.kind === 'object' ? [pattern.payload.object] :
+      pattern.payload.kind === 'attribute' ? [pattern.payload.value] : []]
+  for (const part of parts) {
+    if (Reflect.get(part, 'kind') === 'var' && Reflect.get(part, 'name') === '') {
+      throw new Error('CAVE-Q: variable requires a name after ?; use _ for a wildcard')
+    }
+    for (const field of ['text', 'name', 'attribute', 'key', 'value', 'unit']) {
+      assertQueryUnicode(Reflect.get(part, field))
+    }
+  }
+  for (const context of pattern.contexts) assertQueryUnicode(context)
   // Inverse resolution (spec §12.1): swap the pattern's endpoint slots and
   // query the primary verb.
   let verb = pattern.verb
@@ -309,77 +325,105 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
       )
     }
   }
-  for (const context of pattern.contexts) {
-    conditions.push('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)')
-    params.push(context)
+  // Keep ordinary indexed lookups direct; only large lists need a bound array
+  // to avoid SQLite's expression-depth and parameter limits.
+  if (pattern.contexts.length <= 16) {
+    for (const context of pattern.contexts) {
+      conditions.push('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)')
+      params.push(context)
+    }
+  } else {
+    conditions.push(`NOT EXISTS (SELECT 1 FROM json_each(?) required
+      WHERE NOT EXISTS (SELECT 1 FROM cave_context x
+        WHERE x.claim_id = c.id AND x.context = required.value))`)
+    params.push(JSON.stringify(pattern.contexts))
   }
-  for (const tag of pattern.tags) {
-    if (tag.value === undefined) {
-      conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value IS NULL)')
-      params.push(tag.key)
+  if (pattern.tags.length <= 16) {
+    for (const tag of pattern.tags) {
+      if (tag.value === undefined) {
+        conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value IS NULL)')
+        params.push(tag.key)
+      } else {
+        conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value = ?)')
+        params.push(tag.key, tag.value)
+      }
+    }
+  } else {
+    conditions.push(`NOT EXISTS (SELECT 1 FROM json_each(?) required
+      WHERE NOT EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id
+        AND t.key = json_extract(required.value, '$[0]')
+        AND t.value IS json_extract(required.value, '$[1]')))`)
+    params.push(JSON.stringify(pattern.tags.map(tag => [tag.key, tag.value ?? null])))
+  }
+  // Small lists retain direct predicates. Larger lists group the finite set
+  // of SQL predicate shapes and bind each group's operands as JSON rows.
+  const filterGroups = new Map<string, (string | number)[][]>()
+  const addFilter = (sql: string, values: (string | number)[]): void => {
+    if (pattern.filters.length <= 16) {
+      conditions.push(sql)
+      for (const value of values) params.push(value)
     } else {
-      conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value = ?)')
-      params.push(tag.key, tag.value)
+      let group = filterGroups.get(sql)
+      if (group === undefined) { group = []; filterGroups.set(sql, group) }
+      group.push(values)
     }
   }
   for (const filter of pattern.filters) {
     switch (filter.field) {
       case 'conf':
-        conditions.push(`c.conf ${filter.op} ?`)
-        params.push(filter.value)
+        addFilter(`c.conf ${filter.op} ?`, [filter.value])
         break
       case 'tag':
         if (filter.value === undefined) {
-          conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ?)')
-          params.push(filter.key)
+          addFilter('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ?)', [filter.key])
         } else {
-          conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value = ?)')
-          params.push(filter.key, filter.value)
+          addFilter('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value = ?)', [filter.key, filter.value])
         }
         break
       case 'context':
-        conditions.push('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)')
-        params.push(filter.value)
+        addFilter('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)', [filter.value])
         break
       case 'value':
-        conditions.push(`c.value_num ${filter.op} ?`)
-        params.push(filter.value)
+        addFilter(`c.value_num ${filter.op} ?`, [filter.value])
         if (filter.unit !== undefined) {
-          conditions.push('c.value_unit = ?')
-          params.push(filter.unit)
+          addFilter('c.value_unit = ?', [filter.unit])
         }
         break
       case 'tx': {
         const { lo, hi } = txBounds(filter.value)
         switch (filter.op) {
           case '>':
-            conditions.push('c.tx >= ?')
-            params.push(hi)
+            addFilter('c.tx >= ?', [hi])
             break
           case '>=':
-            conditions.push('c.tx >= ?')
-            params.push(lo)
+            addFilter('c.tx >= ?', [lo])
             break
           case '<':
-            conditions.push('c.tx < ?')
-            params.push(lo)
+            addFilter('c.tx < ?', [lo])
             break
           case '<=':
-            conditions.push('c.tx < ?')
-            params.push(hi)
+            addFilter('c.tx < ?', [hi])
             break
           case '=':
-            conditions.push('(c.tx >= ? AND c.tx < ?)')
-            params.push(lo, hi)
+            addFilter('(c.tx >= ? AND c.tx < ?)', [lo, hi])
             break
           case '!=':
-            conditions.push('(c.tx < ? OR c.tx >= ?)')
-            params.push(lo, hi)
+            addFilter('(c.tx < ? OR c.tx >= ?)', [lo, hi])
             break
         }
         break
       }
     }
+  }
+
+  for (const [predicate, values] of filterGroups) {
+    let index = 0
+    // These predicates are compiler-owned SQL; question marks are operands.
+    const bound = predicate.replace(/\?/g, () => `json_extract(required_filter.value, '$[${index++}]')`)
+    // A NULL comparison fails a WHERE requirement too; NOT alone would lose it.
+    conditions.push(`NOT EXISTS (SELECT 1 FROM json_each(?) required_filter
+      WHERE (${bound}) IS NOT TRUE)`)
+    params.push(JSON.stringify(values))
   }
 
   // Positive patterns match supported beliefs: a retracted (@ 0%) current
@@ -390,15 +434,18 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
     conditions.push('c.conf > 0')
   }
 
-  const base = baseSql(options, policy)
+  // Bounded direct reads benefit from tuple membership instead of joining
+  // wide current rows. Retain both identity columns and the complete historical
+  // source: post-filters must never revive older revisions or retractions.
+  const base = options.limit !== undefined && options.all !== true && options.resolve !== true ?
+    `SELECT c.* FROM cave_claim c WHERE (c.claim_key, c.tx) IN (
+      SELECT claim_key, MAX(tx) FROM ${claimsSql(options.asOf)} GROUP BY claim_key)` :
+    baseSql(options, policy)
   const withClause = aliases ? `WITH RECURSIVE ${aliasPairSql(options.asOf)} ` : ''
   const sql = `${withClause}SELECT c.* FROM (${base}) c WHERE ${conditions.join(' AND ')} ORDER BY c.tx`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
-    const bindings: Record<string, string> = {}
-    for (const [name, columns] of varColumns) {
-      bindings[name] = String(row[columns[0]!])
-    }
-    return bindings
+    return Object.fromEntries([...varColumns].map(([name, columns]) =>
+      [name, String(row[columns[0]!])]))
   }
   const valueVars = [...varColumns]
     .filter(([, columns]) => columns[0] === 'value_text')
@@ -519,14 +566,10 @@ ${aliasedSelect}
 ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 ORDER BY src, dst`
   const bind = (row: Record<string, unknown>): Record<string, string> => {
-    const bindings: Record<string, string> = {}
-    if (subjectSlot.kind === 'var') {
-      bindings[subjectSlot.name] = String(row['src'])
+    return {
+      ...subjectSlot.kind === 'var' ? { [subjectSlot.name]: String(row['src']) } : {},
+      ...objectSlot?.kind === 'var' ? { [objectSlot.name]: String(row['dst']) } : {}
     }
-    if (objectSlot?.kind === 'var') {
-      bindings[objectSlot.name] = String(row['dst'])
-    }
-    return bindings
   }
   return { sql, params, bind, transitive: true, valueVars: [] }
 }
@@ -588,7 +631,7 @@ export type Window = {
   readonly scanned: number
 }
 
-const run = (store: Store, pattern: Pattern.t, options: Options = {}): Window => {
+const run = (store: Store, pattern: Pattern.t, options: Options = {}, positions?: WeakMap<object, number>): Window => {
   const instant = options.at === undefined ? undefined : Time.parseInstant(options.at)
   if (options.at !== undefined && instant === undefined) {
     throw new Error(
@@ -604,6 +647,9 @@ const run = (store: Store, pattern: Pattern.t, options: Options = {}): Window =>
     throw new Error('CAVE-Q: at does not compose with transitive patterns — hop edges are not valid-time filtered (spec §32.4)')
   }
   const rows = store.db.prepare(compiled.sql).all(...compiled.params) as Record<string, unknown>[]
+  // Pagination needs original positions after post-filters discard rows.
+  // Keep this optional so ordinary queries allocate no position index.
+  if (positions !== undefined) rows.forEach((row, index) => positions.set(row, index))
   if (compiled.transitive && options.support === true) {
     // One match per distinct (src, dst) pair, its supporting edge rows
     // attached; under aliases identical binding sets still collapse to
@@ -676,8 +722,8 @@ const run = (store: Store, pattern: Pattern.t, options: Options = {}): Window =>
 }
 
 /** Execute one SQL window and report how many pre-filter rows it consumed. */
-export const window = (store: Store, pattern: Pattern.t, options: Options = {}): Window =>
-  run(store, pattern, options)
+export const window = (store: Store, pattern: Pattern.t, options: Options = {}, positions?: WeakMap<object, number>): Window =>
+  run(store, pattern, options, positions)
 
 export const match = (store: Store, pattern: Pattern.t, options: Options = {}): Match[] =>
   run(store, pattern, options).matches

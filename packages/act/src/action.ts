@@ -215,7 +215,7 @@ export const parse = (subject: string, body: string): Parsed => {
   const effectTexts: string[] = []
   for (const segment of splitSegments(rightText)) {
     const { effect, problems: effectProblems } = parseEffect(segment, bound)
-    problems.push(...effectProblems)
+    for (const problem of effectProblems) problems.push(problem)
     if (effect !== undefined) {
       effects.push(effect)
       effectTexts.push(Rule.normalizeSegment(segment))

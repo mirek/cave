@@ -3,6 +3,36 @@ import * as assert from 'node:assert/strict'
 import { Registry } from '@cavelang/canonical'
 import { open } from '@cavelang/store'
 
+test('storage rejects unpaired surrogates atomically and retains valid Unicode', () => {
+  const store = open()
+  try {
+    store.ingest('local IS retained')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    for (const bad of ['\ud800', '\udc00']) {
+      for (const line of [
+        `a${bad} IS service`, `api HAS label: "bad${bad}text"`,
+        `api HAS la${bad}bel: x`, `api HAS size: 1 m${bad}`,
+        `api IS service ; note${bad}`, `api IS service @scope:team${bad}`,
+        `api IS service #note:value${bad}`
+      ]) {
+        assert.throws(() => store.ingest(`new IS retained\n${line}`), /unpaired UTF-16 surrogate/)
+        assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      }
+      for (const options of [
+        { source: bad }, { contexts: [bad] }, { provenance: { actor: bad } },
+        { provenance: { sources: [bad] } }, { provenance: { run: bad } },
+        { provenance: { domains: [bad] } }
+      ]) {
+        assert.throws(() => store.ingest('api IS service', options), /unpaired UTF-16 surrogate/)
+        assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      }
+    }
+    const valid = 'api HAS label: "café 😀\0tail"'
+    store.ingest(valid)
+    assert.ok(store.exportText().includes(valid))
+  } finally { store.close() }
+})
+
 test('current belief = latest tx per claim key (spec §9.1)', () => {
   const store = open()
   store.ingest('Anthropic HAS ipo-timing: 2026-H2 @ 40% ; initial assessment')
@@ -162,7 +192,20 @@ test('search limit caps rows inside the query, newest matches first (spec §13.5
   assert.deepEqual(capped.map(row => row.subject), ['svc-5', 'svc-4'], 'the newest matches survive the cap')
   assert.equal(store.search('sharedterm').length, 5, 'without a limit everything still returns')
   assert.equal(store.search('sharedterm', { raw: true, limit: 3 }).length, 3, 'limit composes with raw')
+  assert.deepEqual(store.search('sharedterm', { limit: 0 }), [], 'zero remains a valid empty cap')
   store.close()
+})
+
+test('invalid search limits cannot silently become unlimited queries', () => {
+  const store = open()
+  try {
+    for (const seeded of [false, true]) {
+      if (seeded) store.ingest('api USES sharedterm')
+      for (const limit of [-1, -100, 0.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+        assert.throws(() => store.search('sharedterm', { limit }), /search limit must be a non-negative safe integer/)
+      }
+    }
+  } finally { store.close() }
 })
 
 test('topic layer reads, forward and inverse of the same rows (spec §11.2)', () => {
@@ -259,4 +302,30 @@ test('transaction nests and rolls back appends with their declarations (spec §2
   assert.equal(kept.ids.length, 1)
   assert.equal(store.claimsAbout('billing').length, 1, 'nested commit lands')
   store.close()
+})
+
+test('oversized numeric values persist as text without non-finite storage', () => {
+  const store = open()
+  try {
+    const raw = '9'.repeat(400)
+    const result = store.ingest(`metric HAS amount: ${raw}`, { strict: true })
+    assert.equal(result.ids.length, 1)
+    const row = store.currentBeliefs()[0]!
+    assert.equal(row.value_text, raw)
+    assert.equal(row.value_num, null)
+    assert.ok(row.raw_line.includes(raw))
+  } finally { store.close() }
+})
+
+test('stored decimal multipliers match expanded values and retain unrepresentable text', () => {
+  const store = open()
+  try {
+    const tiny = `0.${'0'.repeat(324)}1`
+    store.ingest(`metric HAS amount: 1.001K\nsmall HAS amount: ${tiny}T\nsmaller HAS amount: ${tiny}`, { strict: true })
+    const rows = new Map(store.currentBeliefs().map(row => [row.subject, row]))
+    assert.equal(rows.get('metric')?.value_num, 1001)
+    assert.equal(rows.get('small')?.value_num, 1e-313)
+    assert.equal(rows.get('smaller')?.value_num, null)
+    assert.equal(rows.get('smaller')?.value_text, tiny)
+  } finally { store.close() }
 })

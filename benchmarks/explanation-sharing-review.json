@@ -1,0 +1,196 @@
+{
+  "format": "cave.explanation-sharing-review",
+  "version": 1,
+  "date": "2026-09-09",
+  "method": "Sequential runs of scripts/explanation-sharing-bench.mjs, with no concurrent builds or test suites.",
+  "reports": [
+    {
+      "format": "cave.explanation-sharing-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "samplesPerWorkload": 5,
+      "timing": "complete Explain.report, including cloning, validation and digest; excludes fixture construction and result assertions",
+      "rss": "after workload and assertions; not peak memory or a total-process limit",
+      "measurements": [
+        {
+          "depth": 8,
+          "shape": "shared",
+          "medianMs": 1.478625000000008,
+          "samplesMs": [
+            6.885792000000009,
+            2.1867910000000137,
+            1.478625000000008,
+            1.3290410000000037,
+            1.2631659999999982
+          ],
+          "rssBytes": 102793216
+        },
+        {
+          "depth": 8,
+          "shape": "tree",
+          "medianMs": 5.8714999999999975,
+          "samplesMs": [
+            12.460042000000001,
+            6.589750000000009,
+            5.8714999999999975,
+            5.10116699999999,
+            4.504417000000004
+          ],
+          "rssBytes": 109772800
+        },
+        {
+          "depth": 10,
+          "shape": "shared",
+          "medianMs": 4.648457999999991,
+          "samplesMs": [
+            11.216874999999995,
+            5.961792000000003,
+            4.648457999999991,
+            3.8810829999999896,
+            3.3215840000000014
+          ],
+          "rssBytes": 108822528
+        },
+        {
+          "depth": 10,
+          "shape": "tree",
+          "medianMs": 23.301583000000008,
+          "samplesMs": [
+            31.345457999999994,
+            23.301583000000008,
+            23.479583000000005,
+            19.078125,
+            18.48358300000001
+          ],
+          "rssBytes": 120225792
+        },
+        {
+          "depth": 12,
+          "shape": "shared",
+          "medianMs": 13.92579099999999,
+          "samplesMs": [
+            23.902625,
+            19.25483299999999,
+            13.92579099999999,
+            12.397499999999994,
+            12.341041000000004
+          ],
+          "rssBytes": 122044416
+        },
+        {
+          "depth": 12,
+          "shape": "tree",
+          "medianMs": 87.62275,
+          "samplesMs": [
+            99.99799999999999,
+            93.29929200000001,
+            87.62275,
+            82.184458,
+            84.24229100000002
+          ],
+          "rssBytes": 159760384
+        }
+      ]
+    },
+    {
+      "format": "cave.explanation-sharing-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "samplesPerWorkload": 5,
+      "timing": "complete Explain.report, including cloning, validation and digest; excludes fixture construction and result assertions",
+      "rss": "after workload and assertions; not peak memory or a total-process limit",
+      "measurements": [
+        {
+          "depth": 8,
+          "shape": "shared",
+          "medianMs": 1.9102919999999983,
+          "samplesMs": [
+            10.55529199999998,
+            2.3785000000000025,
+            1.7711249999999836,
+            1.3414999999999964,
+            1.9102919999999983
+          ],
+          "rssBytes": 107397120
+        },
+        {
+          "depth": 8,
+          "shape": "tree",
+          "medianMs": 7.251708000000008,
+          "samplesMs": [
+            14.838416999999993,
+            7.251708000000008,
+            7.374375000000001,
+            7.081999999999994,
+            5.337250000000012
+          ],
+          "rssBytes": 113934336
+        },
+        {
+          "depth": 10,
+          "shape": "shared",
+          "medianMs": 3.992041999999998,
+          "samplesMs": [
+            10.224125,
+            6.219082999999998,
+            3.992041999999998,
+            3.562874999999991,
+            3.8107920000000064
+          ],
+          "rssBytes": 114540544
+        },
+        {
+          "depth": 10,
+          "shape": "tree",
+          "medianMs": 22.680291999999994,
+          "samplesMs": [
+            29.745958,
+            23.227333,
+            22.680291999999994,
+            19.462874999999997,
+            18.022750000000002
+          ],
+          "rssBytes": 126599168
+        },
+        {
+          "depth": 12,
+          "shape": "shared",
+          "medianMs": 15.087999999999994,
+          "samplesMs": [
+            21.37458399999999,
+            16.934457999999992,
+            15.087999999999994,
+            11.811666000000002,
+            11.575249999999983
+          ],
+          "rssBytes": 128417792
+        },
+        {
+          "depth": 12,
+          "shape": "tree",
+          "medianMs": 78.19849999999997,
+          "samplesMs": [
+            94.684833,
+            87.54624999999999,
+            74.768416,
+            72.722375,
+            78.19849999999997
+          ],
+          "rssBytes": 194052096
+        }
+      ]
+    }
+  ]
+}

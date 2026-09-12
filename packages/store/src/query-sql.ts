@@ -24,9 +24,11 @@ export type AsOfBoundary = {
 export const transactionBounds = (text: string): TransactionBounds | undefined => {
   const boundary = Time.parseBoundary(text)
   if (boundary === undefined) return undefined
+  // UUID transactions cannot precede the Unix epoch. Earlier calendar
+  // intervals are empty; intervals crossing the epoch retain their overlap.
   return {
-    lo: Uuidv7.at(boundary.start, 0, new Uint8Array(8)),
-    hi: Uuidv7.at(boundary.end, 0, new Uint8Array(8)),
+    lo: Uuidv7.at(Math.max(0, boundary.start), 0, new Uint8Array(8)),
+    hi: Uuidv7.at(Math.max(0, boundary.end), 0, new Uint8Array(8)),
   }
 }
 

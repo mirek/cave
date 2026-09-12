@@ -2,6 +2,8 @@ import { Value } from '@cavelang/core'
 import type { Store } from '@cavelang/store/adapter'
 import * as Compile from './compile.ts'
 import * as Pattern from './pattern.ts'
+import { captureOptions, capturePattern } from './capture.ts'
+import { readSnapshot } from './read-snapshot.ts'
 
 export type { Match, Options } from './compile.ts'
 export type { Window } from './compile.ts'
@@ -29,14 +31,26 @@ const storeAtBoundary = (store: Store, options: Compile.Options): Store => {
 const execute = (
   store: Store,
   pattern: Pattern.t,
-  options: Compile.Options = {}
+  options: Compile.Options = {},
+  positions?: WeakMap<object, number>
+): Compile.Window => {
+  // Use the same caller values for historical vocabulary, SQL and post-filters.
+  options = captureOptions(options)
+  return readSnapshot(store, () => executeCaptured(store, pattern, options, positions))
+}
+
+const executeCaptured = (
+  store: Store,
+  pattern: Pattern.t,
+  options: Compile.Options,
+  positions?: WeakMap<object, number>
 ): Compile.Window => {
   if (pattern.payload.kind !== 'attribute' || pattern.payload.value.kind !== 'term') {
-    return Compile.window(storeAtBoundary(store, options), pattern, options)
+    return Compile.window(storeAtBoundary(store, options), pattern, options, positions)
   }
   const value = Value.parse(pattern.payload.value.text)
   if (value.kind !== 'number' || value.num === undefined) {
-    return Compile.window(storeAtBoundary(store, options), pattern, options)
+    return Compile.window(storeAtBoundary(store, options), pattern, options, positions)
   }
   const expectedNum = value.num
   const filter: Pattern.Filter = {
@@ -54,7 +68,7 @@ const execute = (
   }
   const expectedUnit = value.unit ?? null
   const expectedApprox = value.approx ? 1 : 0
-  const result = Compile.window(storeAtBoundary(store, options), normalized, options)
+  const result = Compile.window(storeAtBoundary(store, options), normalized, options, positions)
   return { ...result, matches: result.matches.filter(match => {
     const row = match.row
     return row !== undefined &&
@@ -67,18 +81,19 @@ const execute = (
 export const window = (
   store: Store,
   pattern: Pattern.t,
-  options: Compile.Options = {}
-): Compile.Window => execute(store, pattern, options)
+  options: Compile.Options = {},
+  positions?: WeakMap<object, number>
+): Compile.Window => execute(store, pattern, options, positions)
 
 export const match = (
   store: Store,
   pattern: Pattern.t,
   options: Compile.Options = {}
-): Compile.Match[] => execute(store, pattern, options).matches
+): Compile.Match[] => execute(store, capturePattern(pattern), options).matches
 
 export const query = (
   store: Store,
   input: string,
   options: Compile.Options = {}
 ): Compile.Match[] =>
-  match(store, Pattern.parse(input), options)
+  execute(store, Pattern.parse(input), options).matches

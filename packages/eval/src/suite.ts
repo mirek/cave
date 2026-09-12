@@ -73,7 +73,8 @@ const sourcesOf = (golden: string): string[] => {
         return false
       }
       const extension = name.slice(stem.length + 1)
-      return extension !== '' && !extension.includes('.') && statSync(join(dir, name)).isFile()
+      return extension !== '' && !extension.includes('.') &&
+        statSync(join(dir, name), { throwIfNoEntry: false })?.isFile() === true
     })
     .sort()
     .map(name => join(dir, name))
@@ -95,8 +96,11 @@ const caseOf = (
   cwd: string,
   explicit: undefined | string
 ): { kase: Case } | { problem: string } => {
-  const sources = sourcesOf(golden)
   const name = relative(cwd, golden).slice(0, -goldenSuffix.length)
+  if (!statSync(golden).isFile()) {
+    return { problem: `${name}: ${basename(golden)} must be a file` }
+  }
+  const sources = sourcesOf(golden)
   if (sources.length === 0) {
     return { problem: `${name}: no source file — expected a single ${basename(golden).slice(0, -goldenSuffix.length)}.<ext> beside ${basename(golden)}` }
   }
@@ -106,6 +110,11 @@ const caseOf = (
   const queries = `${golden.slice(0, -goldenSuffix.length)}${queriesSuffix}`
   const loop = `${golden.slice(0, -goldenSuffix.length)}${loopSuffix}`
   const instructions = instructionsOf(golden, root, explicit)
+  for (const path of [queries, loop, instructions]) {
+    if (path !== undefined && existsSync(path) && !statSync(path).isFile()) {
+      return { problem: `${name}: ${basename(path)} must be a file` }
+    }
+  }
   return {
     kase: {
       name,
@@ -130,6 +139,9 @@ export const discover = (
   const explicit = options.instructions === undefined ? undefined : resolve(cwd, options.instructions)
   const cases: Case[] = []
   const problems: string[] = []
+  if (explicit !== undefined && !statSync(explicit, { throwIfNoEntry: false })?.isFile()) {
+    return { cases, problems: [`${explicit}: instructions must name an existing file`] }
+  }
   for (const root of roots) {
     const absolute = resolve(cwd, root)
     if (!existsSync(absolute)) {

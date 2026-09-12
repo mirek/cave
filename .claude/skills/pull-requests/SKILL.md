@@ -35,6 +35,35 @@ description: How a change lands in this repo — branch, changeset, documentatio
   A release merge on main rebuilds the book PDF, so a branch that CI gave
   its own PDF commit conflicts the moment the release lands.
 
+## Publish checkout integrity
+
+The publish entrypoint binds `CAVE_RELEASE_ROOT` to its own checkout, including
+preparation and final tag checks. An inherited root override cannot validate a
+different repository while publishing this one.
+
+Publish preflight requires clean tracked files and no non-ignored untracked
+files at the exact version commit. Ignored build outputs remain permitted at
+preflight, then `pnpm clean` removes emitted output and build metadata before
+release generation and compilation. An incremental build alone cannot verify
+existing output bytes or remove obsolete files.
+The publish script repeats validation after building, testing, and packed
+smoke, before npm publication, and again before tagging. Use a clean checkout
+for release recovery; do not bypass the guard or discard unrelated local work.
+
+Manual Marketplace republication validates the selected `v<version>` checkout
+with the validator from the workflow commit, not the older script stored in
+the release tag. `CAVE_RELEASE_TAG` is accepted only for a manual publish
+workflow and must name the checked-out version commit. Normal push releases
+continue to require checkout equality with `GITHUB_SHA`.
+
+Registry failures and unexpected successful replies are errors, not evidence
+that a package needs publishing. Absence requires an unambiguous npm `E404`
+error-code record; a URL or diagnostic containing 404 does not suffice.
+Retry counts must be positive safe integers;
+retry delays must be integer seconds in 0..60. Invalid settings fail before
+registry access. The defaults and environment variables live in
+`IMPLEMENTATION.md`; post-publish visibility retries include temporary 404s.
+
 ## The review loop
 
 Codex (`chatgpt-codex-connector[bot]`) reviews a PR when it opens and on
@@ -132,7 +161,19 @@ main rather than once per merged PR:
    watch the Publish run on `main`. A
    publish that fails after some "✅ Published" lines is rerun at the same
    commit (`gh run rerun <id>`); published packages are skipped and the
-   `v<version>` tag repaired.
+   `v<version>` tag repaired. Missing packages may publish only while that
+   release remains the current version on `origin/main`. If superseded, finish
+   the newer release; the automatic `latest` path refuses archival publication
+   of missing older versions. Fully published older versions can still recover
+   their tag without republishing packages.
+
+   `pnpm release:audit` independently checks the checkout's declared public
+   versions through a temporary npm installation with lifecycle scripts disabled.
+   It lists the installed package set and verifies registry signatures and
+   available attestations. Run it only after those versions exist. A recovery
+   probe proves presence; neither it nor this audit proves byte equality with a
+   local rebuild. See `IMPLEMENTATION.md` for registry settings and bootstrap
+   provenance limitations.
 
 ## Persist conclusions
 

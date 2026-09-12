@@ -1,0 +1,438 @@
+{
+  "platform": "macOS arm64",
+  "description": "Canonical integer text ordering compared with normalized numerator bigint reparsing; sequential standalone trials",
+  "runs": [
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.009792000000004464,
+        0.023458000000005086,
+        0.013542000000029475,
+        0.007834000000002561,
+        0.007665999999971973,
+        0.009166999999990821,
+        0.008249999999975444
+      ],
+      "medianMs": 0.009166999999990821,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.0031669999999621723,
+        0.0027079999999841675,
+        0.004750000000001364,
+        0.0026669999999739957,
+        0.0026249999999663487,
+        0.002708000000041011,
+        0.004124999999987722
+      ],
+      "medianMs": 0.002708000000041011,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.007833000000005086,
+        0.008667000000002645,
+        0.007457999999985532,
+        0.008333999999990738,
+        0.007541000000003351,
+        0.007334000000014385,
+        0.008625000000051841
+      ],
+      "medianMs": 0.007833000000005086,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.0028750000000172804,
+        0.002708000000041011,
+        0.0038329999999859865,
+        0.0027089999999816428,
+        0.002666000000033364,
+        0.0037919999999758147,
+        0.002666000000033364
+      ],
+      "medianMs": 0.0027089999999816428,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        6.875667000000021,
+        6.733041000000014,
+        6.939000000000021,
+        7.249500000000012,
+        7.0658750000000055,
+        6.7433750000000146,
+        7.080750000000023
+      ],
+      "medianMs": 6.939000000000021,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.2043329999999628,
+        0.102833999999973,
+        0.1017500000000382,
+        0.11283400000002075,
+        0.1117500000000291,
+        0.11716699999999491,
+        0.10287500000004002
+      ],
+      "medianMs": 0.1117500000000291,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        6.966250000000002,
+        6.8929580000000215,
+        7.208000000000027,
+        6.911332999999956,
+        6.882000000000005,
+        6.9050829999999905,
+        6.759500000000003
+      ],
+      "medianMs": 6.9050829999999905,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.117999999999995,
+        0.11841699999996536,
+        0.118458999999973,
+        0.1515839999999571,
+        0.10970900000000938,
+        0.10687500000000227,
+        0.10887500000001182
+      ],
+      "medianMs": 0.117999999999995,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        126.99645799999996,
+        127.115542,
+        127.51283299999989,
+        129.7824169999999,
+        130.01699999999983,
+        126.77337500000021,
+        126.87570800000003
+      ],
+      "medianMs": 127.115542,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        1.1689160000000811,
+        1.1529160000000047,
+        1.3070829999999205,
+        1.1254169999999704,
+        1.1353750000000673,
+        1.1206250000000182,
+        1.2849169999999503
+      ],
+      "medianMs": 1.1529160000000047,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        128.14216699999997,
+        126.8003749999998,
+        126.77374999999984,
+        127.8039160000003,
+        128.626041,
+        130.42712500000016,
+        127.35270900000023
+      ],
+      "medianMs": 127.8039160000003,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        1.391791000000012,
+        1.6985830000003261,
+        1.3544999999999163,
+        1.3581669999998667,
+        1.3803749999997308,
+        1.6012919999998303,
+        1.347541000000092
+      ],
+      "medianMs": 1.3803749999997308,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.009957999999983258,
+        0.025374999999996817,
+        0.011665999999991072,
+        0.00791700000002038,
+        0.009542000000010376,
+        0.007958999999971184,
+        0.008041999999989002
+      ],
+      "medianMs": 0.009542000000010376,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.0027079999999841675,
+        0.0027079999999841675,
+        0.0024999999999977263,
+        0.0024999999999977263,
+        0.0025420000000053733,
+        0.0043330000000310065,
+        0.0038749999999936335
+      ],
+      "medianMs": 0.0027079999999841675,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.010249999999984993,
+        0.00879200000002811,
+        0.007708999999977095,
+        0.009041000000024724,
+        0.00741699999997536,
+        0.008166000000016993,
+        0.0072079999999914435
+      ],
+      "medianMs": 0.008166000000016993,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.0027079999999841675,
+        0.003791000000035183,
+        0.0025420000000053733,
+        0.002541000000007898,
+        0.003708999999957996,
+        0.0025420000000053733,
+        0.045917000000031294
+      ],
+      "medianMs": 0.0027079999999841675,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        7.200625000000002,
+        6.687000000000012,
+        6.8134580000000255,
+        6.6954169999999635,
+        7.235832999999957,
+        7.0873339999999985,
+        6.859332999999992
+      ],
+      "medianMs": 6.859332999999992,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.14487499999995634,
+        0.11391600000001745,
+        0.1114170000000172,
+        0.10504200000002584,
+        0.1033750000000282,
+        0.10775000000001,
+        0.11312500000002501
+      ],
+      "medianMs": 0.1114170000000172,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        6.97608299999996,
+        6.885125000000016,
+        6.760417000000018,
+        6.763999999999953,
+        7.139042000000018,
+        6.742834000000016,
+        6.735292000000015
+      ],
+      "medianMs": 6.763999999999953,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        0.11050000000000182,
+        0.11412500000000136,
+        0.11270899999999529,
+        0.158457999999996,
+        0.1132090000000403,
+        0.11291699999998173,
+        0.11333300000001145
+      ],
+      "medianMs": 0.1132090000000403,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "sign": 1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        127.37774999999999,
+        125.91783399999997,
+        127.66587500000003,
+        127.94374999999991,
+        125.80758300000002,
+        126.92754100000002,
+        129.09212500000012
+      ],
+      "medianMs": 127.37774999999999,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "sign": 1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        1.1392080000000533,
+        1.1737500000001546,
+        1.108417000000145,
+        1.0164589999999407,
+        1.1530830000001515,
+        1.0229159999998956,
+        1.089040999999952
+      ],
+      "medianMs": 1.108417000000145,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "sign": -1,
+      "mode": "bigint-reference",
+      "warmups": 2,
+      "samplesMs": [
+        126.47454200000016,
+        127.56270900000004,
+        130.04004199999963,
+        130.447541,
+        128.09329200000002,
+        129.16087500000003,
+        128.28562499999998
+      ],
+      "medianMs": 128.28562499999998,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "sign": -1,
+      "mode": "text-order",
+      "warmups": 2,
+      "samplesMs": [
+        1.2542090000001735,
+        1.438832999999704,
+        1.085207999999966,
+        1.0969579999996313,
+        1.0878750000001673,
+        1.3117079999997259,
+        1.0912090000001626
+      ],
+      "medianMs": 1.0969579999996313,
+      "timingScope": "comparison including normalization; fixture and assertion excluded"
+    }
+  ]
+}

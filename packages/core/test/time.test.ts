@@ -142,3 +142,45 @@ test('fractionAt: start-instant anchors, clamped through the end period tail (sp
   const mid = Time.fractionAt(range, utc('2026-07-02T12:00:00Z'))
   assert.ok(Math.abs(mid - 0.5) < 0.001)
 })
+
+test('a closed range mixed with an open range is ambiguous for interpolation', () => {
+  assert.deepEqual(Time.closedRangeOf(['2025..2028', '2026', 'production']), Time.parseRange('2025..2028'))
+  for (const open of ['2026..', '..2030']) {
+    assert.equal(Time.closedRangeOf(['2025..2028', open]), undefined)
+    assert.equal(Time.closedRangeOf([open, '2025..2028']), undefined)
+  }
+})
+
+test('calendar periods partition a Gregorian cycle and preserve edge years', () => {
+  const years = new Set([0, 1, 4, 99, 100, 1900, 9999, ...Array.from({ length: 400 }, (_, i) => 2000 + i)])
+  const day = 86_400_000
+  for (const year of years) {
+    const text = String(year).padStart(4, '0')
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+    const annual = Time.parsePeriod(text)!
+    assert.equal(annual.end - annual.start, (leap ? 366 : 365) * day, text)
+    assert.equal(new Date(annual.start).getUTCFullYear(), year)
+    assert.equal(new Date(annual.end).getUTCFullYear(), year + 1)
+    let cursor = annual.start
+    for (let month = 1; month <= 12; month++) {
+      const name = `${text}-${String(month).padStart(2, '0')}`
+      const days = month === 2 ? leap ? 29 : 28 : [4, 6, 9, 11].includes(month) ? 30 : 31
+      const period = Time.parsePeriod(name)!
+      assert.equal(period.start, cursor, name)
+      assert.equal(period.end - period.start, days * day, name)
+      assert.equal(Time.parsePeriod(`${name}-${days}`)?.end, period.end)
+      assert.equal(Time.parsePeriod(`${name}-${days + 1}`), undefined)
+      cursor = period.end
+    }
+    assert.equal(cursor, annual.end)
+    // An ISO year has week 53 exactly when Jan 1 is Thursday, or Wednesday
+    // in a leap year; this checks the Jan-4-based implementation independently.
+    const jan1 = new Date(annual.start).getUTCDay()
+    const weeks = jan1 === 4 || (leap && jan1 === 3) ? 53 : 52
+    const first = Time.parsePeriod(`${text}-W01`)!
+    const last = Time.parsePeriod(`${text}-W${weeks}`)!
+    assert.equal(new Date(first.start).getUTCDay(), 1)
+    assert.equal(last.end - first.start, weeks * 7 * day)
+    assert.equal(Time.parsePeriod(`${text}-W${weeks + 1}`), undefined)
+  }
+})

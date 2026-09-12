@@ -52,47 +52,78 @@ const typeOf = (capture: string): undefined | string => {
   }
 }
 
+/** Release owned resources without replacing a primary failure. */
+const withCleanup = <T>(body: () => T, cleanup: () => void, message: string): T => {
+  let result: T
+  try { result = body() } catch (error) {
+    try { cleanup() } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], message, { cause: error })
+    }
+    throw error
+  }
+  cleanup()
+  return result
+}
+
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
   await Parser.init({
     locateFile: () => context.asAbsolutePath('dist/web-tree-sitter.wasm')
   })
   const language = await Language.load(context.asAbsolutePath('dist/tree-sitter-cave.wasm'))
   const query = new Query(language, readFileSync(context.asAbsolutePath('dist/highlights.scm'), 'utf8'))
-  const parser = new Parser()
-  parser.setLanguage(language)
-
-  const provider: vscode.DocumentSemanticTokensProvider = {
-    provideDocumentSemanticTokens(document) {
-      const tree = parser.parse(document.getText())
-      if (tree === null) {
-        return new vscode.SemanticTokens(new Uint32Array())
-      }
-      try {
-        const builder = new vscode.SemanticTokensBuilder(legend)
-        for (const { name, node } of query.captures(tree.rootNode)) {
-          const type = typeOf(name)
-          // Semantic tokens are single-line; every CAVE capture is, by grammar.
-          if (type === undefined || node.startPosition.row !== node.endPosition.row) {
-            continue
-          }
-          builder.push(
-            new vscode.Range(
-              node.startPosition.row, node.startPosition.column,
-              node.endPosition.row, node.endPosition.column
-            ),
-            type
-          )
-        }
-        return builder.build()
-      } finally {
-        tree.delete()
-      }
+  let parser: Parser | undefined
+  let registration: vscode.Disposable | undefined
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    const errors: unknown[] = []
+    for (const release of [() => registration?.dispose(), () => parser?.delete(), () => query.delete()]) {
+      try { release() } catch (error) { errors.push(error) }
+    }
+    if (errors.length === 1) throw errors[0]
+    if (errors.length > 1) {
+      throw new AggregateError(errors, 'CAVE extension cleanup failed', { cause: errors[0] })
     }
   }
 
-  context.subscriptions.push(
-    vscode.languages.registerDocumentSemanticTokensProvider({ language: 'cave' }, provider, legend)
-  )
+  try {
+    parser = new Parser()
+    parser.setLanguage(language)
+
+    const provider: vscode.DocumentSemanticTokensProvider = {
+      provideDocumentSemanticTokens(document, token) {
+        if (disposed || token?.isCancellationRequested) return new vscode.SemanticTokens(new Uint32Array())
+        const tree = parser!.parse(document.getText())
+        if (tree === null) {
+          return new vscode.SemanticTokens(new Uint32Array())
+        }
+        return withCleanup(() => {
+          const builder = new vscode.SemanticTokensBuilder(legend)
+          for (const { name, node } of query.captures(tree.rootNode)) {
+            const type = typeOf(name)
+            // Semantic tokens are single-line; every CAVE capture is, by grammar.
+            if (type === undefined || node.startPosition.row !== node.endPosition.row) {
+              continue
+            }
+            builder.push(
+              new vscode.Range(
+                node.startPosition.row, node.startPosition.column,
+                node.endPosition.row, node.endPosition.column
+              ),
+              type
+            )
+          }
+          return builder.build()
+        }, () => tree.delete(), 'CAVE token generation failed and tree cleanup also failed')
+      }
+    }
+
+    registration = vscode.languages.registerDocumentSemanticTokensProvider({ language: 'cave' }, provider, legend)
+    context.subscriptions.push({ dispose })
+  } catch (error) {
+    withCleanup(() => { throw error }, dispose, 'CAVE extension activation failed and cleanup also failed')
+  }
 }
 
 export const deactivate = (): void => {}

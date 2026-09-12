@@ -1,0 +1,617 @@
+{
+  "purpose": "Compare shared and distinct expression-object capture at equal occurrence counts; no runtime change.",
+  "reports": [
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per size/mode/topology; four calls, first discarded; construction, native reference and assertions outside timer",
+      "memory": "lifetime peak RSS includes fixture, native reference when applicable, assertions and four calls; not isolated copy allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-wide-capture-bench.mjs": "41816ae398c08acdf454a700b47ec146f83df15b24686b844a91ea3ddec4de9a",
+        "pnpm-lock.yaml": "55cad6d3d442fe4b3b14212312a9ab9a107015bfc59dc59c51ab11033c78b215",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "dc87a702d13859119785c8d436af865615a7adeb46006ec77f57c0073921f0df",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "count": 1000,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4450da4acd94b38b1f8aabc06062c0c96365f395cfc8c3b5408eb8600cbcc8f2",
+          "samplesMs": [
+            0.7535420000000101,
+            0.953583000000009,
+            0.45470900000000825,
+            0.2668330000000054
+          ],
+          "medianMs": 0.45470900000000825,
+          "processMaxRssKiB": 104480
+        },
+        {
+          "count": 1000,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4450da4acd94b38b1f8aabc06062c0c96365f395cfc8c3b5408eb8600cbcc8f2",
+          "samplesMs": [
+            1.9089589999999959,
+            1.237125000000006,
+            1.102624999999989,
+            1.0753330000000005
+          ],
+          "medianMs": 1.102624999999989,
+          "processMaxRssKiB": 105712
+        },
+        {
+          "count": 1000,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "79666b6911d707b52ddbfe23847c4b85f544e93c23ee384caa4826530dc3cf1f",
+          "samplesMs": [
+            5.00608299999999,
+            2.712333000000001,
+            2.2742920000000026,
+            1.4645830000000046
+          ],
+          "medianMs": 2.2742920000000026,
+          "processMaxRssKiB": 108288
+        },
+        {
+          "count": 1000,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "79666b6911d707b52ddbfe23847c4b85f544e93c23ee384caa4826530dc3cf1f",
+          "samplesMs": [
+            8.285124999999994,
+            4.738874999999993,
+            3.7606660000000005,
+            3.4081249999999983
+          ],
+          "medianMs": 3.7606660000000005,
+          "processMaxRssKiB": 111968
+        },
+        {
+          "count": 25000,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4c3d2f40c3f9595708ebb087378a510163822b0d50b443fe029936c76c2a98da",
+          "samplesMs": [
+            9.108625000000004,
+            8.28033400000001,
+            8.557249999999996,
+            7.6867500000000035
+          ],
+          "medianMs": 8.28033400000001,
+          "processMaxRssKiB": 125536
+        },
+        {
+          "count": 25000,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4c3d2f40c3f9595708ebb087378a510163822b0d50b443fe029936c76c2a98da",
+          "samplesMs": [
+            25.713375,
+            24.808750000000003,
+            21.75395800000001,
+            20.134416999999985
+          ],
+          "medianMs": 21.75395800000001,
+          "processMaxRssKiB": 165360
+        },
+        {
+          "count": 25000,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "22f49fe798bd4e714dc5e54f567d166aee410f71e9aa5dadc73237425050bb97",
+          "samplesMs": [
+            46.700625,
+            38.94920800000001,
+            35.741208,
+            34.69258399999998
+          ],
+          "medianMs": 35.741208,
+          "processMaxRssKiB": 154912
+        },
+        {
+          "count": 25000,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "22f49fe798bd4e714dc5e54f567d166aee410f71e9aa5dadc73237425050bb97",
+          "samplesMs": [
+            90.00850000000001,
+            86.509875,
+            77.96787499999996,
+            69.21374999999995
+          ],
+          "medianMs": 77.96787499999996,
+          "processMaxRssKiB": 199232
+        },
+        {
+          "count": 99999,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "e6941366fa4c43f8b06c8c0d9cf70a9decd883ee24e7743369bbdb0b7981e9c8",
+          "samplesMs": [
+            37.642792,
+            35.686667,
+            28.585082999999997,
+            29.342832999999985
+          ],
+          "medianMs": 29.342832999999985,
+          "processMaxRssKiB": 178048
+        },
+        {
+          "count": 99999,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "e6941366fa4c43f8b06c8c0d9cf70a9decd883ee24e7743369bbdb0b7981e9c8",
+          "samplesMs": [
+            110.18941700000002,
+            105.679958,
+            87.641209,
+            92.12141699999995
+          ],
+          "medianMs": 92.12141699999995,
+          "processMaxRssKiB": 274128
+        },
+        {
+          "count": 99999,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "b73e997dbefec045eedcb61f004c50d71a8d129d4b185def8777e7dde3c990e6",
+          "samplesMs": [
+            149.040833,
+            134.467833,
+            130.346833,
+            123.73079100000007
+          ],
+          "medianMs": 130.346833,
+          "processMaxRssKiB": 234816
+        },
+        {
+          "count": 99999,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "b73e997dbefec045eedcb61f004c50d71a8d129d4b185def8777e7dde3c990e6",
+          "samplesMs": [
+            336.669834,
+            318.054542,
+            300.49299999999994,
+            302.39408300000014
+          ],
+          "medianMs": 302.39408300000014,
+          "processMaxRssKiB": 256368
+        }
+      ]
+    },
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per size/mode/topology; four calls, first discarded; construction, native reference and assertions outside timer",
+      "memory": "lifetime peak RSS includes fixture, native reference when applicable, assertions and four calls; not isolated copy allocation",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-wide-capture-bench.mjs": "41816ae398c08acdf454a700b47ec146f83df15b24686b844a91ea3ddec4de9a",
+        "pnpm-lock.yaml": "55cad6d3d442fe4b3b14212312a9ab9a107015bfc59dc59c51ab11033c78b215",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "dc87a702d13859119785c8d436af865615a7adeb46006ec77f57c0073921f0df",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "count": 1000,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4450da4acd94b38b1f8aabc06062c0c96365f395cfc8c3b5408eb8600cbcc8f2",
+          "samplesMs": [
+            0.6964580000000069,
+            0.4297499999999985,
+            0.32645899999999983,
+            0.25950000000000273
+          ],
+          "medianMs": 0.32645899999999983,
+          "processMaxRssKiB": 101520
+        },
+        {
+          "count": 1000,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4450da4acd94b38b1f8aabc06062c0c96365f395cfc8c3b5408eb8600cbcc8f2",
+          "samplesMs": [
+            2.061374999999998,
+            1.2607500000000016,
+            0.9633749999999992,
+            1.0819999999999936
+          ],
+          "medianMs": 1.0819999999999936,
+          "processMaxRssKiB": 104048
+        },
+        {
+          "count": 1000,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "79666b6911d707b52ddbfe23847c4b85f544e93c23ee384caa4826530dc3cf1f",
+          "samplesMs": [
+            5.705292,
+            3.2071669999999983,
+            2.6059999999999945,
+            1.7145420000000087
+          ],
+          "medianMs": 2.6059999999999945,
+          "processMaxRssKiB": 101568
+        },
+        {
+          "count": 1000,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 1001,
+            "expressionDepth": 2
+          },
+          "outputHash": "79666b6911d707b52ddbfe23847c4b85f544e93c23ee384caa4826530dc3cf1f",
+          "samplesMs": [
+            9.706040999999999,
+            6.478416999999993,
+            4.437750000000008,
+            3.5160000000000053
+          ],
+          "medianMs": 4.437750000000008,
+          "processMaxRssKiB": 106608
+        },
+        {
+          "count": 25000,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4c3d2f40c3f9595708ebb087378a510163822b0d50b443fe029936c76c2a98da",
+          "samplesMs": [
+            9.268500000000003,
+            8.26483300000001,
+            8.504209000000003,
+            7.621249999999989
+          ],
+          "medianMs": 8.26483300000001,
+          "processMaxRssKiB": 120096
+        },
+        {
+          "count": 25000,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "4c3d2f40c3f9595708ebb087378a510163822b0d50b443fe029936c76c2a98da",
+          "samplesMs": [
+            25.684584,
+            21.40804200000001,
+            19.693625000000026,
+            19.826082999999983
+          ],
+          "medianMs": 19.826082999999983,
+          "processMaxRssKiB": 152080
+        },
+        {
+          "count": 25000,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "22f49fe798bd4e714dc5e54f567d166aee410f71e9aa5dadc73237425050bb97",
+          "samplesMs": [
+            53.906333000000004,
+            45.920833,
+            35.87591599999999,
+            41.732417
+          ],
+          "medianMs": 41.732417,
+          "processMaxRssKiB": 150016
+        },
+        {
+          "count": 25000,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 25001,
+            "expressionDepth": 2
+          },
+          "outputHash": "22f49fe798bd4e714dc5e54f567d166aee410f71e9aa5dadc73237425050bb97",
+          "samplesMs": [
+            99.832917,
+            95.60566700000001,
+            84.12270799999999,
+            81.957833
+          ],
+          "medianMs": 84.12270799999999,
+          "processMaxRssKiB": 202304
+        },
+        {
+          "count": 99999,
+          "mode": "clone",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "e6941366fa4c43f8b06c8c0d9cf70a9decd883ee24e7743369bbdb0b7981e9c8",
+          "samplesMs": [
+            38.71962499999999,
+            38.9255,
+            30.731458000000003,
+            33.83916700000003
+          ],
+          "medianMs": 33.83916700000003,
+          "processMaxRssKiB": 201408
+        },
+        {
+          "count": 99999,
+          "mode": "clone",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "e6941366fa4c43f8b06c8c0d9cf70a9decd883ee24e7743369bbdb0b7981e9c8",
+          "samplesMs": [
+            107.69408299999998,
+            102.68420900000001,
+            99.17579199999994,
+            87.698125
+          ],
+          "medianMs": 99.17579199999994,
+          "processMaxRssKiB": 354336
+        },
+        {
+          "count": 99999,
+          "mode": "report",
+          "topology": "shared",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "b73e997dbefec045eedcb61f004c50d71a8d129d4b185def8777e7dde3c990e6",
+          "samplesMs": [
+            171.69491699999998,
+            148.28825,
+            136.05758300000008,
+            150.02154200000007
+          ],
+          "medianMs": 148.28825,
+          "processMaxRssKiB": 286816
+        },
+        {
+          "count": 99999,
+          "mode": "report",
+          "topology": "distinct",
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 100000,
+            "expressionDepth": 2
+          },
+          "outputHash": "b73e997dbefec045eedcb61f004c50d71a8d129d4b185def8777e7dde3c990e6",
+          "samplesMs": [
+            369.328083,
+            327.84812500000004,
+            313.05204200000003,
+            338.2255
+          ],
+          "medianMs": 327.84812500000004,
+          "processMaxRssKiB": 336096
+        }
+      ]
+    }
+  ]
+}

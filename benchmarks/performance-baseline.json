@@ -4,7 +4,9 @@
   "runtime": "node-22",
   "workloads": {
     "export": { "baselineMs": 110, "thresholdMs": 750 },
+    "highlightPaint": { "baselineMs": 7, "thresholdMs": 100, "runtime": "node-24.16.0 / darwin-arm64" },
     "import": { "baselineMs": 190, "thresholdMs": 1500 },
+    "legacyMigration": { "baselineMs": 210, "thresholdMs": 1000, "runtime": "node-24.16.0 / darwin-arm64" },
     "resolution": { "baselineMs": 70, "thresholdMs": 500 },
     "shape": { "baselineMs": 10, "thresholdMs": 250 },
     "boundedQuery": { "baselineMs": 13, "thresholdMs": 250 },

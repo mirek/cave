@@ -18,6 +18,7 @@
  * indices are dropped.
  */
 
+import { lastJsonArray } from '@cavelang/loop'
 import { lineOf } from './score.ts'
 import type { Fact } from './score.ts'
 
@@ -50,36 +51,8 @@ export const judgePrompt = (misses: readonly Fact[], extras: readonly Fact[]): s
  * are dropped rather than failing the run.
  */
 export const parsePairs = (output: string, misses: number, extras: number): [number, number][] => {
-  // Balanced-bracket scan: each candidate runs from a `[` to its matching
-  // `]`; a span that parses is consumed whole (inner arrays are not
-  // re-considered), one that does not is re-entered at the next `[` — so
-  // prose brackets before the answer cannot swallow it.
-  let parsed: unknown
-  let at = output.indexOf('[')
-  while (at !== -1) {
-    let depth = 0
-    let end = -1
-    for (let scan = at; scan < output.length; scan += 1) {
-      if (output[scan] === '[') {
-        depth += 1
-      } else if (output[scan] === ']' && --depth === 0) {
-        end = scan
-        break
-      }
-    }
-    if (end === -1) {
-      break
-    }
-    try {
-      parsed = JSON.parse(output.slice(at, end + 1))
-      at = output.indexOf('[', end + 1)
-    } catch {
-      at = output.indexOf('[', at + 1)
-    }
-  }
-  if (!Array.isArray(parsed)) {
-    return []
-  }
+  const parsed = lastJsonArray(output, 'pairs')
+  if (parsed === undefined) return []
   const pairs: [number, number][] = []
   const usedMisses = new Set<number>()
   const usedExtras = new Set<number>()

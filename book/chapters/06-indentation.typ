@@ -99,6 +99,24 @@ resting PRECEDES packing
 This is the same as writing the two lines at the margin. Use it to keep
 related facts visually together in a file; the store does not care.
 
+== Explicit full claims
+
+Some entity names collide with the words that introduce line structure. A leading
+`@claim` says that the following tokens form a full claim:
+
+```cave
+@claim WHEN EXISTS
+  @claim IS EXISTS
+  WHEN @claim NOT EXISTS
+```
+
+The subjects here are the entities `WHEN`, `IS`, and `NOT`. The marker does not
+turn them into quoted literals or add a context. A trailing `@claim` still means
+the ordinary context `claim`. Existing unmarked continuations and qualifiers
+keep their meaning. Canonical export adds the marker where needed; readers of
+that output must support explicit full claims. An incomplete explicit claim can
+also serve as a prefix header.
+
 == Prefix headers
 
 The fourth form is the one the roastery file uses most: an *incomplete*
@@ -118,6 +136,7 @@ directly above it, is documentation only, while a comment block directly
 above a leaf belongs to that leaf's claim. Prefixes nest, and blank lines and
 comment lines inside them are transparent:
 
+#block(breakable: false)[
 ```cave
 lot/huila-26 HAS
   price:
@@ -125,6 +144,7 @@ lot/huila-26 HAS
     8.10 USD/kg @2026-Q3
   process: natural
 ```
+]
 
 The rule that keeps this unambiguous is that only an *incomplete* line can
 be a prefix. As soon as the accumulated line is a complete claim, its

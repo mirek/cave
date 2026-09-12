@@ -1,5 +1,8 @@
 import { Explain } from '@cavelang/solver'
 import type { Binding, Definition, InputRecord, Value } from './model.ts'
+import { schema } from './model.ts'
+import { definitionDigest, inputDigest } from './bind.ts'
+import { captureDefinition } from './capture.ts'
 
 const compareText = (left: string, right: string): number => left < right ? -1 : left > right ? 1 : 0
 
@@ -37,18 +40,36 @@ const bindingInput = (
 
 /** Convert a frozen scenario binding into solver-neutral run provenance. */
 export const explanationContext = (definition: Definition, record: InputRecord): Explain.Context => {
+  definition = captureDefinition(definition)
+  record = structuredClone(record)
+  if (record.schema !== schema) {
+    throw new TypeError(`unsupported scenario input schema ${JSON.stringify(record.schema)}`)
+  }
   if (record.scenarioId !== definition.id) {
     throw new TypeError(`scenario record ${JSON.stringify(record.scenarioId)} does not match ${JSON.stringify(definition.id)}`)
   }
   if (record.modelDigest !== definition.modelDigest) {
     throw new TypeError(`scenario record model digest does not match its definition`)
   }
+  if (record.definitionDigest !== definitionDigest(definition)) {
+    throw new TypeError('scenario record definition digest is missing or does not match; bind the intended definition again')
+  }
+  const { digest, ...contents } = record
+  if (digest !== inputDigest(contents)) {
+    throw new TypeError('scenario record input digest does not match its contents')
+  }
   const definitions = new Map(definition.bindings.map(binding => [binding.id, binding]))
+  const seen = new Set<string>()
   const inputs = record.bindings.map(result => {
     const binding = definitions.get(result.id)
     if (binding === undefined) throw new TypeError(`scenario record contains unknown binding ${JSON.stringify(result.id)}`)
+    if (seen.has(result.id)) throw new TypeError(`scenario record contains duplicate binding ${JSON.stringify(result.id)}`)
+    seen.add(result.id)
     return bindingInput(binding, result)
   })
+  for (const id of definitions.keys()) {
+    if (!seen.has(id)) throw new TypeError(`scenario record is missing binding ${JSON.stringify(id)}`)
+  }
   return {
     modelDigest: record.modelDigest,
     scenario: {

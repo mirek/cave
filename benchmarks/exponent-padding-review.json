@@ -1,0 +1,181 @@
+{
+  "description": "Numeric expansion budget versus authored exponent padding; no runtime change.",
+  "reports": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes fixture construction, key measurement, validation and all four reports",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-exponent-padding-bench.mjs": "bb3158acb4e4a0b445dd3e12e7b937c43031fc3585689f501982c0717a6c0871",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef"
+      },
+      "results": [
+        {
+          "padding": 1,
+          "inputCodeUnits": 3,
+          "keyCodeUnits": 60,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            2.781290999999996,
+            0.24549999999999272,
+            0.6209160000000082,
+            0.15362499999999102
+          ],
+          "medianMs": 0.24549999999999272,
+          "processMaxRssKiB": 98544
+        },
+        {
+          "padding": 1024,
+          "inputCodeUnits": 1026,
+          "keyCodeUnits": 1083,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            1.8395419999999945,
+            0.25491699999999184,
+            0.8417919999999981,
+            0.21587499999999693
+          ],
+          "medianMs": 0.25491699999999184,
+          "processMaxRssKiB": 99632
+        },
+        {
+          "padding": 65536,
+          "inputCodeUnits": 65538,
+          "keyCodeUnits": 65595,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            2.8966250000000002,
+            1.4065829999999977,
+            1.7615830000000017,
+            1.387041999999994
+          ],
+          "medianMs": 1.4065829999999977,
+          "processMaxRssKiB": 99488
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+      "memory": "process lifetime peak RSS includes fixture construction, key measurement, validation and all four reports",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-exponent-padding-bench.mjs": "bb3158acb4e4a0b445dd3e12e7b937c43031fc3585689f501982c0717a6c0871",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef"
+      },
+      "results": [
+        {
+          "padding": 1,
+          "inputCodeUnits": 3,
+          "keyCodeUnits": 60,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            3.2540829999999943,
+            0.20225000000000648,
+            0.6137920000000037,
+            0.14279200000000003
+          ],
+          "medianMs": 0.20225000000000648,
+          "processMaxRssKiB": 102752
+        },
+        {
+          "padding": 1024,
+          "inputCodeUnits": 1026,
+          "keyCodeUnits": 1083,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            1.6275830000000013,
+            0.5189170000000018,
+            0.20829200000000014,
+            0.15587499999999466
+          ],
+          "medianMs": 0.20829200000000014,
+          "processMaxRssKiB": 104064
+        },
+        {
+          "padding": 65536,
+          "inputCodeUnits": 65538,
+          "keyCodeUnits": 65595,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 3,
+            "expressionDepth": 2
+          },
+          "outputHash": "5ee0e03224c4de6a80a1eb7179d5ad8837eb30fa9cca7219558b5ec2b3e5a5dc",
+          "samplesMs": [
+            5.32650000000001,
+            1.4503750000000082,
+            1.6361249999999927,
+            1.2510419999999982
+          ],
+          "medianMs": 1.4503750000000082,
+          "processMaxRssKiB": 104208
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "description": "Current-only export after historical endpoint semantic-key verification; current-state checkpoint, not an isolated before/after comparison.",
+  "platform": "darwin",
+  "arch": "arm64",
+  "method": "Each script/runtime invoked sequentially alone in a fresh process. Within a script, sizes run sequentially in independent in-memory stores. One untimed expected-output call warms each case; five timed calls and median; construction and equality/assertion checks outside timing. No concurrent builds/tests. No memory or hard-deadline claim.",
+  "commands": [
+    "node scripts/current-export-history-bench.mjs",
+    "node scripts/dense-current-export-bench.mjs"
+  ],
+  "sources": {
+    "scripts/current-export-history-bench.mjs": "39e094ca5817f9757f5f893b888ec45e88e6a400a1b5f7d839fb0c046e457775",
+    "scripts/dense-current-export-bench.mjs": "8ac4e409955d412d54c30e54a3dd73a7d71a3de6ee51373f27d727ee8c2c5884",
+    "packages/store/src/store.ts": "722b08e4b7b6c906fb33e0e6ff1b557caf1d482cbfa970545bc6737655bdc3bf",
+    "packages/store/src/row.ts": "30f8a7ae69818e7eb9636bb6d6193da6484bfef3ea1f7132f40a5fec21a41073",
+    "packages/store/src/read-snapshot.ts": "66c595ec63029c1175fbd0700592931437fe16b31bc527155428ab3a681dedfb"
+  },
+  "history": [
+    {
+      "node": "v24.21.0",
+      "revisions": 100,
+      "edge": "none",
+      "medianMs": 0.1662499999999909
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 100,
+      "edge": "current",
+      "medianMs": 0.15724999999997635
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 100,
+      "edge": "historical",
+      "medianMs": 0.18883399999998574
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 1000,
+      "edge": "none",
+      "medianMs": 0.22720800000001873
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 1000,
+      "edge": "current",
+      "medianMs": 0.2552909999999997
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 1000,
+      "edge": "historical",
+      "medianMs": 0.27616700000004357
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 10000,
+      "edge": "none",
+      "medianMs": 1.213624999999979
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 10000,
+      "edge": "current",
+      "medianMs": 1.2252500000000737
+    },
+    {
+      "node": "v24.21.0",
+      "revisions": 10000,
+      "edge": "historical",
+      "medianMs": 1.2411669999999049
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 100,
+      "edge": "none",
+      "medianMs": 0.28179200000005267
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 100,
+      "edge": "current",
+      "medianMs": 0.1604159999999979
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 100,
+      "edge": "historical",
+      "medianMs": 0.21800000000001774
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 1000,
+      "edge": "none",
+      "medianMs": 0.21187499999996362
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 1000,
+      "edge": "current",
+      "medianMs": 0.23245800000000827
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 1000,
+      "edge": "historical",
+      "medianMs": 0.2705839999999853
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 10000,
+      "edge": "none",
+      "medianMs": 1.2010000000000218
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 10000,
+      "edge": "current",
+      "medianMs": 1.219583000000057
+    },
+    {
+      "node": "v26.8.1",
+      "revisions": 10000,
+      "edge": "historical",
+      "medianMs": 1.251792000000023
+    }
+  ],
+  "dense": [
+    {
+      "node": "v24.21.0",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 8.265041999999994
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 35.02087499999993
+    },
+    {
+      "node": "v24.21.0",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 74.73637500000018
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 300,
+      "currentRows": 200,
+      "edges": 100,
+      "medianMs": 8.802042
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 1500,
+      "currentRows": 1000,
+      "edges": 500,
+      "medianMs": 35.90616700000004
+    },
+    {
+      "node": "v26.8.1",
+      "historyRows": 3000,
+      "currentRows": 2000,
+      "edges": 1000,
+      "medianMs": 67.87587500000006
+    }
+  ]
+}

@@ -86,6 +86,33 @@ export const fromEntries = (values: readonly Entry[]): t => ({
   domains: values.filter(entry => entry.dimension === 'domain').map(entry => entry.value)
 })
 
+/** Stable set representation for interchange and identity comparison. */
+export const normalize = (value: t): t => ({
+  actors: [...new Set(value.actors)].sort(),
+  sources: [...new Set(value.sources)].sort(),
+  runs: [...new Set(value.runs)].sort(),
+  domains: [...new Set(value.domains)].sort(),
+})
+
+/** Parse a complete explicit provenance object; reject unknown dimensions and malformed entries. */
+export const parse = (value: unknown): undefined | t => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const object = value as Record<string, unknown>
+  const keys = ['actors', 'sources', 'runs', 'domains'] as const
+  const fields = Object.keys(object)
+  if (fields.length !== keys.length || keys.some(key => !fields.includes(key))) return undefined
+  const captured: Record<(typeof keys)[number], string[]> = { actors: [], sources: [], runs: [], domains: [] }
+  for (const key of keys) {
+    const dimension = object[key]
+    if (!Array.isArray(dimension)) return undefined
+    const values: unknown[] = Array.from(dimension)
+    if (!values.every((entry): entry is string => typeof entry === 'string' && entry.length > 0 &&
+      !/[\uD800-\uDFFF]/u.test(entry))) return undefined
+    captured[key] = values
+  }
+  return normalize(captured)
+}
+
 /** Idempotently derives dimensions for rows written by older CAVE versions. */
 export const backfill = (db: Database): void => {
   const missing = db.prepare(`
@@ -96,7 +123,12 @@ export const backfill = (db: Database): void => {
   `).all() as { id: string, context: null | string }[]
   const grouped = new Map<string, string[]>()
   for (const row of missing) {
-    grouped.set(row.id, [...grouped.get(row.id) ?? [], ...row.context === null ? [] : [row.context]])
+    let contexts = grouped.get(row.id)
+    if (contexts === undefined) {
+      contexts = []
+      grouped.set(row.id, contexts)
+    }
+    if (row.context !== null) contexts.push(row.context)
   }
   const insert = db.prepare(`
     INSERT OR IGNORE INTO cave_provenance (claim_id, dimension, value) VALUES (?, ?, ?)

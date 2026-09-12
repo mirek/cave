@@ -1,0 +1,35 @@
+{
+  "fixture": "scripts/fusion-grouping-bench.mjs",
+  "platform": "darwin-arm64",
+  "method": "One untimed warmup; five sequential calls per implementation; setup and equality assertions excluded. Baseline measured before per-call component caching.",
+  "before": {
+    "runtime": "v26.8.1",
+    "toolsSha256": "3d3fc8277e9bdbb7efff1a04030f84e661d70c4ca72031cfa8edb32ee7cc5e10",
+    "outputSha256": "e0821f289f07fe0fabc7f6dd3b10f595172c853dea8854e23fe73d6e497880e0",
+    "aliases": 100,
+    "estimates": 100,
+    "samplesMs": [
+      61.27645899999993,
+      58.58812499999999,
+      57.64254200000005,
+      58.51608299999998,
+      57.62820799999997
+    ],
+    "medianMs": 58.51608299999998
+  },
+  "after": {
+    "runtime": "v26.8.1",
+    "toolsSha256": "1784cab80d8452c75dd8a62f52ffec74089c3deec314e103406ed3f93f247762",
+    "outputSha256": "e0821f289f07fe0fabc7f6dd3b10f595172c853dea8854e23fe73d6e497880e0",
+    "aliases": 100,
+    "estimates": 100,
+    "samplesMs": [
+      4.51437500000003,
+      4.39466699999997,
+      6.730584000000022,
+      3.682459000000051,
+      3.86508299999997
+    ],
+    "medianMs": 4.39466699999997
+  }
+}

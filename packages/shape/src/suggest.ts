@@ -12,9 +12,14 @@
  * (§19.5): a prompt/reply contract, injected by the caller.
  */
 
-import { Verb } from '@cavelang/core'
-import { QuerySql } from '@cavelang/store'
-import type { Row, Store } from '@cavelang/store'
+import { lastJsonArray } from '@cavelang/loop'
+import { canonicalizeText, emitClaim } from '@cavelang/canonical'
+import { readSnapshot } from './snapshot.ts'
+import { Claim, Verb } from '@cavelang/core'
+import { QuerySql, Row } from '@cavelang/store'
+import type { Store } from '@cavelang/store'
+import { aliasRoot } from './alias-root.ts'
+import { distanceWithin } from './edit-distance.ts'
 
 const currentSql = QuerySql.current()
 
@@ -29,23 +34,23 @@ export type Signal = {
 
 /** One proposed same-entity pair (spec §27), strongest first in results. */
 export type Suggestion = {
-  /** The less-established name — subject of the suggested claim. */
+  /** The less-established name; normally the subject of the suggested claim. */
   readonly entity: string
-  /** The more-established name — object of the suggested claim. */
+  /** The more-established name; normally the object of the suggested claim. */
   readonly canonical: string
   /** Combined evidence score in 0..1 (spec §27.2). */
   readonly score: number
   /** `score / 2`, clamped to 0.3..0.5 — the §20.2 review band. */
   readonly confidence: number
   readonly signals: readonly Signal[]
-  /** The suggested claim as CAVE text: `entity ALIAS canonical #suggested @ N% ; evidence`. */
+  /** The suggested claim as CAVE text; the undirected relation may reverse to preserve entity identity. */
   readonly line: string
 }
 
 export type Options = {
-  /** Minimum evidence score (spec §27.2), default {@link defaultMinScore}. */
+  /** Finite minimum evidence score in 0..1 (spec §27.2), default {@link defaultMinScore}. */
   readonly minScore?: number
-  /** At most this many suggestions, strongest first. */
+  /** Positive safe integer; at most this many suggestions, strongest first. */
   readonly limit?: number
 }
 
@@ -84,23 +89,19 @@ const stripDigits = (text: string): string =>
  * deliberate numbering more often than drift — prefix and edit similarity
  * ignore such pairs (spec §27.2).
  */
-const digitOnlyDifference = (a: string, b: string): boolean =>
-  a !== b && stripDigits(a) === stripDigits(b)
+type ComparisonName = {
+  readonly name: string
+  readonly normalized: string
+  readonly digitless: string
+  readonly tokens: ReadonlySet<string>
+}
 
-const editDistance = (a: string, b: string): number => {
-  let previous = Array.from({ length: b.length + 1 }, (_, at) => at)
-  for (let i = 1; i <= a.length; i += 1) {
-    const next = [i]
-    for (let j = 1; j <= b.length; j += 1) {
-      next.push(Math.min(
-        previous[j]! + 1,
-        next[j - 1]! + 1,
-        previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1)
-      ))
-    }
-    previous = next
-  }
-  return previous[b.length]!
+const editSimilarity = (a: string, b: string): number => {
+  const length = Math.max(a.length, b.length)
+  if (length === 0) return 1
+  // Only similarities >= 0.75 can contribute a signal or pass the drift guard.
+  const distance = distanceWithin(a, b, Math.floor(length / 4))
+  return distance === undefined ? 0 : 1 - distance / length
 }
 
 /**
@@ -109,8 +110,7 @@ const editDistance = (a: string, b: string): number => {
  * `grandma-maria`) from sibling naming (`north-tower` / `south-tower`) —
  * whole-string similarity alone cannot tell a typo from a differing word.
  */
-const leftoverDrift = (a: string, b: string): boolean => {
-  const [ta, tb] = [tokensOf(a), tokensOf(b)]
+const leftoverDrift = (ta: ReadonlySet<string>, tb: ReadonlySet<string>): boolean => {
   const leftA = [...ta].filter(token => !tb.has(token))
   const leftB = [...tb].filter(token => !ta.has(token))
   if (leftA.length === 0 || leftB.length === 0) {
@@ -118,7 +118,7 @@ const leftoverDrift = (a: string, b: string): boolean => {
   }
   const [small, large] = leftA.length <= leftB.length ? [leftA, leftB] : [leftB, leftA]
   return small.every(token =>
-    large.some(other => 1 - editDistance(token, other) / Math.max(token.length, other.length) >= 0.75))
+    large.some(other => editSimilarity(token, other) >= 0.75))
 }
 
 /**
@@ -134,8 +134,10 @@ type Graph = {
   readonly counts: Map<string, number>
   /** Name → `out`/`in` relation-neighbor signature set (verb + other end). */
   readonly neighbors: Map<string, Set<string>>
-  /** `attr\nvalue\nunit` → names carrying it (textual values ≥ 4 chars only). */
+  /** JSON attribute/value/unit tuple → carriers (textual values ≥ 4 chars only). */
   readonly values: Map<string, Set<string>>
+  /** Order-free pair identity → at most two rare-value signals. */
+  readonly valueSignals: Map<string, Signal[]>
   /** Pairs connected by any current claim — related entities are distinct. */
   readonly related: Set<string>
   /** Pairs decided by any recorded `ALIAS` row, whatever its state. */
@@ -145,6 +147,10 @@ type Graph = {
 }
 
 const readGraph = (store: Store): Graph => {
+  return readSnapshot(store, 'cave_alias_discovery', () => readGraphSnapshot(store))
+}
+
+const readGraphSnapshot = (store: Store): Graph => {
   const rows = store.db.prepare(`SELECT c.* FROM (${currentSql}) c WHERE c.conf > 0`).all() as unknown as Row.t[]
   // Entities carrying ingestion bookkeeping (`<path> HAS ingest-digest: …`)
   // are file records, not domain entities — similar paths are not aliases.
@@ -165,15 +171,7 @@ const readGraph = (store: Store): Graph => {
   const values = new Map<string, Set<string>>()
   const related = new Set<string>()
   const aliasParent = new Map<string, string>()
-  const find = (name: string): string => {
-    const up = aliasParent.get(name)
-    if (up === undefined || up === name) {
-      return name
-    }
-    const root = find(up)
-    aliasParent.set(name, root)
-    return root
-  }
+  const find = (name: string): string => aliasRoot(aliasParent, name)
   for (const row of rows) {
     count(row.subject)
     if (row.object !== null) {
@@ -183,15 +181,17 @@ const readGraph = (store: Store): Graph => {
         aliasParent.set(find(row.subject), find(row.object))
       }
       if (row.negated === 0 && row.verb !== 'ALIAS') {
-        neighbor(row.subject, `out ${row.verb} ${row.object}`)
-        neighbor(row.object, `in ${row.subject} ${row.verb}`)
+        neighbor(row.subject, JSON.stringify(['out', row.verb, row.object]))
+        neighbor(row.object, JSON.stringify(['in', row.subject, row.verb]))
       }
     }
     // Only textual values long enough to be distinctive can identify —
     // two entities measuring alike (`floors: 2`) are not one entity.
     if (row.negated === 0 && row.attribute !== null && row.value_num === null &&
         row.value_text !== null && row.value_text.length >= 4) {
-      const key = [row.attribute, row.value_text, row.value_unit ?? ''].join('\n')
+      const kind = Row.parseValue(row.value_text).kind
+      if (kind === 'number' || kind === 'trajectory') continue
+      const key = JSON.stringify([row.attribute, row.value_text, row.value_unit ?? ''])
       values.set(key, (values.get(key) ?? new Set()).add(row.subject))
     }
   }
@@ -202,17 +202,32 @@ const readGraph = (store: Store): Graph => {
       .map(row => pairKey(row.subject, row.object))
   )
   const closureRoot = new Map([...counts.keys()].map(name => [name, find(name)]))
-  return { counts, neighbors, values, related, decided, closureRoot }
+  const valueSignals = new Map<string, Signal[]>()
+  for (const [key, names] of values) {
+    // Exactly two carriers — a value shared more widely is a common
+    // category value (`status: active`), not an identity.
+    if (names.size === 2) {
+      const [a, b] = [...names] as [string, string]
+      const pair = pairKey(a, b)
+      const signals = valueSignals.get(pair) ?? []
+      if (signals.length >= 2) continue
+      const [attribute, value, unit] = JSON.parse(key) as [string, string, string]
+      const shown = value.length > 40 ? `${value.slice(0, 40)}...` : value
+      signals.push({ kind: 'value', score: 0.8, detail: `share ${attribute}: ${shown}${unit === '' ? '' : ` ${unit}`}` })
+      valueSignals.set(pair, signals)
+    }
+  }
+  return { counts, neighbors, values, valueSignals, related, decided, closureRoot }
 }
 
 /** String and shared-value signals — the candidate-generating evidence (spec §27.2). */
-const primarySignals = (a: string, b: string, graph: Graph): Signal[] => {
+const primarySignals = (left: ComparisonName, right: ComparisonName, graph: Graph): Signal[] => {
   const signals: Signal[] = []
-  const [na, nb] = [norm(a), norm(b)]
+  const { name: a, normalized: na, tokens: ta } = left
+  const { name: b, normalized: nb, tokens: tb } = right
   if (na === nb) {
     signals.push({ kind: 'equal', score: 1, detail: 'names equal ignoring case and separators' })
   } else {
-    const [ta, tb] = [tokensOf(a), tokensOf(b)]
     const [small, large] = ta.size <= tb.size ? [ta, tb] : [tb, ta]
     const subset = [...small].every(token => large.has(token))
     if (subset && ta.size === tb.size) {
@@ -221,7 +236,7 @@ const primarySignals = (a: string, b: string, graph: Graph): Signal[] => {
       const [short, long] = ta.size <= tb.size ? [a, b] : [b, a]
       signals.push({ kind: 'tokens', score: 0.7, detail: `segments of ${short} within ${long}` })
     }
-    if (!digitOnlyDifference(na, nb)) {
+    if (left.digitless !== right.digitless) {
       const [short, long] = na.length <= nb.length ? [a, b] : [b, a]
       if (Math.min(na.length, nb.length) >= 4 && (na.startsWith(nb) || nb.startsWith(na))) {
         signals.push({
@@ -230,26 +245,15 @@ const primarySignals = (a: string, b: string, graph: Graph): Signal[] => {
           detail: `${short} prefixes ${long}`
         })
       }
-      if (Math.min(na.length, nb.length) >= 5 && leftoverDrift(a, b)) {
-        const similarity = 1 - editDistance(na, nb) / Math.max(na.length, nb.length)
+      if (Math.min(na.length, nb.length) >= 5 && leftoverDrift(ta, tb)) {
+        const similarity = editSimilarity(na, nb)
         if (similarity >= 0.75) {
           signals.push({ kind: 'edit', score: similarity, detail: `spelling ${Math.round(similarity * 100)}% similar` })
         }
       }
     }
   }
-  for (const [key, names] of graph.values) {
-    // Exactly the two candidates — a value shared more widely is a common
-    // category value (`status: active`), not an identity.
-    if (names.size === 2 && names.has(a) && names.has(b)) {
-      const [attribute, value, unit] = key.split('\n') as [string, string, string]
-      const shown = value.length > 40 ? `${value.slice(0, 40)}...` : value
-      signals.push({ kind: 'value', score: 0.8, detail: `share ${attribute}: ${shown}${unit === '' ? '' : ` ${unit}`}` })
-      if (signals.filter(signal => signal.kind === 'value').length >= 2) {
-        break
-      }
-    }
-  }
+  signals.push(...graph.valueSignals.get(pairKey(a, b)) ?? [])
   return signals
 }
 
@@ -263,7 +267,7 @@ const neighborSignals = (a: string, b: string, graph: Graph): Signal[] => {
   const signals: Signal[] = []
   for (const signature of from) {
     if (other.has(signature)) {
-      const [side, first, second] = signature.split(' ') as [string, string, string]
+      const [side, first, second] = JSON.parse(signature) as [string, string, string]
       signals.push({
         kind: 'neighbor',
         score: 0.1,
@@ -277,8 +281,72 @@ const neighborSignals = (a: string, b: string, graph: Graph): Signal[] => {
   return signals
 }
 
-const formatPercent = (confidence: number): string =>
-  `${Math.round(confidence * 100)}%`
+/** ALIAS is undirected; prefer the conventional order when it is representable. */
+const suggestionLine = (entity: string, canonical: string, confidence: number, signals: readonly Signal[]): string => {
+  const render = (subject: string, object: string) => emitClaim(Claim.of({
+    subject: Claim.entity(subject), verb: 'ALIAS', payload: Claim.relation(Claim.entity(object)),
+    conf: confidence, tags: [{ key: suggestTag }], comment: signals.map(signal => signal.detail).join('; ')
+  }))
+  try { return render(entity, canonical) }
+  catch (forwardError) {
+    if (!(forwardError instanceof TypeError)) throw forwardError
+    try { return render(canonical, entity) }
+    catch (reverseError) {
+      if (!(reverseError instanceof TypeError)) throw reverseError
+      throw new Error(`CAVE cannot represent an alias relation between ${JSON.stringify(entity)} and ${JSON.stringify(canonical)} in either direction; no suggestions were written`,
+        { cause: new AggregateError([forwardError, reverseError], 'Neither alias orientation preserves entity payload identity') })
+    }
+  }
+}
+
+type Candidate = Omit<Suggestion, 'line'>
+
+const suggestionCollector = (limit: number | undefined) => {
+  const compareValues = (a: Candidate, b: Candidate): number =>
+    b.score - a.score || a.entity.localeCompare(b.entity) || a.canonical.localeCompare(b.canonical)
+  if (limit === undefined) {
+    const all: Candidate[] = []
+    return { add: (value: Candidate): void => { all.push(value) }, finish: (): Candidate[] => all.sort(compareValues) }
+  }
+  type Ranked = { value: Candidate, order: number }
+  const retained: Ranked[] = []
+  let order = 0
+  const compare = (a: Ranked, b: Ranked): number =>
+    compareValues(a.value, b.value) || a.order - b.order
+  const swap = (a: number, b: number): void => {
+    const value = retained[a]!
+    retained[a] = retained[b]!
+    retained[b] = value
+  }
+  return {
+    add(value: Candidate): void {
+      const entry = { value, order: order++ }
+      // A max-heap keeps the worst retained candidate at the root.
+      if (retained.length < limit) {
+        retained.push(entry)
+        let at = retained.length - 1
+        while (at > 0) {
+          const parent = Math.floor((at - 1) / 2)
+          if (compare(retained[at]!, retained[parent]!) <= 0) break
+          swap(at, parent)
+          at = parent
+        }
+        return
+      }
+      if (compare(entry, retained[0]!) >= 0) return
+      retained[0] = entry
+      let at = 0
+      while (2 * at + 1 < retained.length) {
+        let child = 2 * at + 1
+        if (child + 1 < retained.length && compare(retained[child + 1]!, retained[child]!) > 0) child++
+        if (compare(retained[at]!, retained[child]!) >= 0) break
+        swap(at, child)
+        at = child
+      }
+    },
+    finish: (): Candidate[] => retained.sort(compare).map(entry => entry.value)
+  }
+}
 
 /**
  * Proposes same-entity candidates over current beliefs (spec §27),
@@ -292,23 +360,40 @@ const formatPercent = (confidence: number): string =>
  */
 export const suggestAliases = (store: Store, options: Options = {}): Suggestion[] => {
   const minScore = options.minScore ?? defaultMinScore
+  const limit = options.limit
+  if (!Number.isFinite(minScore) || minScore < 0 || minScore > 1) {
+    throw new TypeError('minScore must be finite and between 0 and 1')
+  }
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) {
+    throw new TypeError('limit must be a positive safe integer')
+  }
   const graph = readGraph(store)
   const names = [...graph.counts.keys()].sort()
+  const comparisons = new Map(names.map(name => {
+    const normalized = norm(name)
+    return [name, { name, normalized, digitless: stripDigits(normalized), tokens: tokensOf(name) }]
+  }))
   // Cheap blocking: a pair is worth scoring when the names share their
   // first comparison character, a normalized suffix, a segment, or a rare
   // value. The suffix block lets leading-character edits reach the existing
   // edit-distance and differing-segment guards.
-  const blocks = new Map<string, string[]>()
+  const blocks = new Map<string, { id: number, names: string[] }>()
+  const memberships = new Map<string, Set<number>>()
   const block = (key: string, name: string): void => {
-    blocks.set(key, [...blocks.get(key) ?? [], name])
+    const bucket = blocks.get(key) ?? { id: blocks.size, names: [] }
+    bucket.names.push(name)
+    blocks.set(key, bucket)
+    const member = memberships.get(name) ?? new Set<number>()
+    member.add(bucket.id)
+    memberships.set(name, member)
   }
   for (const name of names) {
-    const normalized = norm(name)
+    const { normalized, tokens } = comparisons.get(name)!
     block(`first ${normalized[0]!}`, name)
     if (normalized.length >= 5) {
       block(`suffix ${normalized.slice(-4)}`, name)
     }
-    for (const token of tokensOf(name)) {
+    for (const token of tokens) {
       block(`token ${token}`, name)
     }
   }
@@ -327,21 +412,26 @@ export const suggestAliases = (store: Store, options: Options = {}): Suggestion[
       graph.closureRoot.get(a) === graph.closureRoot.get(b) ||
       a.startsWith(`${b}/`) || b.startsWith(`${a}/`)
   }
-  const seen = new Set<string>()
-  const suggestions: Suggestion[] = []
-  for (const bucket of blocks.values()) {
+  const suggestions = suggestionCollector(limit)
+  for (const { id, names: bucket } of blocks.values()) {
     for (let i = 0; i < bucket.length; i += 1) {
       for (let j = i + 1; j < bucket.length; j += 1) {
         const [a, b] = [bucket[i]!, bucket[j]!]
-        const key = pairKey(a, b)
-        if (seen.has(key)) {
+        // The first shared block owns the pair. Remembering memberships
+        // avoids retaining a separate key for every candidate pair.
+        const left = memberships.get(a)!
+        const right = memberships.get(b)!
+        let earlier = false
+        for (const shared of left) {
+          if (shared < id && right.has(shared)) { earlier = true; break }
+        }
+        if (earlier) {
           continue
         }
-        seen.add(key)
         if (excluded(a, b)) {
           continue
         }
-        const primary = primarySignals(a, b, graph)
+        const primary = primarySignals(comparisons.get(a)!, comparisons.get(b)!, graph)
         if (primary.length === 0) {
           continue
         }
@@ -362,39 +452,70 @@ export const suggestAliases = (store: Store, options: Options = {}): Suggestion[
         const [entity, canonical] = canonicalFirst ? [b, a] : [a, b]
         const signals = [...primary, ...boosts]
         const confidence = Math.min(0.5, Math.max(0.3, Math.round(score * 50) / 100))
-        suggestions.push({
+        suggestions.add({
           entity,
           canonical,
           score,
           confidence,
-          signals,
-          line: `${entity} ALIAS ${canonical} #${suggestTag} @ ${formatPercent(confidence)}` +
-            ` ; ${signals.map(signal => signal.detail).join('; ')}`
+          signals
         })
       }
     }
   }
-  suggestions.sort((a, b) =>
-    b.score - a.score || a.entity.localeCompare(b.entity) || a.canonical.localeCompare(b.canonical))
-  return options.limit === undefined ? suggestions : suggestions.slice(0, options.limit)
+  return suggestions.finish().map(candidate => ({ ...candidate,
+    line: suggestionLine(candidate.entity, candidate.canonical, candidate.confidence, candidate.signals)
+  }))
 }
 
 /**
  * Appends suggestions as claims, stamped `@src:suggest/alias` (spec §9.5,
  * §27.3). Once written, a pair has `ALIAS` history and is never suggested
- * again — re-runs are naturally idempotent. Note the §13.6 consequence: a
+ * again. Recheck both directions of pair history under the write reservation,
+ * including retained suggestions that awaited an external judge; reviewed
+ * pairs and duplicate input pairs are skipped. Note the §13.6 consequence: a
  * positive claim at any confidence links the alias closure; belief is
  * graded, and review (confirm or retract) is the follow-up.
  */
 export const writeSuggestions = (store: Store, suggestions: readonly Suggestion[]): { appended: number } =>
   suggestions.length === 0 ?
     { appended: 0 } :
-    {
-      appended: store.ingest(
-        suggestions.map(suggestion => suggestion.line).join('\n'),
-        { source: suggestSource, strict: true }
-      ).ids.length
-    }
+    store.transaction(() => {
+      const history = store.db.prepare(`
+        SELECT 1 FROM cave_claim WHERE verb = 'ALIAS' AND
+          ((subject = ? AND object = ?) OR (subject = ? AND object = ?)) LIMIT 1
+      `)
+      const seen = new Set<string>()
+      const fresh = suggestions.map(({ entity, canonical, line }) => ({ entity, canonical, line })).filter(({ entity, canonical }) => {
+        const key = pairKey(entity, canonical)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return history.get(entity, canonical, canonical, entity) === undefined
+      })
+      if (fresh.length === 0) return { appended: 0 }
+      const registry = store.registry()
+      const lines: string[] = []
+      for (const suggestion of fresh) {
+        const parsed = canonicalizeText(suggestion.line, registry)
+        const claim = parsed.claims[0]?.claim
+        if (parsed.problems.length > 0 || parsed.claims.length !== 1 || parsed.edges.length !== 0 ||
+            claim?.verb !== 'ALIAS' || claim.negated || !(claim.conf > 0) ||
+            claim.subject.kind !== 'entity' || claim.payload.kind !== 'relation' ||
+            claim.payload.object.kind !== 'entity' ||
+            !((claim.subject.text === suggestion.entity && claim.payload.object.text === suggestion.canonical) ||
+              (claim.subject.text === suggestion.canonical && claim.payload.object.text === suggestion.entity))) {
+          throw new Error(`CAVE suggestion must encode one positive alias relation between ${JSON.stringify(suggestion.entity)} and ${JSON.stringify(suggestion.canonical)}; no suggestions were appended`)
+        }
+        // A line valid in isolation may carry indentation that groups it under
+        // the preceding suggestion when joined. Emit each as an independent claim.
+        lines.push(emitClaim(claim))
+      }
+      return {
+        appended: store.ingest(
+          lines.join('\n'),
+          { source: suggestSource, strict: true }
+        ).ids.length
+      }
+    })
 
 /** Current claims naming the entity, newest first — the judge's evidence. */
 const evidenceOf = (store: Store, entity: string, limit: number): string[] =>
@@ -404,12 +525,20 @@ const evidenceOf = (store: Store, entity: string, limit: number): string[] =>
     ORDER BY c.tx DESC LIMIT ?
   `).all(entity, entity, limit) as { line: string }[]).map(row => row.line)
 
+type JudgeCandidate = Pick<Suggestion, 'entity' | 'canonical' | 'line'>
+
 /**
  * The judge prompt (spec §27.4): every suggestion with its evidence and
  * each side's current claims. The reply contract is one JSON array of the
  * suggestion numbers that really are the same entity.
  */
-export const judgePrompt = (store: Store, suggestions: readonly Suggestion[]): string => [
+export const judgePrompt = (store: Store, suggestions: readonly Suggestion[]): string => {
+  const captured = suggestions.map(({ entity, canonical, line }) => ({ entity, canonical, line }))
+  if (captured.length === 0) return readJudgePrompt(store, captured)
+  return readSnapshot(store, 'cave_alias_judge', () => readJudgePrompt(store, captured))
+}
+
+const readJudgePrompt = (store: Store, suggestions: readonly JudgeCandidate[]): string => [
   'You are reviewing entity-alias suggestions for a CAVE knowledge store — one atomic claim',
   'per line: subject VERB object, or subject HAS attribute: value, with optional @context,',
   '#tag and @ N% confidence.',
@@ -438,23 +567,8 @@ export const judgePrompt = (store: Store, suggestions: readonly Suggestion[]): s
  * rather than failing the run.
  */
 export const parseJudgeReply = (output: string, count: number): number[] => {
-  let parsed: unknown
-  let at = output.indexOf('[')
-  while (at !== -1) {
-    const end = output.indexOf(']', at)
-    if (end === -1) {
-      break
-    }
-    try {
-      parsed = JSON.parse(output.slice(at, end + 1))
-      at = output.indexOf('[', end + 1)
-    } catch {
-      at = output.indexOf('[', at + 1)
-    }
-  }
-  if (!Array.isArray(parsed)) {
-    return []
-  }
+  const parsed = lastJsonArray(output)
+  if (parsed === undefined) return []
   const kept = new Set<number>()
   for (const entry of parsed) {
     if (typeof entry === 'number' && Number.isInteger(entry) && entry >= 1 && entry <= count) {

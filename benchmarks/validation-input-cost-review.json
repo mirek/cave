@@ -1,0 +1,337 @@
+{
+  "scope": "direct validation of malformed integer text, unknown reference text and valid provenance lists under default model limits; bounded errors do not imply bounded scanning or provenance cardinality",
+  "reports": {
+    "26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "fresh sequential children; four direct validations, first discarded; fixture, assertions and hashing outside timing",
+      "memory": "lifetime peak RSS includes fixture and four calls; old-space allowance is not a process RSS cap",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-validation-input-cost-bench.mjs": "5c8d9c05ebe647e4d03bc3abc510c9b901dc801533b894b7d9d2f84c0d6863bd",
+        "pnpm-lock.yaml": "55cad6d3d442fe4b3b14212312a9ab9a107015bfc59dc59c51ab11033c78b215",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/diagnostic-text.ts": "b8823b0a667de3cb2423bf01e65e40452dece9aa6033f62f3dea60c224b3a3be",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "4f4ea1d8898fbef6e9b1fda49ddc452a0c4cacab0aa746f6042a75998298e617",
+        "packages/solver/src/explain.ts": "56c7591ddba14fea0100caf32837ad6c3e38683d1f5e26011ff8186c2fd5a294",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "e44905b4c7b6ca4e1792333dd2d7188575d48a07f3e53e67f8b6aaf382259366",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "cf7bed388ebcdc20428bfa2ecf73f68b1dc0f0e082873daef5978d2cf78f31e2",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "kind": "invalid-integer",
+          "size": 1000,
+          "samplesMs": [
+            2.0745000000000005,
+            0.15825000000000955,
+            0.057542000000012195,
+            0.04229200000000333
+          ],
+          "medianMs": 0.057542000000012195,
+          "outputHash": "1cdc2a039fe2cfd0de823d96eb09d01f8f21649b76e520659b5525470a123a26",
+          "messageLength": 269,
+          "processMaxRssKiB": 101824
+        },
+        {
+          "kind": "invalid-integer",
+          "size": 100000,
+          "samplesMs": [
+            2.0884590000000003,
+            1.4766249999999985,
+            1.1129590000000036,
+            1.3862499999999898
+          ],
+          "medianMs": 1.3862499999999898,
+          "outputHash": "da515c2f2c1b6f48b44fce69d659a84b5d7d80294edd07cf5e311ba570d6dd84",
+          "messageLength": 271,
+          "processMaxRssKiB": 102112
+        },
+        {
+          "kind": "invalid-integer",
+          "size": 1000000,
+          "samplesMs": [
+            10.344750000000005,
+            11.987875000000003,
+            9.057292000000004,
+            12.01495899999999
+          ],
+          "medianMs": 11.987875000000003,
+          "outputHash": "2f198daecdbf20d7a0b6a6711f6c8a42c391768f849b1c1b52e92984745e10a3",
+          "messageLength": 272,
+          "processMaxRssKiB": 103344
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 1000,
+          "samplesMs": [
+            1.5268329999999963,
+            0.08508299999999736,
+            0.042208000000002244,
+            0.027416999999999803
+          ],
+          "medianMs": 0.042208000000002244,
+          "outputHash": "0245578c04f1bdb6a34459bf2d0f6ac6273472806798e92e165525fa07b8e2a1",
+          "messageLength": 268,
+          "processMaxRssKiB": 101536
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 100000,
+          "samplesMs": [
+            0.7669580000000025,
+            0.08099999999998886,
+            0.04391599999999585,
+            0.028958000000002926
+          ],
+          "medianMs": 0.04391599999999585,
+          "outputHash": "203be9b646d0007b0a1035cb54a0417cc53ea734856c20b4c8a8e66508b9d8d5",
+          "messageLength": 270,
+          "processMaxRssKiB": 101504
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 1000000,
+          "samplesMs": [
+            0.9877079999999978,
+            0.07966600000000312,
+            0.04229100000000585,
+            0.029166000000003578
+          ],
+          "medianMs": 0.04229100000000585,
+          "outputHash": "546d3baf5449d523a11499dee3d15c4f43065b3403c77d327b3d241e1c06e52c",
+          "messageLength": 271,
+          "processMaxRssKiB": 105520
+        },
+        {
+          "kind": "provenance",
+          "size": 1000,
+          "samplesMs": [
+            0.761375000000001,
+            1.0215830000000068,
+            0.15075000000000216,
+            0.1270410000000055
+          ],
+          "medianMs": 0.15075000000000216,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 102688
+        },
+        {
+          "kind": "provenance",
+          "size": 100000,
+          "samplesMs": [
+            22.276459000000003,
+            6.7928329999999875,
+            5.7754170000000045,
+            7.233249999999998
+          ],
+          "medianMs": 6.7928329999999875,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 133536
+        },
+        {
+          "kind": "provenance",
+          "size": 1000000,
+          "samplesMs": [
+            472.14658299999996,
+            158.26516700000002,
+            123.3114579999999,
+            150.1395419999999
+          ],
+          "medianMs": 150.1395419999999,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 323904
+        }
+      ]
+    },
+    "24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "fresh sequential children; four direct validations, first discarded; fixture, assertions and hashing outside timing",
+      "memory": "lifetime peak RSS includes fixture and four calls; old-space allowance is not a process RSS cap",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-validation-input-cost-bench.mjs": "5c8d9c05ebe647e4d03bc3abc510c9b901dc801533b894b7d9d2f84c0d6863bd",
+        "pnpm-lock.yaml": "55cad6d3d442fe4b3b14212312a9ab9a107015bfc59dc59c51ab11033c78b215",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/diagnostic-text.ts": "b8823b0a667de3cb2423bf01e65e40452dece9aa6033f62f3dea60c224b3a3be",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "4f4ea1d8898fbef6e9b1fda49ddc452a0c4cacab0aa746f6042a75998298e617",
+        "packages/solver/src/explain.ts": "56c7591ddba14fea0100caf32837ad6c3e38683d1f5e26011ff8186c2fd5a294",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "e44905b4c7b6ca4e1792333dd2d7188575d48a07f3e53e67f8b6aaf382259366",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "cf7bed388ebcdc20428bfa2ecf73f68b1dc0f0e082873daef5978d2cf78f31e2",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "kind": "invalid-integer",
+          "size": 1000,
+          "samplesMs": [
+            1.3056660000000022,
+            0.1837500000000034,
+            0.07816700000000765,
+            0.04812499999999886
+          ],
+          "medianMs": 0.07816700000000765,
+          "outputHash": "1cdc2a039fe2cfd0de823d96eb09d01f8f21649b76e520659b5525470a123a26",
+          "messageLength": 269,
+          "processMaxRssKiB": 98176
+        },
+        {
+          "kind": "invalid-integer",
+          "size": 100000,
+          "samplesMs": [
+            1.6351250000000022,
+            1.3539160000000123,
+            0.9541250000000048,
+            1.2347500000000053
+          ],
+          "medianMs": 1.2347500000000053,
+          "outputHash": "da515c2f2c1b6f48b44fce69d659a84b5d7d80294edd07cf5e311ba570d6dd84",
+          "messageLength": 271,
+          "processMaxRssKiB": 98864
+        },
+        {
+          "kind": "invalid-integer",
+          "size": 1000000,
+          "samplesMs": [
+            10.778041000000002,
+            12.799000000000007,
+            8.92029199999999,
+            11.988332999999997
+          ],
+          "medianMs": 11.988332999999997,
+          "outputHash": "2f198daecdbf20d7a0b6a6711f6c8a42c391768f849b1c1b52e92984745e10a3",
+          "messageLength": 272,
+          "processMaxRssKiB": 100976
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 1000,
+          "samplesMs": [
+            1.0321659999999895,
+            0.10250000000000625,
+            0.04724999999999113,
+            0.03541699999999537
+          ],
+          "medianMs": 0.04724999999999113,
+          "outputHash": "0245578c04f1bdb6a34459bf2d0f6ac6273472806798e92e165525fa07b8e2a1",
+          "messageLength": 268,
+          "processMaxRssKiB": 97440
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 100000,
+          "samplesMs": [
+            1.0586250000000064,
+            0.25116599999998357,
+            1.3170829999999967,
+            0.058583999999996195
+          ],
+          "medianMs": 0.25116599999998357,
+          "outputHash": "203be9b646d0007b0a1035cb54a0417cc53ea734856c20b4c8a8e66508b9d8d5",
+          "messageLength": 270,
+          "processMaxRssKiB": 100096
+        },
+        {
+          "kind": "unknown-reference",
+          "size": 1000000,
+          "samplesMs": [
+            1.104457999999994,
+            0.3932920000000024,
+            0.07470900000001279,
+            0.03612499999999841
+          ],
+          "medianMs": 0.07470900000001279,
+          "outputHash": "546d3baf5449d523a11499dee3d15c4f43065b3403c77d327b3d241e1c06e52c",
+          "messageLength": 271,
+          "processMaxRssKiB": 100960
+        },
+        {
+          "kind": "provenance",
+          "size": 1000,
+          "samplesMs": [
+            2.572249999999997,
+            0.36383300000002805,
+            1.369624999999985,
+            0.15945800000000077
+          ],
+          "medianMs": 0.36383300000002805,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 99776
+        },
+        {
+          "kind": "provenance",
+          "size": 100000,
+          "samplesMs": [
+            36.40870800000002,
+            30.136042000000003,
+            16.444375000000008,
+            17.49116699999996
+          ],
+          "medianMs": 17.49116699999996,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 128208
+        },
+        {
+          "kind": "provenance",
+          "size": 1000000,
+          "samplesMs": [
+            427.285,
+            291.559792,
+            241.35516699999994,
+            244.46433300000012
+          ],
+          "medianMs": 244.46433300000012,
+          "outputHash": "1f8171ff0b1b3ea290fe6a0382db832577d5b625cc8bc1432cc0ae0ba409aa40",
+          "processMaxRssKiB": 320416
+        }
+      ]
+    }
+  }
+}

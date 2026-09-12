@@ -91,3 +91,41 @@ test('withStatePreserved rolls back observations and mints', () => {
   })
   assert.ok(Uuidv7.next(() => 0) < future, 'speculative clock changes left no trace')
 })
+
+test('failed UUID generation preserves the last successful ordering boundary', t => {
+  const ms = 4_000_000_000_000
+  const floor = Uuidv7.at(ms, 0x100, new Uint8Array(8))
+  for (const invalid of [NaN, Infinity, -Infinity, -1, ms + 0.5, 0x1_0000_0000_0000]) {
+    Uuidv7.withStatePreserved(() => {
+      Uuidv7.observe(floor)
+      assert.throws(() => Uuidv7.next(() => invalid), /48-bit millisecond timestamp/)
+      const next = Uuidv7.next(() => 0)
+      assert.equal(next.slice(0, 18), Uuidv7.at(ms, 0x101, new Uint8Array(8)).slice(0, 18))
+      assert.ok(next > floor)
+    })
+  }
+  Uuidv7.withStatePreserved(() => {
+    Uuidv7.observe(floor)
+    const random = t.mock.method(globalThis.crypto, 'getRandomValues', () => {
+      throw new Error('randomness unavailable')
+    })
+    try {
+      assert.throws(() => Uuidv7.next(() => ms + 1000), /randomness unavailable/)
+    } finally { random.mock.restore() }
+    const next = Uuidv7.next(() => 0)
+    assert.equal(next.slice(0, 18), Uuidv7.at(ms, 0x101, new Uint8Array(8)).slice(0, 18))
+  })
+})
+
+test('UUID validation rejects trailing line terminators and ignores them during observation', () => {
+  Uuidv7.withStatePreserved(() => {
+    const valid = Uuidv7.at(0xfffffffffffe, 0, new Uint8Array(8))
+    const before = Uuidv7.withStatePreserved(() => Uuidv7.next(() => 0).slice(0, 18))
+    for (const ending of ['\n', '\r', '\r\n', '\u2028', '\u2029']) {
+      assert.equal(Uuidv7.is(valid + ending), false)
+      Uuidv7.observe(valid + ending)
+      assert.equal(Uuidv7.withStatePreserved(() => Uuidv7.next(() => 0).slice(0, 18)), before)
+    }
+    assert.equal(Uuidv7.is(valid), true)
+  })
+})

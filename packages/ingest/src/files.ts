@@ -1,3 +1,4 @@
+import { booleanOption, sourceList, sourcePath } from './options.ts'
 /**
  * File selection for ingestion: glob expansion, batching, and the
  * incremental-skip bookkeeping.
@@ -14,6 +15,7 @@ import { globSync, readFileSync, statSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { Key, Claim, Value } from '@cavelang/core'
 import type { Store } from '@cavelang/store'
+import { decodeText, digestBytes, withSourceError } from './content.ts'
 
 /** Digest attribute name used in provenance claims. */
 export const digestAttribute = 'ingest-digest'
@@ -27,6 +29,8 @@ export const provenanceContext = 'src:cave-ingest'
  * code literal so their exact spelling round-trips through CAVE text.
  */
 const provenanceSubject = (path: string): Claim.Term => {
+  // Newlines cannot appear inside a single-line provenance claim, even in literals.
+  if (path.includes('\n')) return Claim.code(`percent-encoded:${encodeURIComponent(path)}`)
   const isEntityAtom = path !== '' &&
     !/[\s"`;]/u.test(path) &&
     !/^(?:[@#]|\+\/-|!$|\(\d+(?:\.\d+)?σ\)$)/u.test(path)
@@ -54,9 +58,10 @@ const provenanceClaim = (path: string, digest: string): Claim.t =>
 
 /** @returns matching regular-file paths — globs expanded, directories dropped, deduplicated, sorted. */
 export const expand = (patterns: readonly string[], cwd: string = process.cwd()): string[] => {
-  const matched = patterns.flatMap(pattern => globSync(pattern, { cwd }))
+  sourcePath(cwd, 'cwd')
+  const matched = sourceList(patterns, 'patterns').flatMap(pattern => withSourceError(pattern, 'expand pattern', () => globSync(pattern, { cwd })))
   return [...new Set(matched)]
-    .filter(path => statSync(resolvePath(cwd, path)).isFile())
+    .filter(path => withSourceError(path, 'inspect source', () => statSync(resolvePath(cwd, path)).isFile()))
     .sort()
 }
 
@@ -71,7 +76,7 @@ const provenanceKey = (path: string): string =>
 export type Selected = {
   readonly path: string
   readonly digest: string
-  /** Pre-fetched content (URL sources); files are read from disk instead. */
+  /** Selected content for URL sources and embedded local files. */
   readonly content?: string
 }
 
@@ -90,22 +95,28 @@ export const isIngested = (store: Store, path: string, digest: string): boolean 
 /**
  * Reads and digests candidate files (paths relative to `cwd`), skipping
  * the ones whose current `ingest-digest` belief already matches (pass
- * `force` to re-ingest all).
+ * `force` to re-ingest all). With `embed`, retain the same text for prompts
+ * so later file changes cannot separate source content from its digest.
  */
 export const select = (
   store: Store,
   paths: readonly string[],
-  options: { force?: boolean, cwd?: string } = {}
+  options: { force?: boolean, cwd?: string, embed?: boolean } = {}
 ): Selection => {
+  const force = booleanOption(options.force, 'force')
+  const embed = booleanOption(options.embed, 'embed')
   const files: Selected[] = []
   const skipped: string[] = []
-  const cwd = options.cwd ?? process.cwd()
-  for (const path of paths) {
-    const digest = digestOf(readFileSync(resolvePath(cwd, path), 'utf8'))
-    if (options.force !== true && isIngested(store, path, digest)) {
+  const suppliedCwd = options.cwd
+  const cwd = suppliedCwd === undefined ? process.cwd() : sourcePath(suppliedCwd, 'cwd')
+  for (const path of sourceList(paths, 'paths')) {
+    const bytes = withSourceError(path, 'read source', () => readFileSync(resolvePath(cwd, path)))
+    const digest = digestBytes(bytes)
+    const content = embed ? decodeText(bytes, path) : undefined
+    if (!force && isIngested(store, path, digest)) {
       skipped.push(path)
     } else {
-      files.push({ path, digest })
+      files.push({ path, digest, ...content === undefined ? {} : { content } })
     }
   }
   return { files, skipped }
@@ -134,8 +145,8 @@ export const recordDigests = (store: Store, files: readonly Selected[]): void =>
 
 /** @returns `files` split into batches of at most `size`. */
 export const batch = <T>(files: readonly T[], size: number): T[][] => {
-  if (!(size >= 1)) {
-    throw new Error(`batch size must be >= 1, got ${size}`)
+  if (!Number.isSafeInteger(size) || size < 1) {
+    throw new Error(`batch size must be a positive safe integer, got ${size}`)
   }
   const batches: T[][] = []
   for (let at = 0; at < files.length; at += size) {

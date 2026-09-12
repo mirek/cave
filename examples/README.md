@@ -2,8 +2,34 @@
 
 Each directory is a set of runnable fixtures with the commands that use them.
 All outputs shown here and in the [root README](../README.md) tutorials were
-captured from actual runs; `pnpm install` at the repository root puts `cave`
-on the path.
+captured from actual runs.
+
+## Choose a starting point
+
+| What you want to do | Start here | What you need |
+| --- | --- | --- |
+| Learn claims, graph queries and confidence | [Monorepo tutorial](../README.md#tutorial-i--a-monorepo-one-claim-at-a-time) | The CAVE CLI; no LLM agent |
+| Turn CSV or JSON into maintained claims | [Structured data](../packages/connect/README.md) and the monorepo CSV fixture | A source file and mapping template; no LLM agent |
+| Extract claims from documents and react to changes | [Market tutorial](../README.md#tutorial-ii--a-market-watchlist) | The CLI and a configured agent for the ingestion steps |
+| Explore competing explanations for an incident | [Incident walkthrough](#incident) | The CAVE CLI; no LLM agent |
+| Measure extraction or reconstruction quality | [Extraction eval](#eval) or [reconstruction eval](#loop-eval) | The CLI; deterministic examples are included, with an agent for model comparisons |
+| Follow one example across the whole system | [Family-history tour](family-history/README.md) | The CLI; agent and optional Z3 setup are introduced where used |
+
+## Run the fixtures
+
+From a repository checkout, follow the [development setup](../README.md#development),
+then use `pnpm exec cave` to run the workspace CLI. A local `pnpm install` does
+not add `cave` to your shell's global path. The root tutorials use plain `cave`
+after the [global installation](../README.md#install); when using the checkout,
+replace that command with `pnpm exec cave` and follow each tutorial's working-directory
+instructions. Relative source paths and the default `cave.db` belong to that
+working directory.
+
+The commands below use repository-root paths unless stated otherwise. Agent
+examples such as `--agent 'claude -p'` require that executable to be installed
+and configured separately; installing CAVE does not configure an LLM provider.
+The extraction eval's golden-output command and the reconstruction eval's
+heuristic baseline can both run without a model.
 
 ## [`monorepo/`](monorepo) — Tutorial I
 
@@ -65,9 +91,17 @@ pnpm exec cave eval examples/loop-eval
 pnpm exec cave eval examples/loop-eval --runs 3 --agent 'claude -p'
 ```
 
-The same loop runs interactively over any store:
-`pnpm exec cave reconstruct --db incident.db checkout/errors --trace`
-(add `--agent 'claude -p' --query '…'` for model-driven selection).
+Run the same loop directly over its checked-in knowledge fixture, without first
+creating a database:
+
+```sh
+pnpm exec cave reconstruct --db examples/loop-eval/postmortem.cave checkout/errors \
+  --query "what caused Friday's checkout errors, and what fixed them?" --steps 6 --trace
+```
+
+This uses the evaluation fixture's seed, query and step budget. Add
+`--agent 'claude -p'` for model-driven selection, or replace the text-file path
+with an existing CAVE database to reconstruct from your own store.
 
 ## [`incident/`](incident)
 

@@ -115,8 +115,10 @@ Claims that name no source are stamped `@src:ingest`, a stable actor across
 re-runs, so a re-extracted fact supersedes in its series instead of forking
 a new one.
 
-Ingestion is atomic by default: batches are staged in isolation, and if a
-fetch, the agent, or the lint fails, nothing reaches the database.
+Ingestion is atomic by default: an exact SQLite snapshot preserves the
+current claims and provenance in an isolated stage. If a fetch, the agent,
+or the lint fails, nothing reaches the database. The final merge also rejects
+changes to existing identities; success means the staged run was committed.
 `--lenient` commits accepted batches, continues past failures, exits 1 if
 anything was rejected, and reports every source (`--json` for the
 manifest). Rejected sources keep no digest and retry next time. Sources may

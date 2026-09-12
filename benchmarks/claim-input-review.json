@@ -1,0 +1,498 @@
+[
+  {
+    "format": "cave.performance-report",
+    "version": 1,
+    "runtime": {
+      "node": "v24.16.0",
+      "sqlite": "3.53.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "baselineRuntime": "node-22",
+    "fixture": {
+      "resolutionGroups": 600,
+      "shapeExpectations": 20,
+      "shapeInstances": 500,
+      "services": 1500,
+      "hops": 250,
+      "legacyContexts": 40000,
+      "smallViewRows": 200,
+      "largeViewRows": 5000,
+      "viewTopics": 50
+    },
+    "stores": {
+      "resolution": {
+        "claims": 1800,
+        "contexts": 1800,
+        "bytes": 2068480
+      },
+      "shape": {
+        "claims": 520,
+        "contexts": 0,
+        "bytes": 450560
+      },
+      "query": {
+        "claims": 1750,
+        "contexts": 0,
+        "bytes": 1253376
+      },
+      "legacy": {
+        "claims": 1,
+        "contexts": 40000,
+        "bytes": 17907712
+      },
+      "view": {
+        "claims": 5000,
+        "contexts": 0,
+        "bytes": 4395008
+      }
+    },
+    "plans": {
+      "bounded": [
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_object (object=?)",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "transitive": [
+        "CO-ROUTINE hops",
+        "SETUP",
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_verb (verb=?)",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "RECURSIVE STEP",
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_verb (verb=?)",
+        "SCAN h",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "SCAN h",
+        "USE TEMP B-TREE FOR DISTINCT"
+      ]
+    },
+    "measurements": {
+      "export": {
+        "ms": 51.601,
+        "baselineMs": 110,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 750,
+        "ratio": 0.47,
+        "evidence": {
+          "lines": 2400
+        }
+      },
+      "import": {
+        "ms": 75.27,
+        "baselineMs": 190,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 1500,
+        "ratio": 0.4,
+        "evidence": {
+          "inserted": 1800
+        }
+      },
+      "resolution": {
+        "ms": 20.467,
+        "baselineMs": 70,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 500,
+        "ratio": 0.29,
+        "evidence": {
+          "groups": 600,
+          "winners": 600
+        }
+      },
+      "shape": {
+        "ms": 4.027,
+        "baselineMs": 10,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.4,
+        "evidence": {
+          "checks": 10000,
+          "violations": 10000
+        }
+      },
+      "boundedQuery": {
+        "ms": 3.88,
+        "baselineMs": 13,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.3,
+        "evidence": {
+          "matches": 100,
+          "continuation": true
+        }
+      },
+      "transitiveQuery": {
+        "ms": 9.998,
+        "baselineMs": 25,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 500,
+        "ratio": 0.4,
+        "evidence": {
+          "hops": 250,
+          "matches": 250
+        }
+      },
+      "highlightPaint": {
+        "ms": 4.755,
+        "baselineMs": 7,
+        "baselineRuntime": "node-24.16.0 / darwin-arm64",
+        "thresholdMs": 100,
+        "ratio": 0.68,
+        "evidence": {
+          "lines": 5000,
+          "spans": 20000,
+          "codeUnits": 130000
+        }
+      },
+      "legacyMigration": {
+        "ms": 211.938,
+        "baselineMs": 210,
+        "baselineRuntime": "node-24.16.0 / darwin-arm64",
+        "thresholdMs": 1000,
+        "ratio": 1.01,
+        "evidence": {
+          "claims": 1,
+          "contexts": 40000,
+          "sources": 40000
+        }
+      },
+      "scopedViewSmall": {
+        "ms": 4.884,
+        "baselineMs": 25,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.2,
+        "evidence": {
+          "calls": 5,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 4,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 100,
+            "cachedEdges": 0,
+            "cachedBytes": 200704
+          }
+        }
+      },
+      "scopedViewLargeCold": {
+        "ms": 58.355,
+        "baselineMs": 750,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 2500,
+        "ratio": 0.08,
+        "evidence": {
+          "calls": 1,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 0,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 2500,
+            "cachedEdges": 0,
+            "cachedBytes": 2109440
+          }
+        }
+      },
+      "scopedViewLargeWarm": {
+        "ms": 24.311,
+        "baselineMs": 220,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 750,
+        "ratio": 0.11,
+        "evidence": {
+          "calls": 10,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 10,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 2500,
+            "cachedEdges": 0,
+            "cachedBytes": 2109440
+          }
+        }
+      },
+      "restrictedViewLarge": {
+        "ms": 50.615,
+        "baselineMs": 300,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 1000,
+        "ratio": 0.17,
+        "evidence": {
+          "calls": 10,
+          "topics": 50,
+          "allocation": {
+            "projections": 0,
+            "hits": 0,
+            "builds": 0,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 0,
+            "cachedEdges": 0,
+            "cachedBytes": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "format": "cave.performance-report",
+    "version": 1,
+    "runtime": {
+      "node": "v26.5.0",
+      "sqlite": "3.53.3",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "baselineRuntime": "node-22",
+    "fixture": {
+      "resolutionGroups": 600,
+      "shapeExpectations": 20,
+      "shapeInstances": 500,
+      "services": 1500,
+      "hops": 250,
+      "legacyContexts": 40000,
+      "smallViewRows": 200,
+      "largeViewRows": 5000,
+      "viewTopics": 50
+    },
+    "stores": {
+      "resolution": {
+        "claims": 1800,
+        "contexts": 1800,
+        "bytes": 2068480
+      },
+      "shape": {
+        "claims": 520,
+        "contexts": 0,
+        "bytes": 450560
+      },
+      "query": {
+        "claims": 1750,
+        "contexts": 0,
+        "bytes": 1253376
+      },
+      "legacy": {
+        "claims": 1,
+        "contexts": 40000,
+        "bytes": 17907712
+      },
+      "view": {
+        "claims": 5000,
+        "contexts": 0,
+        "bytes": 4395008
+      }
+    },
+    "plans": {
+      "bounded": [
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_object (object=?)",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "transitive": [
+        "CO-ROUTINE hops",
+        "SETUP",
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_verb (verb=?)",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "RECURSIVE STEP",
+        "CO-ROUTINE latest",
+        "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx",
+        "SEARCH c USING INDEX idx_cave_verb (verb=?)",
+        "SCAN h",
+        "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)",
+        "SCAN h",
+        "USE TEMP B-TREE FOR DISTINCT"
+      ]
+    },
+    "measurements": {
+      "export": {
+        "ms": 49.265,
+        "baselineMs": 110,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 750,
+        "ratio": 0.45,
+        "evidence": {
+          "lines": 2400
+        }
+      },
+      "import": {
+        "ms": 67.006,
+        "baselineMs": 190,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 1500,
+        "ratio": 0.35,
+        "evidence": {
+          "inserted": 1800
+        }
+      },
+      "resolution": {
+        "ms": 20.62,
+        "baselineMs": 70,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 500,
+        "ratio": 0.29,
+        "evidence": {
+          "groups": 600,
+          "winners": 600
+        }
+      },
+      "shape": {
+        "ms": 2.687,
+        "baselineMs": 10,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.27,
+        "evidence": {
+          "checks": 10000,
+          "violations": 10000
+        }
+      },
+      "boundedQuery": {
+        "ms": 4.229,
+        "baselineMs": 13,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.33,
+        "evidence": {
+          "matches": 100,
+          "continuation": true
+        }
+      },
+      "transitiveQuery": {
+        "ms": 10.512,
+        "baselineMs": 25,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 500,
+        "ratio": 0.42,
+        "evidence": {
+          "hops": 250,
+          "matches": 250
+        }
+      },
+      "highlightPaint": {
+        "ms": 7.343,
+        "baselineMs": 7,
+        "baselineRuntime": "node-24.16.0 / darwin-arm64",
+        "thresholdMs": 100,
+        "ratio": 1.05,
+        "evidence": {
+          "lines": 5000,
+          "spans": 20000,
+          "codeUnits": 130000
+        }
+      },
+      "legacyMigration": {
+        "ms": 210.046,
+        "baselineMs": 210,
+        "baselineRuntime": "node-24.16.0 / darwin-arm64",
+        "thresholdMs": 1000,
+        "ratio": 1,
+        "evidence": {
+          "claims": 1,
+          "contexts": 40000,
+          "sources": 40000
+        }
+      },
+      "scopedViewSmall": {
+        "ms": 5.201,
+        "baselineMs": 25,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 250,
+        "ratio": 0.21,
+        "evidence": {
+          "calls": 5,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 4,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 100,
+            "cachedEdges": 0,
+            "cachedBytes": 200704
+          }
+        }
+      },
+      "scopedViewLargeCold": {
+        "ms": 58.432,
+        "baselineMs": 750,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 2500,
+        "ratio": 0.08,
+        "evidence": {
+          "calls": 1,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 0,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 2500,
+            "cachedEdges": 0,
+            "cachedBytes": 2109440
+          }
+        }
+      },
+      "scopedViewLargeWarm": {
+        "ms": 24.721,
+        "baselineMs": 220,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 750,
+        "ratio": 0.11,
+        "evidence": {
+          "calls": 10,
+          "topics": 50,
+          "allocation": {
+            "projections": 1,
+            "hits": 10,
+            "builds": 1,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 2500,
+            "cachedEdges": 0,
+            "cachedBytes": 2109440
+          }
+        }
+      },
+      "restrictedViewLarge": {
+        "ms": 58.136,
+        "baselineMs": 300,
+        "baselineRuntime": "node-22",
+        "thresholdMs": 1000,
+        "ratio": 0.19,
+        "evidence": {
+          "calls": 10,
+          "topics": 50,
+          "allocation": {
+            "projections": 0,
+            "hits": 0,
+            "builds": 0,
+            "invalidations": 0,
+            "retries": 0,
+            "cachedClaims": 0,
+            "cachedEdges": 0,
+            "cachedBytes": 0
+          }
+        }
+      }
+    }
+  }
+]

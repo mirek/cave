@@ -1,0 +1,1928 @@
+{
+  "description": "Rational benchmark reports preserve timing sample execution order and explicit zero discarded warmups.",
+  "execution": "Sequential product Node 26, product Node 24, sum Node 26, sum Node 24; no concurrent builds or tests.",
+  "validation": "All medians equal the middle of a sorted copy of the five retained samples. All 120 workload records and 240 analytic magnitude controls pass.",
+  "sources": {
+    "scripts/exact-product-bench.mjs": "50894f99e415bfa07a8bf4ab9037193ef1a6c2dbb5e7bd17978bc632281904a5",
+    "scripts/exact-sum-bench.mjs": "920bb97acc2c6475844e90263b67f1924bbc7ea6898d4397879f6bad09ce4cd2",
+    "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+    "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+    "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+  },
+  "reports": [
+    {
+      "format": "cave.exact-product-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "discardedWarmupSamples": 0,
+        "sampleOrder": "execution order; median computed from a sorted copy",
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; default model and explanation limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and extra magnitude controls; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.28795900000000074,
+          "samplesMs": [
+            2.643874999999994,
+            0.34845800000002214,
+            0.28795900000000074,
+            0.2264160000000004,
+            0.21683300000000827
+          ],
+          "rssBytes": 107167744
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.5712910000000022,
+          "samplesMs": [
+            3.788083999999998,
+            0.5712910000000022,
+            0.7205829999999906,
+            0.3737920000000088,
+            0.3734589999999969
+          ],
+          "rssBytes": 106774528
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.20145800000000236,
+          "samplesMs": [
+            2.2618329999999958,
+            0.2710000000000008,
+            0.20145800000000236,
+            0.1708330000000018,
+            0.1589580000000126
+          ],
+          "rssBytes": 105414656
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.49808399999999153,
+          "samplesMs": [
+            4.318292,
+            0.49808399999999153,
+            0.3714169999999939,
+            0.6420420000000036,
+            0.30075000000000784
+          ],
+          "rssBytes": 104595456
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.2680419999999941,
+          "samplesMs": [
+            3.5928339999999963,
+            0.3341250000000002,
+            0.2680419999999941,
+            0.2191660000000013,
+            0.21733299999999645
+          ],
+          "rssBytes": 105889792
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.6609169999999978,
+          "samplesMs": [
+            3.606708999999995,
+            0.6609169999999978,
+            0.8839590000000044,
+            0.4718330000000037,
+            0.4875420000000048
+          ],
+          "rssBytes": 105660416
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.20679199999999298,
+          "samplesMs": [
+            2.999207999999996,
+            0.24670899999999563,
+            0.1779590000000013,
+            0.1822090000000003,
+            0.20679199999999298
+          ],
+          "rssBytes": 105054208
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.44195800000001384,
+          "samplesMs": [
+            4.531041000000002,
+            0.44195800000001384,
+            0.32637499999999875,
+            0.7617079999999987,
+            0.2710000000000008
+          ],
+          "rssBytes": 104857600
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.678791999999987,
+          "samplesMs": [
+            5.633375000000001,
+            3.0881670000000128,
+            2.6427910000000026,
+            2.678791999999987,
+            2.6711249999999893
+          ],
+          "rssBytes": 106725376
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.575665999999998,
+          "samplesMs": [
+            8.204083999999995,
+            4.444249999999997,
+            4.671624999999992,
+            4.409707999999995,
+            4.575665999999998
+          ],
+          "rssBytes": 105660416
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 1.470249999999993,
+          "samplesMs": [
+            3.2187919999999934,
+            1.470249999999993,
+            1.3290420000000012,
+            1.6884580000000113,
+            1.3744999999999976
+          ],
+          "rssBytes": 107102208
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 2.3376250000000027,
+          "samplesMs": [
+            5.173041999999995,
+            2.583083000000002,
+            2.2063750000000084,
+            2.21629200000001,
+            2.3376250000000027
+          ],
+          "rssBytes": 106233856
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.709417000000002,
+          "samplesMs": [
+            4.562459000000004,
+            3.1045410000000118,
+            2.6967909999999904,
+            2.673082999999991,
+            2.709417000000002
+          ],
+          "rssBytes": 106840064
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.320459,
+          "samplesMs": [
+            7.622667000000007,
+            4.4665839999999974,
+            4.320459,
+            3.918542000000002,
+            3.9021670000000057
+          ],
+          "rssBytes": 106741760
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.8934169999999995,
+          "samplesMs": [
+            2.956791999999993,
+            0.8934169999999995,
+            0.8081659999999999,
+            0.7622080000000011,
+            1.0718750000000057
+          ],
+          "rssBytes": 105660416
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 1.4642920000000004,
+          "samplesMs": [
+            5.753208999999998,
+            1.8970830000000092,
+            1.4179999999999922,
+            1.4534579999999977,
+            1.4642920000000004
+          ],
+          "rssBytes": 107986944
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.642541999999992,
+          "samplesMs": [
+            10.257790999999997,
+            7.622584000000003,
+            7.845417000000012,
+            7.642541999999992,
+            7.343291999999991
+          ],
+          "rssBytes": 106528768
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.195374999999999,
+          "samplesMs": [
+            14.874291,
+            11.322458999999995,
+            10.899333999999996,
+            11.195374999999999,
+            10.934416999999996
+          ],
+          "rssBytes": 106053632
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 3.729916000000003,
+          "samplesMs": [
+            5.885666999999998,
+            3.729916000000003,
+            3.9424589999999995,
+            3.6273750000000007,
+            3.6948330000000027
+          ],
+          "rssBytes": 106741760
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 6.173958999999996,
+          "samplesMs": [
+            10.308166999999997,
+            6.173958999999996,
+            6.2670829999999995,
+            6.042541999999997,
+            5.900791999999996
+          ],
+          "rssBytes": 107184128
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.769666999999998,
+          "samplesMs": [
+            10.302208000000007,
+            7.481291000000013,
+            7.566207999999989,
+            8.012792000000005,
+            7.769666999999998
+          ],
+          "rssBytes": 107085824
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.326208000000008,
+          "samplesMs": [
+            14.420209,
+            12.192666000000003,
+            11.263791999999995,
+            11.05641700000001,
+            11.326208000000008
+          ],
+          "rssBytes": 106889216
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 2.129290999999995,
+          "samplesMs": [
+            3.7932500000000005,
+            2.129290999999995,
+            1.9126660000000015,
+            2.373291999999992,
+            1.8837079999999986
+          ],
+          "rssBytes": 107675648
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 3.728583999999998,
+          "samplesMs": [
+            7.32229199999999,
+            3.728583999999998,
+            3.786874999999995,
+            3.693832999999998,
+            3.402708000000004
+          ],
+          "rssBytes": 106954752
+        }
+      ]
+    },
+    {
+      "format": "cave.exact-product-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "discardedWarmupSamples": 0,
+        "sampleOrder": "execution order; median computed from a sorted copy",
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; default model and explanation limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and result assertions",
+        "rss": "after workload and extra magnitude controls; includes runtime and imports; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.2769170000000116,
+          "samplesMs": [
+            3.4290420000000097,
+            0.37079199999999446,
+            0.2769170000000116,
+            0.2365830000000102,
+            0.23208300000000293
+          ],
+          "rssBytes": 103645184
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.6287910000000068,
+          "samplesMs": [
+            3.5850420000000014,
+            0.6287910000000068,
+            1.0635830000000084,
+            0.49524999999999864,
+            0.4509999999999934
+          ],
+          "rssBytes": 102055936
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.27045800000000497,
+          "samplesMs": [
+            2.016542000000001,
+            0.27454199999999673,
+            0.27045800000000497,
+            0.17225000000000534,
+            0.22304200000000662
+          ],
+          "rssBytes": 101842944
+        },
+        {
+          "digits": 1000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.47929200000000094,
+          "samplesMs": [
+            3.470917,
+            0.47929200000000094,
+            0.4007079999999945,
+            0.691166999999993,
+            0.35029199999999605
+          ],
+          "rssBytes": 103055360
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 0.2578330000000051,
+          "samplesMs": [
+            1.9994170000000082,
+            0.39391700000000185,
+            0.2578330000000051,
+            0.2191660000000013,
+            0.22079200000000299
+          ],
+          "rssBytes": 101613568
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 0.545375000000007,
+          "samplesMs": [
+            3.2747499999999974,
+            0.545375000000007,
+            0.47512499999999136,
+            0.7246250000000032,
+            0.399249999999995
+          ],
+          "rssBytes": 101351424
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.2360829999999936,
+          "samplesMs": [
+            1.9970419999999933,
+            0.2360829999999936,
+            0.24366700000000208,
+            0.15270800000000406,
+            0.14050000000000296
+          ],
+          "rssBytes": 101629952
+        },
+        {
+          "digits": 1000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 0.40508300000000474,
+          "samplesMs": [
+            3.177250000000001,
+            0.40508300000000474,
+            0.3485409999999973,
+            0.29283399999999915,
+            0.8334590000000048
+          ],
+          "rssBytes": 102301696
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.9383750000000077,
+          "samplesMs": [
+            4.897374999999997,
+            3.2711670000000055,
+            2.9383750000000077,
+            2.7889590000000055,
+            2.7644579999999905
+          ],
+          "rssBytes": 103743488
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.358917000000005,
+          "samplesMs": [
+            7.799582999999998,
+            4.477457999999999,
+            4.358917000000005,
+            4.105041,
+            4.286292000000003
+          ],
+          "rssBytes": 102940672
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 1.501958000000002,
+          "samplesMs": [
+            3.280417000000007,
+            1.4795420000000092,
+            1.501958000000002,
+            1.7018750000000011,
+            1.3657500000000056
+          ],
+          "rssBytes": 101941248
+        },
+        {
+          "digits": 10000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 2.5690420000000103,
+          "samplesMs": [
+            6.363250000000008,
+            2.855000000000004,
+            2.3964579999999955,
+            2.5261659999999893,
+            2.5690420000000103
+          ],
+          "rssBytes": 103219200
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 2.902084000000002,
+          "samplesMs": [
+            4.6121669999999995,
+            3.195541999999989,
+            2.902084000000002,
+            2.728624999999994,
+            2.7948339999999945
+          ],
+          "rssBytes": 102203392
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 4.524165999999994,
+          "samplesMs": [
+            7.796624999999992,
+            4.690042000000005,
+            4.524165999999994,
+            4.1684999999999945,
+            4.17049999999999
+          ],
+          "rssBytes": 103038976
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 0.9276250000000061,
+          "samplesMs": [
+            2.8979579999999885,
+            0.9276250000000061,
+            0.7819170000000071,
+            0.7605830000000111,
+            1.0109589999999997
+          ],
+          "rssBytes": 102416384
+        },
+        {
+          "digits": 10000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 1.4666250000000076,
+          "samplesMs": [
+            4.3920829999999995,
+            1.8748339999999928,
+            1.4666250000000076,
+            1.4168749999999903,
+            1.3582910000000084
+          ],
+          "rssBytes": 102891520
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.89995900000001,
+          "samplesMs": [
+            9.692750000000004,
+            7.89995900000001,
+            7.684083000000001,
+            7.956874999999997,
+            7.609041000000005
+          ],
+          "rssBytes": 102940672
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 11.840542,
+          "samplesMs": [
+            15.555416999999991,
+            11.840542,
+            11.941582999999994,
+            11.74608400000001,
+            11.73237499999999
+          ],
+          "rssBytes": 103546880
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 3.8645000000000067,
+          "samplesMs": [
+            5.601749999999996,
+            3.8645000000000067,
+            3.895583000000002,
+            3.6385409999999894,
+            3.750916999999987
+          ],
+          "rssBytes": 103481344
+        },
+        {
+          "digits": 20000,
+          "kind": "multiply",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 6.240540999999993,
+          "samplesMs": [
+            9.321541999999994,
+            6.240540999999993,
+            6.251082999999994,
+            5.8694169999999986,
+            5.988957999999997
+          ],
+          "rssBytes": 103989248
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "linear",
+          "medianMs": 7.9813330000000065,
+          "samplesMs": [
+            9.720917,
+            8.243291,
+            7.762999999999991,
+            7.9813330000000065,
+            7.730165999999997
+          ],
+          "rssBytes": 103825408
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": true,
+          "operation": "explain",
+          "medianMs": 12.028958000000003,
+          "samplesMs": [
+            15.19208300000001,
+            12.028958000000003,
+            11.785167000000001,
+            11.529875000000004,
+            12.052415999999994
+          ],
+          "rssBytes": 103137280
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "linear",
+          "medianMs": 2.1475409999999897,
+          "samplesMs": [
+            4.191249999999997,
+            2.1475409999999897,
+            2.0292090000000087,
+            2.356624999999994,
+            1.9034170000000046
+          ],
+          "rssBytes": 102809600
+        },
+        {
+          "digits": 20000,
+          "kind": "divide",
+          "cancellation": false,
+          "operation": "explain",
+          "medianMs": 3.829541000000006,
+          "samplesMs": [
+            6.887291000000005,
+            3.949666999999991,
+            3.688457999999997,
+            3.829541000000006,
+            3.5931250000000006
+          ],
+          "rssBytes": 103350272
+        }
+      ]
+    },
+    {
+      "format": "cave.exact-sum-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "discardedWarmupSamples": 0,
+        "sampleOrder": "execution order; median computed from a sorted copy",
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+        "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.21512500000000045,
+          "samplesMs": [
+            2.6882079999999746,
+            0.27470800000000395,
+            0.21512500000000045,
+            0.15941600000002154,
+            0.1587910000000079
+          ],
+          "rssBytes": 107839488
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.48824999999999363,
+          "samplesMs": [
+            3.7569159999999897,
+            0.48824999999999363,
+            0.3902909999999906,
+            0.7318749999999881,
+            0.37408299999999883
+          ],
+          "rssBytes": 104939520
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.21154199999999435,
+          "samplesMs": [
+            1.9034169999999904,
+            0.2701670000000007,
+            0.21154199999999435,
+            0.20054199999999867,
+            0.16550000000000864
+          ],
+          "rssBytes": 107118592
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.5225420000000014,
+          "samplesMs": [
+            3.712875000000011,
+            0.5225420000000014,
+            0.8285829999999947,
+            0.45216700000000287,
+            0.3416249999999934
+          ],
+          "rssBytes": 104824832
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.24095800000000622,
+          "samplesMs": [
+            1.9770000000000039,
+            0.30741599999998925,
+            0.24095800000000622,
+            0.187334000000007,
+            0.1993749999999892
+          ],
+          "rssBytes": 104431616
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.5595420000000075,
+          "samplesMs": [
+            3.380375000000001,
+            0.5595420000000075,
+            0.7329590000000081,
+            0.5265420000000063,
+            0.3837079999999986
+          ],
+          "rssBytes": 105480192
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.2234590000000054,
+          "samplesMs": [
+            2.6654589999999985,
+            0.2937919999999963,
+            0.2234590000000054,
+            0.1775830000000127,
+            0.18062499999999204
+          ],
+          "rssBytes": 105758720
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.4470420000000104,
+          "samplesMs": [
+            3.350875000000002,
+            0.4470420000000104,
+            0.35437499999999034,
+            0.6096249999999941,
+            0.288250000000005
+          ],
+          "rssBytes": 104284160
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.23691700000000537,
+          "samplesMs": [
+            2.0262500000000045,
+            0.2892089999999996,
+            0.23691700000000537,
+            0.1885419999999982,
+            0.19966600000000767
+          ],
+          "rssBytes": 104923136
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.7856250000000102,
+          "samplesMs": [
+            3.442791999999997,
+            0.4804590000000104,
+            0.7856250000000102,
+            0.8364159999999998,
+            0.32670799999999645
+          ],
+          "rssBytes": 104923136
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.33474999999999966,
+          "samplesMs": [
+            2.19958299999999,
+            0.3850829999999945,
+            0.33474999999999966,
+            0.2753749999999968,
+            0.32254199999999855
+          ],
+          "rssBytes": 104939520
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.551667000000009,
+          "samplesMs": [
+            4.984458000000004,
+            0.551667000000009,
+            0.6802500000000009,
+            0.4032499999999999,
+            0.33012499999999534
+          ],
+          "rssBytes": 104890368
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.469333000000006,
+          "samplesMs": [
+            3.198625000000007,
+            1.469333000000006,
+            1.5759999999999934,
+            1.4165829999999886,
+            1.3010419999999954
+          ],
+          "rssBytes": 105611264
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.3975829999999974,
+          "samplesMs": [
+            5.972249999999988,
+            2.3975829999999974,
+            2.3037909999999897,
+            2.261583999999999,
+            2.439667
+          ],
+          "rssBytes": 108199936
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 1.5372500000000002,
+          "samplesMs": [
+            3.7674999999999983,
+            1.5372500000000002,
+            1.3159590000000065,
+            1.5703749999999985,
+            1.3030409999999932
+          ],
+          "rssBytes": 106283008
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.797457999999992,
+          "samplesMs": [
+            5.770083,
+            2.7325830000000053,
+            2.797457999999992,
+            2.8072090000000003,
+            2.6226669999999928
+          ],
+          "rssBytes": 107331584
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 2.8464579999999984,
+          "samplesMs": [
+            4.600833000000009,
+            2.884666999999993,
+            2.8464579999999984,
+            2.531624999999991,
+            2.538499999999999
+          ],
+          "rssBytes": 106250240
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.426292000000004,
+          "samplesMs": [
+            7.938790999999995,
+            4.644750000000002,
+            4.357167000000004,
+            4.426292000000004,
+            4.211917
+          ],
+          "rssBytes": 106217472
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.8900420000000082,
+          "samplesMs": [
+            3.5563750000000027,
+            1.9059170000000023,
+            1.8900420000000082,
+            1.634999999999991,
+            1.6417500000000018
+          ],
+          "rssBytes": 106004480
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.338957999999991,
+          "samplesMs": [
+            5.358582999999996,
+            2.637332999999998,
+            2.3015840000000054,
+            2.1527499999999975,
+            2.338957999999991
+          ],
+          "rssBytes": 106840064
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 2.0940000000000083,
+          "samplesMs": [
+            4.120666999999997,
+            2.0940000000000083,
+            2.1850000000000023,
+            1.9298750000000098,
+            1.9447919999999925
+          ],
+          "rssBytes": 106348544
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.437125000000009,
+          "samplesMs": [
+            5.936334000000002,
+            2.4256249999999966,
+            2.437125000000009,
+            2.7238339999999965,
+            2.194375000000008
+          ],
+          "rssBytes": 105840640
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 4.451583999999997,
+          "samplesMs": [
+            6.270458000000005,
+            4.703249999999997,
+            4.451583999999997,
+            4.317250000000001,
+            4.305709000000007
+          ],
+          "rssBytes": 106938368
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.398707999999999,
+          "samplesMs": [
+            7.473208,
+            4.398707999999999,
+            4.329833000000008,
+            4.501958000000002,
+            4.268292000000002
+          ],
+          "rssBytes": 105906176
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 3.6656660000000016,
+          "samplesMs": [
+            5.599874999999997,
+            4.101042000000007,
+            3.6656660000000016,
+            3.586500000000001,
+            3.6270000000000095
+          ],
+          "rssBytes": 106446848
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 5.99262499999999,
+          "samplesMs": [
+            9.705417000000011,
+            5.957041000000004,
+            6.093374999999995,
+            5.820125000000004,
+            5.99262499999999
+          ],
+          "rssBytes": 106184704
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 3.970249999999993,
+          "samplesMs": [
+            5.503833999999998,
+            3.970249999999993,
+            3.9773330000000016,
+            3.635292000000007,
+            3.761624999999995
+          ],
+          "rssBytes": 106807296
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.477457999999999,
+          "samplesMs": [
+            10.452917,
+            6.783625000000001,
+            6.467708000000002,
+            6.477457999999999,
+            6.357457999999994
+          ],
+          "rssBytes": 107380736
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 7.2917500000000075,
+          "samplesMs": [
+            9.571292,
+            7.908792000000005,
+            7.251957999999988,
+            7.248082999999994,
+            7.2917500000000075
+          ],
+          "rssBytes": 107397120
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 11.846624999999989,
+          "samplesMs": [
+            15.286750000000012,
+            11.960750000000004,
+            11.503,
+            11.732332999999997,
+            11.846624999999989
+          ],
+          "rssBytes": 107839488
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 4.760499999999993,
+          "samplesMs": [
+            6.473624999999998,
+            4.987290999999999,
+            4.558125000000004,
+            4.760499999999993,
+            4.613375000000005
+          ],
+          "rssBytes": 106119168
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.013583000000011,
+          "samplesMs": [
+            9.210499999999996,
+            6.013583000000011,
+            6.180667,
+            5.767583000000002,
+            5.8529589999999985
+          ],
+          "rssBytes": 106938368
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 5.823417000000006,
+          "samplesMs": [
+            7.40325,
+            6.1057500000000005,
+            5.4629170000000045,
+            5.423665999999997,
+            5.823417000000006
+          ],
+          "rssBytes": 106250240
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.010334,
+          "samplesMs": [
+            9.249250000000004,
+            6.010334,
+            6.10066599999999,
+            5.869042000000007,
+            5.800208000000012
+          ],
+          "rssBytes": 106545152
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 12.486249999999998,
+          "samplesMs": [
+            14.503917000000001,
+            12.423749999999998,
+            12.486249999999998,
+            12.624082999999999,
+            12.396541999999997
+          ],
+          "rssBytes": 107724800
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 11.863916000000003,
+          "samplesMs": [
+            15.163207999999997,
+            12.508583999999999,
+            11.825457999999998,
+            11.863916000000003,
+            11.626666999999998
+          ],
+          "rssBytes": 107380736
+        }
+      ]
+    },
+    {
+      "format": "cave.exact-sum-benchmark",
+      "version": 2,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "childTimeoutMs": 10000,
+      "childOldSpaceMb": 128,
+      "measurement": {
+        "samplesPerWorkload": 5,
+        "discardedWarmupSamples": 0,
+        "sampleOrder": "execution order; median computed from a sorted copy",
+        "exactControlsPerWorkload": 2,
+        "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+        "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+        "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+        "memoryLimit": "V8 old space only; not a total-process memory cap"
+      },
+      "measurements": [
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.21087500000000148,
+          "samplesMs": [
+            2.377082999999999,
+            0.27404200000000856,
+            0.209541999999999,
+            0.16783300000000168,
+            0.21087500000000148
+          ],
+          "rssBytes": 102350848
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.7174169999999975,
+          "samplesMs": [
+            3.613208,
+            0.7174169999999975,
+            0.43949999999999534,
+            0.8380420000000015,
+            0.3807079999999985
+          ],
+          "rssBytes": 102039552
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.20383400000000051,
+          "samplesMs": [
+            2.468584000000007,
+            0.34695800000000077,
+            0.20383400000000051,
+            0.16541600000000756,
+            0.1729169999999982
+          ],
+          "rssBytes": 102088704
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.6284169999999989,
+          "samplesMs": [
+            4.1107920000000036,
+            0.6284169999999989,
+            0.44974999999999454,
+            0.8797080000000079,
+            0.38137500000000557
+          ],
+          "rssBytes": 102072320
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.24424999999999386,
+          "samplesMs": [
+            2.181041999999991,
+            0.32279199999999264,
+            0.24424999999999386,
+            0.1993749999999892,
+            0.2149999999999892
+          ],
+          "rssBytes": 101187584
+        },
+        {
+          "digits": 1000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.5859169999999949,
+          "samplesMs": [
+            3.823333000000005,
+            0.5859169999999949,
+            0.47125000000001194,
+            0.9330420000000004,
+            0.40724999999999056
+          ],
+          "rssBytes": 102383616
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 0.22270900000000893,
+          "samplesMs": [
+            2.0184580000000096,
+            0.2855830000000026,
+            0.22270900000000893,
+            0.18587500000001,
+            0.1872500000000059
+          ],
+          "rssBytes": 102268928
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 0.4993339999999904,
+          "samplesMs": [
+            3.195791,
+            0.4993339999999904,
+            0.3843750000000057,
+            0.6668330000000111,
+            0.33762500000000273
+          ],
+          "rssBytes": 101842944
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 0.2426669999999973,
+          "samplesMs": [
+            2.1593329999999895,
+            0.32579200000000696,
+            0.2426669999999973,
+            0.21720899999999688,
+            0.2250839999999954
+          ],
+          "rssBytes": 101597184
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 0.5193340000000006,
+          "samplesMs": [
+            3.632249999999999,
+            0.5193340000000006,
+            0.3957500000000067,
+            0.6988330000000076,
+            0.3522919999999914
+          ],
+          "rssBytes": 102039552
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 0.3196669999999955,
+          "samplesMs": [
+            2.1778340000000043,
+            0.39758400000000904,
+            0.3196669999999955,
+            0.2717920000000049,
+            0.27649999999999864
+          ],
+          "rssBytes": 101711872
+        },
+        {
+          "digits": 1000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 0.5725000000000051,
+          "samplesMs": [
+            3.583875000000006,
+            0.5725000000000051,
+            0.46162499999999795,
+            0.7887089999999972,
+            0.3965830000000068
+          ],
+          "rssBytes": 102383616
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.5368330000000014,
+          "samplesMs": [
+            3.319250000000011,
+            1.5368330000000014,
+            1.4426250000000067,
+            1.7090830000000068,
+            1.3917500000000018
+          ],
+          "rssBytes": 101892096
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.577167000000003,
+          "samplesMs": [
+            5.562207999999998,
+            3.135000000000005,
+            2.577167000000003,
+            2.2449589999999944,
+            2.4592079999999896
+          ],
+          "rssBytes": 102973440
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 1.6346249999999998,
+          "samplesMs": [
+            3.3480420000000066,
+            1.6346249999999998,
+            1.424750000000003,
+            1.6947919999999925,
+            1.3857500000000016
+          ],
+          "rssBytes": 103448576
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.8024169999999913,
+          "samplesMs": [
+            6.392958000000007,
+            2.7109999999999985,
+            2.8024169999999913,
+            2.827208000000013,
+            2.5691249999999997
+          ],
+          "rssBytes": 103104512
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 2.817999999999998,
+          "samplesMs": [
+            5.336375000000004,
+            2.769208000000006,
+            2.817999999999998,
+            3.1850840000000034,
+            2.591916999999995
+          ],
+          "rssBytes": 103251968
+        },
+        {
+          "digits": 10000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.496458000000004,
+          "samplesMs": [
+            8.444999999999993,
+            4.5895419999999945,
+            4.353250000000003,
+            4.496458000000004,
+            4.286583000000007
+          ],
+          "rssBytes": 103153664
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 1.832041999999987,
+          "samplesMs": [
+            3.611542,
+            1.832041999999987,
+            1.9992500000000035,
+            1.6742920000000083,
+            1.659791999999996
+          ],
+          "rssBytes": 102350848
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 2.5316250000000053,
+          "samplesMs": [
+            8.364542,
+            2.8346670000000103,
+            2.393584000000004,
+            2.4089579999999984,
+            2.5316250000000053
+          ],
+          "rssBytes": 103055360
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 2.1212500000000034,
+          "samplesMs": [
+            3.910041999999997,
+            2.1212500000000034,
+            2.320959000000002,
+            1.9946670000000069,
+            1.9570410000000038
+          ],
+          "rssBytes": 102629376
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 2.7768749999999898,
+          "samplesMs": [
+            5.663916999999998,
+            2.7768749999999898,
+            2.474790999999996,
+            2.362249999999989,
+            2.7784590000000122
+          ],
+          "rssBytes": 103284736
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 4.499959000000004,
+          "samplesMs": [
+            6.547792000000001,
+            4.499959000000004,
+            4.876332999999988,
+            4.41591600000001,
+            4.415625000000006
+          ],
+          "rssBytes": 102957056
+        },
+        {
+          "digits": 10000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 4.526708999999997,
+          "samplesMs": [
+            7.994917000000001,
+            4.526708999999997,
+            4.432415999999989,
+            4.637916000000004,
+            4.283208000000002
+          ],
+          "rssBytes": 102793216
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 3.9400420000000054,
+          "samplesMs": [
+            5.699291000000002,
+            3.9683749999999947,
+            3.9400420000000054,
+            3.6424169999999947,
+            3.6623749999999973
+          ],
+          "rssBytes": 103137280
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.108874999999998,
+          "samplesMs": [
+            9.583375000000004,
+            6.044916999999998,
+            6.219291999999996,
+            6.108874999999998,
+            5.980209000000002
+          ],
+          "rssBytes": 103415808
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 3.8002910000000014,
+          "samplesMs": [
+            5.636708999999996,
+            3.8002910000000014,
+            3.891750000000002,
+            3.6111250000000013,
+            3.6914170000000013
+          ],
+          "rssBytes": 103170048
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.883957999999993,
+          "samplesMs": [
+            10.443667000000005,
+            7.137917000000002,
+            6.815750000000008,
+            6.883957999999993,
+            6.847749999999991
+          ],
+          "rssBytes": 104775680
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 7.844082999999998,
+          "samplesMs": [
+            9.69583399999999,
+            7.9338750000000005,
+            7.844082999999998,
+            7.530667000000008,
+            7.316834
+          ],
+          "rssBytes": 104071168
+        },
+        {
+          "digits": 20000,
+          "kind": "add",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 12.061582999999999,
+          "samplesMs": [
+            15.859916999999996,
+            12.189125000000004,
+            11.777583000000007,
+            12.004625000000004,
+            12.061582999999999
+          ],
+          "rssBytes": 103530496
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "linear",
+          "medianMs": 4.9412909999999926,
+          "samplesMs": [
+            7.250582999999992,
+            5.136375000000001,
+            4.9412909999999926,
+            4.646249999999995,
+            4.713707999999997
+          ],
+          "rssBytes": 102744064
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "shared",
+          "operation": "explain",
+          "medianMs": 6.181333000000009,
+          "samplesMs": [
+            9.618874999999989,
+            6.127332999999993,
+            6.181333000000009,
+            5.967209000000011,
+            6.450792000000007
+          ],
+          "rssBytes": 102498304
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "linear",
+          "medianMs": 5.711957999999996,
+          "samplesMs": [
+            7.627250000000004,
+            6.028709000000006,
+            5.711957999999996,
+            5.568375000000003,
+            5.600999999999999
+          ],
+          "rssBytes": 104464384
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "nearby",
+          "operation": "explain",
+          "medianMs": 6.439208000000008,
+          "samplesMs": [
+            9.293500000000009,
+            6.186875000000001,
+            6.685707999999991,
+            6.022458,
+            6.439208000000008
+          ],
+          "rssBytes": 103301120
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "linear",
+          "medianMs": 13.887875000000008,
+          "samplesMs": [
+            17.069208000000003,
+            14.043415999999993,
+            13.887875000000008,
+            13.420165999999995,
+            13.853167000000013
+          ],
+          "rssBytes": 104906752
+        },
+        {
+          "digits": 20000,
+          "kind": "subtract",
+          "family": "fibonacci",
+          "operation": "explain",
+          "medianMs": 13.446832999999998,
+          "samplesMs": [
+            17.071458000000007,
+            13.516583999999995,
+            13.446832999999998,
+            13.386959000000004,
+            13.331208000000004
+          ],
+          "rssBytes": 103579648
+        }
+      ]
+    }
+  ]
+}

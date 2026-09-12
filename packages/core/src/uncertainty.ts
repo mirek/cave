@@ -24,7 +24,9 @@ export class InvalidUncertaintyError extends RangeError {
   readonly value: unknown
 
   constructor(field: Field, value: unknown) {
-    super(`Expected positive finite ${field}, got ${String(value)}.`)
+    let description: string
+    try { description = String(value) } catch { description = '[unprintable value]' }
+    super(`Expected positive finite ${field}, got ${description}.`)
     this.name = 'InvalidUncertaintyError'
     this.field = field
     this.value = value
@@ -55,6 +57,8 @@ export const sigma = (delta: number, level: number = defaultSigmaLevel): number 
   return validateSigma(validateDelta(delta) / validateSigmaLevel(level))
 }
 
-/** @returns symmetric `[low, high]` interval around `mean`. */
-export const interval = (mean: number, delta: number): [number, number] =>
-  [mean - delta, mean + delta]
+/** @returns symmetric `[low, high]` interval around `mean`, with a positive finite half-width. */
+export const interval = (mean: number, delta: number): [number, number] => {
+  const width = validateDelta(delta)
+  return [mean - width, mean + width]
+}

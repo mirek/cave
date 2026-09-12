@@ -31,6 +31,15 @@ const withSuite = (body: (dir: string) => void): void => {
   }
 }
 
+test('cave eval rejects unsafe run counts with an option error', () => {
+  for (const runs of ['0', '1.5', 'Infinity', '9007199254740993']) {
+    const result = evalCli(['missing-suite', '--runs', runs])
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /--runs must be a positive safe integer/)
+    assert.equal(result.stdout, '')
+  }
+})
+
 test('cave eval end to end: text report, exit 0, --min gating, --json', () =>
   withSuite(dir => {
     const args = [dir, '--stdout', '--agent', 'cat notes.golden.cave']
@@ -43,6 +52,11 @@ test('cave eval end to end: text report, exit 0, --min gating, --json', () =>
 
     const gated = evalCli([...args, '--min', '100%'])
     assert.equal(gated.status, 0)
+    for (const zero of ['0', '0%']) {
+      const explicitZero = evalCli([...args, '--min', zero, '--tolerance', zero])
+      assert.equal(explicitZero.status, 0, explicitZero.stderr)
+      assert.match(explicitZero.stdout, /suite: P 100% R 100% F1 100%/)
+    }
 
     const json = evalCli([...args, '--json'])
     assert.equal(json.status, 0)
@@ -108,7 +122,12 @@ test('cave eval validates its arguments', () =>
     assert.match(evalCli([dir, '--agent', 'cat', '--runs', '0']).stderr, /--runs/)
     assert.match(evalCli([dir, '--agent', 'cat', '--tolerance', '2']).stderr, /--tolerance/)
     assert.match(evalCli([dir, '--agent', 'cat', '--min', 'x']).stderr, /--min/)
-    assert.match(evalCli([dir, '--agent', 'cat', '--timeout', '-1']).stderr, /--timeout/)
+    for (const timeout of ['-1', '0.0001', '1.0001', '2147483.648']) {
+      const invalid = evalCli([dir, '--agent', 'cat', `--timeout=${timeout}`])
+      assert.equal(invalid.status, 1)
+      assert.match(invalid.stderr, /--timeout.*whole milliseconds/)
+      assert.equal(invalid.stdout, '')
+    }
   }))
 
 test('render and meetsMin cover judged scores and no-run reports', () => {
@@ -130,4 +149,16 @@ test('render and meetsMin cover judged scores and no-run reports', () => {
   assert.equal(meetsMin(judged, 0.9), true, 'the judged F1 gates when a judge ran')
   assert.equal(meetsMin(judged, 0.96), false, 'the query rate gates too')
   assert.match(render(judged), /F1 60%, judged F1 90%; queries 95%/)
+})
+
+
+test('cave eval rejects empty ratios before running a suite', () => {
+  for (const option of ['--min', '--tolerance']) {
+    for (const value of ['', ' ', '%', ' \t%']) {
+      const result = evalCli(['missing-suite', option, value])
+      assert.equal(result.status, 1)
+      assert.ok(result.stderr.includes(`${option} expects 0..1 or N%`), result.stderr)
+      assert.equal(result.stdout, '')
+    }
+  }
 })

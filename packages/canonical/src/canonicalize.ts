@@ -23,6 +23,7 @@
 import { Claim, Entity, Value, Verb } from '@cavelang/core'
 import { parseDocument, type Ast } from '@cavelang/parser'
 import * as Registry from './registry.ts'
+import { emitClaim } from './emit.ts'
 
 /** Edge roles persisted in `cave_edge` (spec §13.2). */
 export type EdgeRole = 'WHEN' | 'VIA' | 'BECAUSE' | 'QUALIFIES'
@@ -103,6 +104,18 @@ const payloadOfTerm = (term: Claim.Term): Claim.Payload => {
   return Claim.relation(term)
 }
 
+/** Match ordinary claim parsing so comparison emission keeps its payload identity. */
+const comparisonPayload = (value: Value.t): Claim.Payload => {
+  switch (value.kind) {
+    case 'number':
+    case 'date':
+    case 'trajectory': return Claim.metric(value)
+    case 'text': return Claim.relation(Claim.text(value.raw))
+    case 'code': return Claim.relation(Claim.code(value.raw))
+    default: return Claim.relation(Claim.entity(Entity.normalize(value.raw)))
+  }
+}
+
 const initOf = (meta: Ast.Meta): Partial<Claim.Init> => ({
   contexts: meta.contexts,
   tags: meta.tags,
@@ -156,7 +169,14 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
     return { claim, writtenSubject }
   }
 
-  const append = (claim: Claim.t, line: number, writtenSubject: Claim.Term, lineIndex: number): number => {
+  const append = (claim: Claim.t, line: number, writtenSubject: Claim.Term, lineIndex: number): number | undefined => {
+    try {
+      emitClaim(claim)
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error
+      problem(line, error.message)
+      return undefined
+    }
     const index = claims.length
     claims.push({ claim, line })
     byLine.set(lineIndex, { index, writtenSubject })
@@ -212,7 +232,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
           subject: payload.left,
           verb: comparisonVerbs[payload.op],
           negated: payload.negated !== unless,
-          payload: Claim.metric(payload.value),
+          payload: comparisonPayload(payload.value),
           meta: payload.meta
         }
     }
@@ -223,10 +243,13 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
       case 'claim': {
         const { claim, writtenSubject } = buildClaim(line.claim, line.expanded ?? line.raw, line.line)
         const index = append(claim, line.line, writtenSubject, lineIndex)
+        if (index === undefined) return
         if (line.parent !== undefined) {
           const parent = byLine.get(line.parent)
           if (parent !== undefined) {
             edges.push({ parent: parent.index, role: 'QUALIFIES', child: index })
+          } else {
+            problem(line.line, 'grouped claim has no canonicalized parent — keeping the independent claim (spec §8.4)')
           }
         }
         applyDeclarations(claim, line.line)
@@ -240,7 +263,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
         }
         const full: Ast.Full = { subject: parent.writtenSubject, ...line.body }
         const { claim, writtenSubject } = buildClaim(full, line.expanded ?? line.raw, line.line)
-        append(claim, line.line, writtenSubject, lineIndex)
+        if (append(claim, line.line, writtenSubject, lineIndex) === undefined) return
         // §8.3: each continuation is an ordinary independent claim, so an
         // in-band declaration works here exactly as on a full line (§5.4).
         applyDeclarations(claim, line.line)
@@ -255,6 +278,7 @@ export const canonicalize = (document: Ast.Document, registry: Registry.t = Regi
         const full = conditionOf(line.payload, line.qualifier === 'UNLESS')
         const { claim, writtenSubject } = buildClaim(full, line.expanded ?? line.raw, line.line)
         const index = append(claim, line.line, writtenSubject, lineIndex)
+        if (index === undefined) return
         edges.push({ parent: parent.index, role: roleOf[line.qualifier], child: index })
         return
       }

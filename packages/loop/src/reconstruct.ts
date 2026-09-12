@@ -18,6 +18,8 @@
 
 import { Claim, Key } from '@cavelang/core'
 import type { CaveStore, Edge } from './store.ts'
+import { validateBudgets } from './budgets.ts'
+import { propagatedScore, validateScoreSetting } from './score-settings.ts'
 
 /** A scored frontier entry. */
 export type Cue = {
@@ -68,13 +70,13 @@ export type Reconstruction = {
 type Loop = {
   state: State
   readonly seen: Set<string>
-  readonly claims: Claim.t[]
+  claims: Claim.t[]
   readonly trace: Step[]
 }
 
 const loopOf = (seeds: readonly string[]): Loop => ({
   state: {
-    frontier: seeds.map(entity => ({ entity, score: 1, depth: 0 })),
+    frontier: [...new Set(seeds)].map(entity => ({ entity, score: 1, depth: 0 })),
     visited: new Set(),
     collected: [],
     steps: 0
@@ -104,14 +106,17 @@ const applyStep = (
   const visited = new Set(loop.state.visited)
   visited.add(cue.entity)
   let collected = 0
+  const additions: Claim.t[] = []
   for (const claim of store.claimsAbout(cue.entity)) {
     const key = Key.of(claim)
     if (!loop.seen.has(key)) {
       loop.seen.add(key)
-      loop.claims.push(claim)
+      additions.push(claim)
       collected += 1
     }
   }
+  // Published policy states retain their claim list as later steps expand.
+  if (additions.length > 0) loop.claims = loop.claims.concat(additions)
   const neighbors = new Map<string, Cue>()
   edges.forEach((edge, index) => {
     if (visited.has(edge.to)) {
@@ -139,7 +144,7 @@ const applyStep = (
       merged.push(entry)
     }
   }
-  merged.push(...neighbors.values())
+  for (const neighbor of neighbors.values()) merged.push(neighbor)
   loop.state = {
     frontier: merged,
     visited,
@@ -154,8 +159,8 @@ const reconstructionOf = (loop: Loop): Reconstruction =>
 
 /**
  * Runs the loop from seed entities until the policy stops or the frontier
- * empties. Pure given its inputs — same store + policy + seeds, same
- * reconstruction.
+ * empties. Deterministic for a stable store view and deterministic policy;
+ * this entrypoint does not freeze a mutable backing store.
  */
 export const reconstruct = (store: CaveStore, policy: Policy, seeds: readonly string[]): Reconstruction => {
   const loop = loopOf(seeds)
@@ -172,7 +177,8 @@ export const reconstruct = (store: CaveStore, policy: Policy, seeds: readonly st
 
 /**
  * The async twin of `reconstruct`, for policies that await a model between
- * steps (spec §18): same algorithm, same trace, decisions awaited.
+ * steps (spec §18): same algorithm, decisions awaited. Reads may observe
+ * backing-store changes between awaits; this entrypoint opens no transaction.
  */
 export const reconstructAsync = async (
   store: CaveStore,
@@ -202,14 +208,14 @@ export type HeuristicOptions = {
   readonly maxSteps?: number
   /** Cues scoring below this are never selected (default 0.05). */
   readonly minScore?: number
-  /** Stop once this many claims are collected (default ∞). */
+  /** Claim-count stopping threshold, checked between complete expansions (default ∞). */
   readonly maxClaims?: number
 }
 
 /**
  * Deterministic heuristic policy for dependency-free testing (spec §18):
  * greedy best-first by score (FIFO tiebreak), score = parent score ×
- * edge confidence × decay, hard budgets for steps and claims. Also the
+ * edge confidence × decay, a step limit and claim-count stopping threshold. Also the
  * eval baseline the LLM policy is measured against (spec §18).
  */
 export const heuristicPolicy = (options: HeuristicOptions = {}): Policy => {
@@ -217,6 +223,9 @@ export const heuristicPolicy = (options: HeuristicOptions = {}): Policy => {
   const maxSteps = options.maxSteps ?? 16
   const minScore = options.minScore ?? 0.05
   const maxClaims = options.maxClaims ?? Number.POSITIVE_INFINITY
+  validateBudgets(maxSteps, maxClaims)
+  validateScoreSetting('decay', decay)
+  validateScoreSetting('minScore', minScore)
   return {
     select(state) {
       let best: undefined | Cue
@@ -231,7 +240,7 @@ export const heuristicPolicy = (options: HeuristicOptions = {}): Policy => {
       return best
     },
     score(edge, from) {
-      return from.score * edge.conf * decay
+      return propagatedScore(from.score, edge.conf, decay)
     },
     done(state) {
       return state.steps >= maxSteps || state.collected.length >= maxClaims

@@ -1,0 +1,3279 @@
+{
+  "description": "Default reusable probe-comparison driver verification on both supported Node majors.",
+  "execution": "Shortened one-round checks on Node 26 then Node 24, then default six-round checks on Node 26 then Node 24; sequential and without concurrent builds/tests.",
+  "validation": "Three distinct variants; every variant appears twice in every order position; all workload and magnitude controls pass; source hashes and median calculations verified.",
+  "invalidArguments": [
+    {
+      "rounds": "0",
+      "exitCode": 1,
+      "stdoutEmpty": true
+    },
+    {
+      "rounds": "1.5",
+      "exitCode": 1,
+      "stdoutEmpty": true
+    },
+    {
+      "rounds": "61",
+      "exitCode": 1,
+      "stdoutEmpty": true
+    },
+    {
+      "rounds": "NaN",
+      "exitCode": 1,
+      "stdoutEmpty": true
+    }
+  ],
+  "reports": [
+    {
+      "format": "cave.fraction-sum-probe-comparison",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "rounds": 6,
+      "steps": [
+        4,
+        6,
+        8
+      ],
+      "method": "All six variant orders rotate; six rounds balance order. Fresh child per workload, five retained timing calls and two untimed exact-value controls. Shortened runs are smoke checks, not stable timing evidence.",
+      "focusedHarnessSha256": "d1ac436f5428203322b5a451035449110e10d4b862f74b9f5747de5eb652c3b3",
+      "sources": {
+        "scripts/fraction-sum-probe-bench.mjs": "37f1793d07b15f7537fb388856971e6da0e4a2bb17b2ee7c98d0baa3c36ffcc2",
+        "scripts/exact-sum-bench.mjs": "03c7e2db0b42b8b6292e8a9659e53833be8e10817a288d3960fab04f358c353f",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "variants": {
+        "4": {
+          "helperSha256": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+        },
+        "6": {
+          "helperSha256": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794"
+        },
+        "8": {
+          "helperSha256": "fe1082049ba5df6826353f0b0129ab3414c8624d3d9db006c9967bd5af371e34"
+        }
+      },
+      "results": [
+        {
+          "round": 0,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.204582999999985,
+                "samplesMs": [
+                  11.504874999999998,
+                  7.4195410000000095,
+                  7.204582999999985,
+                  7.0663339999999835,
+                  7.180457999999987
+                ],
+                "rssBytes": 108871680
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.044749999999993,
+                "samplesMs": [
+                  15.272417000000004,
+                  12.303957999999994,
+                  12.044749999999993,
+                  11.55966699999999,
+                  11.643250000000023
+                ],
+                "rssBytes": 111132672
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.090790999999996,
+                "samplesMs": [
+                  10.50416700000001,
+                  7.653999999999996,
+                  7.034167000000011,
+                  7.082875000000001,
+                  7.090790999999996
+                ],
+                "rssBytes": 111853568
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.746165999999988,
+                "samplesMs": [
+                  15.254874999999998,
+                  12.063457999999997,
+                  11.746165999999988,
+                  11.673624999999987,
+                  11.398125000000022
+                ],
+                "rssBytes": 109723648
+              }
+            ]
+          }
+        },
+        {
+          "round": 0,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.077750000000009,
+                "samplesMs": [
+                  8.975166999999999,
+                  6.542249999999996,
+                  5.9047920000000005,
+                  6.077750000000009,
+                  6.07350000000001
+                ],
+                "rssBytes": 108429312
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.106374999999986,
+                "samplesMs": [
+                  14.927290999999997,
+                  12.100791999999998,
+                  12.320999999999998,
+                  11.79166699999999,
+                  12.106374999999986
+                ],
+                "rssBytes": 111181824
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.194583000000009,
+                "samplesMs": [
+                  9.027083000000005,
+                  6.399416000000002,
+                  5.874499999999998,
+                  6.194583000000009,
+                  5.953209000000001
+                ],
+                "rssBytes": 111738880
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.056916999999999,
+                "samplesMs": [
+                  14.851042000000007,
+                  11.929874999999996,
+                  12.117790999999997,
+                  11.655417,
+                  12.056916999999999
+                ],
+                "rssBytes": 108085248
+              }
+            ]
+          }
+        },
+        {
+          "round": 0,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.085624999999993,
+                "samplesMs": [
+                  9.499583999999999,
+                  6.942999999999998,
+                  6.085624999999993,
+                  5.8089999999999975,
+                  5.68612499999999
+                ],
+                "rssBytes": 109428736
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.021000000000015,
+                "samplesMs": [
+                  15.185541,
+                  12.297291999999999,
+                  12.016207999999992,
+                  11.767542000000006,
+                  12.021000000000015
+                ],
+                "rssBytes": 113033216
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.9624999999999915,
+                "samplesMs": [
+                  8.872375000000005,
+                  6.523291999999998,
+                  5.828125,
+                  5.9624999999999915,
+                  5.771041000000011
+                ],
+                "rssBytes": 111706112
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 13.002499999999998,
+                "samplesMs": [
+                  15.246583000000001,
+                  16.775790999999998,
+                  13.002499999999998,
+                  12.248125000000002,
+                  12.65825000000001
+                ],
+                "rssBytes": 111919104
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.041667000000004,
+                "samplesMs": [
+                  8.741292000000001,
+                  6.523832999999996,
+                  5.931541999999993,
+                  6.041667000000004,
+                  5.940415999999999
+                ],
+                "rssBytes": 110493696
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.159458999999998,
+                "samplesMs": [
+                  15.220416999999998,
+                  12.275833999999989,
+                  12.159458999999998,
+                  11.623166999999981,
+                  11.572125
+                ],
+                "rssBytes": 108888064
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.897750000000002,
+                "samplesMs": [
+                  9.487915999999998,
+                  6.423582999999994,
+                  5.897750000000002,
+                  5.837583000000009,
+                  5.736333000000002
+                ],
+                "rssBytes": 110886912
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.80149999999999,
+                "samplesMs": [
+                  15.447958,
+                  12.627250000000004,
+                  11.663124999999994,
+                  11.80149999999999,
+                  11.571334000000007
+                ],
+                "rssBytes": 111050752
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.184249999999992,
+                "samplesMs": [
+                  9.266000000000005,
+                  6.221500000000006,
+                  5.775750000000002,
+                  6.184249999999992,
+                  5.866291000000004
+                ],
+                "rssBytes": 111656960
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.087625000000003,
+                "samplesMs": [
+                  14.693332999999996,
+                  12.171208000000007,
+                  12.087625000000003,
+                  11.905958999999982,
+                  11.869874999999979
+                ],
+                "rssBytes": 110624768
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.671042,
+                "samplesMs": [
+                  11.503625,
+                  6.561415999999994,
+                  7.671042,
+                  7.95920799999999,
+                  6.498916999999992
+                ],
+                "rssBytes": 109527040
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 14.183166000000014,
+                "samplesMs": [
+                  16.460792000000012,
+                  14.183166000000014,
+                  14.293165999999985,
+                  12.624374999999986,
+                  13.24683300000001
+                ],
+                "rssBytes": 109461504
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 8.465291999999977,
+                "samplesMs": [
+                  15.583584000000002,
+                  9.218500000000006,
+                  8.29054099999999,
+                  7.200665999999984,
+                  8.465291999999977
+                ],
+                "rssBytes": 110051328
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 14.920290999999992,
+                "samplesMs": [
+                  15.351042000000007,
+                  12.570416000000009,
+                  13.412958999999987,
+                  14.920290999999992,
+                  16.620333000000016
+                ],
+                "rssBytes": 108675072
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.292875000000009,
+                "samplesMs": [
+                  10.64379199999999,
+                  8.127958000000007,
+                  7.292875000000009,
+                  7.044584,
+                  7.192542000000003
+                ],
+                "rssBytes": 111034368
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.256208999999998,
+                "samplesMs": [
+                  14.938749999999999,
+                  12.256208999999998,
+                  11.871416999999994,
+                  12.352417000000003,
+                  11.679958
+                ],
+                "rssBytes": 108085248
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.989874999999998,
+                "samplesMs": [
+                  9.566917000000004,
+                  6.203749999999999,
+                  5.895499999999998,
+                  5.989874999999998,
+                  5.744874999999993
+                ],
+                "rssBytes": 110755840
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.194957999999986,
+                "samplesMs": [
+                  15.01637500000001,
+                  12.278374999999997,
+                  11.867542,
+                  11.610375000000005,
+                  12.194957999999986
+                ],
+                "rssBytes": 109248512
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.238957999999997,
+                "samplesMs": [
+                  10.83345899999999,
+                  6.721833999999987,
+                  6.238957999999997,
+                  5.990667000000002,
+                  5.903666999999999
+                ],
+                "rssBytes": 110673920
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.895207999999982,
+                "samplesMs": [
+                  15.438833000000002,
+                  12.484916999999996,
+                  11.774625,
+                  11.895207999999982,
+                  11.623209000000003
+                ],
+                "rssBytes": 111198208
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.370249999999999,
+                "samplesMs": [
+                  10.55616599999999,
+                  8.220833999999996,
+                  7.370249999999999,
+                  6.984583000000001,
+                  7.164417
+                ],
+                "rssBytes": 110706688
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.185292000000004,
+                "samplesMs": [
+                  15.002207999999996,
+                  12.185292000000004,
+                  12.311541999999989,
+                  11.844583000000014,
+                  11.656959
+                ],
+                "rssBytes": 111329280
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.191749999999999,
+                "samplesMs": [
+                  9.832250000000002,
+                  7.191749999999999,
+                  6.810375000000008,
+                  7.113667000000007,
+                  7.240958000000006
+                ],
+                "rssBytes": 108806144
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.629249999999999,
+                "samplesMs": [
+                  14.948791,
+                  12.103124999999991,
+                  11.629249999999999,
+                  11.344625000000008,
+                  11.364875000000012
+                ],
+                "rssBytes": 111230976
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.023083,
+                "samplesMs": [
+                  9.676333999999997,
+                  6.597707999999997,
+                  6.023083,
+                  5.916499999999999,
+                  5.869083000000003
+                ],
+                "rssBytes": 111181824
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.895291,
+                "samplesMs": [
+                  15.134791000000007,
+                  12.155208000000002,
+                  11.895291,
+                  11.702792000000002,
+                  11.771749999999997
+                ],
+                "rssBytes": 110788608
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.128582999999992,
+                "samplesMs": [
+                  8.854667000000006,
+                  6.314791,
+                  6.0822080000000085,
+                  6.128582999999992,
+                  5.7121660000000105
+                ],
+                "rssBytes": 108511232
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.004458000000014,
+                "samplesMs": [
+                  15.087374999999994,
+                  12.235458999999992,
+                  11.967708000000002,
+                  12.004458000000014,
+                  11.882999999999981
+                ],
+                "rssBytes": 113065984
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.128999999999991,
+                "samplesMs": [
+                  9.385999999999996,
+                  6.378,
+                  5.822084000000004,
+                  6.128999999999991,
+                  6.036583000000007
+                ],
+                "rssBytes": 110395392
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.020875000000004,
+                "samplesMs": [
+                  14.599666,
+                  12.105125000000001,
+                  12.020875000000004,
+                  11.819374999999994,
+                  11.90195799999998
+                ],
+                "rssBytes": 107855872
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.100166999999999,
+                "samplesMs": [
+                  9.448374999999999,
+                  6.1216249999999945,
+                  5.803332999999995,
+                  6.100166999999999,
+                  5.956417000000002
+                ],
+                "rssBytes": 108232704
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.086208,
+                "samplesMs": [
+                  15.46583299999999,
+                  12.116375000000005,
+                  12.086208,
+                  11.987250000000003,
+                  11.714833999999996
+                ],
+                "rssBytes": 113410048
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.989790999999997,
+                "samplesMs": [
+                  8.663209000000009,
+                  6.494500000000002,
+                  5.989790999999997,
+                  5.83874999999999,
+                  5.7174169999999975
+                ],
+                "rssBytes": 111165440
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.976667000000006,
+                "samplesMs": [
+                  15.076667,
+                  12.175167000000002,
+                  11.976667000000006,
+                  11.825125000000014,
+                  11.960959000000003
+                ],
+                "rssBytes": 109543424
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.8516249999999985,
+                "samplesMs": [
+                  8.887541999999996,
+                  6.444333999999998,
+                  5.8516249999999985,
+                  5.797083000000001,
+                  5.698333000000005
+                ],
+                "rssBytes": 111312896
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.693334000000007,
+                "samplesMs": [
+                  16.02320800000001,
+                  12.705292,
+                  11.693334000000007,
+                  11.637791000000007,
+                  11.592208
+                ],
+                "rssBytes": 111624192
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.473041999999992,
+                "samplesMs": [
+                  10.059624999999997,
+                  7.473041999999992,
+                  7.669167000000002,
+                  7.259749999999997,
+                  7.38104100000001
+                ],
+                "rssBytes": 108101632
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.874291999999997,
+                "samplesMs": [
+                  14.43758299999999,
+                  12.245791999999994,
+                  11.874291999999997,
+                  11.414541999999997,
+                  11.518249999999995
+                ],
+                "rssBytes": 111230976
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.9948750000000075,
+                "samplesMs": [
+                  10.023749999999993,
+                  7.391708999999992,
+                  6.946333999999993,
+                  6.9948750000000075,
+                  6.906333000000004
+                ],
+                "rssBytes": 107708416
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.972875000000002,
+                "samplesMs": [
+                  14.403666000000001,
+                  11.899375000000006,
+                  11.972875000000002,
+                  12.06708300000001,
+                  11.88199999999999
+                ],
+                "rssBytes": 110903296
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.028666999999999,
+                "samplesMs": [
+                  9.297167000000002,
+                  6.152583000000007,
+                  5.784458000000001,
+                  6.015625,
+                  6.028666999999999
+                ],
+                "rssBytes": 107659264
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.241666999999993,
+                "samplesMs": [
+                  14.666834000000009,
+                  12.241666999999993,
+                  12.245999999999995,
+                  11.693083000000016,
+                  11.685583999999977
+                ],
+                "rssBytes": 111329280
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.825917000000004,
+                "samplesMs": [
+                  9.628416999999999,
+                  6.376290999999995,
+                  5.823499999999996,
+                  5.796665999999988,
+                  5.825917000000004
+                ],
+                "rssBytes": 108363776
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.182666999999995,
+                "samplesMs": [
+                  15.084292000000005,
+                  12.182666999999995,
+                  12.117708000000007,
+                  11.805292000000009,
+                  12.229250000000008
+                ],
+                "rssBytes": 112312320
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.318541999999994,
+                "samplesMs": [
+                  10.208041999999992,
+                  7.504874999999998,
+                  7.1526250000000005,
+                  7.318541999999994,
+                  7.234957999999992
+                ],
+                "rssBytes": 112803840
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.082999999999998,
+                "samplesMs": [
+                  14.494833,
+                  12.192499999999995,
+                  12.082999999999998,
+                  11.586124999999996,
+                  11.924417000000005
+                ],
+                "rssBytes": 110739456
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.092334000000008,
+                "samplesMs": [
+                  10.016082999999995,
+                  7.550208999999995,
+                  6.948667,
+                  7.092334000000008,
+                  6.776082999999986
+                ],
+                "rssBytes": 110903296
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.789625000000001,
+                "samplesMs": [
+                  14.642624999999995,
+                  12.30895799999999,
+                  11.789625000000001,
+                  11.50737500000001,
+                  11.487625000000008
+                ],
+                "rssBytes": 108642304
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.847417000000007,
+                "samplesMs": [
+                  9.22912500000001,
+                  6.186667,
+                  5.822000000000003,
+                  5.847417000000007,
+                  5.677250000000001
+                ],
+                "rssBytes": 108806144
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.965959000000012,
+                "samplesMs": [
+                  15.132959,
+                  16.555416000000008,
+                  11.965959000000012,
+                  11.874875000000003,
+                  11.859916999999996
+                ],
+                "rssBytes": 112279552
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.046333000000004,
+                "samplesMs": [
+                  9.301165999999995,
+                  6.497875000000008,
+                  6.046333000000004,
+                  5.898666000000006,
+                  5.764583000000002
+                ],
+                "rssBytes": 111050752
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.106042000000002,
+                "samplesMs": [
+                  14.79391600000001,
+                  12.106042000000002,
+                  11.704250000000002,
+                  11.988041999999993,
+                  12.180292000000009
+                ],
+                "rssBytes": 108920832
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.429917000000003,
+                "samplesMs": [
+                  10.340333999999999,
+                  7.429917000000003,
+                  7.307792000000006,
+                  7.142916999999997,
+                  7.557000000000002
+                ],
+                "rssBytes": 110919680
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.296082999999996,
+                "samplesMs": [
+                  14.707624999999993,
+                  12.296082999999996,
+                  12.278875,
+                  12.31087500000001,
+                  11.732708000000002
+                ],
+                "rssBytes": 112295936
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.198791999999997,
+                "samplesMs": [
+                  10.523083999999997,
+                  7.409833000000006,
+                  7.198791999999997,
+                  7.061832999999993,
+                  7.138290999999995
+                ],
+                "rssBytes": 107626496
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.235917,
+                "samplesMs": [
+                  15.010207999999992,
+                  12.568875000000006,
+                  12.040666000000002,
+                  12.235917,
+                  11.534959000000015
+                ],
+                "rssBytes": 111951872
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.143500000000003,
+                "samplesMs": [
+                  9.395207999999997,
+                  6.281874999999999,
+                  6.143500000000003,
+                  5.980666999999997,
+                  5.8052080000000075
+                ],
+                "rssBytes": 108347392
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.551249999999982,
+                "samplesMs": [
+                  14.804583999999991,
+                  12.324624999999997,
+                  11.848167000000004,
+                  12.607792000000003,
+                  12.551249999999982
+                ],
+                "rssBytes": 108904448
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.2428330000000045,
+                "samplesMs": [
+                  8.820750000000004,
+                  6.49345799999999,
+                  6.2428330000000045,
+                  6.131625,
+                  5.918916999999993
+                ],
+                "rssBytes": 110215168
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.897625000000005,
+                "samplesMs": [
+                  14.709541999999999,
+                  12.047832999999997,
+                  11.897625000000005,
+                  11.605041,
+                  11.625999999999976
+                ],
+                "rssBytes": 108183552
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v26.8.1",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.933499999999995,
+                "samplesMs": [
+                  8.949792000000002,
+                  6.197084000000004,
+                  5.783541999999997,
+                  5.9025840000000045,
+                  5.933499999999995
+                ],
+                "rssBytes": 108855296
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.134583000000006,
+                "samplesMs": [
+                  14.513790999999998,
+                  12.134583000000006,
+                  12.182417000000001,
+                  12.09658300000001,
+                  11.740916999999996
+                ],
+                "rssBytes": 110510080
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.028834000000003,
+                "samplesMs": [
+                  9.386499999999998,
+                  6.289667000000009,
+                  5.945334000000003,
+                  5.902499999999989,
+                  6.028834000000003
+                ],
+                "rssBytes": 109936640
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.626707999999994,
+                "samplesMs": [
+                  15.023750000000007,
+                  12.168209000000004,
+                  11.626707999999994,
+                  11.60270899999999,
+                  11.379209000000003
+                ],
+                "rssBytes": 111493120
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "format": "cave.fraction-sum-probe-comparison",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "rounds": 6,
+      "steps": [
+        4,
+        6,
+        8
+      ],
+      "method": "All six variant orders rotate; six rounds balance order. Fresh child per workload, five retained timing calls and two untimed exact-value controls. Shortened runs are smoke checks, not stable timing evidence.",
+      "focusedHarnessSha256": "d1ac436f5428203322b5a451035449110e10d4b862f74b9f5747de5eb652c3b3",
+      "sources": {
+        "scripts/fraction-sum-probe-bench.mjs": "37f1793d07b15f7537fb388856971e6da0e4a2bb17b2ee7c98d0baa3c36ffcc2",
+        "scripts/exact-sum-bench.mjs": "03c7e2db0b42b8b6292e8a9659e53833be8e10817a288d3960fab04f358c353f",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "variants": {
+        "4": {
+          "helperSha256": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+        },
+        "6": {
+          "helperSha256": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794"
+        },
+        "8": {
+          "helperSha256": "fe1082049ba5df6826353f0b0129ab3414c8624d3d9db006c9967bd5af371e34"
+        }
+      },
+      "results": [
+        {
+          "round": 0,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.480916999999977,
+                "samplesMs": [
+                  11.018917000000002,
+                  7.812417000000011,
+                  7.391500000000008,
+                  7.2940830000000005,
+                  7.480916999999977
+                ],
+                "rssBytes": 105365504
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.587000000000003,
+                "samplesMs": [
+                  15.622167000000005,
+                  12.639459000000002,
+                  11.989416999999989,
+                  12.587000000000003,
+                  12.026832999999982
+                ],
+                "rssBytes": 105840640
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.341750000000005,
+                "samplesMs": [
+                  10.645291999999998,
+                  7.893249999999995,
+                  7.251374999999996,
+                  7.341750000000005,
+                  7.047541999999993
+                ],
+                "rssBytes": 104448000
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.085999999999999,
+                "samplesMs": [
+                  15.073333000000005,
+                  12.318292000000014,
+                  12.085999999999999,
+                  11.895499999999984,
+                  11.847707999999983
+                ],
+                "rssBytes": 104841216
+              }
+            ]
+          }
+        },
+        {
+          "round": 0,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.187124999999995,
+                "samplesMs": [
+                  9.680665999999988,
+                  6.508332999999993,
+                  6.036124999999998,
+                  6.186999999999998,
+                  6.187124999999995
+                ],
+                "rssBytes": 105021440
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.429749999999999,
+                "samplesMs": [
+                  16.283457999999996,
+                  12.646874999999994,
+                  12.429749999999999,
+                  11.872084000000001,
+                  11.923082999999991
+                ],
+                "rssBytes": 109314048
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.272874999999999,
+                "samplesMs": [
+                  9.876959,
+                  6.816208000000003,
+                  6.272874999999999,
+                  5.991917000000001,
+                  5.935584000000006
+                ],
+                "rssBytes": 107200512
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.426208000000003,
+                "samplesMs": [
+                  15.719832999999994,
+                  12.574332999999996,
+                  11.994208,
+                  12.426208000000003,
+                  12.357792000000018
+                ],
+                "rssBytes": 105463808
+              }
+            ]
+          }
+        },
+        {
+          "round": 0,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.631875000000008,
+                "samplesMs": [
+                  9.880540999999994,
+                  6.962541999999999,
+                  6.5575000000000045,
+                  6.631875000000008,
+                  6.131583000000006
+                ],
+                "rssBytes": 105005056
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 13.033415999999988,
+                "samplesMs": [
+                  16.209542,
+                  14.069874999999996,
+                  12.388708000000008,
+                  13.033415999999988,
+                  12.661791000000022
+                ],
+                "rssBytes": 106463232
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 8.715375000000009,
+                "samplesMs": [
+                  10.804749999999999,
+                  8.715375000000009,
+                  7.325416000000004,
+                  6.650791999999996,
+                  9.533000000000001
+                ],
+                "rssBytes": 106577920
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.86108299999998,
+                "samplesMs": [
+                  17.01154199999999,
+                  13.406709000000006,
+                  12.86108299999998,
+                  12.216375,
+                  12.130750000000006
+                ],
+                "rssBytes": 106283008
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.609500000000011,
+                "samplesMs": [
+                  12.258499999999998,
+                  7.937415999999999,
+                  6.536625000000001,
+                  6.359875000000002,
+                  6.609500000000011
+                ],
+                "rssBytes": 106463232
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.435625000000002,
+                "samplesMs": [
+                  15.591708999999994,
+                  12.435625000000002,
+                  12.053250000000006,
+                  12.564790999999985,
+                  12.150125000000003
+                ],
+                "rssBytes": 108412928
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.960250000000002,
+                "samplesMs": [
+                  9.307583000000008,
+                  6.347416999999993,
+                  5.9592500000000115,
+                  5.960250000000002,
+                  5.915209000000004
+                ],
+                "rssBytes": 104955904
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.830041000000008,
+                "samplesMs": [
+                  15.314374999999998,
+                  12.552374999999998,
+                  11.734499999999997,
+                  11.830041000000008,
+                  11.751000000000005
+                ],
+                "rssBytes": 106905600
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.387292000000002,
+                "samplesMs": [
+                  9.576542000000003,
+                  6.48045900000001,
+                  5.984791999999999,
+                  6.387292000000002,
+                  6.361417000000003
+                ],
+                "rssBytes": 106053632
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.46866700000001,
+                "samplesMs": [
+                  15.836917,
+                  12.46929200000001,
+                  12.429333,
+                  12.267666000000006,
+                  12.46866700000001
+                ],
+                "rssBytes": 105480192
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.185333,
+                "samplesMs": [
+                  10.032375000000002,
+                  7.1774580000000014,
+                  6.138458,
+                  6.185333,
+                  5.890499999999989
+                ],
+                "rssBytes": 106102784
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.761832999999996,
+                "samplesMs": [
+                  16.605041999999997,
+                  15.250124999999997,
+                  12.761832999999996,
+                  12.566665999999998,
+                  12.395958000000007
+                ],
+                "rssBytes": 106332160
+              }
+            ]
+          }
+        },
+        {
+          "round": 1,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.401209000000009,
+                "samplesMs": [
+                  10.295040999999998,
+                  7.401209000000009,
+                  7.2920409999999976,
+                  7.302291999999994,
+                  7.476458999999991
+                ],
+                "rssBytes": 105545728
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.31816599999999,
+                "samplesMs": [
+                  15.681207999999998,
+                  12.408500000000004,
+                  12.222208000000009,
+                  12.064667,
+                  12.31816599999999
+                ],
+                "rssBytes": 105021440
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.307333,
+                "samplesMs": [
+                  10.482249999999993,
+                  7.7287079999999975,
+                  7.24479199999999,
+                  7.193040999999994,
+                  7.307333
+                ],
+                "rssBytes": 106397696
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.959708000000006,
+                "samplesMs": [
+                  15.465999999999994,
+                  12.329458000000002,
+                  11.959708000000006,
+                  11.909833000000006,
+                  11.769625000000019
+                ],
+                "rssBytes": 105660416
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.9649590000000074,
+                "samplesMs": [
+                  9.545708000000005,
+                  6.630083000000013,
+                  5.9649590000000074,
+                  5.945499999999996,
+                  5.851208
+                ],
+                "rssBytes": 106496000
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.715666999999996,
+                "samplesMs": [
+                  15.626458,
+                  12.715666999999996,
+                  12.755500000000012,
+                  12.21758299999999,
+                  12.313540999999987
+                ],
+                "rssBytes": 106610688
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.010708999999991,
+                "samplesMs": [
+                  9.833334000000008,
+                  6.289749999999998,
+                  5.956333000000001,
+                  6.010708999999991,
+                  5.81770800000001
+                ],
+                "rssBytes": 105725952
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.337209000000001,
+                "samplesMs": [
+                  15.698999999999998,
+                  12.355500000000006,
+                  12.172124999999994,
+                  12.191208000000003,
+                  12.337209000000001
+                ],
+                "rssBytes": 107708416
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.6440840000000065,
+                "samplesMs": [
+                  10.88262499999999,
+                  7.6995000000000005,
+                  7.49154200000001,
+                  7.2727919999999955,
+                  7.6440840000000065
+                ],
+                "rssBytes": 105381888
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.497958999999994,
+                "samplesMs": [
+                  15.567000000000007,
+                  12.497958999999994,
+                  12.585415999999995,
+                  12.009375000000006,
+                  12.487292000000025
+                ],
+                "rssBytes": 104972288
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.414833000000002,
+                "samplesMs": [
+                  10.664041999999995,
+                  7.576624999999993,
+                  7.387292000000002,
+                  7.414833000000002,
+                  7.373292000000006
+                ],
+                "rssBytes": 105299968
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.598124999999996,
+                "samplesMs": [
+                  16.52683300000001,
+                  12.598124999999996,
+                  11.841000000000008,
+                  12.722125000000005,
+                  12.307874999999996
+                ],
+                "rssBytes": 107036672
+              }
+            ]
+          }
+        },
+        {
+          "round": 2,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.063457999999997,
+                "samplesMs": [
+                  9.358709000000005,
+                  6.402916999999988,
+                  6.063457999999997,
+                  5.989666999999997,
+                  5.8833330000000075
+                ],
+                "rssBytes": 107085824
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.554208000000003,
+                "samplesMs": [
+                  15.697541999999999,
+                  14.043665999999988,
+                  12.554208000000003,
+                  12.210208999999992,
+                  11.835499999999996
+                ],
+                "rssBytes": 106119168
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.038458000000006,
+                "samplesMs": [
+                  9.68050000000001,
+                  6.422124999999994,
+                  6.030957999999998,
+                  6.038458000000006,
+                  5.9731669999999895
+                ],
+                "rssBytes": 104906752
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.911833000000001,
+                "samplesMs": [
+                  16.320667,
+                  12.881250000000009,
+                  11.911833000000001,
+                  11.909707999999995,
+                  11.838124999999991
+                ],
+                "rssBytes": 105955328
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.415582999999998,
+                "samplesMs": [
+                  9.572958,
+                  6.513417000000004,
+                  6.415582999999998,
+                  6.029042000000004,
+                  5.886499999999998
+                ],
+                "rssBytes": 105725952
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.85112500000001,
+                "samplesMs": [
+                  15.658500000000004,
+                  12.965042000000011,
+                  12.85112500000001,
+                  12.470833000000013,
+                  12.824749999999995
+                ],
+                "rssBytes": 105037824
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.371290999999999,
+                "samplesMs": [
+                  10.826166,
+                  6.883375000000001,
+                  6.371290999999999,
+                  6.2803750000000065,
+                  5.920458000000011
+                ],
+                "rssBytes": 104841216
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.358291999999992,
+                "samplesMs": [
+                  15.371624999999995,
+                  12.358291999999992,
+                  12.169457999999992,
+                  12.59358300000001,
+                  12.148458000000005
+                ],
+                "rssBytes": 107118592
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.5788749999999965,
+                "samplesMs": [
+                  10.003291000000004,
+                  6.597499999999997,
+                  6.129790999999997,
+                  6.5788749999999965,
+                  6.419291999999999
+                ],
+                "rssBytes": 104628224
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.464292,
+                "samplesMs": [
+                  16.018625,
+                  12.468249999999998,
+                  12.464292,
+                  12.201875000000015,
+                  12.009749999999997
+                ],
+                "rssBytes": 106020864
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 5.931167000000002,
+                "samplesMs": [
+                  9.832707999999997,
+                  6.344583,
+                  5.9189170000000075,
+                  5.931167000000002,
+                  5.924582999999998
+                ],
+                "rssBytes": 105512960
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.679292000000004,
+                "samplesMs": [
+                  15.250249999999994,
+                  12.679292000000004,
+                  12.165041000000002,
+                  12.273416999999995,
+                  12.71870800000002
+                ],
+                "rssBytes": 106250240
+              }
+            ]
+          }
+        },
+        {
+          "round": 3,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.393084000000002,
+                "samplesMs": [
+                  10.384749999999997,
+                  7.631708000000003,
+                  7.393084000000002,
+                  7.205957999999995,
+                  7.3219999999999885
+                ],
+                "rssBytes": 106872832
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.349333000000001,
+                "samplesMs": [
+                  15.121707999999998,
+                  12.548457999999997,
+                  12.258083,
+                  12.056875000000005,
+                  12.349333000000001
+                ],
+                "rssBytes": 106807296
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.093084000000005,
+                "samplesMs": [
+                  11.149542000000011,
+                  7.617041999999998,
+                  7.008250000000004,
+                  7.0788749999999965,
+                  7.093084000000005
+                ],
+                "rssBytes": 109133824
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 11.940125000000009,
+                "samplesMs": [
+                  14.759499999999989,
+                  12.423958999999996,
+                  11.808166999999997,
+                  11.940125000000009,
+                  11.592542000000009
+                ],
+                "rssBytes": 105365504
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.286541,
+                "samplesMs": [
+                  9.221166999999994,
+                  6.304083000000006,
+                  5.956958,
+                  6.054999999999993,
+                  6.286541
+                ],
+                "rssBytes": 106217472
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.203041999999996,
+                "samplesMs": [
+                  15.73212500000001,
+                  12.436999999999998,
+                  12.109166000000002,
+                  12.203041999999996,
+                  12.017375000000015
+                ],
+                "rssBytes": 106070016
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.227417000000003,
+                "samplesMs": [
+                  9.537125000000003,
+                  6.403750000000002,
+                  6.227417000000003,
+                  6.160250000000005,
+                  5.814417000000006
+                ],
+                "rssBytes": 104972288
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.025916999999993,
+                "samplesMs": [
+                  15.308750000000003,
+                  12.205750000000009,
+                  12.025916999999993,
+                  11.719083000000012,
+                  11.977958000000001
+                ],
+                "rssBytes": 105873408
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.501041999999998,
+                "samplesMs": [
+                  10.765625,
+                  7.790875,
+                  7.501041999999998,
+                  7.212290999999993,
+                  7.288584
+                ],
+                "rssBytes": 106315776
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.053667000000004,
+                "samplesMs": [
+                  15.027041999999994,
+                  12.515583000000007,
+                  12.053667000000004,
+                  11.988708000000003,
+                  11.967167000000018
+                ],
+                "rssBytes": 105709568
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.064292000000009,
+                "samplesMs": [
+                  10.437749999999994,
+                  7.5597080000000005,
+                  7.064292000000009,
+                  6.983707999999993,
+                  6.930542000000003
+                ],
+                "rssBytes": 107249664
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.058415999999994,
+                "samplesMs": [
+                  15.100791000000001,
+                  12.242791999999994,
+                  11.963957999999991,
+                  12.058415999999994,
+                  11.974457999999998
+                ],
+                "rssBytes": 106610688
+              }
+            ]
+          }
+        },
+        {
+          "round": 4,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.015000000000001,
+                "samplesMs": [
+                  9.498083000000008,
+                  6.540790999999999,
+                  5.971000000000004,
+                  5.992207999999991,
+                  6.015000000000001
+                ],
+                "rssBytes": 106594304
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.296040999999988,
+                "samplesMs": [
+                  15.247500000000002,
+                  12.526416999999995,
+                  12.296040999999988,
+                  11.881582999999992,
+                  12.189042
+                ],
+                "rssBytes": 108904448
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.107124999999996,
+                "samplesMs": [
+                  9.381457999999995,
+                  6.461832999999999,
+                  6.107124999999996,
+                  6.00462499999999,
+                  5.840832999999989
+                ],
+                "rssBytes": 107036672
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.133833999999993,
+                "samplesMs": [
+                  15.239416999999989,
+                  12.45741600000001,
+                  11.861165999999997,
+                  12.133833999999993,
+                  11.928750000000008
+                ],
+                "rssBytes": 106496000
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 4,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.486374999999995,
+                "samplesMs": [
+                  11.246167000000014,
+                  7.975750000000005,
+                  7.321415999999999,
+                  7.411541999999997,
+                  7.486374999999995
+                ],
+                "rssBytes": 106758144
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.600082999999984,
+                "samplesMs": [
+                  15.437583000000004,
+                  12.561416999999992,
+                  11.808958000000004,
+                  12.616624999999999,
+                  12.600082999999984
+                ],
+                "rssBytes": 105857024
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.280625000000001,
+                "samplesMs": [
+                  11.103415999999996,
+                  7.891959,
+                  7.280625000000001,
+                  7.043541000000005,
+                  7.013667000000012
+                ],
+                "rssBytes": 106070016
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.171582999999998,
+                "samplesMs": [
+                  15.423666999999995,
+                  12.766999999999996,
+                  11.957125000000005,
+                  12.171582999999998,
+                  12.141332999999975
+                ],
+                "rssBytes": 107298816
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 8,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 8.067125000000004,
+                "samplesMs": [
+                  9.741833999999997,
+                  6.905666999999994,
+                  8.280874999999995,
+                  8.067125000000004,
+                  6.674749999999989
+                ],
+                "rssBytes": 105168896
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 13.337999999999994,
+                "samplesMs": [
+                  15.999707999999998,
+                  17.71308300000001,
+                  12.814750000000004,
+                  12.753791999999976,
+                  13.337999999999994
+                ],
+                "rssBytes": 106512384
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 7.5341669999999965,
+                "samplesMs": [
+                  11.493583000000001,
+                  7.270707999999985,
+                  7.5341669999999965,
+                  7.609040999999991,
+                  6.286167000000006
+                ],
+                "rssBytes": 104153088
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.70008399999999,
+                "samplesMs": [
+                  16.16487500000001,
+                  12.885917000000006,
+                  12.70008399999999,
+                  12.445333000000005,
+                  12.38787499999998
+                ],
+                "rssBytes": 105988096
+              }
+            ]
+          }
+        },
+        {
+          "round": 5,
+          "steps": 6,
+          "report": {
+            "format": "cave.exact-sum-benchmark",
+            "version": 2,
+            "runtime": {
+              "node": "v24.21.0",
+              "platform": "darwin",
+              "arch": "arm64"
+            },
+            "childTimeoutMs": 10000,
+            "childOldSpaceMb": 128,
+            "measurement": {
+              "samplesPerWorkload": 5,
+              "discardedWarmupSamples": 0,
+              "sampleOrder": "execution order; median computed from a sorted copy",
+              "exactControlsPerWorkload": 2,
+              "exactControls": "untimed analytic reciprocal equality and expected-plus-one inequality; normalized with independent Euclid; expected value supplied as assignment under default limits",
+              "timing": "complete linear-analysis or explanation call; excludes fixture construction and assertions",
+              "rss": "after workload and extra magnitude controls; not peak or incremental memory",
+              "memoryLimit": "V8 old space only; not a total-process memory cap"
+            },
+            "measurements": [
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.187916999999999,
+                "samplesMs": [
+                  9.870833000000005,
+                  6.5125830000000065,
+                  6.159458000000001,
+                  6.187916999999999,
+                  6.141083999999992
+                ],
+                "rssBytes": 106921984
+              },
+              {
+                "digits": 20000,
+                "kind": "add",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.345500000000001,
+                "samplesMs": [
+                  15.189374999999998,
+                  12.612124999999992,
+                  12.345500000000001,
+                  12.080041000000008,
+                  12.259457999999995
+                ],
+                "rssBytes": 105676800
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "delayed-shared",
+                "operation": "explain",
+                "medianMs": 6.058000000000007,
+                "samplesMs": [
+                  9.376499999999993,
+                  6.484249999999989,
+                  6.058000000000007,
+                  5.932708000000005,
+                  5.831083000000007
+                ],
+                "rssBytes": 105447424
+              },
+              {
+                "digits": 20000,
+                "kind": "subtract",
+                "family": "fibonacci",
+                "operation": "explain",
+                "medianMs": 12.302542000000003,
+                "samplesMs": [
+                  15.412166999999997,
+                  12.801041999999995,
+                  12.302542000000003,
+                  12.018750000000011,
+                  12.113582999999977
+                ],
+                "rssBytes": 105267200
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

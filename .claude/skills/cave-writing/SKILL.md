@@ -484,7 +484,11 @@ memory-leak CAUSE oom @ 70%
 | `@ 30%` | unlikely but plausible |
 | `@ 0%` | evidentially false or fully rejected |
 
-Omitted confidence means `@ 100%`.
+Omitted confidence means `@ 100%`. Canonical emission MUST preserve the stored
+finite confidence in [0, 1] exactly when parsed again. Percentages use decimal
+notation without exponents and may have many fractional digits. Parsing shifts
+the decimal point two places left before converting to the stored number,
+avoiding double rounding. Rounded percentages are for presentation only.
 
 The `@` disambiguation is purely whitespace: `@production` is context; `@ 70%` is confidence. One character of lookahead.
 
@@ -754,6 +758,34 @@ not to the non-materialized prefix headers.
 
 ---
 
+### 8.6 Explicit full claims
+
+A leading `@claim` marker forces the remaining tokens to parse as a full claim,
+without changing the subject's entity/literal kind. It is permitted at the
+margin, on grouped claims, and at the start of a qualifier payload after any
+leading `NOT`:
+
+```cave
+@claim WHEN EXISTS
+  @claim IS EXISTS
+  WHEN @claim NOT EXISTS
+```
+
+This preserves entity subjects that would otherwise be interpreted as qualifier
+verbs or continuation verbs. The marker contributes no context or claim data;
+a trailing `@claim` remains the ordinary context `claim`. Existing unmarked
+lines retain the §8.1–§8.5 classification and negation rules. An incomplete
+explicit claim can be a recursive prefix under §8.5; its descendants must still
+complete a valid full claim.
+
+Canonical emitters MUST use explicit full-claim spelling when the unmarked
+spelling would change claim identity or parent/qualifier structure. They MUST
+NOT silently change an entity into a quoted literal to resolve the ambiguity.
+Readers of such emitted text must support this marker. Missing or malformed
+explicit bodies produce ordinary parse diagnostics.
+
+---
+
 ## 11. Classification: Two Lanes, and Topics
 
 ### 11.1 The two-lane rule
@@ -823,7 +855,9 @@ line          = blank
    documentary. *)
 comment_line  = ";" text ;
 
-claim_line    = subject space verb [space "NOT"] space payload metadata [comment] ;
+claim_line    = [ "@claim" space ] subject space claim_body metadata [comment] ;
+claim_body    = verb [space "NOT"] space payload
+              | "EXISTS" [space "NOT"] ;
 
 indented_line = indent ( qualifier_clause
                        | continuation_clause
@@ -837,6 +871,9 @@ fragment      = text ;                                  (* one or more tokens *)
 
 qualifier_clause    = qualifier_verb space qualifier_payload metadata [comment] ;
 qualifier_verb      = "WHEN" | "UNLESS" | "VIA" | "BECAUSE" ;
+qualifier_payload   = [ "NOT" space ] ( claim_line | comparison | subject ) ;
+comparison          = subject space comparison_op space value ;
+comparison_op       = ">" | "<" | ">=" | "<=" | "=" | "!=" ;
 
 (* bare relational verb; endpoint inherited from parent per §8.3 *)
 continuation_clause = verb [space "NOT"] space payload metadata [comment] ;

@@ -1,0 +1,75 @@
+{
+  "description": "Canonical preparation reuse across 5000 constraints sharing one Boolean expression. Complete serialized bytes and digest unchanged.",
+  "platform": "darwin",
+  "arch": "arm64",
+  "command": "node --max-old-space-size=256 scripts/solver-canonical-serialization-bench.mjs 5000",
+  "method": "Sequential fresh process for each variant/runtime, four serialization calls, first excluded from median. Construction and hash/parse assertions outside timing but included in lifetime RSS; no concurrent tests or builds. Only this shared flat workload is measured. V8 old-space setting is not a process-memory cap.",
+  "beforeCanonicalOwnedSha256": "9196ba0718dc80c3e274473074fa3aa797e0b9521b0d2004da9ffe4059d76d16",
+  "afterSources": {
+    "scripts/solver-canonical-serialization-bench.mjs": "66880eba403d740dc183456e502aa7a5b7e94a775aa120c53a8450cfa39b2ff5",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+  },
+  "before": [
+    {
+      "node": "v24.21.0",
+      "count": 5000,
+      "samplesMs": [
+        251.70499999999998,
+        238.24083300000007,
+        221.354375,
+        223.26295800000003
+      ],
+      "medianMs": 223.26295800000003,
+      "maxRssKiB": 261040,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    },
+    {
+      "node": "v26.8.1",
+      "count": 5000,
+      "samplesMs": [
+        212.455333,
+        198.47441700000002,
+        195.31116699999995,
+        189.92895799999997
+      ],
+      "medianMs": 195.31116699999995,
+      "maxRssKiB": 211584,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    }
+  ],
+  "after": [
+    {
+      "node": "v24.21.0",
+      "count": 5000,
+      "samplesMs": [
+        101.57416700000002,
+        93.99149999999997,
+        80.93633399999993,
+        80.95016700000008
+      ],
+      "medianMs": 80.95016700000008,
+      "maxRssKiB": 190624,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    },
+    {
+      "node": "v26.8.1",
+      "count": 5000,
+      "samplesMs": [
+        114.60520799999995,
+        87.64412499999997,
+        77.19008399999996,
+        66.76904200000001
+      ],
+      "medianMs": 77.19008399999996,
+      "maxRssKiB": 193328,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    }
+  ]
+}

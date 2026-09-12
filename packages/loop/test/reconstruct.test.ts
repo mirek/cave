@@ -1,7 +1,29 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { memoryStoreOfText, reconstruct, heuristicPolicy } from '@cavelang/loop'
+import { memoryStoreOfText, reconstruct, reconstructAsync, heuristicPolicy } from '@cavelang/loop'
 import { isDirectInvocation, knowledge, run } from '../src/demo.ts'
+
+test('one broad expansion retains its complete frontier at the step boundary', async () => {
+  const size = 130_000
+  const store = memoryStoreOfText(Array.from({ length: size }, (_, i) => `root USES neighbor-${i}`).join('\n'))
+  for (const async of [false, true]) {
+    const policy = heuristicPolicy({ maxSteps: 1 })
+    const result = async ? await reconstructAsync(store, {
+      select: async state => policy.select(state),
+      score: async (edge, cue) => policy.score(edge, cue),
+      done: async state => policy.done(state)
+    }, ['root']) : reconstruct(store, policy, ['root'])
+    assert.equal(result.state.steps, 1)
+    assert.deepEqual([...result.state.visited], ['root'])
+    assert.equal(result.claims.length, size)
+    assert.equal(result.trace.length, 1)
+    assert.equal(result.trace[0]!.edges.length, size)
+    assert.equal(result.state.frontier.length, size)
+    for (let i = 0; i < size; i++) {
+      assert.deepEqual(result.state.frontier[i], { entity: `neighbor-${i}`, score: 0.8, depth: 1 })
+    }
+  }
+})
 
 test('multi-hop recovery: symptom → cause → topic → fix (spec §11.3, §18)', () => {
   const store = memoryStoreOfText(knowledge)

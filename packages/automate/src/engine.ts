@@ -28,6 +28,8 @@
  *   converge (§29.4).
  */
 
+import { errorMessage } from './error-message.ts'
+import { throwIfCancelled } from './cancellation.ts'
 import { Context, Key } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import { act, loadAction } from '@cavelang/act'
@@ -36,6 +38,7 @@ import { match } from '@cavelang/query'
 import { derive, satisfies, specialize } from '@cavelang/rules'
 import { Row, type Store } from '@cavelang/store'
 import * as Automation from './automation.ts'
+import { captureSettleOptions } from './options.ts'
 import { bookkeepingKey, loadAutomations, provenanceContext, type LoadProblem } from './declare.ts'
 
 /** Attribute of per-automation watermark claims (spec §29.2). */
@@ -49,6 +52,8 @@ export const defaultAgentTimeoutSeconds = 120
 const infrastructureActors: readonly string[] = ['cave-automate', 'cave-derive', 'cave-act']
 
 export type SettleOptions = {
+  /** Cooperative cancellation before claims, between steps, and after agent replies. */
+  readonly signal?: AbortSignal
   /** Premises match through the alias closure (spec §13.6). */
   readonly aliases?: boolean
   /** Fire the store's rules each pass (spec §29.4) — on by default. */
@@ -108,17 +113,20 @@ export type DeriveTotals = {
 }
 
 export type SettleReport = {
+  /** A quiet final pass confirmed completion, including enabled derivation. */
+  readonly complete: boolean
   readonly passes: number
   readonly automations: readonly AutomationOutcome[]
-  /** Stored declarations that failed to parse — reported, skipped. */
+  /** Stored automation or enabled rule declarations that failed to parse — reported, skipped. */
   readonly problems: readonly LoadProblem[]
   /** Accumulated §24 derivation counts, absent under `derive: false`. */
   readonly derive?: DeriveTotals
   readonly notes: readonly string[]
 }
 
-/** `true` when the report contains a failed step or a parse problem. */
+/** `true` after completion with no failed step or declaration parse problem. */
 export const settled = (report: SettleReport): boolean =>
+  report.complete &&
   report.problems.length === 0 &&
   report.automations.every(automation =>
     automation.firings.every(firing => firing.steps.every(step => step.outcome !== 'failed')))
@@ -178,14 +186,13 @@ const echoRuns = (automation: Automation.t): string[] => [
 const rawBinding = (bound: string): string =>
   Row.parseValue(bound).raw
 
-/** Substitutes bound `?var`s into a prompt template, longest name first. */
+/** Substitutes template tokens once; bound text is never scanned or interpreted. */
 export const substitutePrompt = (template: string, bindings: Readonly<Record<string, string>>): string => {
-  let text = template
-  for (const name of Object.keys(bindings).sort((a, b) => b.length - a.length)) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    text = text.replace(new RegExp(`\\?${escaped}(?![A-Za-z0-9_-])`, 'g'), rawBinding(bindings[name]!))
-  }
-  return text
+  const names = Object.keys(bindings).sort((a, b) => b.length - a.length)
+  if (names.length === 0) return template
+  const alternatives = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  return template.replace(new RegExp(`\\?(${alternatives})(?![A-Za-z0-9_-])`, 'g'),
+    (_token, name: string) => rawBinding(bindings[name]!))
 }
 
 /**
@@ -204,13 +211,18 @@ export const substituteHook = (
   })
 
 /** Canonical lines of a solution's premise rows, deduplicated, join order. */
-const solutionLines = (store: Store, solution: Solution): string[] => {
+const solutionLines = (store: Store, solution: Solution, textByRow: Map<string, string>): string[] => {
   const seen = new Set<string>()
   const lines: string[] = []
   for (const row of solution.rows) {
     if (!seen.has(row.id)) {
       seen.add(row.id)
-      lines.push(Canonical.emitClaim(store.toClaim(row)))
+      let text = textByRow.get(row.id)
+      if (text === undefined) {
+        text = Canonical.emitClaim(store.toClaim(row))
+        textByRow.set(row.id, text)
+      }
+      lines.push(text)
     }
   }
   return lines
@@ -246,7 +258,7 @@ const runAction = (store: Store, step: Automation.Step & { kind: 'action' }, sol
   }
   const args: Record<string, string> = {}
   for (const param of resolved.loaded.action.params) {
-    const bound = solution.bindings[param]
+    const bound = Object.hasOwn(solution.bindings, param) ? solution.bindings[param] : undefined
     if (bound === undefined) {
       return { step: step.text, kind: 'action', outcome: 'failed', detail: `the trigger did not bind ?${param} — action parameters bind from same-named trigger variables (spec §29.3)` }
     }
@@ -274,22 +286,28 @@ const runAction = (store: Store, step: Automation.Step & { kind: 'action' }, sol
   }
 }
 
-const runHook = (name: string, automation: Automation.t, solution: Solution, lines: readonly string[], options: SettleOptions): StepOutcome => {
+const runHook = (name: string, automation: Automation.t, solution: Solution, lines: readonly string[], options: SettleOptions, timeoutMs: number): StepOutcome => {
   const step = `hook/${name}`
-  const template = options.hooks?.[name]
+  let template: string | undefined
+  try {
+    template = options.hooks !== undefined && Object.hasOwn(options.hooks, name) ? options.hooks[name] : undefined
+  } catch {
+    return { step, kind: 'hook', outcome: 'failed', detail: 'hook configuration lookup failed' }
+  }
   if (template === undefined) {
     return { step, kind: 'hook', outcome: 'not-configured', detail: 'hook not configured (spec §25.4)' }
   }
+  if (typeof template !== 'string') return { step, kind: 'hook', outcome: 'failed', detail: 'hook command must be a string' }
   let output = ''
   let error: string | undefined
   try {
     const result = runProcessSync(shellCommand(template, {
-      automation: automation.name,
       ...Object.fromEntries(Object.entries(solution.bindings)
-        .map(([key, value]) => [key, rawBinding(value)]))
+        .map(([key, value]) => [key, rawBinding(value)])),
+      automation: automation.name
     }), {
       input: `${lines.join('\n')}\n`,
-      timeoutMs: (options.hookTimeoutSeconds ?? 600) * 1000,
+      timeoutMs,
       ...options.cwd === undefined ? {} : { cwd: options.cwd },
       ...options.hookMaxStdoutBytes === undefined ? {} : { maxStdoutBytes: options.hookMaxStdoutBytes },
       ...options.hookMaxStderrBytes === undefined ? {} : { maxStderrBytes: options.hookMaxStderrBytes }
@@ -318,7 +336,8 @@ const runHook = (name: string, automation: Automation.t, solution: Solution, lin
  * equal to its current belief appends nothing (claims cited by qualifier
  * edges are kept, so reply structure survives).
  */
-export const appendReply = (store: Store, automation: Automation.t, reply: string): { appended: number, problems: string[] } => {
+export const appendReply = (store: Store, automation: Automation.t, reply: string): { appended: number, problems: string[] } => store.transaction(() => {
+  // registry() refreshes external commits under this write reservation.
   const result = Canonical.canonicalizeText(reply, store.registry())
   const problems = result.problems.map(problem => `reply line ${problem.line}: ${problem.message}`)
   const referenced = new Set<number>()
@@ -327,18 +346,22 @@ export const appendReply = (store: Store, automation: Automation.t, reply: strin
     referenced.add(edge.child)
   }
   const keep: number[] = []
+  // Later lines see earlier reply revisions, not only the pre-reply store.
+  const latest = new Map<string, { conf: number, value_text: string | null }>()
   result.claims.forEach((entry, index) => {
     const stamp = Context.source(automation.subject)
     const stamped = entry.claim.contexts.includes(stamp) ?
       entry.claim :
       { ...entry.claim, contexts: [...entry.claim.contexts, stamp] }
-    const current = store.currentBelief(Key.of(stamped))
+    const key = Key.of(stamped)
+    const current = latest.get(key) ?? store.currentBelief(key)
     const columns = Row.toColumns(entry.claim)
-    const unchanged = current !== undefined && Math.abs(current.conf - entry.claim.conf) < 1e-9 &&
+    const unchanged = current !== undefined && current.conf === entry.claim.conf &&
       current.value_text === columns.valueText
     if (!unchanged || referenced.has(index)) {
       keep.push(index)
     }
+    latest.set(key, { conf: entry.claim.conf, value_text: columns.valueText })
   })
   if (keep.length === 0) {
     return { appended: 0, problems }
@@ -351,7 +374,7 @@ export const appendReply = (store: Store, automation: Automation.t, reply: strin
     problems: []
   }, { source: automation.subject, lifecycle: true })
   return { appended: inserted.ids.length, problems }
-}
+})
 
 const runPrompt = async (
   store: Store,
@@ -366,12 +389,8 @@ const runPrompt = async (
     return { step: step.text, kind: 'prompt', outcome: 'not-configured', detail: 'no agent configured (--agent, spec §29.3)' }
   }
   const prompt = buildPrompt(automation, description, substitutePrompt(step.template, solution.bindings), lines)
-  let reply: string
-  try {
-    reply = await options.complete(prompt)
-  } catch (error) {
-    return { step: step.text, kind: 'prompt', outcome: 'failed', detail: error instanceof Error ? error.message : String(error) }
-  }
+  const reply = await options.complete(prompt)
+  options.signal?.throwIfAborted()
   if (reply.trim() === '') {
     return { step: step.text, kind: 'prompt', outcome: 'ok', appended: 0, detail: 'empty reply — nothing recorded' }
   }
@@ -392,8 +411,43 @@ const runPrompt = async (
  * in the outcome and never abort the cycle.
  */
 export const settle = async (store: Store, options: SettleOptions = {}): Promise<SettleReport> => {
+  options = captureSettleOptions(options)
+  for (const key of ['derive', 'check', 'aliases'] as const) {
+    if (options[key] !== undefined && typeof options[key] !== 'boolean') {
+      throw new Error(`${key} must be a boolean`)
+    }
+  }
+  // Getter-backed commands retain execution-time lookup; do not invoke them here.
+  if (options.hooks !== undefined && (options.hooks === null || typeof options.hooks !== 'object' ||
+      Array.isArray(options.hooks) || Object.values(Object.getOwnPropertyDescriptors(options.hooks)).some(entry =>
+        'value' in entry ? typeof entry.value !== 'string' : entry.get === undefined))) {
+    throw new Error('hooks must be an object of name → shell template strings')
+  }
+  const maxPasses = options.maxPasses === undefined ? defaultMaxPasses : options.maxPasses
+  if (!Number.isSafeInteger(maxPasses) || maxPasses < 1) {
+    throw new Error('maxPasses must be a positive safe integer')
+  }
+  const seconds = options.hookTimeoutSeconds === undefined ? 600 : options.hookTimeoutSeconds
+  const milliseconds = typeof seconds === 'number' ? seconds * 1000 : NaN
+  const timeoutMs = Math.round(milliseconds)
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(milliseconds))
+  if (!Number.isFinite(seconds) || seconds < 0 || timeoutMs > 2147483647 ||
+      (seconds !== 0 && timeoutMs < 1) || Math.abs(milliseconds - timeoutMs) > tolerance) {
+    throw new Error('hookTimeoutSeconds must resolve to whole milliseconds in 0..2147483647')
+  }
+  for (const key of ['hookMaxStdoutBytes', 'hookMaxStderrBytes'] as const) {
+    const value = options[key]
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+      throw new Error(`${key} must be a non-negative safe integer`)
+    }
+  }
+  // A savepoint cannot make the firing log durable before external steps run.
+  store.transaction(({ outermost }) => {
+    if (!outermost) {
+      throw new Error('automation settling cannot run inside a caller-owned transaction; settle after it commits')
+    }
+  })
   const aliases = options.aliases === true
-  const maxPasses = options.maxPasses ?? defaultMaxPasses
   const outcomes = new Map<string, AutomationOutcome>()
   const problems = new Map<string, LoadProblem>()
   const notes: string[] = []
@@ -402,22 +456,22 @@ export const settle = async (store: Store, options: SettleOptions = {}): Promise
 
   let passes = 0
   let progress = true
+  let derivationComplete = true
   while (progress && passes < maxPasses) {
+    options.signal?.throwIfAborted()
     passes += 1
     progress = false
 
     if (options.derive !== false) {
       const report = derive(store, { aliases })
+      derivationComplete = report.complete
       deriveTotals.passes += report.passes
       deriveTotals.appended += report.appended
       deriveTotals.updated += report.updated
       deriveTotals.retracted += report.retracted
       deriveTotals.unchanged += report.unchanged
       for (const problem of report.problems) {
-        const note = `${problem.subject}: ${problem.problems.join('; ')}`
-        if (!notes.includes(note)) {
-          notes.push(note)
-        }
+        problems.set(problem.subject, problem)
       }
       if (report.appended + report.updated + report.retracted > 0) {
         progress = true
@@ -428,87 +482,135 @@ export const settle = async (store: Store, options: SettleOptions = {}): Promise
     for (const problem of loaded.problems) {
       problems.set(problem.subject, problem)
     }
-    for (const entry of loaded.loaded) {
-      const { automation, row, description } = entry
-      let outcome = outcomes.get(automation.subject)
-      if (outcome === undefined) {
-        outcome = {
-          subject: automation.subject,
-          name: automation.name,
-          text: automation.text,
-          ...description === undefined ? {} : { description },
-          evaluations: 0,
-          fired: 0,
-          firings: []
+    // Reuse parsed declarations only while the reserved database version is
+    // unchanged. Our own watermark append cannot alter declarations or vocabulary.
+    let cachedThrough: string | undefined
+    let declarations: Map<string, (typeof loaded.loaded)[number]> | undefined
+    let declarationProblems = new Map<string, LoadProblem>()
+    for (const candidate of loaded.loaded) {
+      options.signal?.throwIfAborted()
+      const batch = store.transaction(() => {
+        // Earlier steps may await an agent while another writer changes declarations.
+        const currentTx = maxTx(store)
+        if (declarations === undefined || currentTx !== cachedThrough) {
+          store.registry()
+          const current = loadAutomations(store)
+          declarations = new Map(current.loaded.map(entry => [entry.automation.subject, entry]))
+          declarationProblems = new Map(current.problems.map(problem => [problem.subject, problem]))
+          cachedThrough = currentTx
         }
-        outcomes.set(automation.subject, outcome)
-      }
+        const subject = candidate.automation.subject
+        const problem = declarationProblems.get(subject)
+        if (problem !== undefined) problems.set(subject, problem)
+        const entry = declarations.get(subject)
+        if (entry === undefined) return undefined
+        const { automation, row, description } = entry
+        let outcome = outcomes.get(automation.subject)
+        if (outcome === undefined) {
+          outcome = {
+            subject: automation.subject,
+            name: automation.name,
+            text: automation.text,
+            ...description === undefined ? {} : { description },
+            evaluations: 0,
+            fired: 0,
+            firings: []
+          }
+          outcomes.set(automation.subject, outcome)
+        }
 
-      // Arming (spec §29.2): the later of the stored watermark and the
-      // declaration row's tx. Retracting an automation leaves its
-      // watermark claim current, so a re-declared automation would
-      // otherwise arm at the old mark and fire once over every row
-      // recorded while it was retracted (BUGS.md automate-stale-watermark)
-      // — the dual of the rules engine's §24.4 staleness rule: derivation
-      // must re-fire over pre-declaration rows, an automation must not.
-      const stored = store.currentBelief(bookkeepingKey(automation.subject, watermarkAttribute))
-      const mark = stored !== undefined && stored.conf > 0 &&
-        stored.value_text !== null && stored.value_text > row.tx ?
-        stored.value_text :
-        row.tx
-      if (anyRowSince.get(mark) === undefined) {
-        continue
-      }
+        // Arming (spec §29.2): the later of the stored watermark and the
+        // declaration row's tx. Retracting an automation leaves its
+        // watermark claim current, so a re-declared automation would
+        // otherwise arm at the old mark and fire once over every row
+        // recorded while it was retracted (BUGS.md automate-stale-watermark)
+        // — the dual of the rules engine's §24.4 staleness rule: derivation
+        // must re-fire over pre-declaration rows, an automation must not.
+        const stored = store.currentBelief(bookkeepingKey(automation.subject, watermarkAttribute))
+        const mark = stored !== undefined && stored.conf > 0 &&
+          stored.value_text !== null && stored.value_text > row.tx ?
+          stored.value_text :
+          row.tx
+        if (anyRowSince.get(mark) === undefined) {
+          return undefined
+        }
 
-      outcome.evaluations += 1
-      const solutions = evaluateTrigger(store, automation, aliases)
-      const excludedRuns = new Set(echoRuns(automation))
-      const isEvent = (premiseRow: Row.t): boolean => {
-        const provenance = store.provenanceOf(premiseRow)
-        return premiseRow.tx > mark &&
-          !provenance.actors.some(actor => infrastructureActors.includes(actor)) &&
-          !provenance.runs.some(run => excludedRuns.has(run))
-      }
-      const firing = solutions.filter(solution => solution.rows.some(isEvent))
-      if (firing.length === 0) {
-        continue
-      }
+        outcome.evaluations += 1
+        const solutions = evaluateTrigger(store, automation, aliases)
+        const excludedRuns = new Set(echoRuns(automation))
+        const isEvent = (premiseRow: Row.t): boolean => {
+          const provenance = store.provenanceOf(premiseRow)
+          return premiseRow.tx > mark &&
+            !provenance.actors.some(actor => infrastructureActors.includes(actor)) &&
+            !provenance.runs.some(run => excludedRuns.has(run))
+        }
+        const firing = solutions.filter(solution => solution.rows.some(isEvent))
+        if (firing.length === 0) {
+          return undefined
+        }
 
-      // Record the batch before acting on it (spec §29.3): the watermark
-      // append is the firing log, and a re-run never re-notifies.
-      const boundary = maxTx(store)!
-      const stepCount = firing.length * automation.steps.length
-      store.ingest(
-        `${automation.subject} HAS ${watermarkAttribute}: ${boundary} @${provenanceContext} ` +
-        `; fired ${firing.length} solution(s), ${stepCount} step(s)`)
+        // Prepare every premise while selection and metadata share the write
+        // reservation. A serialization failure must not consume this batch.
+        const textByRow = new Map<string, string>()
+        const prepared = firing.map(solution => {
+          try { return { solution, lines: solutionLines(store, solution, textByRow) } }
+          catch (error) {
+            throwIfCancelled(options.signal, error)
+            throw error
+          }
+        })
+        options.signal?.throwIfAborted()
+
+        // Record the batch before acting on it (spec §29.3): the watermark
+        // append is the firing log, and a re-run never re-notifies.
+        const boundary = maxTx(store)!
+        const stepCount = firing.length * automation.steps.length
+        store.ingest(
+          `${automation.subject} HAS ${watermarkAttribute}: ${boundary} @${provenanceContext} ` +
+          `; fired ${firing.length} solution(s), ${stepCount} step(s)`)
+        cachedThrough = maxTx(store)
+        outcome.fired += firing.length
+        return { automation, description, firing: prepared, outcome }
+      })
+      if (batch === undefined) continue
+      const { automation, description, firing, outcome } = batch
       progress = true
-      outcome.fired += firing.length
 
-      for (const solution of firing) {
-        const lines = solutionLines(store, solution)
+      for (const { solution, lines } of firing) {
         const firingOutcome: FiringOutcome = { bindings: solution.bindings, steps: [] }
         outcome.firings.push(firingOutcome)
         for (const step of automation.steps) {
-          switch (step.kind) {
-            case 'action':
-              firingOutcome.steps.push(runAction(store, step, solution, options))
-              break
-            case 'hook':
-              firingOutcome.steps.push(runHook(step.name, automation, solution, lines, options))
-              break
-            case 'prompt':
-              firingOutcome.steps.push(await runPrompt(store, step, automation, description, solution, lines, options))
-              break
+          options.signal?.throwIfAborted()
+          try {
+            switch (step.kind) {
+              case 'action':
+                firingOutcome.steps.push(runAction(store, step, solution, options))
+                break
+              case 'hook':
+                firingOutcome.steps.push(runHook(step.name, automation, solution, lines, options, timeoutMs))
+                break
+              case 'prompt':
+                firingOutcome.steps.push(await runPrompt(store, step, automation, description, solution, lines, options))
+                break
+            }
+          } catch (error) {
+            throwIfCancelled(options.signal, error)
+            firingOutcome.steps.push({ step: step.text, kind: step.kind, outcome: 'failed', detail: errorMessage(error) })
           }
         }
       }
     }
   }
 
+  options.signal?.throwIfAborted()
   if (passes >= maxPasses && progress) {
     notes.push(`stopped at ${maxPasses} passes before settling — re-run to continue, or raise maxPasses (spec §29.4)`)
   }
+  if (!derivationComplete) {
+    notes.push('rule derivation did not reach a fixpoint — run cave derive with a higher --max-passes limit before retrying')
+  }
   return {
+    complete: !progress && derivationComplete,
     passes,
     automations: [...outcomes.values()],
     problems: [...problems.values()],

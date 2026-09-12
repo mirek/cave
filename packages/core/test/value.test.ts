@@ -170,3 +170,64 @@ test('isUnit and isDateLike predicates', () => {
   assert.equal(Value.isDateLike('2026-W07'), true)
   assert.equal(Value.isDateLike('2026'), false)
 })
+
+test('trajectory interpolation preserves finite extremes and exact endpoints', () => {
+  for (const [from, to] of [[-1e308, 1e308], [1e308, -1e308], [1e308, 1], [1, 1e308]] as const) {
+    const value = Value.parse(`${Value.formatNumber(from)} -> ${Value.formatNumber(to)}`)
+    assert.equal(value.kind, 'trajectory')
+    assert.equal(Value.interpolate(value, 0), from)
+    assert.equal(Value.interpolate(value, 1), to)
+    assert.equal(Value.interpolate(value, -1), from)
+    assert.equal(Value.interpolate(value, 2), to)
+    for (const fraction of [0.25, 0.5, 0.75]) assert.ok(Number.isFinite(Value.interpolate(value, fraction)))
+    if (from === -to) assert.equal(Value.interpolate(value, 0.5), 0)
+  }
+})
+
+test('trajectory display rounding does not overflow a finite interpolated value', () => {
+  for (const sign of [-1, 1]) {
+    for (const multiplier of ['', 'T']) {
+      const endpoint = `${Value.formatNumber(sign * (multiplier === 'T' ? 1.7976e308 : Number.MAX_VALUE) / (multiplier === 'T' ? 1e12 : 1))}${multiplier}`
+      const value = Value.parse(`${endpoint} -> ${endpoint}`)
+      assert.ok(Number.isFinite(value.from))
+      const formatted = Value.formatAt(value, 0.5)
+      assert.ok(formatted)
+      assert.equal(Value.parse(formatted).num, value.from)
+    }
+  }
+})
+
+test('overflowing numeric literals retain text instead of non-finite values', () => {
+  const huge = '9'.repeat(400)
+  const finite = Value.formatNumber(1e308)
+  for (const raw of [huge, `-${huge}`, `${huge}ms`, `${huge} USD`, `${finite}T`, `${huge} -> 1`, `1 -> ${huge}`, `~${huge}`]) {
+    const value = Value.parse(raw)
+    assert.equal(value.kind, 'atom', raw)
+    assert.equal(value.raw, raw)
+    assert.equal(value.num, undefined)
+    assert.equal(value.from, undefined)
+    assert.equal(value.to, undefined)
+  }
+  assert.equal(Value.parse(Value.formatNumber(Number.MAX_VALUE)).num, Number.MAX_VALUE)
+})
+
+test('multipliers normalize decimal text before floating-point conversion', () => {
+  assert.equal(Value.parse('1.001K').num, Value.parse('1001').num)
+  const tiny = `0.${'0'.repeat(324)}1`
+  for (const [suffix, exponent] of [['K', 3], ['M', 6], ['B', 9], ['T', 12]] as const) {
+    assert.equal(Value.parse(`${tiny}${suffix}`).num, Number(`1e${exponent - 325}`))
+    assert.equal(Value.parse(`-${tiny}${suffix}`).num, -Number(`1e${exponent - 325}`))
+  }
+})
+
+test('unrepresentable nonzero magnitudes retain their text instead of becoming zero', () => {
+  const tiny = `0.${'0'.repeat(324)}1`
+  for (const raw of [tiny, `-${tiny}`, `${tiny}ms`, `${tiny} -> 1`, `1 -> ${tiny}`, `~${tiny}`]) {
+    const value = Value.parse(raw)
+    assert.equal(value.kind, 'atom')
+    assert.equal(value.raw, raw)
+    assert.equal(value.num, undefined)
+  }
+  assert.equal(Value.parse(`0.${'0'.repeat(400)}`).num, 0)
+  assert.equal(Value.parse(Value.formatNumber(Number.MIN_VALUE)).num, Number.MIN_VALUE)
+})

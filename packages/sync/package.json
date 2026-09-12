@@ -12,7 +12,7 @@
     "directory": "packages/sync"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -44,6 +44,7 @@
   "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
+    "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*"
   }
 }

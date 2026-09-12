@@ -30,13 +30,20 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24.18.0
+          node-version: 24.21.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
 
       - name: Validate tag and lockstep release identity
-        run: node scripts/release-validate.mjs --mode=publish
+        env:
+          CAVE_RELEASE_TAG: v${{ inputs.version }}
+          CAVE_RELEASE_ROOT: ${{ github.workspace }}
+        run: |
+          # Old tags carry old validators; use this workflow commit's guard.
+          git fetch --no-tags origin "$GITHUB_SHA"
+          git show "${GITHUB_SHA}:scripts/release-validate.mjs" > "$RUNNER_TEMP/cave-release-validate.mjs"
+          node "$RUNNER_TEMP/cave-release-validate.mjs" --mode=publish
 
       - name: Package and validate the VSIX
         run: pnpm --filter cave-language package

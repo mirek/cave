@@ -31,6 +31,17 @@ test('transitive marker (spec §12.1: terrier EXTENDS+ animal)', () => {
   assert.deepEqual(pattern.verb, { kind: 'verb', name: 'EXTENDS', transitive: true })
 })
 
+test('filter diagnostics retain authored line numbers across blank and comment lines', () => {
+  for (const newline of ['\n', '\r\n']) {
+    for (const invalid of ['WHERE nope = 1', 'OOPS conf > 1', 'WHERE conf ?? 1', 'WHERE value > nope']) {
+      const input = ['', '; query header', '?x USES ?y ; pattern', '', '  ; filter explanation', invalid].join(newline)
+      assert.throws(() => Pattern.parse(input), /CAVE-Q line 6:/)
+    }
+    const input = ['', '; query header', '?x USES ?y', '', '; comment', 'WHERE conf >= 70%'].join(newline)
+    assert.deepEqual(Pattern.parse(input), Pattern.parse('?x USES ?y\nWHERE conf >= 70%'))
+  }
+})
+
 test('WHERE filters (spec §12.2)', () => {
   const pattern = Pattern.parse([
     '?cause CAUSE app/crash',
@@ -47,6 +58,16 @@ test('WHERE filters (spec §12.2)', () => {
     { field: 'value', op: '>', value: 1000, unit: 'req/s' },
     { field: 'tx', op: '>', value: '2026-01-01' }
   ])
+})
+
+test('confidence filters reject non-finite thresholds and retain finite comparisons', () => {
+  for (const value of ['Infinity', '+Infinity', '-Infinity', '1e999', '-1e999', 'NaN']) {
+    assert.throws(() => Pattern.parse(`?x IS ?y\nWHERE conf >= ${value}`), /CAVE-Q line 2: cannot parse confidence/)
+  }
+  for (const [text, value] of [['-1', -1], ['1.1', 1.1], ['7e-1', 0.7], ['0', 0]] as const) {
+    assert.deepEqual(Pattern.parse(`?x IS ?y\nWHERE conf >= ${text}`).filters,
+      [{ field: 'conf', op: '>=', value }])
+  }
 })
 
 test('confidence filters accept percentages', () => {
@@ -70,4 +91,13 @@ test('errors: empty, missing verb, bad filter', () => {
   assert.throws(() => Pattern.parse('?x lowercase y'), /verb position/)
   assert.throws(() => Pattern.parse('?x USES y\nWHERE nope = 1'), /unknown filter field/)
   assert.throws(() => Pattern.parse('?x USES y\nOOPS conf > 1'), /expected WHERE/)
+})
+
+test('bare question marks cannot introduce unnamed query variables', () => {
+  for (const query of ['? IS service', 'api ? service', 'api IS ?', 'api HAS name: ?']) {
+    assert.throws(() => Pattern.parse(query), /variable requires a name.*wildcard/, query)
+  }
+  assert.equal(Pattern.parse('_ IS service').subject.kind, 'wildcard')
+  assert.equal(Pattern.parse('"?" IS service').subject.kind, 'term')
+  assert.equal(Pattern.parse('api HAS name: "?"').payload.kind, 'attribute')
 })

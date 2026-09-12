@@ -1,0 +1,61 @@
+{
+  "purpose": "Independent timestamp and query-boundary comparison against Python datetime",
+  "coverage": {
+    "years": [
+      1,
+      4,
+      99,
+      100,
+      1900,
+      2000,
+      2024,
+      9999
+    ],
+    "calendarDates": [
+      "01-02",
+      "02-28",
+      "06-15",
+      "12-30"
+    ],
+    "clocks": [
+      "00:00:56",
+      "12:34:56",
+      "23:59:56"
+    ],
+    "fractionalMicroseconds": [
+      0,
+      100000,
+      123456
+    ],
+    "offsetMinutes": [
+      -1439,
+      -330,
+      0,
+      345,
+      1439
+    ],
+    "alsoZonelessUTC": true,
+    "malformed": "invalid calendar/clock/offset fields and terminal whitespace or line separators"
+  },
+  "limits": "Does not verify every time range, storage/query plan or historical database; existing owning tests cover period/range composition and temporal query behavior. Python is only required for this optional audit script.",
+  "runs": [
+    {
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "timezone": "America/Los_Angeles",
+      "validTimestamps": 1728,
+      "invalidBoundaries": 45,
+      "checks": 5274,
+      "sourceSha256": "38bdb93f1609128bd4ddc4dc5ae884e11ceb25b0ef762d64f3c5de345a2ea18a"
+    },
+    {
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "timezone": "Asia/Kathmandu",
+      "validTimestamps": 1728,
+      "invalidBoundaries": 45,
+      "checks": 5274,
+      "sourceSha256": "38bdb93f1609128bd4ddc4dc5ae884e11ceb25b0ef762d64f3c5de345a2ea18a"
+    }
+  ]
+}

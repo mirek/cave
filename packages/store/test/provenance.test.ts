@@ -4,10 +4,51 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { open, type Store } from '@cavelang/store'
+import { open, Provenance, type Store } from '@cavelang/store'
 
 const contextsOf = (store: Store, at = 0): readonly string[] =>
   store.toClaim(store.currentBeliefs()[at]!).contexts
+
+test('provenance interchange validation requires complete string sets and canonicalizes order', () => {
+  const empty = { actors: [], sources: [], runs: [], domains: [] }
+  assert.deepEqual(Provenance.parse({ ...empty, sources: ['b', 'a', 'a'] }), { ...empty, sources: ['a', 'b'] })
+  for (const key of ['actors', 'sources', 'runs', 'domains']) {
+    for (const invalid of ['\ud800', '\udc00', 'before\ud800after']) {
+      assert.equal(Provenance.parse({ ...empty, [key]: [invalid] }), undefined)
+    }
+    const valid = ['café', '😀', '\ufffd', 'before\0after']
+    assert.deepEqual(Provenance.parse({ ...empty, [key]: valid }), { ...empty, [key]: [...valid].sort() })
+  }
+  for (const key of ['actors', 'sources', 'runs', 'domains']) {
+    const disguised = Object.defineProperty({ ...empty, extra: [] }, key, { enumerable: false })
+    assert.equal(Provenance.parse(disguised), undefined, `unknown dimension cannot replace enumerable ${key}`)
+  }
+  for (const invalid of [null, [], {}, { ...empty, extra: [] }, { ...empty, actors: [''] },
+    { ...empty, actors: [1] }, { ...empty, actors: new Array(1) }]) {
+    assert.equal(Provenance.parse(invalid), undefined)
+  }
+})
+
+test('provenance parsing returns the dimension values and entries it validated', () => {
+  const empty = { actors: [], sources: [], runs: [], domains: [] }
+  for (const key of ['actors', 'sources', 'runs', 'domains']) {
+    let dimensions = 0
+    let entries = 0
+    const values = Object.defineProperty(new Array(1), '0', {
+      get: () => ++entries === 1 ? 'valid' : '\ud800',
+    })
+    const input = Object.defineProperty({ ...empty }, key, {
+      enumerable: true,
+      get: () => ++dimensions <= 2 ? values : ['\ud800'],
+    })
+    assert.deepEqual(Provenance.parse(input), { ...empty, [key]: ['valid'] })
+    assert.equal(dimensions, 1)
+    assert.equal(entries, 1)
+  }
+  const sources = ['b', 'a', 'a']
+  const input = { actors: [], sources, get runs() { sources[0] = '\ud800'; return [] }, domains: [] }
+  assert.deepEqual(Provenance.parse(input), { ...empty, sources: ['a', 'b'] })
+})
 
 test('source stamps @src: before the claim key is computed (spec §9.5)', () => {
   const store = open()
@@ -97,6 +138,7 @@ test('opening a legacy store backfills safely inferable provenance dimensions', 
     legacy.exec('PRAGMA user_version = 0')
     legacy.close()
 
+    assert.throws(() => open(path, { access: 'read-only' }), /schema|version|migration/i)
     const upgraded = open(path)
     assert.deepEqual(upgraded.provenanceOf(id), {
       actors: ['rule/abc123'],

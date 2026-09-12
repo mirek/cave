@@ -25,11 +25,15 @@ const resolvePath = (specifier: string): string =>
 const create = async (): Promise<Highlighter> => {
   await Parser.init()
   const language = await Language.load(resolvePath('@cavelang/tree-sitter-cave/wasm'))
-  return createHighlighter(language, readFileSync(resolvePath('@cavelang/tree-sitter-cave/highlights'), 'utf8'))
+  const { spans, ansi } = createHighlighter(language, readFileSync(resolvePath('@cavelang/tree-sitter-cave/highlights'), 'utf8'))
+  return { spans, ansi }
 }
 
 let cached: undefined | Promise<Highlighter>
 
-/** The process-wide highlighter; loads the grammar WASM on first call. */
+/** The process-wide highlighter; failed loads may be retried by later calls. */
 export const highlighter = (): Promise<Highlighter> =>
-  cached ??= create()
+  cached ??= create().catch(error => {
+    cached = undefined
+    throw error
+  })

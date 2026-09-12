@@ -1,6 +1,7 @@
 /** Portable, bounded external-process execution for CAVE integrations. */
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import { isUtf8 } from 'node:buffer'
 import { fileURLToPath } from 'node:url'
 
 export type ProcessCommand = {
@@ -17,7 +18,7 @@ export type ProcessResult = {
   readonly stderr: string
 }
 
-export type ProcessFailureKind = 'spawn' | 'timeout' | 'aborted' | 'stdout-limit' | 'stderr-limit'
+export type ProcessFailureKind = 'spawn' | 'timeout' | 'aborted' | 'stdout-limit' | 'stderr-limit' | 'stdout-encoding'
 
 export type ProcessFailureRecord = {
   readonly kind: ProcessFailureKind
@@ -62,6 +63,8 @@ export type ProcessOptions = {
   readonly signal?: AbortSignal
   readonly maxStdoutBytes?: number
   readonly maxStderrBytes?: number
+  /** Reject malformed UTF-8 stdout before structured consumers interpret it. */
+  readonly strictStdoutUtf8?: boolean
 }
 
 export type SyncProcessOptions = Omit<ProcessOptions, 'signal'>
@@ -123,11 +126,29 @@ export const shellCommand = (
 const emptyResult = (): ProcessResult => ({ code: null, signal: null, stdout: '', stderr: '' })
 
 const positiveLimit = (value: number | undefined, fallback: number, name: string): number => {
-  const result = value ?? fallback
+  const result = value === undefined ? fallback : value
   if (!Number.isSafeInteger(result) || result < 0) {
     throw new TypeError(`${name} must be a non-negative safe integer`)
   }
   return result
+}
+
+const stdoutUtf8Mode = (value: unknown): boolean => {
+  if (value !== undefined && typeof value !== 'boolean') throw new TypeError('strictStdoutUtf8 must be a boolean')
+  return value === true
+}
+
+const processInput = (value: unknown): string | undefined => {
+  if (value !== undefined && typeof value !== 'string') throw new TypeError('input must be a string')
+  return value
+}
+
+const timeoutLimit = (value: number | undefined): number => {
+  const timeoutMs = positiveLimit(value, 0, 'timeoutMs')
+  if (timeoutMs > 2147483647) {
+    throw new TypeError('timeoutMs must be in 0..2147483647')
+  }
+  return timeoutMs
 }
 
 const killTree = (child: ChildProcess): Promise<void> => {
@@ -162,6 +183,7 @@ const failureMessage = (kind: ProcessFailureKind, timeoutMs: number, limit?: num
     case 'aborted': return 'process was cancelled'
     case 'stdout-limit': return `process stdout exceeded ${limit} bytes`
     case 'stderr-limit': return `process stderr exceeded ${limit} bytes`
+    case 'stdout-encoding': return 'process stdout contains invalid UTF-8'
   }
 }
 
@@ -172,8 +194,11 @@ export const runProcess = (
 ): Promise<ProcessResult> => {
   const stdoutLimit = positiveLimit(options.maxStdoutBytes, defaultMaxStdoutBytes, 'maxStdoutBytes')
   const stderrLimit = positiveLimit(options.maxStderrBytes, defaultMaxStderrBytes, 'maxStderrBytes')
-  const timeoutMs = positiveLimit(options.timeoutMs, 0, 'timeoutMs')
-  if (options.signal?.aborted === true) {
+  const timeoutMs = timeoutLimit(options.timeoutMs)
+  const strictStdoutUtf8 = stdoutUtf8Mode(options.strictStdoutUtf8)
+  const input = processInput(options.input)
+  const signal = options.signal
+  if (signal?.aborted === true) {
     return Promise.reject(new ProcessFailure({
       kind: 'aborted', message: failureMessage('aborted', timeoutMs), result: emptyResult()
     }))
@@ -191,14 +216,26 @@ export const runProcess = (
     let timer: NodeJS.Timeout | undefined
     let spawnErrorCode: string | undefined
 
-    const child = spawn(command.executable, [...command.args], {
-      shell: false,
-      detached: process.platform !== 'win32',
-      windowsHide: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      ...options.cwd === undefined ? {} : { cwd: options.cwd },
-      ...options.env === undefined ? {} : { env: options.env }
-    })
+    let child: ChildProcess
+    try {
+      const cwd = options.cwd
+      const env = options.env
+      child = spawn(command.executable, [...command.args], {
+        shell: false,
+        detached: process.platform !== 'win32',
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...cwd === undefined ? {} : { cwd },
+        ...env === undefined ? {} : { env }
+      })
+    } catch {
+      reject(new ProcessFailure({
+        kind: 'spawn',
+        message: failureMessage('spawn', timeoutMs),
+        result: emptyResult()
+      }))
+      return
+    }
 
     const result = (): ProcessResult => ({
       code,
@@ -206,29 +243,42 @@ export const runProcess = (
       stdout: Buffer.concat(stdout).toString('utf8'),
       stderr: Buffer.concat(stderr).toString('utf8')
     })
-    const cleanup = (): void => {
-      if (timer !== undefined) clearTimeout(timer)
-      options.signal?.removeEventListener('abort', abort)
-    }
-    const finish = (failure?: ProcessFailure): void => {
+    const finish = (failure?: ProcessFailure, cleanupErrors: unknown[] = []): void => {
       if (settled) return
       settled = true
-      cleanup()
-      child.stdin?.destroy()
-      child.stdout?.destroy()
-      child.stderr?.destroy()
+      if (failure === undefined && strictStdoutUtf8 && !isUtf8(Buffer.concat(stdout))) {
+        failure = new ProcessFailure({ kind: 'stdout-encoding', message: failureMessage('stdout-encoding', timeoutMs), result: result() })
+      }
+      for (const cleanup of [
+        () => { if (timer !== undefined) clearTimeout(timer) },
+        () => signal?.removeEventListener('abort', abort),
+        () => child.stdin?.destroy(),
+        () => child.stdout?.destroy(),
+        () => child.stderr?.destroy()
+      ]) {
+        try { cleanup() } catch (error) { cleanupErrors.push(error) }
+      }
+      if (cleanupErrors.length > 0) {
+        const cleanup = new AggregateError(cleanupErrors, 'process cleanup failed', { cause: cleanupErrors[0] })
+        if (failure === undefined) { reject(cleanup); return }
+        // Preserve the typed process outcome and captured output for callers.
+        // Raw cleanup details stay in cause, outside command-redacted messages.
+        failure.cause = cleanup
+        failure.message += '; process cleanup also failed'
+      }
       if (failure === undefined) resolve(result())
       else reject(failure)
     }
-    const terminate = (kind: Exclude<ProcessFailureKind, 'spawn'>, limit?: number): void => {
+    const terminate = (kind: ProcessFailureKind, limit?: number): void => {
       if (settled || terminating) return
       terminating = true
-      void killTree(child).finally(() => finish(new ProcessFailure({
+      const complete = (errors: unknown[] = []): void => finish(new ProcessFailure({
         kind,
         message: failureMessage(kind, timeoutMs, limit),
         result: result(),
         ...limit === undefined ? {} : { limit }
-      })))
+      }), errors)
+      void killTree(child).then(() => complete(), error => complete([error]))
     }
     const abort = (): void => terminate('aborted')
     const collect = (stream: 'stdout' | 'stderr', chunk: Buffer | string): void => {
@@ -243,40 +293,68 @@ export const runProcess = (
       if (bytes.length > remaining) terminate(stream === 'stdout' ? 'stdout-limit' : 'stderr-limit', limit)
     }
 
-    child.stdout?.on('data', chunk => collect('stdout', chunk as Buffer))
-    child.stderr?.on('data', chunk => collect('stderr', chunk as Buffer))
-    child.on('error', (error: NodeJS.ErrnoException) => {
-      if (terminating) return
-      spawnErrorCode = error.code
-      finish(new ProcessFailure({
-        kind: 'spawn',
-        message: failureMessage('spawn', timeoutMs),
-        result: result(),
-        ...spawnErrorCode === undefined ? {} : { errorCode: spawnErrorCode }
-      }))
-    })
-    child.on('exit', (observedCode, observedSignal) => {
-      code = observedCode
-      exitSignal = observedSignal
-    })
-    child.on('close', (observedCode, observedSignal) => {
-      code = observedCode
-      exitSignal = observedSignal
-      if (!terminating) finish()
-    })
-    child.stdin?.on('error', () => { /* early child exits may close stdin */ })
-    if (options.input !== undefined) child.stdin?.end(options.input)
-    else child.stdin?.end()
-    if (timeoutMs > 0) timer = setTimeout(() => terminate('timeout'), timeoutMs)
-    options.signal?.addEventListener('abort', abort, { once: true })
-    // Close the check/listener race if cancellation landed during spawn setup.
-    if (options.signal?.aborted === true) abort()
+    try {
+      child.stdout?.on('data', chunk => collect('stdout', chunk as Buffer))
+      child.stderr?.on('data', chunk => collect('stderr', chunk as Buffer))
+      child.on('error', (error: NodeJS.ErrnoException) => {
+        if (terminating) return
+        spawnErrorCode = error.code
+        finish(new ProcessFailure({
+          kind: 'spawn',
+          message: failureMessage('spawn', timeoutMs),
+          result: result(),
+          ...spawnErrorCode === undefined ? {} : { errorCode: spawnErrorCode }
+        }))
+      })
+      child.on('exit', (observedCode, observedSignal) => {
+        code = observedCode
+        exitSignal = observedSignal
+      })
+      child.on('close', (observedCode, observedSignal) => {
+        code = observedCode
+        exitSignal = observedSignal
+        if (!terminating) finish()
+      })
+      child.stdin?.on('error', () => { /* early child exits may close stdin */ })
+      if (input !== undefined) child.stdin?.end(input)
+      else child.stdin?.end()
+      if (timeoutMs > 0) timer = setTimeout(() => terminate('timeout'), timeoutMs)
+      signal?.addEventListener('abort', abort, { once: true })
+      // Close the check/listener race if cancellation landed during spawn setup.
+      if (signal?.aborted === true) abort()
+    } catch {
+      // Startup owns the child as soon as spawn returns, including partial
+      // listener registration and stdin setup. Keep startup diagnostics redacted.
+      terminate('spawn')
+    }
   })
 }
 
 type WorkerResponse =
   | { readonly ok: true, readonly result: ProcessResult }
   | { readonly ok: false, readonly failure: ProcessFailureRecord }
+
+/** Capture Node's enumerable environment entries without JSON object hooks. */
+const workerEnvironment = (env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv | undefined => {
+  if (env == null) return undefined
+  let keys: string[] = []
+  for (const key in env) keys.push(key)
+  if (process.platform === 'win32') {
+    const seen = new Set<string>()
+    keys = keys.sort().filter(key => {
+      const upper = key.toUpperCase()
+      if (seen.has(upper)) return false
+      seen.add(upper)
+      return true
+    })
+  }
+  const captured: NodeJS.ProcessEnv = Object.create(null)
+  for (const key of keys) {
+    const value = env[key]
+    if (value !== undefined) captured[key] = `${value}`
+  }
+  return captured
+}
 
 /**
  * Synchronous bridge for compatibility-sensitive APIs. A short-lived Node
@@ -285,14 +363,25 @@ type WorkerResponse =
 export const runProcessSync = (command: ProcessCommand, options: SyncProcessOptions = {}): ProcessResult => {
   const stdoutLimit = positiveLimit(options.maxStdoutBytes, defaultMaxStdoutBytes, 'maxStdoutBytes')
   const stderrLimit = positiveLimit(options.maxStderrBytes, defaultMaxStderrBytes, 'maxStderrBytes')
-  const timeoutMs = positiveLimit(options.timeoutMs, 0, 'timeoutMs')
+  const timeoutMs = timeoutLimit(options.timeoutMs)
+  const strictStdoutUtf8 = stdoutUtf8Mode(options.strictStdoutUtf8)
+  const input = processInput(options.input)
+  let request: string
+  try {
+    const cwd = options.cwd
+    const env = workerEnvironment(options.env)
+    const capturedCommand = { executable: command.executable, args: [...command.args] }
+    request = JSON.stringify({ command: capturedCommand, options: { timeoutMs, input, cwd, env, maxStdoutBytes: stdoutLimit, maxStderrBytes: stderrLimit, strictStdoutUtf8 } })
+  } catch {
+    throw new ProcessFailure({ kind: 'spawn', message: failureMessage('spawn', timeoutMs), result: emptyResult() })
+  }
   const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js'
   const worker = fileURLToPath(new URL(`./process-worker.${extension}`, import.meta.url))
   const result = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', worker], {
     shell: false,
     windowsHide: true,
     encoding: 'utf8',
-    input: JSON.stringify({ command, options: { ...options, maxStdoutBytes: stdoutLimit, maxStderrBytes: stderrLimit } }),
+    input: request,
     // JSON can expand a captured control byte to a six-byte `\\u00xx` escape.
     maxBuffer: Math.max(1024 * 1024, (stdoutLimit + stderrLimit) * 7 + 1024 * 1024),
     timeout: timeoutMs > 0 ? timeoutMs + 5_000 : undefined

@@ -22,8 +22,8 @@
  *   declaration row (§24.3);
  * - re-runs are idempotent — a conclusion equal to current belief appends
  *   nothing — and incremental by per-rule tx watermark claims: a rule
- *   re-fires only when rows recorded since its watermark could extend a
- *   premise match, and a watermark predating the rule's current
+ *   re-fires when newer rows could change a premise match or the active
+ *   vocabulary/evaluation-policy fingerprint differs. A watermark predating the rule's current
  *   declaration row is stale — a re-declared rule fires from scratch
  *   (§24.4);
  * - support is recomputed on every firing: previously-derived claims the
@@ -34,18 +34,21 @@
  *   included (§24.5).
  */
 
-import { Claim, Confidence, Context, Key, Value, Verb } from '@cavelang/core'
+import { createHash } from 'node:crypto'
+import { Claim, Context, Key, Value, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import { noisyAndIndependent } from '@cavelang/fusion'
 import { Row, type Store } from '@cavelang/store'
 import { match, type Pattern } from '@cavelang/query'
 import * as Rule from './rule.ts'
+import { currentDeclarations, declarationText } from './declarations.ts'
 
 /** Attribute of rule declaration claims: `rule/<digest> HAS rule: …`. */
 export const ruleAttribute = 'rule'
 
 /** Attribute of per-rule watermark claims (§24.4). */
 export const watermarkAttribute = 'derive-watermark'
+const vocabularyAttribute = 'derive-vocabulary'
 
 /** Source context stamped on declarations and bookkeeping (like `src:cave-connect`). */
 export const provenanceContext = 'src:cave-derive'
@@ -79,16 +82,17 @@ export type RuleOutcome = {
   readonly label?: string
   /** `false` when every pass skipped the rule — watermark said nothing new. */
   fired: boolean
+  /** Attempted evaluations, including evaluations in rolled-back reconciliation. */
   evaluations: number
-  /** Solutions of the rule's final evaluation. */
+  /** Solutions of the rule's final attempted evaluation. */
   solutions: number
-  /** Conclusions asserted for the first time (or re-asserted after retraction). */
+  /** Retained first assertions (or re-assertions); excludes rolled-back reconciliation. */
   appended: number
-  /** Conclusions whose confidence or value changed — belief updates. */
+  /** Retained confidence/value updates; excludes rolled-back reconciliation. */
   updated: number
-  /** Idempotent skips — conclusion equals current belief (§24.4). */
+  /** Attempted idempotent skips, including during rolled-back reconciliation (§24.4). */
   unchanged: number
-  /** Previously-derived claims retracted — premises no longer hold (§24.5). */
+  /** Retained retractions for lost support; excludes rolled-back reconciliation (§24.5). */
   retracted: number
   readonly problems: string[]
 }
@@ -136,6 +140,21 @@ const bookkeepingKey = (subject: string, attribute: string): string =>
 const maxTx = (store: Store): undefined | string =>
   (store.db.prepare('SELECT MAX(tx) AS t FROM cave_claim').get() as { t: null | string }).t ?? undefined
 
+// Registry values are immutable. Cache per identity, but hash sorted semantic
+// contents so reopening or replaying an equivalent registry retains the mark.
+const vocabularyCache = new WeakMap<Canonical.Registry.t, string>()
+const vocabularyOf = (store: Store): string => {
+  const registry = store.registry()
+  const cached = vocabularyCache.get(registry)
+  if (cached !== undefined) return cached
+  const pairs = [...registry.pairs].map(([name, pair]) => [name, pair.primary, pair.inverse]).sort()
+  const text = JSON.stringify([pairs, [...registry.declared].sort(),
+    [...registry.storage].sort(), [...registry.preferred].sort(), [...registry.renames].sort()])
+  const fingerprint = `v1-${createHash('sha256').update(text).digest('hex')}`
+  vocabularyCache.set(registry, fingerprint)
+  return fingerprint
+}
+
 /** Latest row per claim key among `rows` — the series current beliefs. */
 const latestPerKey = (rows: readonly Row.t[]): Map<string, Row.t> => {
   const latest = new Map<string, Row.t>()
@@ -174,10 +193,9 @@ const loadRules = (store: Store): { loaded: Loaded[], problems: RuleProblem[], n
   const problems: RuleProblem[] = []
   const notes: string[] = []
   const byDigest = new Map<string, string>()
-  const declarations = store.currentBeliefs().filter(row =>
-    row.verb === 'HAS' && row.attribute === ruleAttribute && row.negated === 0 && row.conf > 0 && row.value_text !== null)
+  const declarations = currentDeclarations(store, ruleAttribute).filter(row => row.value_text !== null)
   for (const row of declarations) {
-    const text = Row.parseValue(row.value_text!).raw
+    const text = declarationText(row)
     const parsed = Rule.parse(text)
     if (!parsed.ok) {
       problems.push({ subject: row.subject, problems: parsed.problems })
@@ -215,7 +233,7 @@ const loadRules = (store: Store): { loaded: Loaded[], problems: RuleProblem[], n
 /**
  * Could a row recorded after `mark` extend a match of one of the rule's
  * premises? A *shape* test — subject/verb/object/attribute/negated plus
- * context and tag membership; confidence and currency are ignored, so a
+ * context membership; mutable values, tags and confidence are ignored, so a
  * retraction row re-fires the rules its claim used to feed (§24.5).
  * Over-matching costs a harmless re-evaluation; under-matching would be a
  * correctness bug — under `aliases`, entity terms are dropped from the
@@ -223,6 +241,11 @@ const loadRules = (store: Store): { loaded: Loaded[], problems: RuleProblem[], n
  * fires too.
  */
 const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: boolean): boolean => {
+  // A new mapping can make old facts match a different premise direction.
+  // Their fact timestamps do not move, so ordinary shape probes miss it.
+  if (store.db.prepare(`SELECT 1 FROM cave_claim
+    WHERE tx > ? AND (verb IN ('REVERSE', 'RENAMED-TO') OR (verb = 'IS' AND object = 'verb'))
+    LIMIT 1`).get(mark) !== undefined) return true
   const registry = store.registry()
   for (const premise of rule.premises) {
     if (premise.kind !== 'pattern') {
@@ -260,32 +283,31 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
         params.push(subjectSlot.text)
       }
       if (objectSlot?.kind === 'term' && !aliases) {
-        // A date/number object also matches metric rows (value in value_text).
-        conditions.push('(c.object = ? OR c.value_text = ?)')
-        params.push(objectSlot.text, objectSlot.text)
+        // Metric values share a claim key across changes. A replacement that
+        // stops matching must still wake the rule to retract its conclusions.
+        conditions.push('(c.object = ? OR c.object IS NULL)')
+        params.push(objectSlot.text)
       }
       if (premise.pattern.payload.kind === 'attribute') {
         conditions.push('c.attribute = ?')
         params.push(premise.pattern.payload.attribute)
-        if (premise.pattern.payload.value.kind === 'term') {
-          conditions.push('c.value_text = ?')
-          params.push(premise.pattern.payload.value.text)
-        }
+        // Attribute values are mutable within a series. Do not restrict the
+        // wake-up probe to either their spelling or their normalized value.
       }
     }
-    for (const context of premise.pattern.contexts) {
-      conditions.push('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)')
-      params.push(context)
-    }
-    for (const tag of premise.pattern.tags) {
-      if (tag.value === undefined) {
-        conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value IS NULL)')
-        params.push(tag.key)
-      } else {
-        conditions.push('EXISTS (SELECT 1 FROM cave_tag t WHERE t.claim_id = c.id AND t.key = ? AND t.value = ?)')
-        params.push(tag.key, tag.value)
+    if (premise.pattern.contexts.length <= 16) {
+      for (const context of premise.pattern.contexts) {
+        conditions.push('EXISTS (SELECT 1 FROM cave_context x WHERE x.claim_id = c.id AND x.context = ?)')
+        params.push(context)
       }
+    } else {
+      conditions.push(`NOT EXISTS (SELECT 1 FROM json_each(?) required
+        WHERE NOT EXISTS (SELECT 1 FROM cave_context x
+          WHERE x.claim_id = c.id AND x.context = required.value))`)
+      params.push(JSON.stringify(premise.pattern.contexts))
     }
+    // Tags are metadata, not identity: removing a required tag can invalidate
+    // prior conclusions just as adding it can enable a new match.
     const row = store.db.prepare(`SELECT 1 AS hit FROM cave_claim c WHERE ${conditions.join(' AND ')} LIMIT 1`)
       .get(...params)
     if (row !== undefined) {
@@ -311,11 +333,11 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
  */
 export const specialize = (pattern: Pattern.t, bindings: Readonly<Record<string, string>>): undefined | Pattern.t => {
   const slot = (candidate: Pattern.Slot): Pattern.Slot =>
-    candidate.kind === 'var' && bindings[candidate.name] !== undefined ?
+    candidate.kind === 'var' && Object.hasOwn(bindings, candidate.name) && bindings[candidate.name] !== undefined ?
       { kind: 'term', text: bindings[candidate.name]! } :
       candidate
   let verb = pattern.verb
-  if (verb.kind === 'var' && bindings[verb.name] !== undefined) {
+  if (verb.kind === 'var' && Object.hasOwn(bindings, verb.name) && bindings[verb.name] !== undefined) {
     const name = bindings[verb.name]!
     if (!Verb.isVerbToken(name)) {
       return undefined
@@ -420,9 +442,7 @@ const conclude = (
   } else if (payload.kind === 'metric' && payload.value.kind === 'atom' && payload.value.raw.startsWith('?')) {
     payload = Claim.metric(Row.parseValue(solution.bindings[payload.value.raw.slice(1)]!))
   }
-  const conf = Confidence.parse(Confidence.format(
-    noisyAndIndependent(rule.conf, solution.rows.map(row => row.conf))
-  ))!
+  const conf = noisyAndIndependent(rule.conf, solution.rows.map(row => row.conf))
   const draft = Claim.of({
     subject: term(template.subject, 'subject'),
     verb: template.verb,
@@ -458,9 +478,38 @@ const rollback = Symbol('cave-derive dry run')
  * transaction.
  */
 export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport => {
+  const suppliedMinConf = options.minConf
+  const minConf = suppliedMinConf === undefined ? defaultMinConf : suppliedMinConf
+  if (!Number.isFinite(minConf) || minConf < 0 || minConf > 1) {
+    throw new Error('minConf must be finite and in 0..1')
+  }
+  const suppliedMaxPasses = options.maxPasses
+  const maxPasses = suppliedMaxPasses === undefined ? defaultMaxPasses : suppliedMaxPasses
+  if (!Number.isSafeInteger(maxPasses) || maxPasses < 1) {
+    throw new Error('maxPasses must be a positive safe integer')
+  }
+  options = { minConf, maxPasses, full: options.full, dryRun: options.dryRun, aliases: options.aliases }
+  for (const key of ['full', 'dryRun', 'aliases'] as const) {
+    if (options[key] !== undefined && typeof options[key] !== 'boolean') {
+      throw new Error(`${key} must be a boolean`)
+    }
+  }
+  return store.transaction(() => {
+    store.registry()
+    return deriveLocked(store, options)
+  })
+}
+
+/** Read declarations and watermarks only after reserving the write transaction. */
+const deriveLocked = (store: Store, options: DeriveOptions): DeriveReport => {
   const minConf = options.minConf ?? defaultMinConf
   const maxPasses = options.maxPasses ?? defaultMaxPasses
   const aliases = options.aliases === true
+  // The persisted vocabulary companion also identifies the evaluation policy:
+  // unchanged rows can gain or lose support when these options change.
+  // v3 re-evaluates conclusions formerly rounded to two percentage decimals.
+  const evaluationFingerprint = (): string => 'v3-' + createHash('sha256')
+    .update(JSON.stringify([vocabularyOf(store), aliases, minConf])).digest('hex')
   const { loaded, problems, notes } = loadRules(store)
 
   let passes = 0
@@ -471,6 +520,8 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
   /** Per-rule scan mark: rows at or before it are fully accounted for. */
   const marks = new Map<string, undefined | string>()
   const storedMarks = new Map<string, undefined | string>()
+  const vocabularies = new Map<string, undefined | string>()
+  const storedVocabularies = new Map<string, undefined | string>()
   let complete = true
 
   for (const { rule, row } of loaded) {
@@ -484,6 +535,11 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
     const stored = watermark !== undefined && watermark.conf > 0 && watermark.tx > row.tx ?
       watermark.value_text ?? undefined :
       undefined
+    const vocabulary = store.currentBelief(bookkeepingKey(ruleSubject(rule.digest), vocabularyAttribute))
+    const storedVocabulary = vocabulary !== undefined && vocabulary.conf > 0 && vocabulary.tx > row.tx
+      ? vocabulary.value_text ?? undefined : undefined
+    storedVocabularies.set(rule.digest, storedVocabulary)
+    vocabularies.set(rule.digest, storedVocabulary)
     storedMarks.set(rule.digest, stored)
     marks.set(rule.digest, options.full === true ? undefined : stored)
   }
@@ -554,21 +610,20 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
       }
       const current = store.currentBelief(conclusion.key)
       const columns = Row.toColumns(conclusion.claim)
-      if (current !== undefined && current.conf > 0 &&
-          Math.abs(current.conf - conclusion.conf) < 1e-9 && current.value_text === columns.valueText) {
+      if (current !== undefined && current.conf === conclusion.conf && current.value_text === columns.valueText) {
         outcome.unchanged += 1
         continue
       }
+      const registry = store.registry()
+      // Extend the current registry, not the snapshot used to construct a
+      // batch of conclusions. Canonicalization preserves first-declaration-
+      // wins behavior for competing declarations from that batch.
+      const nextRegistry = isDeclarationClaim(conclusion.claim) ?
+        Canonical.canonicalizeText(Canonical.emitClaim(conclusion.claim), registry).registry : registry
       const inserted = store.insertResult(
-        { claims: [{ claim: conclusion.claim, line: 0 }], edges: [], registry: store.registry(), problems: [] },
+        { claims: [{ claim: conclusion.claim, line: 0 }], edges: [], registry: nextRegistry, problems: [] },
         { source: ruleSubject(rule.digest), lifecycle: true }
       )
-      // `conclude` returns the claim rather than its one-line registry
-      // result. Replay all stored declarations after a generated vocabulary
-      // claim so later rules and fixpoint passes see it immediately.
-      if (isDeclarationClaim(conclusion.claim)) {
-        store.reloadRegistry()
-      }
       const id = inserted.ids[0]!
       const premiseIds = [...new Set(conclusion.rows.map(premiseRow => premiseRow.id))]
       store.appendEdges([
@@ -585,23 +640,30 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
     return progress
   }
 
-  const run = (): void => {
+  let reconciling = false
+  const incompleteReconciliation = Symbol('cave-derive incomplete reconciliation')
+  const run = (resumeRetraction = false): void => {
     const truncate = (): void => {
       complete = false
       notes.push(`stopped at ${maxPasses} passes before reaching a fixpoint — no unsupported conclusions were retracted and no watermarks were advanced; re-run to continue, or raise maxPasses`)
     }
     for (;;) {
       // Pass loop: evaluate until no rule writes or extends support.
-      let quiescent = false
+      // The single recursive entry resumes at the first retraction under a
+      // savepoint; it must not repeat evaluation or charge an extra pass.
+      let quiescent = resumeRetraction
+      resumeRetraction = false
       while (!quiescent && passes < maxPasses) {
         passes += 1
         let progress = false
         for (const entry of loaded) {
           const mark = marks.get(entry.rule.digest)
-          const now = maxTx(store)
-          if (mark !== undefined && !shapeMatchesSince(store, entry.rule, mark, aliases)) {
+          const vocabulary = evaluationFingerprint()
+          if (mark !== undefined && vocabularies.get(entry.rule.digest) === vocabulary &&
+              !shapeMatchesSince(store, entry.rule, mark, aliases)) {
             continue
           }
+          const now = maxTx(store)
           if (!fired.has(entry.rule.digest)) {
             fired.add(entry.rule.digest)
             entry.outcome.fired = true
@@ -611,6 +673,19 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
             progress = true
           }
           marks.set(entry.rule.digest, now)
+          vocabularies.set(entry.rule.digest, vocabulary)
+          if (evaluationFingerprint() !== vocabulary) {
+            // A proof established under the old mapping is no longer valid.
+            // Re-suspend all current derivations on the next bounded pass,
+            // including conclusions written earlier in this invocation.
+            supported.clear()
+            suspended.clear()
+            fired.clear()
+            marks.clear()
+            vocabularies.clear()
+            progress = true
+            break
+          }
         }
         quiescent = !progress
       }
@@ -619,6 +694,27 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
       // false negative, so leave both rows and watermarks untouched.
       if (!quiescent) {
         truncate()
+        return
+      }
+      if (!reconciling) {
+        if (![...suspended.values()].some(({ row }) => !supported.has(row.claim_key))) return
+        // Keep additions from initial evaluation, but commit destructive support
+        // reconciliation only if all subsequent evaluation/retraction settles.
+        // The recursive call enters this savepoint once, regardless of depth
+        // of the dependency chain; subsequent passes use the ordinary loop.
+        const counts = loaded.map(({ outcome }) => ({
+          appended: outcome.appended, updated: outcome.updated, retracted: outcome.retracted
+        }))
+        reconciling = true
+        try {
+          store.transaction(() => {
+            run(true)
+            if (!complete) throw incompleteReconciliation
+          })
+        } catch (error) {
+          if (error !== incompleteReconciliation) throw error
+          for (let i = 0; i < loaded.length; i++) Object.assign(loaded[i]!.outcome, counts[i])
+        }
         return
       }
       // Retraction phase (§24.5): suspended rows never re-supported lost
@@ -651,10 +747,13 @@ export const derive = (store: Store, options: DeriveOptions = {}): DeriveReport 
         continue
       }
       const mark = marks.get(entry.rule.digest)
-      if (mark === undefined || mark === storedMarks.get(entry.rule.digest)) {
-        continue
+      if (mark !== undefined && mark !== storedMarks.get(entry.rule.digest)) {
+        store.ingest(`${ruleSubject(entry.rule.digest)} HAS ${watermarkAttribute}: ${mark} @${provenanceContext}`)
       }
-      store.ingest(`${ruleSubject(entry.rule.digest)} HAS ${watermarkAttribute}: ${mark} @${provenanceContext}`)
+      const vocabulary = vocabularies.get(entry.rule.digest)
+      if (vocabulary !== undefined && vocabulary !== storedVocabularies.get(entry.rule.digest)) {
+        store.ingest(`${ruleSubject(entry.rule.digest)} HAS ${vocabularyAttribute}: ${vocabulary} @${provenanceContext}`)
+      }
     }
   }
 

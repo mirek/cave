@@ -37,7 +37,10 @@
     ],
     "configurationDefaults": {
       "[cave]": {
-        "editor.semanticHighlighting.enabled": true
+        "editor.semanticHighlighting.enabled": true,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+        "editor.detectIndentation": false
       }
     }
   },
@@ -49,10 +52,10 @@
   },
   "dependencies": {
     "@cavelang/tree-sitter-cave": "workspace:*",
-    "web-tree-sitter": "^0.26.13"
+    "web-tree-sitter": "^0.27.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "1.100.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.8.0",
