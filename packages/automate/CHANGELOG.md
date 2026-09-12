@@ -1,5 +1,35 @@
 # @cavelang/automate
 
+## 0.36.0
+
+### Minor Changes
+
+- b3f5de7: Reject automation polling intervals outside the runtime timer range before opening the database, preventing overflow from creating a 1 ms polling loop.
+- b3f5de7: Require positive safe integer automation pass limits before processing pending work or opening the CLI database.
+
+### Patch Changes
+
+- b3f5de7: Report agent reply persistence errors as failed automation steps after rolling back the reply, allowing later steps to run while preserving no-replay semantics.
+- b3f5de7: Contain thrown errors at the automation step boundary so action write failures report failed outcomes and preserve later execution, while cancellation still stops settlement.
+- b3f5de7: Report unprintable agent exceptions as failed prompt steps without aborting the
+  automation cycle. Preserve later-step execution and recorded-event ownership,
+  with coverage for serializable reports and subsequent new events.
+- b3f5de7: Use indexed automation declaration discovery for loading, listing, and retraction, preserving disabled winners across actor series without materializing unrelated beliefs.
+- b3f5de7: Add a reproducible large automation benchmark covering 1,000, 2,000 and 4,000 events, with optional populated shape gates and full correctness and quiet-cycle assertions.
+- b3f5de7: Record isolated automation throughput and zero-write quiet cycles after vocabulary watermark and qualifier-edge registry updates.
+- b3f5de7: Safely format automation command and watch failures without replacing original
+  errors. Cover unusual poll/cycle failures together with transient or persistent
+  diagnostic-sink failures and complete owned-resource cleanup.
+- b3f5de7: Require own trigger bindings for action parameters so unbound prototype-named parameters report a local step failure instead of crashing settlement and skipping later steps.
+- b3f5de7: Read automation declaration series after reserving the retraction transaction, so actor-specific declarations committed before reservation cannot survive a successful retraction.
+- b3f5de7: Skip full shape snapshots for entirely unchanged actions while retaining before/after gating for every execution that changes an effect.
+- b3f5de7: Avoid loading unrelated current beliefs for automation declaration idempotence, preserving newest-actor resolution including retractions and negations.
+- b3f5de7: Verify supported prototype-named trigger bindings through governed action execution and document the narrower action-parameter naming boundary.
+- b3f5de7: Verify missing action-binding failures through text and JSON automation commands, including nonzero status, persisted later effects and no event replay after reopening.
+- b3f5de7: Record current 1,000–4,000-event shaped automation measurements, complete result checks and zero-write quiet cycles.
+- b3f5de7: Verify installed automation commands report missing action bindings, retain later successful effects and leave history unchanged on a second invocation.
+- b3f5de7: Verify that alias-policy changes recompute derived facts without replaying automation events behind the firing watermark.
+
 ## 0.28.2
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @cavelang/loop
 
+## 0.36.0
+
+### Minor Changes
+
+- b3f5de7: Reject process deadlines beyond the timer range before launching commands or synchronous bridge workers, preventing immediate timeout on overflow.
+
+### Patch Changes
+
+- b3f5de7: Normalize synchronous Node spawn validation errors into redacted ProcessFailure diagnostics, preserving the process runner error contract for malformed execution inputs.
+
 ## 0.28.2
 
 ### Patch Changes

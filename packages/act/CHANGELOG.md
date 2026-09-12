@@ -1,5 +1,26 @@
 # @cavelang/act
 
+## 0.36.0
+
+### Minor Changes
+
+- b3f5de7: Preserve prototype-named rule variables and require supplied action arguments to be own properties instead of inherited JavaScript values.
+
+### Patch Changes
+
+- b3f5de7: Document and verify metadata-only action template edits: unchanged effects preserve their stored tags and lineage until their key, value or confidence changes.
+- b3f5de7: Align architecture and shape-gate references with deferred action snapshots, and verify that malformed shapes block writes while unchanged actions remain read-only.
+- b3f5de7: Explain and verify mixed action imports: an invalid replacement retains the previous body while valid metadata and other declarations apply, and corrected retries remain idempotent.
+- b3f5de7: Select action declaration series inside the retraction transaction so peer commits before the write reservation are included and already-completed retractions append nothing.
+- b3f5de7: Skip full shape snapshots for entirely unchanged actions while retaining before/after gating for every execution that changes an effect.
+- b3f5de7: Resolve named action attributes with a targeted latest-row query, preserving source-series and disabled-declaration semantics while avoiding whole-store materialization per firing.
+- b3f5de7: Reject nonnumeric action hook timeouts with the normal validation report before coercion, action writes or lazy hook lookup.
+- b3f5de7: Verify and document action lineage across effect updates, no-ops, dry runs and database reopen.
+- b3f5de7: Document and verify that hook timeouts retain committed action history and that repeating an unchanged action does not retry its external side effect.
+- b3f5de7: Verify that existing action effects cannot bypass premises invalidated by local or peer-written qualifier edges, while preserving past effect lineage.
+- b3f5de7: Document and verify atomic rollback and retry of multi-series action retractions, including preservation of past effects and their lineage.
+- b3f5de7: Verify and document that a successful no-op action retry preserves committed history without rerunning a previously failed hook, while a new effect runs the corrected hook.
+
 ## 0.29.0
 
 ### Minor Changes
