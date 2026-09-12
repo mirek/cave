@@ -107,9 +107,15 @@ export const Docs = ({ slug, fragment, position, filter, setFilter, includeConte
                 const first = document.querySelector<HTMLAnchorElement>('.docs-sidebar nav a')
                 if (first !== null) {
                   first.focus({ preventScroll: true })
-                  // Cancel a pending browser-keyboard scroll even if the link is already visible.
-                  window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: 'instant' })
-                  first.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' })
+                  const reveal = () => {
+                    // Cancel browser-keyboard scrolling even when the link is already visible.
+                    window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: 'instant' })
+                    first.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' })
+                  }
+                  reveal()
+                  requestAnimationFrame(() => {
+                    if (first.isConnected && document.activeElement === first) reveal()
+                  })
                 }
               }
             }} />

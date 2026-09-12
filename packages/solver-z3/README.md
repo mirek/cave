@@ -321,11 +321,14 @@ counters describe process memory, not Z3's internal allocation accounting.
 The diagnostic submits subsequent requests before asserting large-phase
 results, preserving evidence of whether the same runtime remains usable.
 The runtime CI matrix runs the large diagnostic on each configured runtime/OS
-entry. Each large solve has a 120-second budget, and the CI step has a
+entry. Each large solve has a 120-second budget and each recovery solve has a
+30-second budget; the CI step has a
 15-minute timeout to bound native hangs across all three cycles. The larger
 budget accommodates shared-runner performance: Windows CI exceeded the previous
 30-second feasibility deadline while the following optimization and recovery
-still returned the expected results. This diagnostic checks cleanup correctness;
+still returned the expected results. A later Windows run reached recovery but
+exceeded its default 10-second budget, so that phase now also has an explicit
+diagnostic budget. This diagnostic checks cleanup correctness;
 it does not impose a 30-second performance requirement. Workload size, forced
 collection frequency and exact result assertions remain unchanged.
 

@@ -56,7 +56,7 @@ try {
       }
     }
     console.log(JSON.stringify({ iteration, phase: 'recovery-start' }))
-    const result = await Solve.run(runtime, model, { limits: { maxVariables: count } })
+    const result = await Solve.run(runtime, model, { limits: { maxVariables: count, timeoutMs: 30_000 } })
     console.log(JSON.stringify({ iteration, phase: 'recovered', status: result.status, elapsedMs: result.elapsedMs, ...(result.status === 'unknown' ? { reason: result.reason } : {}), ...(result.status === 'optimal' ? { objectives: result.objectives } : {}) }))
     assert.equal(result.status, 'optimal', JSON.stringify(result))
     if (result.status === 'optimal') {
