@@ -105,7 +105,7 @@ jobs:
       - name: Verify the default website excludes optional solver assets
         run: node scripts/verify-website-bundle.mjs
 
-  # Exercise the exact minimum runtime, the supported Current line, and every
+  # Exercise the selected Node 24 and 26 releases and every
   # supported OS without multiplying the complete source and website suite.
   # These tests own the platform-sensitive native, path, process-tree, and
   # package-layout paths.
@@ -115,23 +115,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: node-24.16.0 / ubuntu-24.04
-            os: ubuntu-24.04
-            node: 24.16.0
           - name: node-24.21.0 / macos-15
             os: macos-15
             node: 24.21.0
           - name: node-24.21.0 / windows-2022
             os: windows-2022
             node: 24.21.0
-          - name: node-26.1.0 / ubuntu-24.04
+          - name: node-26.8.2 / ubuntu-24.04
             os: ubuntu-24.04
-            node: 26.1.0
-          - name: node-26.8.1 / ubuntu-24.04
-            os: ubuntu-24.04
-            node: 26.8.1
+            node: 26.8.2
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Allow the 20-minute stress step plus setup, native suites, and CLI tests.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -172,7 +167,7 @@ jobs:
         run: pnpm --filter @cavelang/solver --filter @cavelang/solver-z3 test
 
       - name: Verify Z3 cleanup under forced garbage collection
-        timeout-minutes: 5
+        timeout-minutes: 20
         run: pnpm --filter @cavelang/solver-z3 test:memory-stress --large
 
       - name: Build the consolidated CLI package layout

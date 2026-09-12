@@ -47,7 +47,8 @@ try {
           maxVariables: largeCount,
           // Two one-digit bounds per variable, plus the constraint and optional objective literals.
           maxNumericDigits: 2 * largeCount + 2,
-          timeoutMs: 30_000
+          // This diagnostic checks cleanup correctness, not shared-runner latency.
+          timeoutMs: 120_000
         } })
         console.log(JSON.stringify({ iteration, phase: optimize ? 'large-optimization' : 'large-feasibility', result, wallMs: performance.now() - started, memory: process.memoryUsage() }))
         // Probe subsequent requests before asserting so a poisoned runtime is visible.
@@ -55,7 +56,7 @@ try {
       }
     }
     console.log(JSON.stringify({ iteration, phase: 'recovery-start' }))
-    const result = await Solve.run(runtime, model, { limits: { maxVariables: count } })
+    const result = await Solve.run(runtime, model, { limits: { maxVariables: count, timeoutMs: 30_000 } })
     console.log(JSON.stringify({ iteration, phase: 'recovered', status: result.status, elapsedMs: result.elapsedMs, ...(result.status === 'unknown' ? { reason: result.reason } : {}), ...(result.status === 'optimal' ? { objectives: result.objectives } : {}) }))
     assert.equal(result.status, 'optimal', JSON.stringify(result))
     if (result.status === 'optimal') {

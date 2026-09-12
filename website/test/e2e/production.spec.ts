@@ -1227,7 +1227,21 @@ for (const width of [320, 390, 1280]) {
     }
     await filter.press('ArrowDown')
     await expect(links.first()).toBeFocused()
-    await expect(links.first()).toBeInViewport()
+    try {
+      await expect(links.first()).toBeInViewport()
+    } catch (error) {
+      await testInfo.attach('focused-match-position', {
+        contentType: 'application/json',
+        body: JSON.stringify(await links.first().evaluate(element => ({
+          bounds: element.getBoundingClientRect().toJSON(),
+          scroll: { x: window.scrollX, y: window.scrollY },
+          sidebar: element.closest('aside')?.getBoundingClientRect().toJSON(),
+          nav: element.closest('nav')?.getBoundingClientRect().toJSON(),
+          focused: document.activeElement === element,
+        }))),
+      })
+      throw error
+    }
     await expect(page).toHaveURL(/#\/docs\/overview$/)
     await page.screenshot({ path: testInfo.outputPath('browse-doc-matches.png') })
     const target = await links.first().getAttribute('href')
@@ -1235,6 +1249,66 @@ for (const width of [320, 390, 1280]) {
     await expect.poll(() => page.evaluate(() => window.location.hash)).toBe(target)
     await expect(page.locator('.docs-article h1')).toBeFocused()
     await expect(filter).toHaveValue('solver')
+  })
+
+  for (const delayedScroll of [false, true]) test(`Down Arrow reveals a documentation match during smooth page scrolling at ${width}px (delayed=${delayedScroll})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    const filter = page.getByRole('textbox', { name: 'Filter documentation', exact: true })
+    await filter.fill('solver')
+    await page.evaluate(async delayedScroll => {
+      // A preceding browser keyboard shortcut can leave a smooth scroll active.
+      if (!delayedScroll) window.scrollTo({ top: 1000, behavior: 'smooth' })
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      if (delayedScroll) window.scrollTo({ top: 1000, behavior: 'smooth' })
+      // Observe the final position, not the initial frame before scrolling runs.
+      for (let frame = 0; frame < 60; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    }, delayedScroll)
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+    await expect(page).toHaveURL(/#\/docs\/overview$/)
+  })
+
+  test(`documentation focus survives continued native-style scroll frames at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    await page.getByRole('textbox', { name: 'Filter documentation', exact: true }).fill('solver')
+    await page.evaluate(async () => {
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      // Model the observed compositor behavior: further movement despite instant
+      // scroll calls, with an early scrollend that does not finish the sequence.
+      for (let frame = 0; frame < 20; frame++) {
+        window.scrollBy({ top: 40, behavior: 'instant' })
+        if (frame === 2) document.dispatchEvent(new Event('scrollend'))
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      }
+      for (let frame = 0; frame < 6; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+  })
+
+  for (const cancelBy of ['focus', 'wheel'] as const) test(`pending documentation reveal respects ${cancelBy} at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    await page.getByRole('textbox', { name: 'Filter documentation', exact: true }).fill('solver')
+    const result = await page.evaluate(async cancelBy => {
+      const filter = document.getElementById('documentation-filter')!
+      filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      const first = document.querySelector<HTMLElement>('.docs-sidebar nav a')!
+      if (cancelBy === 'focus') filter.focus({ preventScroll: true })
+      else first.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 100 }))
+      window.scrollTo({ top: 1000, behavior: 'instant' })
+      document.dispatchEvent(new Event('scrollend'))
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      return { top: scrollY, focused: document.activeElement === (cancelBy === 'focus' ? filter : first) }
+    }, cancelBy)
+    expect(result).toEqual({ top: 1000, focused: true })
   })
 
   test(`Enter opens a unique documentation match and ignores ambiguous or composing input at ${width}px`, async ({ page }, testInfo) => {

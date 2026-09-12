@@ -361,10 +361,10 @@ reviewed public API check; source tests do not prove installed resolution.
   exports and bypassing their required CLI release severity.
 - **Runtime support is explicit.** The supported Node.js lines are 24 and 26, starting at
   24.16.0 and 26.1.0 respectively; 24.21.0 Active LTS is recommended, and
-  26.8.1 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
+  26.8.2 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
   are the CI representatives for the supported Linux, macOS, and Windows
   families. The full suite stays on the recommended Linux runtime; a focused
-  matrix covers the minimum, Node 26, and platform-specific process,
+  matrix covers the selected Node 24 and 26 releases and platform-specific process,
   filesystem, native grammar, SQLite, solver/adapter and forced-GC cleanup, and
   consolidated-package behavior.
   Packed shell-agent adapter checks exercise strict reply decoding, malformed

@@ -15,7 +15,7 @@ surrogates in names or commands. Invalid configuration fails before action
 effects; doctor reports the failure without revealing configuration contents.
 
 The supported Node.js lines are 24 and 26: 24.16.0 and 26.1.0 are their exact minimums,
-24.21.0 Active LTS is recommended, and 26.8.1 Current is also tested. Linux,
+24.21.0 Active LTS is recommended, and 26.8.2 Current is also tested. Linux,
 macOS, and Windows are supported; CI represents them with Ubuntu 24.04, macOS
 15, and Windows Server 2022 and exercises the CLI's native, filesystem,
 process, and built-package paths on each.
