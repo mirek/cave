@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.36.9
+
+### Patch Changes
+
+- 2b2a585: Update the pinned Changesets action to 2.1.2 and document its release-branch preparation behavior.
+
 ## 0.36.8
 
 No changes in this release.
