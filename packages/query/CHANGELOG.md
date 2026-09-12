@@ -1,5 +1,16 @@
 # @cavelang/query
 
+## 0.36.2
+
+### Patch Changes
+
+- Updated dependencies [9207b82]
+- Updated dependencies [9e9d967]
+  - @cavelang/core@0.36.2
+  - @cavelang/canonical@0.36.2
+  - @cavelang/parser@0.36.2
+  - @cavelang/store@0.36.2
+
 ## 0.36.1
 
 ### Patch Changes
