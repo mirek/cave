@@ -106,23 +106,43 @@ export type Init = {
   raw?: string
 }
 
-/** @returns claim with defaults applied (spec §6: all suffixes optional). */
+/**
+ * Apply defaults (spec §6: all suffixes optional) and capture top-level fields.
+ * Nested terms, payload, tags and delta remain caller-owned read-only values;
+ * this factory does not deep-copy or freeze them.
+ */
 export const of = (init: Init): Claim => {
-  if (init.delta !== undefined) Uncertainty.validateDelta(init.delta.num)
-  if (init.sigmaLevel !== undefined) Uncertainty.validateSigmaLevel(init.sigmaLevel)
+  const { subject, verb, payload, negated, contexts, tags, conf, importance, delta, sigmaLevel, comment, raw } = init
+  for (const [name, flag] of [['negated', negated], ['importance', importance]] as const) {
+    if (flag !== undefined && typeof flag !== 'boolean') throw new TypeError(`claim ${name} must be a boolean`)
+  }
+  for (const [name, collection] of [['contexts', contexts], ['tags', tags]] as const) {
+    if (collection !== undefined && !Array.isArray(collection)) throw new TypeError(`claim ${name} must be an array`)
+  }
+  if (conf !== undefined && (!Number.isFinite(conf) || conf < 0 || conf > 1)) {
+    throw new RangeError('confidence must be finite and between 0 and 1')
+  }
+  if (payload.kind === 'metric' || payload.kind === 'attribute') {
+    for (const key of ['num', 'from', 'to'] as const) {
+      const number = payload.value[key]
+      if (number !== undefined && !Number.isFinite(number)) throw new RangeError(`claim value.${key} must be finite`)
+    }
+  }
+  if (delta !== undefined) Uncertainty.validateDelta(delta.num)
+  if (sigmaLevel !== undefined) Uncertainty.validateSigmaLevel(sigmaLevel)
   return {
-    subject: init.subject,
-    verb: init.verb,
-    negated: init.negated ?? false,
-    payload: init.payload,
-    contexts: Context.dedupe(init.contexts ?? []),
-    tags: init.tags ?? [],
-    conf: init.conf ?? Confidence.defaultConfidence,
-    importance: init.importance ?? false,
-    ...init.delta !== undefined ? { delta: init.delta } : {},
-    ...init.sigmaLevel !== undefined ? { sigmaLevel: init.sigmaLevel } : {},
-    ...init.comment !== undefined ? { comment: init.comment } : {},
-    raw: init.raw ?? ''
+    subject,
+    verb,
+    negated: negated ?? false,
+    payload,
+    contexts: Context.dedupe(contexts ?? []),
+    tags: tags ?? [],
+    conf: conf ?? Confidence.defaultConfidence,
+    importance: importance ?? false,
+    ...delta !== undefined ? { delta } : {},
+    ...sigmaLevel !== undefined ? { sigmaLevel } : {},
+    ...comment !== undefined ? { comment } : {},
+    raw: raw ?? ''
   }
 }
 
@@ -147,7 +167,7 @@ export const none: Payload =
  * defaulting to 2 (spec §7.2). `undefined` when the claim carries no numeric
  * uncertainty.
  */
-export const sigmaOf = (claim: Claim): undefined | number =>
-  claim.delta?.num === undefined ?
-    undefined :
-    Uncertainty.sigma(claim.delta.num, claim.sigmaLevel)
+export const sigmaOf = (claim: Claim): undefined | number => {
+  const delta = claim.delta?.num
+  return delta === undefined ? undefined : Uncertainty.sigma(delta, claim.sigmaLevel)
+}

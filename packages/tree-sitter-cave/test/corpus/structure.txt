@@ -221,3 +221,11 @@ api IS service
     (verb)
     (object
       (entity))))
+
+==================
+explicit claim prefix marker
+==================
+@claim
+---
+
+(document (shorthand_line (claim_marker)))

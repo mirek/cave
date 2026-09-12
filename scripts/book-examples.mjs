@@ -36,16 +36,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseArgs } from 'node:util'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const chaptersDir = join(root, 'book', 'chapters')
 const fixturesDir = join(root, 'book', 'fixtures')
 const main = join(root, 'packages', 'cli', 'src', 'main.ts')
 
-const args = process.argv.slice(2)
-const update = args.includes('--update')
-const onlyIndex = args.indexOf('--only')
-const only = onlyIndex === -1 ? null : args[onlyIndex + 1] ?? null
+let update = false
 
 // ---------------------------------------------------------------------------
 // Parsing the Typst source
@@ -169,7 +167,30 @@ const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** @param {string} expected @param {string} actual */
 export const matches = (expected, actual) => {
   const trimmed = actual.replace(/\n+$/, '')
-  return expectedPattern(expected).test(trimmed + '\n')
+  const wanted = expected.split('\n')
+  const received = trimmed.split('\n')
+  const patterns = new Map()
+  const matchesLine = (line, value) => {
+    if (!/<date>|<time>|<uuid>|<hex>|<n>|<path>|<token>|<any>/.test(line)) return line === value
+    if (!patterns.has(line)) patterns.set(line, expectedPattern(line))
+    return patterns.get(line).test(value + '\n')
+  }
+  const anyLine = expectedPattern('…')
+  let at = 0, input = 0, wildcard = -1, consumed = 0
+  while (input < received.length) {
+    if (wanted[at] === '…' || wanted[at] === '...') {
+      wildcard = at++
+      consumed = input
+    } else if (at < wanted.length && matchesLine(wanted[at], received[input])) {
+      at++
+      input++
+    } else if (wildcard >= 0 && consumed < received.length && anyLine.test(received[consumed] + '\n')) {
+      input = ++consumed
+      at = wildcard + 1
+    } else return false
+  }
+  while (wanted[at] === '…' || wanted[at] === '...') at++
+  return at === wanted.length
 }
 
 // ---------------------------------------------------------------------------
@@ -236,19 +257,21 @@ const lint = (body, bin) => {
 
 /**
  * @param {string} file
+ * @param {string} bin
+ * @param {boolean} [updateOutputs]
  * @returns {{ problems: string[], updated: boolean }}
  */
-const checkChapter = (file, bin) => {
+export const checkChapter = (file, bin, updateOutputs = update) => {
   const source = readFileSync(file, 'utf8')
-  const lines = source.split('\n')
+  let lines = source.split('\n')
   const blocks = parseChapter(source)
   const problems = []
   const scratch = mkdtempSync(join(tmpdir(), 'cave-book-'))
-  if (existsSync(fixturesDir)) cpSync(fixturesDir, scratch, { recursive: true })
   /** @type {{ from: number, to: number, text: string }[]} */
   const edits = []
   const label = basename(file)
   try {
+    if (existsSync(fixturesDir)) cpSync(fixturesDir, scratch, { recursive: true })
     for (const block of blocks) {
       if (block.kind === 'file') {
         const target = join(scratch, block.name)
@@ -274,7 +297,7 @@ const checkChapter = (file, bin) => {
           const actual = run(command.command, scratch, bin)
           if (matches(command.expected, actual)) continue
           const trimmed = actual.replace(/\n+$/, '')
-          if (update) {
+          if (updateOutputs) {
             edits.push({ from: command.outputStart, to: command.outputEnd, text: trimmed })
           } else {
             problems.push([
@@ -290,7 +313,7 @@ const checkChapter = (file, bin) => {
   }
   if (edits.length === 0) return { problems, updated: false }
   for (const edit of edits.sort((a, b) => b.from - a.from)) {
-    lines.splice(edit.from, edit.to - edit.from, ...(edit.text === '' ? [] : edit.text.split('\n')))
+    lines = lines.slice(0, edit.from).concat(edit.text === '' ? [] : edit.text.split('\n'), lines.slice(edit.to))
   }
   writeFileSync(file, lines.join('\n'))
   return { problems, updated: true }
@@ -298,13 +321,34 @@ const checkChapter = (file, bin) => {
 
 const isMain = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {
+  let only = null
+  try {
+    const { values, tokens } = parseArgs({
+      options: { update: { type: 'boolean' }, only: { type: 'string' } },
+      strict: true, allowPositionals: false, tokens: true
+    })
+    if (tokens.filter(token => token.kind === 'option' && token.name === 'only').length > 1) {
+      throw new Error('--only accepts one file-name fragment')
+    }
+    only = values.only ?? null
+    if (only === '') throw new Error('--only requires a nonempty file-name fragment')
+    update = values.update === true
+  } catch (error) {
+    console.error(`book examples: ${error.message}`)
+    process.exit(2)
+  }
   const chapters = readdirSync(chaptersDir)
     .filter(name => name.endsWith('.typ') && (only === null || name.includes(only)))
     .sort()
+  if (chapters.length === 0) {
+    console.error(only === null ? 'book examples: no chapters found' :
+      `book examples: --only ${JSON.stringify(only)} matched no chapters`)
+    process.exit(2)
+  }
   const dir = mkdtempSync(join(tmpdir(), 'cave-book-bin-'))
-  const bin = makeBin(dir)
   let failed = false
   try {
+    const bin = makeBin(dir)
     for (const name of chapters) {
       const started = Date.now()
       const { problems, updated } = checkChapter(join(chaptersDir, name), bin)

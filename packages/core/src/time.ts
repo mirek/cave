@@ -248,9 +248,10 @@ export const closedRangeOf = (contexts: readonly string[]): undefined | { start:
   let found: undefined | { start: Period, end: Period }
   for (const context of contexts) {
     const time = ofContext(context)
-    if (time === undefined || time.kind !== 'range' || time.start === undefined || time.end === undefined) {
+    if (time === undefined || time.kind !== 'range') {
       continue
     }
+    if (time.start === undefined || time.end === undefined) return undefined
     if (found !== undefined) {
       return undefined
     }

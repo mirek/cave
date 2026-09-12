@@ -1,5 +1,69 @@
 # @cavelang/loop
 
+## 0.36.9
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.9 release identity.
+
+## 0.36.8
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.8 release identity.
+
+## 0.36.7
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.7 release identity.
+
+## 0.36.6
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.6 release identity.
+
+## 0.36.5
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.5 release identity.
+
+## 0.36.4
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.4 release identity.
+
+## 0.36.3
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.3 release identity.
+
+## 0.36.2
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.2 release identity.
+
+## 0.36.1
+
+### Patch Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.36.1 release identity.
+
+## 0.36.0
+
+### Minor Changes
+
+- b3f5de7: Reject process deadlines beyond the timer range before launching commands or synchronous bridge workers, preventing immediate timeout on overflow.
+
+### Patch Changes
+
+- b3f5de7: Normalize synchronous Node spawn validation errors into redacted ProcessFailure diagnostics, preserving the process runner error contract for malformed execution inputs.
+
 ## 0.28.2
 
 ### Patch Changes

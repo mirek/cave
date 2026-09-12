@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { Key } from '@cavelang/core'
+import { Claim, Key, Value } from '@cavelang/core'
 import { canonicalizeText, emit, emitClaim, standardRegistry } from '@cavelang/canonical'
 
 const roundTrip = (text: string): { first: string, second: string } => {
@@ -12,6 +12,130 @@ const roundTrip = (text: string): { first: string, second: string } => {
   const second = emit(again)
   return { first, second }
 }
+
+test('bare carriage returns in text and code values preserve literal identity', () => {
+  const base = canonicalizeText('claim HAS note: "ordinary"', standardRegistry).claims[0]!.claim
+  assert.equal(base.payload.kind, 'attribute')
+  if (base.payload.kind !== 'attribute') assert.fail('expected attribute fixture')
+  for (const create of [Value.ofText, Value.ofCode]) {
+    for (const content of ['a\rb', '\rleading', 'trailing\r', 'a\r\rb']) {
+      const claim: Claim.t = { ...base, payload: { ...base.payload, value: create(content) } }
+      const text = emitClaim(claim)
+      const parsed = canonicalizeText(text, standardRegistry)
+      assert.deepEqual(parsed.problems, [])
+      assert.equal(parsed.claims.length, 1)
+      assert.equal(Key.of(parsed.claims[0]!.claim), Key.of(claim))
+      assert.deepEqual(parsed.claims[0]!.claim.payload, claim.payload)
+      assert.equal(emitClaim(parsed.claims[0]!.claim), text)
+    }
+  }
+})
+
+test('emit supports broad sibling groups without spreading function arguments', () => {
+  const count = 130_000
+  const base = canonicalizeText('claim EXISTS', standardRegistry).claims[0]!
+  const text = emit({ claims: Array.from({ length: count }, () => base), edges: [] })
+  assert.equal(text, `claim\n${'  EXISTS\n'.repeat(count)}`)
+  const parsed = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(parsed.problems, [])
+  assert.equal(parsed.claims.length, count)
+  assert.equal(parsed.edges.length, 0)
+  assert.equal(emit(parsed), text)
+})
+
+test('emit preserves complete sibling prefixes with trailing metadata', () => {
+  const count = 10_000
+  const base = canonicalizeText('claim EXISTS @ 70%', standardRegistry).claims[0]!
+  const text = emit({ claims: Array.from({ length: count }, () => base), edges: [] })
+  assert.equal(text, `claim\n${'  EXISTS @ 70%\n'.repeat(count)}`)
+  const mixed = canonicalizeText('first EXISTS @ 70%\nfirst EXISTS @ 80%\nsecond HAS a: A\nsecond HAS b: B', standardRegistry)
+  const { first, second } = roundTrip(emit(mixed))
+  assert.equal(first, second)
+  assert.match(first, /second HAS/)
+})
+
+test('emit retains large multiline comments without spreading function arguments', () => {
+  const count = 130_000
+  const base = canonicalizeText('claim EXISTS', standardRegistry).claims[0]!
+  const comment = Array.from({ length: count }, (_, index) => `line-${index}`).join('\n')
+  const text = emit({ claims: [{ ...base, claim: { ...base.claim, comment } }], edges: [] })
+  const lines = text.trimEnd().split('\n')
+  assert.equal(lines.length, count)
+  for (let index = 0; index < count - 1; index++) assert.equal(lines[index], `; line-${index}`)
+  assert.equal(lines[count - 1], `claim EXISTS ; line-${count - 1}`)
+  const parsed = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(parsed.problems, [])
+  assert.equal(parsed.claims.length, 1)
+  assert.equal(parsed.claims[0]!.claim.comment, comment)
+  assert.equal(emit(parsed), text)
+})
+
+test('emit handles deep support chains and cycles without recursive stack growth', () => {
+  const count = 3000
+  const base = canonicalizeText('claim EXISTS', standardRegistry).claims[0]!
+  const claims = Array.from({ length: count }, () => base)
+  const edges = Array.from({ length: count - 1 }, (_, index) => ({ parent: index, child: index + 1, role: 'BECAUSE' as const }))
+  edges.push({ parent: count - 1, child: 0, role: 'BECAUSE' })
+  const visits: number[] = []
+  const text = emit({ claims, edges }, { annotate: index => { visits.push(index); return undefined } })
+  assert.deepEqual(visits, [...Array.from({ length: count }, (_, index) => index), 0])
+  const lines = text.trimEnd().split('\n')
+  assert.equal(lines.length, count + 1)
+  assert.equal(lines[0], 'claim EXISTS')
+  for (let index = 1; index <= count; index++) {
+    assert.equal(lines[index], `${'  '.repeat(index)}BECAUSE claim`)
+  }
+  const parsed = canonicalizeText(text, standardRegistry)
+  assert.deepEqual(parsed.problems, [])
+  assert.equal(parsed.claims.length, count + 1)
+  assert.equal(parsed.edges.length, count)
+  assert.equal(emit(parsed), text)
+})
+
+test('emit rejects invalid edge roles and endpoints before annotations run', () => {
+  const result = canonicalizeText('parent IS fact\nchild IS condition', standardRegistry)
+  const valid = { parent: 0, child: 1, role: 'WHEN' as const }
+  const before = JSON.stringify(result)
+  let annotations = 0
+  const options = { annotate: () => { annotations++; return '; annotation' } }
+  for (const role of ['BOGUS', 'when', '', 'WHEN\ninjected IS fact', null, 1]) {
+    assert.throws(() => emit({ ...result, edges: [valid, { ...valid, role: role as never }] }, options),
+      { name: 'TypeError', message: /CAVE edge role/ })
+  }
+  for (const field of ['parent', 'child'] as const) {
+    for (const index of [-1, 2, 0.5, NaN, Infinity, '0', null]) {
+      assert.throws(() => emit({ ...result, edges: [valid, { ...valid, [field]: index } as never] }, options),
+        { name: 'TypeError', message: new RegExp(`CAVE edge ${field}.*existing claim`) })
+    }
+  }
+  assert.equal(annotations, 0)
+  assert.equal(JSON.stringify(result), before)
+  assert.match(emit({ ...result, edges: [valid] }), /WHEN child IS condition/)
+  const reads = { parent: 0, child: 0, role: 0 }
+  const captured = {
+    get parent() { return ++reads.parent === 1 ? 0 : 99 },
+    get child() { return ++reads.child === 1 ? 1 : 99 },
+    get role() { return (++reads.role === 1 ? 'WHEN' : 'BOGUS') as 'WHEN' }
+  }
+  assert.match(emit({ ...result, edges: [captured] }), /WHEN child IS condition/)
+  assert.deepEqual(reads, { parent: 1, child: 1, role: 1 })
+})
+
+test('emit rejects sparse claim arrays before annotations and accepts a corrected retry', () => {
+  const result = canonicalizeText('parent IS fact\nchild IS condition', standardRegistry)
+  const claims = new Array<(typeof result.claims)[number]>(3)
+  claims[0] = result.claims[0]!
+  claims[2] = result.claims[1]!
+  let annotations = 0
+  const options = { annotate: () => { annotations++; return undefined } }
+  const before = JSON.stringify(claims)
+  assert.throws(() => emit({ claims, edges: [] }, options), /claims must be a dense array/)
+  assert.equal(annotations, 0)
+  assert.equal(Object.hasOwn(claims, 1), false)
+  assert.equal(JSON.stringify(claims), before)
+  assert.equal(emit(result, options), emit(result))
+  assert.equal(annotations, 2)
+})
 
 test('emit produces canonical primary direction (spec §5.5)', () => {
   const result = canonicalizeText('packages/api PART-OF monorepo', standardRegistry)
@@ -210,6 +334,20 @@ test('a child cited by several parents is re-stated — children render once (sp
     'a CAUSE b\n  BECAUSE premise\n    WHEN deep\nc CAUSE d\n  BECAUSE premise\n',
     "the re-statement is the line alone; the child's own children rode its first appearance"
   )
+  const before = JSON.stringify(result)
+  const failure = new Error('annotation failed')
+  const visits: number[] = []
+  assert.throws(() => emit(result, { annotate: index => {
+    visits.push(index)
+    if (index === 2) throw failure
+    return undefined
+  } }), error => error === failure)
+  assert.deepEqual(visits, [0, 2])
+  assert.equal(JSON.stringify(result), before)
+  const retry: number[] = []
+  assert.equal(emit(result, { annotate: index => { retry.push(index); return undefined } }), emit(result))
+  assert.deepEqual(retry, [0, 2, 3, 1, 2])
+  assert.equal(JSON.stringify(result), before)
 })
 
 test('a support cycle with no top-level member still emits every claim once (spec §24.5, §28.4)', () => {
@@ -223,6 +361,29 @@ test('a support cycle with no top-level member still emits every claim once (spe
     'a CAUSE b\n  BECAUSE b CAUSE a\n    BECAUSE a CAUSE b\n',
     'the cycle breaks at the re-statement instead of dropping rows'
   )
+})
+
+test('structured comment text round trips apply parser whitespace normalization', () => {
+  for (const [comment, expected] of [
+    ['first\n', 'first'], ['first\n\n', 'first'],
+    ['\nfirst\n\nsecond\n', 'first\n\nsecond'],
+    ['first\r\n\r\n  second  \r\n', 'first\n\n  second'],
+    ['\n', undefined], ['\n\n', undefined]
+  ]) {
+    const source = canonicalizeText('api IS service')
+    const result = { ...source, claims: source.claims.map(entry => ({
+      ...entry, claim: { ...entry.claim, comment }
+    })) }
+    const text = emit(result)
+    const parsed = canonicalizeText(text)
+    assert.deepEqual(parsed.problems, [])
+    assert.equal(parsed.claims.length, 1)
+    assert.equal(parsed.claims[0]!.claim.comment, expected)
+    assert.equal(result.claims[0]!.claim.comment, comment)
+    assert.equal(Key.of(parsed.claims[0]!.claim), Key.of(result.claims[0]!.claim))
+    const normalized = emit(parsed)
+    assert.equal(emit(canonicalizeText(normalized)), normalized)
+  }
 })
 
 test('multi-line comments open above the claim line, trailing last, and round-trip (spec §6.4)', () => {
@@ -267,4 +428,75 @@ test('multi-line comments open above the claim line, trailing last, and round-tr
   assert.deepEqual(again.problems, [])
   assert.deepEqual(again.claims.map(entry => entry.claim.comment), result.claims.map(entry => entry.claim.comment))
   assert.equal(emit(again), emit(result))
+})
+
+test('emission rejects malformed claim flags in standalone and qualifier positions', () => {
+  const result = canonicalizeText('parent EXISTS\nchild EXISTS', standardRegistry)
+  for (const flag of ['negated', 'importance'] as const) {
+    for (const value of [undefined, null, 'true', 'false', 0, 1, {}, []]) {
+      const claim = { ...result.claims[1]!.claim, [flag]: value } as Claim.t
+      assert.throws(() => emitClaim(claim), new RegExp(`${flag} must be a boolean`))
+      for (const role of ['WHEN', 'VIA', 'BECAUSE', 'QUALIFIES'] as const) {
+        assert.throws(() => emit({ claims: [result.claims[0]!, { line: 2, claim }],
+          edges: [{ parent: 0, child: 1, role }] }), new RegExp(`${flag} must be a boolean`))
+      }
+    }
+  }
+})
+
+test('emission rejects unsupported term and payload kinds instead of changing their shape', () => {
+  const result = canonicalizeText('parent EXISTS\nchild EXISTS', standardRegistry)
+  const base = result.claims[1]!.claim
+  for (const kind of [undefined, null, '', 'unknown', 0, {}]) {
+    const malformed = [
+      { ...base, subject: { kind, text: 'child' } },
+      { ...base, payload: { kind } },
+      { ...base, verb: 'USES', payload: { kind: 'relation', object: { kind, text: 'object' } } }
+    ]
+    for (const input of malformed) {
+      const claim = input as Claim.t
+      assert.throws(() => emitClaim(claim), { name: 'TypeError', message: /CAVE (term|payload) kind/ })
+      for (const role of ['WHEN', 'VIA', 'BECAUSE', 'QUALIFIES'] as const) {
+        assert.throws(() => emit({ claims: [result.claims[0]!, { line: 2, claim }],
+          edges: [{ parent: 0, child: 1, role }] }), { name: 'TypeError', message: /CAVE (term|payload) kind/ })
+      }
+    }
+  }
+})
+
+test('emission rejects non-string term and value text before coercion', () => {
+  const result = canonicalizeText('parent EXISTS\nchild EXISTS', standardRegistry)
+  const base = result.claims[1]!.claim
+  for (const text of [undefined, null, 42, false, [], ['word'], new String('word')]) {
+    for (const kind of ['entity', 'text', 'code'] as const) {
+      const term = { kind, text } as Claim.Term
+      const claims = [
+        { ...base, subject: term },
+        { ...base, verb: 'USES', payload: Claim.relation(term) }
+      ]
+      for (const claim of claims) {
+        assert.throws(() => emitClaim(claim), TypeError)
+        for (const role of ['WHEN', 'VIA', 'BECAUSE', 'QUALIFIES'] as const) {
+          assert.throws(() => emit({ claims: [result.claims[0]!, { line: 2, claim }],
+            edges: [{ parent: 0, child: 1, role }] }), TypeError)
+        }
+      }
+    }
+    for (const kind of ['text', 'code', 'atom'] as const) {
+      const value = { kind, raw: text, approx: false } as Value.t
+      assert.throws(() => emitClaim({ ...base, verb: 'HAS', payload: Claim.attribute('label', value) }), TypeError)
+    }
+  }
+})
+
+test('emission does not reinterpret non-array metadata collections', () => {
+  const result = canonicalizeText('parent EXISTS\nchild EXISTS', standardRegistry)
+  for (const field of ['contexts', 'tags'] as const) {
+    for (const value of [undefined, null, '', 'manual', 0, {}, new Set(), { length: 0 }]) {
+      const claim = { ...result.claims[1]!.claim, [field]: value } as Claim.t
+      assert.throws(() => emitClaim(claim), new RegExp(`${field} must be an array`))
+      assert.throws(() => emit({ claims: [result.claims[0]!, { line: 2, claim }],
+        edges: [{ parent: 0, child: 1, role: 'WHEN' }] }), new RegExp(`${field} must be an array`))
+    }
+  }
 })

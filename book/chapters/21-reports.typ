@@ -5,7 +5,9 @@
 A query answers you. A document is for someone else, and it should say
 where every fact came from. `cave report` renders a Markdown template
 against the store, splicing values into prose and repeating fragments per
-match, and footnotes every rendered fact with the claim behind it.
+match, and footnotes query-produced facts with the claims behind them.
+Ordinary template prose passes through unchanged; it is not automatically cited
+or checked against the store.
 
 == A template
 
@@ -80,7 +82,11 @@ prints it with actor stamps included, the date it was recorded, and the
 claim key, so a reader can pull the full history behind any sentence. When
 a claim carries a source span, the footnote adds the decoded location,
 linked when the source is a URL. Labels are `c1, c2, …` in order of first
-citation, a namespace hand-written footnotes will not collide with.
+citation, skipping labels already used in the original template, ignoring case
+and including code examples, so hand-written footnotes retain their meaning.
+
+Only template occurrences are substituted. Text inside a stored binding that
+looks like another variable or a `[^?]` placeholder remains unchanged.
 
 A fragment shaped like a bullet renders a list; one shaped like a table row
 renders rows under a hand-written header; a paragraph with a trailing blank
@@ -128,6 +134,6 @@ and the report is the human's reproducible deliverable.
 
 #recap[A template is Markdown plus `` `cave-q: pattern` `` splices and
 fenced `cave-q` blocks with a per-solution fragment. `cave report` renders
-it and footnotes every fact with the canonical claim, date, and claim key.
+it and footnotes query-produced facts with the canonical claim, date, and claim key.
 Splices must be unambiguous; `--resolve` picks a winner. `--as-of`, `--at`,
 `--aliases`, and `--max-sensitivity` apply to every query in the document.]

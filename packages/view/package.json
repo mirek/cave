@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/view",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "private": true,
   "type": "module",
   "description": "CAVE human read surface (spec §30, §31) — cave serve: one static, self-contained HTML page over the store (entity 360, topic browse, belief-history timeline, BECAUSE-edge lineage, coverage/frontier dashboard); cave report: templated markdown from CAVE-Q results with claim keys as citations.",
@@ -12,7 +12,7 @@
     "directory": "packages/view"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -47,6 +47,9 @@
     "@cavelang/core": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/shape": "workspace:*",
-    "@cavelang/store": "workspace:*"
+    "@cavelang/store": "workspace:*",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm-footnote": "2.1.0",
+    "micromark-extension-gfm-footnote": "2.1.0"
   }
 }

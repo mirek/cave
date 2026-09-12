@@ -31,7 +31,7 @@ import { parseDocument } from '@cavelang/parser'
 const indented = (text: string): string =>
   text.split('\n').map(line => `  ${line}`).join('\n')
 import { canonicalizeText, emitClaim } from '@cavelang/canonical'
-import { Sensitivity } from '@cavelang/store'
+import { QuerySql, Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage, query as caveQuery } from '@cavelang/query'
 import { estimateOf, fuse } from '@cavelang/fusion'
@@ -40,6 +40,7 @@ import { reconstruct, heuristicPolicy, sqliteStore } from '@cavelang/loop'
 import { act, listActions, type ActReport, type ListedAction } from '@cavelang/act'
 import type { Tool as McpTool } from '@modelcontextprotocol/server'
 import { guideFor, guideTopics, type GuideTopic } from './guide.ts'
+import { readSnapshot } from './read-snapshot.ts'
 
 /** Per-connection state the server threads into tool calls. */
 export type ToolContext = {
@@ -90,6 +91,18 @@ const text = (value: unknown, name: string): string => {
   return value
 }
 
+const assertEntityUnicode = (value: string, name: string): void => {
+  if (/[\uD800-\uDFFF]/u.test(value)) {
+    throw new TypeError(`${name}: unpaired UTF-16 surrogate cannot be queried as UTF-8`)
+  }
+}
+
+const boolean = (value: unknown, name: string): boolean => {
+  if (value === undefined) return false
+  if (typeof value !== 'boolean') throw new Error(`${name} must be a boolean`)
+  return value
+}
+
 const integer = (value: unknown, name: string): number => {
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     throw new Error(`${name} must be an integer`)
@@ -105,6 +118,7 @@ const integer = (value: unknown, name: string): number => {
  * the CAVE-Q default and store traversal.
  */
 const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boolean): string[] => {
+  assertEntityUnicode(entity, 'entity')
   const names = new Set(aliases ? store.aliasesOf(entity) : [entity])
   const rows = resolve ? store.resolvedBeliefs({ aliases }) : store.currentBeliefs()
   return rows
@@ -122,7 +136,11 @@ const aboutLines = (store: Store, entity: string, aliases: boolean, resolve: boo
 const compactNumber = (n: number): string => {
   for (const [letter, factor] of Object.entries(Multiplier.factors)) {
     if (Math.abs(n) >= factor) {
-      return `${Value.formatNumber(Number((n / factor).toPrecision(4)))}${letter}`
+      const rounded = Number((n / factor).toPrecision(4))
+      // Rounding a finite boundary value upward can overflow when CAVE applies
+      // the multiplier. Preserve its exact decimal spelling in that case.
+      return Number.isFinite(rounded * factor) ?
+        `${Value.formatNumber(rounded)}${letter}` : Value.formatNumber(n)
     }
   }
   return Value.formatNumber(Number(n.toPrecision(4)))
@@ -155,35 +173,38 @@ const quantityOf = (claim: Claim.t, representative: (name: string) => string): s
  * The claims `cave_fuse` considers: matched store rows (`pattern`, deduped
  * — one row may solve a pattern several ways), current claims an entity
  * is the subject of (`about` — the only reach into metric `IS` series,
- * which CAVE-Q variables cannot bind), or literal CAVE text that never
- * touches the store (`text`). Exactly one selector, so the answer's
+ * which CAVE-Q variables cannot bind), or literal CAVE text parsed with
+ * the store vocabulary without appending it (`text`). Exactly one selector, so the answer's
  * provenance is unambiguous.
  */
-const selectFuseClaims = (store: Store, args: Record<string, unknown>): Claim.t[] => {
-  const selectors = (['pattern', 'about', 'text'] as const).filter(name => typeof args[name] === 'string')
+const selectFuseClaims = (store: Store, args: Record<string, unknown>, aliases: boolean): Claim.t[] => {
+  const { pattern, about, text: literal, asOf } = args
+  const supplied = { pattern, about, text: literal }
+  const selectors = (['pattern', 'about', 'text'] as const).filter(name => supplied[name] !== undefined)
   const selector = selectors.length === 1 ? selectors[0] : undefined
   if (selector === undefined) {
     throw new Error('provide exactly one of pattern (CAVE-Q over the store), about (an entity name) or text (literal CAVE lines)')
   }
-  if (typeof args['asOf'] === 'string' && selector !== 'pattern') {
+  if (asOf !== undefined && selector !== 'pattern') {
     throw new Error('asOf composes with pattern only')
   }
   if (selector === 'pattern') {
-    const matches = caveQuery(store, text(args['pattern'], 'pattern'), {
-      aliases: args['aliases'] === true,
-      ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {}
+    const matches = caveQuery(store, text(pattern, 'pattern'), {
+      aliases,
+      ...asOf === undefined ? {} : { asOf: text(asOf, 'asOf') }
     })
     const rows = new Map(matches.flatMap(match => match.row === undefined ? [] : [[match.row.id, match.row] as const]))
     return [...rows.values()].map(row => store.toClaim(row))
   }
   if (selector === 'about') {
-    const entity = text(args['about'], 'about')
-    const names = new Set(args['aliases'] === true ? store.aliasesOf(entity) : [entity])
+    const entity = text(about, 'about')
+    assertEntityUnicode(entity, 'about')
+    const names = new Set(aliases ? store.aliasesOf(entity) : [entity])
     return store.currentBeliefs()
       .filter(row => names.has(row.subject) && row.conf > 0)
       .map(row => store.toClaim(row))
   }
-  const result = canonicalizeText(text(args['text'], 'text'), store.registry())
+  const result = canonicalizeText(text(literal, 'text'), store.registry())
   if (result.problems.length > 0) {
     throw new Error(result.problems.map(problem => `line ${problem.line}: ${problem.message}`).join('\n'))
   }
@@ -232,7 +253,7 @@ export const tools: readonly Tool[] = [
     },
     run: (store, args, context) => {
       const result = store.ingest(text(args['text'], 'text'), {
-        strict: args['strict'] === true,
+        strict: boolean(args['strict'], 'strict'),
         ...context.source === undefined ? {} : { source: context.source }
       })
       const problems = result.problems.map(problem => `line ${problem.line}: ${problem.message}`)
@@ -260,18 +281,19 @@ export const tools: readonly Tool[] = [
         at: { type: 'string', description: 'anchor in valid time (spec §32.4): a date-like period (its start instant) or a timestamp — claims whose time contexts (@2026-Q1, @2025..2028) do not cover it are invisible, timeless claims always match, and trajectory values (20B -> 40B USD/yr) interpolate at the instant; composes with asOf' },
         resolve: { type: 'boolean', description: 'match resolved winners only (spec §26): contested facts — one fact from several sources, or opposite polarity — collapse to the row the resolution policy picks; incompatible with all' },
         limit: { type: 'integer', minimum: 1, maximum: 1000, default: defaultQueryLimit, description: `matches per page (default ${defaultQueryLimit})` },
-        cursor: { type: 'string', description: 'opaque continuation from a prior cave_query page; freezes the original transaction snapshot' }
+        cursor: { type: 'string', description: 'opaque continuation from a prior cave_query page; freezes the transaction cutoff and rejects changed historical rows or lineage; restart without cursor after a snapshot-change error' }
       }
     },
     run: (store, args) => {
-      const result = caveQueryPage(store, text(args['pattern'], 'pattern'), {
-        all: args['all'] === true,
-        aliases: args['aliases'] === true,
-        resolve: args['resolve'] === true,
-        limit: args['limit'] === undefined ? defaultQueryLimit : integer(args['limit'], 'limit'),
-        ...typeof args['cursor'] === 'string' ? { cursor: args['cursor'] } : {},
-        ...typeof args['asOf'] === 'string' ? { asOf: args['asOf'] } : {},
-        ...typeof args['at'] === 'string' ? { at: args['at'] } : {}
+      const { pattern, all, aliases, resolve, limit, cursor, asOf, at } = args
+      const result = caveQueryPage(store, text(pattern, 'pattern'), {
+        all: boolean(all, 'all'),
+        aliases: boolean(aliases, 'aliases'),
+        resolve: boolean(resolve, 'resolve'),
+        limit: limit === undefined ? defaultQueryLimit : integer(limit, 'limit'),
+        ...cursor === undefined ? {} : { cursor: text(cursor, 'cursor') },
+        ...asOf === undefined ? {} : { asOf: text(asOf, 'asOf') },
+        ...at === undefined ? {} : { at: text(at, 'at') }
       })
       const matches = result.matches
       if (matches.length === 0) {
@@ -285,7 +307,7 @@ export const tools: readonly Tool[] = [
         // An interpolated trajectory shows its value at the anchor
         // (spec §32.4); value-slot bindings already carry it.
         if (match.at !== undefined && line !== undefined && bindings === '') {
-          line = `${line} ; at ${String(args['at'])}: ${match.at.text}`
+          line = `${line} ; at ${String(at)}: ${match.at.text}`
         }
         if (bindings === '') {
           return line ?? 'match'
@@ -318,13 +340,14 @@ export const tools: readonly Tool[] = [
       properties: {
         pattern: { type: 'string', description: 'CAVE-Q pattern selecting the store rows to fuse (exactly one of pattern/about/text)' },
         about: { type: 'string', description: 'entity whose current claims carry the estimates (exactly one of pattern/about/text)' },
-        text: { type: 'string', description: 'CAVE lines carrying the estimates, fused without touching the store (exactly one of pattern/about/text)' },
-        aliases: { type: 'boolean', description: 'pattern/about match through the alias closure (spec §13.6)' },
+        text: { type: 'string', description: 'Literal estimates parsed with the store vocabulary, without selecting stored estimates or appending claims (exactly one of pattern/about/text)' },
+        aliases: { type: 'boolean', description: 'pattern/about selection and quantity grouping for every selector use the store alias closure (spec §13.6)' },
         asOf: { type: 'string', description: 'fuse the estimates believed at a past moment (spec §12.3): a date, timestamp or transaction id; pattern only' }
       }
     },
-    run: (store, args) => {
-      const claims = selectFuseClaims(store, args)
+    run: (store, args) => readSnapshot(store, () => {
+      const aliases = boolean(args['aliases'], 'aliases')
+      const claims = selectFuseClaims(store, args, aliases)
       const estimates = claims.flatMap(claim => {
         const estimate = estimateOf(claim)
         return claim.negated || estimate === undefined || !((estimate.conf ?? 1) > 0) ? [] : [{ claim, estimate }]
@@ -334,9 +357,25 @@ export const tools: readonly Tool[] = [
           'nothing to fuse: no matching claims' :
           `nothing to fuse: none of the ${claims.length} claim(s) carries a positive numeric estimate with +/- uncertainty`
       }
-      const representative = args['aliases'] === true ?
-        (name: string): string => store.aliasesOf(name).reduce((min, candidate) => candidate < min ? candidate : min) :
-        (name: string): string => name
+      // Pattern selection has already validated asOf. Quantity identity must
+      // use that same historical alias graph, not today's merge/retraction state.
+      const historicalAliases = aliases && args['asOf'] !== undefined ? store.db.prepare(
+        `${QuerySql.aliasClosure(QuerySql.current(QuerySql.claims(QuerySql.asOfBoundary(text(args['asOf'], 'asOf'))!)))} SELECT name FROM alias_closure`
+      ) : undefined
+      const namesOf = (name: string): string[] => historicalAliases === undefined ? store.aliasesOf(name) :
+        (historicalAliases.all(name) as { name: string }[]).map(row => row.name)
+      const representatives = new Map<string, string>()
+      const representative = (name: string): string => {
+        if (!aliases) return name
+        const cached = representatives.get(name)
+        if (cached !== undefined) return cached
+        const names = namesOf(name)
+        const chosen = names.reduce((min, candidate) => candidate < min ? candidate : min)
+        // Cache only within this call's read snapshot, including other names
+        // in the component so source variants do not repeat graph traversal.
+        for (const alias of names) representatives.set(alias, chosen)
+        return chosen
+      }
       const quantities = new Map<string, Claim.t>()
       for (const { claim } of estimates) {
         const quantity = quantityOf(claim, representative)
@@ -360,7 +399,7 @@ export const tools: readonly Tool[] = [
         `posterior: ${withUnit(posterior.mean, unit)} +/- ${withUnit(2 * posterior.sigma, unit)} (2σ)` +
         ` ; mean ${Value.formatNumber(posterior.mean)}, sigma ${Value.formatNumber(posterior.sigma)}`
       ].join('\n')
-    }
+    })
   },
   {
     name: 'cave_search',
@@ -369,7 +408,7 @@ export const tools: readonly Tool[] = [
       'entity spelling is unknown. The query is a literal phrase by default; set raw for FTS5 ' +
       'MATCH syntax (AND/OR/NOT, NEAR, prefix*, column filters such as comment:heap). Newest ' +
       'first, one raw line per match with its comment; superseded rows stay searchable, so ' +
-      'confirm currency with cave_query or cave_about.',
+      'confirm currency with cave_query or cave_about. Queries containing NUL characters are rejected.',
     permission: 'read',
     inputSchema: {
       type: 'object',
@@ -381,13 +420,14 @@ export const tools: readonly Tool[] = [
       }
     },
     run: (store, args) => {
-      const limit = args['limit'] === undefined ? defaultQueryLimit : integer(args['limit'], 'limit')
+      const { limit: suppliedLimit, query, raw } = args
+      const limit = suppliedLimit === undefined ? defaultQueryLimit : integer(suppliedLimit, 'limit')
       // The schema advertises the range, but a client may skip validation:
       // enforce it here as the query page does for its own limit.
       if (limit < 1 || limit > maxQueryLimit) {
         throw new Error(`limit must be an integer from 1 to ${maxQueryLimit}`)
       }
-      const found = store.search(text(args['query'], 'query'), { raw: args['raw'] === true, limit: limit + 1 })
+      const found = store.search(text(query, 'query'), { raw: boolean(raw, 'raw'), limit: limit + 1 })
       const lines = found.slice(0, limit).map(row => row.raw_line)
       if (lines.length === 0) return 'no matches'
       if (found.length > limit) lines.push(`more matches beyond ${limit}; raise limit`)
@@ -408,9 +448,9 @@ export const tools: readonly Tool[] = [
         resolve: { type: 'boolean', description: 'restrict to resolved winners (spec §26): contested facts collapse to the row the resolution policy picks' }
       }
     },
-    run: (store, args) =>
-      aboutLines(store, text(args['entity'], 'entity'), args['aliases'] === true, args['resolve'] === true)
-        .join('\n') || 'no claims'
+    run: (store, args) => readSnapshot(store, () =>
+      aboutLines(store, text(args['entity'], 'entity'), boolean(args['aliases'], 'aliases'), boolean(args['resolve'], 'resolve'))
+        .join('\n') || 'no claims')
   },
   {
     name: 'cave_neighbors',
@@ -426,9 +466,9 @@ export const tools: readonly Tool[] = [
         resolve: { type: 'boolean', description: 'walk resolved winners only (spec §26): contested edges collapse to the row the resolution policy picks' }
       }
     },
-    run: (store, args) => {
+    run: (store, args) => readSnapshot(store, () => {
       const entity = text(args['entity'], 'entity')
-      const options = { aliases: args['aliases'] === true, resolve: args['resolve'] === true }
+      const options = { aliases: boolean(args['aliases'], 'aliases'), resolve: boolean(args['resolve'], 'resolve') }
       // Endpoints print as stored — under aliases a matched row may name
       // an aliased spelling, and union semantics never rewrites it.
       const forward = store.forward(entity, options)
@@ -438,7 +478,7 @@ export const tools: readonly Tool[] = [
           `${fact.source} ${fact.verb} ${fact.row.object} ; no inverse name declared` :
           `${fact.row.object} ${fact.rel} ${fact.source}`)
       return [...forward, ...reverse].join('\n') || 'no edges'
-    }
+    })
   },
   {
     name: 'cave_reconstruct',
@@ -450,26 +490,30 @@ export const tools: readonly Tool[] = [
       type: 'object',
       required: ['seeds'],
       properties: {
-        seeds: { type: 'array', items: { type: 'string' }, description: 'seed entity names (cues)' },
-        maxSteps: { type: 'number', description: 'expansion budget (default 16)' },
-        maxClaims: { type: 'number', description: 'stop after collecting this many claims' }
+        seeds: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 }, description: 'seed entity names (cues)' },
+        maxSteps: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER, description: 'expansion budget (default 16)' },
+        maxClaims: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER, description: 'stop after collecting this many claims' }
       }
     },
-    run: (store, args) => {
-      const seeds = Array.isArray(args['seeds']) ? args['seeds'].filter(seed => typeof seed === 'string') : []
-      if (seeds.length === 0) {
+    run: (store, args) => readSnapshot(store, () => {
+      const { seeds: suppliedSeeds, maxSteps, maxClaims } = args
+      const seeds = Array.isArray(suppliedSeeds) ? Array.from(suppliedSeeds) : []
+      if (seeds.length === 0 || !seeds.every(seed => typeof seed === 'string' && seed.length > 0)) {
         throw new Error('seeds must be a non-empty array of entity names')
       }
+      if (seeds.some(seed => /[\uD800-\uDFFF]/u.test(seed))) {
+        throw new Error('seeds must be free of unpaired UTF-16 surrogates')
+      }
       const options = {
-        ...typeof args['maxSteps'] === 'number' ? { maxSteps: args['maxSteps'] } : {},
-        ...typeof args['maxClaims'] === 'number' ? { maxClaims: args['maxClaims'] } : {}
+        ...maxSteps === undefined ? {} : { maxSteps: integer(maxSteps, 'maxSteps') },
+        ...maxClaims === undefined ? {} : { maxClaims: integer(maxClaims, 'maxClaims') }
       }
       const { claims, trace } = reconstruct(sqliteStore(store), heuristicPolicy(options), seeds)
       return [
         `expanded ${trace.length} cue(s): ${trace.map(step => step.cue.entity).join(' → ') || 'none'}`,
         ...claims.map(claim => emitClaim(claim))
       ].join('\n')
-    }
+    })
   },
   {
     name: 'cave_derive',
@@ -479,7 +523,8 @@ export const tools: readonly Tool[] = [
       'idempotent and incremental by tx watermark, and retracting a premise retracts dependents. ' +
       'Declare rules first as ordinary claims via cave_add, e.g. ' +
       'rule/needs HAS rule: `?x NEEDS ?y, ?y NEEDS ?z => ?x NEEDS ?z`. ' +
-      'Set dryRun to preview without appending.',
+      'Set dryRun to preview without appending. A pass-limit report marked incomplete retains earlier additions; ' +
+      'retry with a higher maxPasses to finish support reconciliation.',
     permission: 'record',
     inputSchema: {
       type: 'object',
@@ -497,14 +542,14 @@ export const tools: readonly Tool[] = [
         throw new Error('minConf must be a number in 0..1')
       }
       const maxPasses = args['maxPasses']
-      if (maxPasses !== undefined && (typeof maxPasses !== 'number' || !Number.isInteger(maxPasses) || maxPasses < 1)) {
-        throw new Error('maxPasses must be a positive integer')
+      if (maxPasses !== undefined && (typeof maxPasses !== 'number' || !Number.isSafeInteger(maxPasses) || maxPasses < 1)) {
+        throw new Error('maxPasses must be a positive safe integer')
       }
-      const dryRun = args['dryRun'] === true
+      const dryRun = boolean(args['dryRun'], 'dryRun')
       const report = derive(store, {
         dryRun,
-        full: args['full'] === true,
-        aliases: args['aliases'] === true,
+        full: boolean(args['full'], 'full'),
+        aliases: boolean(args['aliases'], 'aliases'),
         ...minConf === undefined ? {} : { minConf },
         ...maxPasses === undefined ? {} : { maxPasses }
       })
@@ -523,7 +568,7 @@ export const tools: readonly Tool[] = [
           ...rule.problems.map(problem => `  ${problem}`)
         ]),
         ...report.notes.map(note => `note: ${note}`),
-        `derived${dryRun ? ' (dry run)' : ''}${report.complete ? '' : ' (truncated)'}: +${report.appended} appended, ${report.updated} updated, ` +
+        `derived${report.complete ? '' : ' (incomplete)'}${dryRun ? ' (dry run)' : ''}: +${report.appended} appended, ${report.updated} updated, ` +
         `${report.retracted} retracted, ${report.unchanged} unchanged (${report.passes} pass(es))`
       ].join('\n')
     }
@@ -541,13 +586,14 @@ export const tools: readonly Tool[] = [
       }
     },
     run: (store, args) => {
-      const maximum = args['maxSensitivity'] === undefined ?
+      const { maxSensitivity, current } = args
+      const maximum = maxSensitivity === undefined ?
         Sensitivity.defaultMaximum :
-        Sensitivity.parse(text(args['maxSensitivity'], 'maxSensitivity'))
+        Sensitivity.parse(text(maxSensitivity, 'maxSensitivity'))
       if (maximum === undefined) {
         throw new Error(`maxSensitivity must be one of ${Sensitivity.levels.join(', ')}`)
       }
-      return store.exportText({ current: args['current'] === true, maxSensitivity: maximum }) || '; empty store'
+      return store.exportText({ current: boolean(current, 'current'), maxSensitivity: maximum }) || '; empty store'
     }
   },
   {
@@ -598,9 +644,9 @@ const renderReport = (report: ActReport): string => {
     ...report.effects.map(effect => `  ${effect.outcome}: ${effect.line}`)
   ]
   if (report.hook !== undefined) {
-    lines.push(report.hook.fired ?
-      `hook ${report.hook.name}: ${report.hook.error ?? 'ok'}` :
-      `hook ${report.hook.name}: not fired (${report.hook.note})`)
+    const outcome = report.hook.error ??
+      (report.hook.fired ? 'ok' : `not fired (${report.hook.note})`)
+    lines.push(`hook ${report.hook.name}: ${outcome}`)
   }
   return lines.join('\n')
 }
@@ -616,10 +662,12 @@ const actionTool = (action: ListedAction): Tool => ({
   permission: 'action',
   inputSchema: {
     type: 'object',
+    additionalProperties: false,
     required: [...action.params.map(param => param.name)],
     properties: Object.fromEntries(action.params.map(param => [
       param.name,
-      { type: 'string', ...param.doc === undefined ? {} : { description: param.doc } }
+      { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
+        ...param.doc === undefined ? {} : { description: param.doc } }
     ]))
   },
   run: (store, args, context) => {
@@ -661,9 +709,30 @@ export const actionTools = (store: Store): Tool[] => {
  * an `act_`-prefixed scope entry is validated here, at call time, because
  * it scopes whichever actions exist when asked.
  */
+const validateScopeNames = (scope: Scope): void => {
+  for (const field of ['permissions', 'tools'] as const) {
+    const value = scope[field]
+    if (value === undefined) continue
+    if (!Array.isArray(value)) throw new Error(`${field} must be an array of strings`)
+    for (const entry of value) {
+      if (typeof entry !== 'string') throw new Error(`${field} must be an array of strings`)
+    }
+  }
+  const unknownPermissions = (scope.permissions ?? []).filter(permission =>
+    !(permissions as readonly string[]).includes(permission))
+  if (unknownPermissions.length > 0) {
+    throw new Error(`unknown permission(s): ${unknownPermissions.join(', ')} — available: ${permissions.join(', ')}`)
+  }
+  const unknown = (scope.tools ?? []).filter(name => !byName.has(name) && !name.startsWith(actToolPrefix))
+  if (unknown.length > 0) {
+    throw new Error(`unknown tool(s): ${unknown.join(', ')} — available: ${tools.map(tool => tool.name).join(', ')}, act_<action>`)
+  }
+}
+
 const allowedPermissions = (scope: Scope): ReadonlySet<Permission> => {
+  validateScopeNames(scope)
   const requested = new Set(scope.permissions ?? permissions)
-  if (scope.readOnly === true) {
+  if (boolean(scope.readOnly, 'readOnly')) {
     requested.delete('record')
     requested.delete('action')
   }
@@ -688,15 +757,6 @@ export const scopedActionTools = (store: Store, scope: Scope = {}): Tool[] =>
  * (spec §25.5), resolved against the store at call time.
  */
 export const scopedTools = (scope: Scope = {}): readonly Tool[] => {
-  const unknownPermissions = (scope.permissions ?? []).filter(permission =>
-    !(permissions as readonly string[]).includes(permission))
-  if (unknownPermissions.length > 0) {
-    throw new Error(`unknown permission(s): ${unknownPermissions.join(', ')} — available: ${permissions.join(', ')}`)
-  }
-  const unknown = (scope.tools ?? []).filter(name => !byName.has(name) && !name.startsWith(actToolPrefix))
-  if (unknown.length > 0) {
-    throw new Error(`unknown tool(s): ${unknown.join(', ')} — available: ${tools.map(tool => tool.name).join(', ')}, act_<action>`)
-  }
   const allowed = allowedPermissions(scope)
   const served = tools.filter(tool =>
     (scope.tools === undefined || scope.tools.includes(tool.name)) &&

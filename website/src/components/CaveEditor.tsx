@@ -25,6 +25,9 @@ export const CaveEditor = ({
         onChange={onChange}
         onScroll={syncScroll}
         spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        autoComplete="off"
         wrap="off"
         aria-label={ariaLabel}
       />

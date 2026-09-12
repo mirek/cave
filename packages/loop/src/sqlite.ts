@@ -7,12 +7,19 @@
  * edges — the store's own traversal defaults, matching `memoryStore`.
  */
 
-import type { Store } from '@cavelang/store'
+import type { Row, Store } from '@cavelang/store'
+import { QuerySql } from '@cavelang/store'
 import type { CaveStore } from './store.ts'
+import { readSnapshot } from './read-snapshot.ts'
+
+// Claim identity includes endpoints, so every relevant series is in this scope.
+const entityCurrentSql = `${QuerySql.current(
+  '(SELECT * FROM cave_claim WHERE subject = ? OR object = ?)'
+)} ORDER BY c.tx`
 
 /** `@cavelang/loop` store contract over an open SQLite store (spec §18). */
 export const sqliteStore = (store: Store): CaveStore => ({
-  forward: entity =>
+  forward: entity => readSnapshot(store, () =>
     store.forward(entity).map(fact => ({
       from: entity,
       to: fact.target,
@@ -20,8 +27,8 @@ export const sqliteStore = (store: Store): CaveStore => ({
       rel: fact.verb,
       conf: fact.row.conf,
       claim: store.toClaim(fact.row)
-    })),
-  reverse: entity =>
+    }))),
+  reverse: entity => readSnapshot(store, () =>
     store.reverse(entity).map(fact => ({
       from: entity,
       to: fact.source,
@@ -29,11 +36,14 @@ export const sqliteStore = (store: Store): CaveStore => ({
       ...fact.rel === undefined ? {} : { rel: fact.rel },
       conf: fact.row.conf,
       claim: store.toClaim(fact.row)
-    })),
-  claimsAbout: entity =>
-    store.currentBeliefs()
-      .filter(row => row.subject === entity || row.object === entity)
-      .map(row => store.toClaim(row)),
+    }))),
+  claimsAbout: entity => readSnapshot(store, () => {
+    if (/[\uD800-\uDFFF]/u.test(entity)) {
+      throw new TypeError('CAVE read: unpaired UTF-16 surrogate cannot be queried as UTF-8')
+    }
+    const current = store.db.prepare(entityCurrentSql).all(entity, entity) as Row.t[]
+    return current.map(row => store.toClaim(row))
+  }),
   expandTopic: topic => store.topicMembers(topic),
   topicsOf: entity => store.topicsOf(entity)
 })

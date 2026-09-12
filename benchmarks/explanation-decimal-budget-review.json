@@ -1,0 +1,43 @@
+{
+  "description": "Python Decimal/Fraction references for decimal explanation preflight, threshold enforcement and exact normalization; extreme nonzero exponents only enter the text preflight.",
+  "results": {
+    "node24": {
+      "format": "cave.explanation-decimal-oracle",
+      "version": 1,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": 20260912,
+      "cases": 680,
+      "boundChecks": 680,
+      "thresholdChecks": 1360,
+      "exactChecks": 680,
+      "extremeChecks": 6,
+      "fixtureSha256": "9c8fe2611274023d6419d121fecbb86a5973153896146f616566396c2fb5af9b",
+      "sources": {
+        "scripts/explanation-decimal-oracle.mjs": "26343f360eee31d9d830970e8b63bb06490902c49719d9b69c21ba55fd9880eb",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      }
+    },
+    "node26": {
+      "format": "cave.explanation-decimal-oracle",
+      "version": 1,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": 20260912,
+      "cases": 680,
+      "boundChecks": 680,
+      "thresholdChecks": 1360,
+      "exactChecks": 680,
+      "extremeChecks": 6,
+      "fixtureSha256": "9c8fe2611274023d6419d121fecbb86a5973153896146f616566396c2fb5af9b",
+      "sources": {
+        "scripts/explanation-decimal-oracle.mjs": "26343f360eee31d9d830970e8b63bb06490902c49719d9b69c21ba55fd9880eb",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      }
+    }
+  }
+}

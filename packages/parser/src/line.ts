@@ -287,7 +287,8 @@ export const parseBody = (tokens: readonly Token[], comment?: string): Result<As
 
 /** Parses `subject verb [NOT] payload metadata` — a full claim line (spec §16). */
 export const parseClaim = (tokens: readonly Token[], comment?: string): Result<Ast.Full> => {
-  const [head, ...rest] = tokens
+  const explicit = tokens[0]?.kind === 'word' && tokens[0].text === '@claim'
+  const [head, ...rest] = explicit ? tokens.slice(1) : tokens
   if (head === undefined) {
     return fail('empty claim line')
   }
@@ -314,6 +315,10 @@ export const parseQualifierPayload = (tokens: readonly Token[], comment?: string
   const [head, second] = rest
   if (head === undefined) {
     return fail('empty qualifier payload')
+  }
+  if (head.kind === 'word' && head.text === '@claim') {
+    const claim = parseClaim(rest, comment)
+    return claim.ok ? ok({ kind: 'claim', negated, claim: claim.value }, claim.problems) : claim
   }
   if (
     second?.kind === 'word' &&

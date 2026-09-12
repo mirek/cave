@@ -3,12 +3,14 @@ import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { parseChangeset, validateChangeset } from './changeset-metadata.mjs'
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const root = resolve(process.env.CAVE_RELEASE_ROOT ?? scriptRoot)
-const modeArgument = process.argv.slice(2).find(argument => argument.startsWith('--mode='))
-const mode = modeArgument?.slice('--mode='.length)
+const args = process.argv.slice(2)
+const mode = args.length === 1 && args[0].startsWith('--mode=') ? args[0].slice('--mode='.length) : undefined
 const modes = new Set(['version-pr', 'publish'])
+const selectedTag = process.env.CAVE_RELEASE_TAG || undefined
 
 const runGit = (args, { allowFailure = false } = {}) => {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
@@ -21,42 +23,30 @@ const runGit = (args, { allowFailure = false } = {}) => {
 
 const git = (...args) => runGit(args).stdout.trim()
 const fail = message => { throw new Error(message) }
-const committedText = path => git('show', `HEAD:${path}`)
+const committedText = path => runGit(['show', `HEAD:${path}`]).stdout
 const committedJson = path => JSON.parse(committedText(path))
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 
 const sameMembers = (actual, expected) =>
   actual.length === expected.length && [...actual].sort().every((value, index) => value === [...expected].sort()[index])
 
-const parseChangeset = path => {
-  const text = committedText(path)
-  const lines = text.split(/\r?\n/)
-  const closingDelimiter = lines.indexOf('---', 1)
-  if (lines[0] !== '---' || closingDelimiter < 1) {
-    fail(`${path} must contain YAML frontmatter and a summary`)
-  }
-  const summary = lines.slice(closingDelimiter + 1).join('\n').trim()
-  if (summary.length === 0) fail(`${path} has an empty summary`)
-
-  const releases = []
-  for (const line of lines.slice(1, closingDelimiter).filter(line => line.trim().length > 0)) {
-    const release = /^(?:"([^"]+)"|'([^']+)'): (major|minor|patch)$/.exec(line)
-    if (release === null) fail(`${path} has invalid release entry ${JSON.stringify(line)}`)
-    releases.push({ name: release[1] ?? release[2], type: release[3] })
-  }
-  const names = releases.map(release => release.name)
-  if (new Set(names).size !== names.length) fail(`${path} names a package more than once`)
-  return releases
-}
 
 try {
   if (!modes.has(mode)) {
     fail('usage: release-validate.mjs --mode=version-pr|publish')
   }
 
-  const pending = git('ls-tree', '-r', '--name-only', 'HEAD', '.changeset')
-    .split('\n')
-    .filter(path => /^\.changeset\/.*\.md$/.test(path) && path !== '.changeset/README.md')
+  if (selectedTag !== undefined && (mode !== 'publish' ||
+      process.env.GITHUB_ACTIONS !== 'true' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch')) {
+    fail('selected release tag requires a manual publish workflow')
+  }
+  if (selectedTag !== undefined && (!selectedTag.startsWith('v') || !semver.test(selectedTag.slice(1)))) {
+    fail('selected release tag must be v<version>')
+  }
+
+  const pending = runGit(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '.changeset']).stdout
+    .split('\0')
+    .filter(path => path.startsWith('.changeset/') && path.endsWith('.md') && path !== '.changeset/README.md')
 
   runGit(['fetch', '--quiet', '--tags', 'origin', '+refs/heads/main:refs/remotes/origin/main'])
 
@@ -70,7 +60,13 @@ try {
     if (process.env.GITHUB_REF !== 'refs/heads/main') {
       fail(`releases must run from refs/heads/main, received ${process.env.GITHUB_REF || '<unset>'}`)
     }
-    if (process.env.GITHUB_SHA && process.env.GITHUB_SHA !== head) {
+    if (selectedTag !== undefined) {
+      const target = runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${selectedTag}^{commit}`], { allowFailure: true })
+      if (target.status !== 0 || target.stdout.trim() !== head) {
+        fail(`selected release tag ${selectedTag} does not identify checkout ${head}`)
+      }
+    }
+    if (selectedTag === undefined && process.env.GITHUB_SHA && process.env.GITHUB_SHA !== head) {
       fail(`GITHUB_SHA ${process.env.GITHUB_SHA} does not match checkout ${head}`)
     }
   } else {
@@ -94,6 +90,10 @@ try {
   const releaseInputPaths = [...versionPaths, '.changeset/config.json', ...pending]
   if (runGit(['diff', '--quiet', 'HEAD', '--', ...releaseInputPaths], { allowFailure: true }).status !== 0) {
     fail('release inputs differ from their committed contents')
+  }
+
+  if (mode === 'publish' && git('status', '--porcelain', '--untracked-files=normal').length > 0) {
+    fail('publish requires a clean tracked and untracked worktree; use a clean checkout of the version commit')
   }
 
   const manifests = manifestPaths.map(path => ({ path, manifest: committedJson(path) }))
@@ -123,18 +123,10 @@ try {
     fail('.changeset/config.json has incompatible release settings')
   }
 
-  // A changeset that names only packages outside the fixed group (private
-  // workspaces such as the MCP server) would version those packages without
-  // advancing the release identity, leaving a version PR that cannot publish.
   const fixedGroup = new Set(config.fixed[0])
   for (const path of pending) {
-    const releases = parseChangeset(path)
-    for (const release of releases) {
-      if (!packageByName.has(release.name)) fail(`${path} names unknown package ${release.name}`)
-    }
-    if (releases.length > 0 && !releases.some(release => fixedGroup.has(release.name))) {
-      fail(`${path} names only packages outside the fixed release group (${releases.map(release => release.name).join(', ')}); name a fixed-group package so the release version advances`)
-    }
+    const releases = parseChangeset(committedText(path), path)
+    validateChangeset(path, releases, manifests, fixedGroup)
   }
 
   for (const { path, manifest } of manifests) {
@@ -197,6 +189,9 @@ try {
   if (versionCommit === undefined) fail(`could not locate the commit that introduced version ${version}`)
 
   const tag = `v${version}`
+  if (selectedTag !== undefined && selectedTag !== tag) {
+    fail(`selected release tag ${selectedTag} does not match committed version ${tag}`)
+  }
   const tagResult = runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`], { allowFailure: true })
   if (tagResult.status === 0) {
     const tagCommit = tagResult.stdout.trim()

@@ -35,7 +35,15 @@ parse('a USES b')  // strict variant: throws on any diagnostic
    text after `;` and one space (`Token.commentText`), trailing whitespace
    trimmed, so indented text inside a comment survives. A blank line after
    the block leaves it documentary; a `;@ tx` annotation (`Token.txOfLine`)
-   passes through. `Token.joinComment` is the inverse, used by emitters.
+   passes through, including its optional JSON payload. `Token.txDataOfLine`
+   returns that opaque payload; sync validates it. Annotation metadata never
+   joins claim comment prose. `Token.joinComment` is the inverse, used by emitters.
+   Empty lines at the combined comment's edges are trimmed with index scans;
+   interior blank paragraphs and the expanded source remain intact. This avoids
+   repeated array compaction for large generated comment blocks. A local
+   Node 26.5.0/macOS arm64 probe with 100,000 leading empty comment lines took
+   805 ms before the scan change and 17 ms afterward; these are individual
+   whole-document measurements, not a general parser latency guarantee.
 3. **Tokenize** into words / `"text"` literals / `` `code` `` literals
    (`token.ts`, `@prelude/parser` combinators).
 4. **Expand incomplete prefixes** (§8.5): prepend every incomplete ancestor's
@@ -89,6 +97,14 @@ examples and are tried in order:
   an *extension*-verb continuation with an ALL-CAPS object — is inherently
   registry-dependent and the parser stays registry-free; write the subject
   explicitly there.
+- **Explicit full claims (§8.6).** A leading `@claim` bypasses the classification
+  tiebreak and parses the remaining tokens as a full claim. This works at root,
+  as a grouped child, in recursive prefixes, and at the beginning of a qualifier
+  payload (after optional `NOT`). `@claim WHEN EXISTS` preserves entity `WHEN`;
+  `WHEN @claim NOT EXISTS` preserves entity `NOT`. The marker contributes no
+  context; a trailing `@claim` still contributes context `claim`. Missing or
+  malformed bodies retain normal diagnostics. Existing unmarked lines keep
+  their classification.
 - **Verb boundary.** Following §16's `uppercase_atom`, verb tokens start with
   an uppercase letter and may continue with uppercase letters or `-`, including
   a trailing hyphen. Both parsers therefore classify `USES-` as a verb.
@@ -97,7 +113,8 @@ examples and are tried in order:
   `@anything` is a context.
 - **No escape sequences in literals** — the spec defines none. A quoted
   literal runs to the next matching delimiter; an unterminated one degrades
-  to a plain word.
+  to a plain word. Canonicalization subsequently rejects claim bodies with
+  unmatched delimiters as line diagnostics before storage or emission.
 - **Metadata problems don't kill lines.** `a USES b @production stray-token`
   parses the claim with a diagnostic for text after metadata; multiword
   relation objects such as `a USES b stray` are valid. Only structural

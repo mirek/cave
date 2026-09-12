@@ -73,35 +73,114 @@
       "name": "comment"
     },
     "claim_line": {
-      "type": "SEQ",
+      "type": "CHOICE",
       "members": [
         {
-          "type": "FIELD",
-          "name": "subject",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_term"
-              },
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "verb"
-                },
-                "named": true,
-                "value": "entity"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "subject",
+              "content": {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_term"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "verb"
+                    },
+                    "named": true,
+                    "value": "entity"
+                  }
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_body"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
-          "name": "_body"
+          "name": "_explicit_claim"
         }
       ]
+    },
+    "_explicit_claim": {
+      "type": "PREC_RIGHT",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "claim_marker"
+          },
+          {
+            "type": "FIELD",
+            "name": "subject",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_term"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "verb"
+                  },
+                  "named": true,
+                  "value": "entity"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "qualifier_verb"
+                  },
+                  "named": true,
+                  "value": "entity"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "negation"
+                  },
+                  "named": true,
+                  "value": "entity"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "number"
+                  },
+                  "named": true,
+                  "value": "entity"
+                }
+              ]
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_body"
+          }
+        ]
+      }
+    },
+    "claim_marker": {
+      "type": "STRING",
+      "value": "@claim"
     },
     "continuation_line": {
       "type": "PREC_DYNAMIC",
@@ -115,53 +194,83 @@
       "type": "PREC_DYNAMIC",
       "value": -2,
       "content": {
-        "type": "SEQ",
+        "type": "CHOICE",
         "members": [
           {
-            "type": "REPEAT1",
+            "type": "PREC",
+            "value": 2,
             "content": {
-              "type": "CHOICE",
+              "type": "SEQ",
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "verb"
+                  "name": "claim_marker"
                 },
                 {
-                  "type": "SYMBOL",
-                  "name": "attribute"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "_term"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "number"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "negation"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "_meta"
-                },
-                {
-                  "type": "STRING",
-                  "value": "->"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "comment"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 }
               ]
             }
           },
           {
-            "type": "CHOICE",
+            "type": "SEQ",
             "members": [
               {
-                "type": "SYMBOL",
-                "name": "comment"
+                "type": "REPEAT1",
+                "content": {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "verb"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "attribute"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "_term"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "number"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "negation"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "_meta"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "->"
+                    }
+                  ]
+                }
               },
               {
-                "type": "BLANK"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "comment"
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
               }
             ]
           }
@@ -531,6 +640,10 @@
       "members": [
         {
           "type": "SYMBOL",
+          "name": "_explicit_claim"
+        },
+        {
+          "type": "SYMBOL",
           "name": "comparison"
         },
         {
@@ -646,6 +759,15 @@
         {
           "type": "SYMBOL",
           "name": "context"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "claim_marker"
+          },
+          "named": true,
+          "value": "context"
         },
         {
           "type": "SYMBOL",

@@ -10,6 +10,7 @@ import { fixtureCount, run } from './run.ts'
 import type { Mean, Report, RunReport } from './run.ts'
 import { formatSolution } from './queries.ts'
 import type { Outcome } from './queries.ts'
+import { validateTimeoutSeconds } from './options.ts'
 
 const usage = `cave eval — golden-fixture extraction, query and reconstruction evals
 
@@ -71,7 +72,10 @@ const percent = (value: number): string =>
 
 /** Parses `0.85` or `85%` into a ratio in [0, 1]. */
 const parseRatio = (text: string): undefined | number => {
-  const value = text.endsWith('%') ? Number(text.slice(0, -1)) / 100 : Number(text)
+  const percentage = text.endsWith('%')
+  const numeric = percentage ? text.slice(0, -1) : text
+  if (numeric.trim() === '') return undefined
+  const value = Number(numeric) / (percentage ? 100 : 1)
   return Number.isFinite(value) && value >= 0 && value <= 1 ? value : undefined
 }
 
@@ -136,14 +140,14 @@ export const render = (report: Report): string => {
   for (const kase of report.cases) {
     if (kase.fixture.length > 0) {
       lines.push(`${kase.name}: fixture problem(s) — skipped`)
-      lines.push(...kase.fixture.map(problem => `  ${problem}`))
+      for (const problem of kase.fixture) lines.push(`  ${problem}`)
       continue
     }
     const queries = kase.queryCount === 0 ? '' : `, ${kase.queryCount} query(ies)`
     const source = kase.kind === 'loop' ? `reconstruction over ${kase.source}` : `source ${kase.source}`
     lines.push(`${kase.name}: ${kase.golden} golden claim(s)${queries}, ${source}`)
     kase.runs.forEach((run_, index) => {
-      lines.push(...renderRun(run_, index + 1, kase.runs.length, kase.queryCount))
+      for (const line of renderRun(run_, index + 1, kase.runs.length, kase.queryCount)) lines.push(line)
     })
     if (kase.mean !== undefined && kase.runs.length > 1) {
       lines.push(`  case mean (${kase.runs.filter(run_ => run_.ok).length} ok run(s)): ${renderMean(kase.mean)}`)
@@ -179,7 +183,8 @@ export type RunContext = {
 export const runEval = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
   const stdout = context.stdout ?? process.stdout
   const stderr = context.stderr ?? process.stderr
-  context.signal?.throwIfAborted()
+  const signal = context.signal
+  signal?.throwIfAborted()
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -209,8 +214,8 @@ export const runEval = async (argv: readonly string[], context: RunContext = {})
     return 1
   }
   const runs = values.runs === undefined ? undefined : Number(values.runs)
-  if (runs !== undefined && (!Number.isInteger(runs) || runs < 1)) {
-    stderr.write(`cave eval: --runs must be a positive integer, got '${values.runs}'\n`)
+  if (runs !== undefined && (!Number.isSafeInteger(runs) || runs < 1)) {
+    stderr.write(`cave eval: --runs must be a positive safe integer, got '${values.runs}'\n`)
     return 1
   }
   const tolerance = values.tolerance === undefined ? undefined : parseRatio(values.tolerance)
@@ -224,8 +229,10 @@ export const runEval = async (argv: readonly string[], context: RunContext = {})
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
-  if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    stderr.write(`cave eval: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
+  try {
+    if (timeoutSeconds !== undefined) validateTimeoutSeconds(timeoutSeconds)
+  } catch (error) {
+    stderr.write(`cave eval: --timeout ${error instanceof Error ? error.message : String(error)}\n`)
     return 1
   }
   const mode: Mode = values.stdout === true ? 'stdout' : 'mcp'
@@ -242,9 +249,9 @@ export const runEval = async (argv: readonly string[], context: RunContext = {})
     ...values.instructions === undefined ? {} : { instructions: values.instructions },
     ...tolerance === undefined ? {} : { tolerance },
     ...timeoutSeconds === undefined ? {} : { timeoutSeconds },
-    ...context.signal === undefined ? {} : { signal: context.signal }
+    ...signal === undefined ? {} : { signal }
   })
-  context.signal?.throwIfAborted()
+  signal?.throwIfAborted()
   stdout.write(values.json === true ? `${JSON.stringify(report, undefined, 2)}\n` : render(report))
   if (fixtureCount(report) > 0 || report.failedRuns > 0) {
     return 1

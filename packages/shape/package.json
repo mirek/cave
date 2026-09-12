@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/shape",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "private": true,
   "type": "module",
   "description": "CAVE shape expectations, knowledge health and alias discovery (spec §20, §27) — EXPECTS presence, exact-one cardinality and unit constraints checked against the EXTENDS taxonomy, actionable violations, write gating, and suggested ALIAS claims.",
@@ -12,7 +12,7 @@
     "directory": "packages/shape"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -37,6 +37,8 @@
     }
   },
   "scripts": {
+    "bench:aliases": "node --disable-warning=ExperimentalWarning bench/suggest.ts",
+    "bench:alias-limit": "node --disable-warning=ExperimentalWarning bench/suggest-limit.ts",
     "bench:shape": "node --disable-warning=ExperimentalWarning bench/evaluate.ts",
     "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
@@ -46,6 +48,7 @@
   "devDependencies": {
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
+    "@cavelang/loop": "workspace:*",
     "@cavelang/store": "workspace:*"
   }
 }

@@ -39,3 +39,6 @@ export type {
   SyncProcessOptions
 } from './process.ts'
 export type { Complete, LlmOptions, ShellCompleteOptions } from './llm.ts'
+
+export { jsonValueEnds } from './json-spans.ts'
+export { lastJsonArray } from './json-answer.ts'

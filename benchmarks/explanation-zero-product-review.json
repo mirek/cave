@@ -1,0 +1,540 @@
+{
+  "format": "cave.explanation-zero-product-review",
+  "version": 1,
+  "date": "2026-09-09",
+  "method": "Isolated sequential baseline runs on Node 24 then 26, followed by zero-product optimization runs on Node 24 then 26. One warmup and five timed complete Explain.report calls per case. Every nonzero operand is the same assigned power of ten; a literal zero is first or last. Includes validation, digesting, capture and evaluation; excludes model construction, assertions and backend solving. Fixed run order and bounded workloads do not establish general speedups or work limits.",
+  "comparisons": [
+    {
+      "before": {
+        "format": "cave.explanation-zero-product-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Nonzero operands alone would produce at most 262081 digits, but each complete product is zero. This is not a general resource-limit test.",
+        "measurements": [
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.5770829999999592,
+            "samplesMs": [
+              1.2852909999999724,
+              0.5770829999999592,
+              0.48712500000004866,
+              0.545833000000016,
+              0.6208330000000046
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.4198329999999828,
+            "samplesMs": [
+              0.38854199999997263,
+              0.45583299999998417,
+              0.6202920000000063,
+              0.4198329999999828,
+              0.38299999999998136
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.8159170000000131,
+            "samplesMs": [
+              0.8159170000000131,
+              0.7589169999999967,
+              0.7912919999999986,
+              0.9443749999999795,
+              0.9799170000000004
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 1.766666999999984,
+            "samplesMs": [
+              1.9820419999999785,
+              1.7871670000000108,
+              1.7282499999999459,
+              1.6668750000000045,
+              1.766666999999984
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.4684579999999983,
+            "samplesMs": [
+              1.4684579999999983,
+              1.5373749999999973,
+              1.459333000000015,
+              1.525082999999995,
+              1.446957999999995
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 3.204499999999996,
+            "samplesMs": [
+              3.2653339999999957,
+              3.121584000000041,
+              3.1170000000000186,
+              3.275041999999985,
+              3.204499999999996
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.28449999999998,
+            "samplesMs": [
+              3.3183329999999955,
+              3.44079099999999,
+              3.2719169999999735,
+              3.28449999999998,
+              3.2327080000000024
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 32.017584,
+            "samplesMs": [
+              31.585542000000032,
+              31.77612499999998,
+              32.017584,
+              32.31258300000002,
+              32.23062500000003
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.explanation-zero-product-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Nonzero operands alone would produce at most 262081 digits, but each complete product is zero. This is not a general resource-limit test.",
+        "measurements": [
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.5929580000000101,
+            "samplesMs": [
+              1.6078750000000355,
+              0.5929580000000101,
+              0.4958750000000123,
+              0.5414579999999773,
+              0.6317090000000007
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.3637499999999818,
+            "samplesMs": [
+              0.329667000000029,
+              0.3637499999999818,
+              0.5844999999999914,
+              0.38758300000000645,
+              0.3252079999999751
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.8129580000000374,
+            "samplesMs": [
+              0.7793340000000057,
+              0.8129580000000374,
+              0.8188339999999812,
+              0.8267079999999964,
+              0.7145839999999453
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.635249999999985,
+            "samplesMs": [
+              0.5952919999999722,
+              0.7179580000000101,
+              0.6537920000000099,
+              0.5621669999999881,
+              0.635249999999985
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.558667000000014,
+            "samplesMs": [
+              2.084165999999982,
+              1.6189170000000104,
+              1.5567499999999654,
+              1.5387499999999932,
+              1.558667000000014
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.4710420000000113,
+            "samplesMs": [
+              1.4991249999999923,
+              1.422625000000039,
+              1.4022919999999885,
+              1.7379589999999894,
+              1.4710420000000113
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.6422079999999823,
+            "samplesMs": [
+              3.756666999999993,
+              3.910582999999974,
+              3.6139590000000226,
+              3.4582919999999717,
+              3.6422079999999823
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.2701660000000174,
+            "samplesMs": [
+              3.2065000000000055,
+              3.5427910000000224,
+              3.2662090000000035,
+              3.788874999999962,
+              3.2701660000000174
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "format": "cave.explanation-zero-product-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Nonzero operands alone would produce at most 262081 digits, but each complete product is zero. This is not a general resource-limit test.",
+        "measurements": [
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.5369999999999777,
+            "samplesMs": [
+              1.0347079999999664,
+              0.5369999999999777,
+              0.45800000000002683,
+              0.5789169999999899,
+              0.36879200000004175
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.385832999999991,
+            "samplesMs": [
+              0.3600420000000213,
+              0.4680829999999787,
+              0.385832999999991,
+              0.34391600000003564,
+              0.39491700000002083
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.7174999999999727,
+            "samplesMs": [
+              0.7373749999999859,
+              0.6462500000000091,
+              0.7174999999999727,
+              0.7097909999999956,
+              1.778708999999992
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 1.638249999999971,
+            "samplesMs": [
+              1.7867920000000481,
+              1.651207999999997,
+              1.638249999999971,
+              1.5565839999999866,
+              1.630375000000015
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.501792000000023,
+            "samplesMs": [
+              1.501792000000023,
+              1.4618749999999636,
+              1.6844169999999963,
+              1.5039170000000013,
+              1.3974999999999795
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 3.2039159999999924,
+            "samplesMs": [
+              3.281749999999988,
+              3.2039159999999924,
+              3.2829169999999976,
+              3.1397499999999923,
+              3.1010420000000067
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.219832999999994,
+            "samplesMs": [
+              3.243249999999989,
+              3.355541999999957,
+              3.219832999999994,
+              3.1625829999999837,
+              3.2147090000000276
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 31.77133299999997,
+            "samplesMs": [
+              31.60383300000001,
+              31.822542,
+              31.77133299999997,
+              31.48075,
+              32.230458
+            ]
+          }
+        ]
+      },
+      "after": {
+        "format": "cave.explanation-zero-product-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Nonzero operands alone would produce at most 262081 digits, but each complete product is zero. This is not a general resource-limit test.",
+        "measurements": [
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.5792500000000018,
+            "samplesMs": [
+              1.0104590000000258,
+              0.5792500000000018,
+              0.5710419999999772,
+              0.8632920000000013,
+              0.4703339999999798
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 8177,
+            "medianMs": 0.3125,
+            "samplesMs": [
+              0.44375000000002274,
+              0.3125,
+              0.43037499999996953,
+              0.30195799999995643,
+              0.28224999999997635
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.7242500000000405,
+            "samplesMs": [
+              0.7775829999999928,
+              0.6721660000000043,
+              0.743583000000001,
+              0.7242500000000405,
+              0.6402919999999881
+            ]
+          },
+          {
+            "assignmentDigits": 512,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 1026,
+            "nonzeroProductDigits": 32705,
+            "medianMs": 0.5917910000000006,
+            "samplesMs": [
+              0.6097080000000119,
+              0.5328330000000392,
+              0.5917910000000006,
+              0.5330409999999688,
+              0.6579999999999586
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.5487919999999917,
+            "samplesMs": [
+              1.4704999999999586,
+              1.691000000000031,
+              1.5487919999999917,
+              1.5192080000000487,
+              1.579166999999984
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 16,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 65521,
+            "medianMs": 1.4547910000000002,
+            "samplesMs": [
+              1.469415999999967,
+              1.4357499999999845,
+              1.5129579999999692,
+              1.4547910000000002,
+              1.4014999999999986
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "first",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.373041999999998,
+            "samplesMs": [
+              3.507833000000005,
+              3.373041999999998,
+              3.297458000000006,
+              3.351583000000005,
+              3.380416000000025
+            ]
+          },
+          {
+            "assignmentDigits": 4096,
+            "nonzeroOperands": 64,
+            "zeroPosition": "last",
+            "modelNumericDigits": 8194,
+            "nonzeroProductDigits": 262081,
+            "medianMs": 3.322833000000003,
+            "samplesMs": [
+              3.2431669999999713,
+              3.440999999999974,
+              3.2065000000000055,
+              3.322833000000003,
+              3.3276670000000195
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

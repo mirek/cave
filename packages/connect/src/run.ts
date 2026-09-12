@@ -1,3 +1,5 @@
+import { captureRecords } from './records.ts'
+import { booleanOption } from './options.ts'
 /**
  * The connect pass (spec §23.2) — instantiate the mapping per record, append
  * through the standard pipeline with record provenance, and keep re-runs
@@ -24,6 +26,7 @@ import type { Row, Store } from '@cavelang/store'
 import { query as caveQuery } from '@cavelang/query'
 import type { Match, Options as QueryOptions } from '@cavelang/query'
 import * as Template from './template.ts'
+import { withFederatedSource } from './federation.ts'
 
 export const digestAttribute = 'connect-digest'
 
@@ -57,7 +60,23 @@ const digestKey = (subject: string): string =>
  * alone, never the whole store.
  */
 export const currentRowsUnder = (store: Store, under: string): Row.t[] => {
-  const end = `${under.slice(0, -1)}${String.fromCharCode(under.charCodeAt(under.length - 1) + 1)}`
+  if (/[\uD800-\uDFFF]/u.test(under)) {
+    throw new TypeError('CAVE read: unpaired UTF-16 surrogate cannot be queried as UTF-8')
+  }
+  const points = [...under]
+  let end: string | undefined
+  for (let index = points.length - 1; index >= 0; index--) {
+    const point = points[index]!.codePointAt(0)!
+    if (point === 0x10ffff) continue
+    const next = point === 0xd7ff ? 0xe000 : point + 1
+    end = points.slice(0, index).join('') + String.fromCodePoint(next)
+    break
+  }
+  if (end === undefined) {
+    return store.db.prepare(
+      `${QuerySql.current('(SELECT * FROM cave_claim WHERE subject >= ?)')} WHERE c.subject >= ? ORDER BY c.tx`
+    ).all(under, under) as unknown as Row.t[]
+  }
   return store.db.prepare(
     `${QuerySql.current('(SELECT * FROM cave_claim WHERE subject >= ? AND subject < ?)')} WHERE c.subject >= ? AND c.subject < ? ORDER BY c.tx`
   ).all(under, end, under, end) as unknown as Row.t[]
@@ -129,7 +148,7 @@ export type ConnectOptions = {
   readonly key?: string
   /** Underlying file/URL identity attached to generated record claims. */
   readonly source?: string
-  /** Record-aligned source line spans, when the source format provides them. */
+  /** Record-aligned source line spans, validated and captured before writes when source is supplied. */
   readonly spans?: readonly LineSpan[]
   /** Re-map records whose digest is unchanged. */
   readonly force?: boolean
@@ -182,7 +201,8 @@ const isRecordError = (error: unknown): error is RecordError =>
  * source.
  */
 const keyOf = (value: unknown): undefined | string => {
-  if (value === undefined || value === null) {
+  if ((typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && typeof value !== 'bigint') ||
+      (typeof value === 'number' && !Number.isFinite(value))) {
     return undefined
   }
   const text = String(value).trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
@@ -195,10 +215,11 @@ const isDeclaration = (row: Row.t): boolean =>
   (row.verb === 'IS' && row.object === 'verb')
 
 /**
- * Retracts current claims carrying `context` that were not (re-)appended in
- * this pass (spec §23.2). Contexts are part of claim identity, so every row
- * of a stamped series carries the stamp — the latest row per key among the
- * stamped rows *is* the series' current belief.
+ * Retracts current claims owned by the explicit lifecycle `run` that were not
+ * retained in this pass (spec §23.2). Select by run provenance, then keep the
+ * latest row per claim key; shared authored contexts do not grant ownership
+ * over another connector's or manually authored series. Vocabulary declarations
+ * remain append-only and are excluded from lifecycle retirement.
  */
 const retractStale = (store: Store, run: string, keepIds: ReadonlySet<string>): number => {
   const latest = new Map<string, Row.t>()
@@ -242,16 +263,40 @@ export const connect = (
   records: readonly Record<string, unknown>[],
   options: ConnectOptions
 ): Report => {
+  options = {
+    name: options.name,
+    naming: options.naming,
+    preludeLifecycle: options.preludeLifecycle,
+    key: options.key,
+    source: options.source,
+    spans: options.spans,
+    force: options.force,
+    prune: options.prune
+  }
+  for (const key of ['force', 'prune', 'preludeLifecycle'] as const) {
+    booleanOption(options[key], key)
+  }
   const force = options.force === true
   // The name rides in entity names and @src: contexts, like record keys.
   const name = keyOf(options.name)
   if (name === undefined) {
-    throw new Error(`cave connect: unusable source name ${JSON.stringify(options.name)} — pass --name`)
+    let description: string | undefined
+    try { description = JSON.stringify(options.name) }
+    catch { description = '[unprintable value]' }
+    throw new Error(`cave connect: unusable source name ${description} — pass --name`)
   }
+  // Missing batch entries must not be interpreted as vanished source records.
+  records = captureRecords(records)
+  // Provenance is input metadata: validate it before any lifecycle unit writes.
+  const source = options.source
+  const defaultSourceContext = source === undefined ? undefined : SourceSpan.context(source)
+  const recordSourceContexts = source === undefined || options.spans === undefined ? undefined :
+    records.map((_record, at) => SourceSpan.context(source, options.spans?.[at]))
   const naming = options.naming ?? adHocNaming(name)
   const failures: Failure[] = []
   const notes: string[] = []
   const seen = new Set<string>()
+  let unidentifiedFailures = 0
   let mapped = 0
   let skipped = 0
   let added = 0
@@ -259,8 +304,10 @@ export const connect = (
   let pruned = 0
   let dropped = 0
 
-  const ingestUnit = (unit: string, run: string, text: string, digest: string, sourceContext?: string): void => {
+  const ingestUnit = (unit: string, run: string, text: string, digest: string, sourceContext?: string): boolean =>
     store.transaction(() => {
+      // The optimistic check can race with another connection's refresh.
+      if (!force && isConnected(store, unit, digest)) return false
       const result = store.ingest(text, {
         source: run,
         lifecycle: true,
@@ -272,8 +319,8 @@ export const connect = (
       added += result.ids.length
       retracted += retractStale(store, run, new Set(result.ids))
       recordDigest(store, unit, digest)
+      return true
     })
-  }
 
   // A lifecycle prelude that became empty is still an update: the unit now
   // says nothing, and every claim it owned retracts.
@@ -283,7 +330,7 @@ export const connect = (
     if (force || !isConnected(store, unit, digest)) {
       if (options.preludeLifecycle === true) {
         try {
-          ingestUnit(unit, naming.run(), mapping.prelude, digest)
+          if (!ingestUnit(unit, naming.run(), mapping.prelude, digest)) notes.push('prelude unchanged, skipped')
         } catch (error) {
           if (!isRecordError(error)) {
             throw error
@@ -292,6 +339,10 @@ export const connect = (
         }
       } else {
         store.transaction(() => {
+          if (!force && isConnected(store, unit, digest)) {
+            notes.push('prelude unchanged, skipped')
+            return
+          }
           const result = store.ingest(mapping.prelude, { source: naming.run() })
           if (result.problems.length > 0) {
             // The prelude was linted with the mapping; a problem here aborts the run.
@@ -308,53 +359,66 @@ export const connect = (
   }
 
   records.forEach((record, at) => {
-    const instantiation = Template.instantiate(mapping.templates, name => Template.fieldOf(record, name))
+    const fields = new Map<string, unknown>()
+    const field = (name: string): unknown => {
+      if (!fields.has(name)) fields.set(name, Template.fieldOf(record, name))
+      return fields.get(name)
+    }
+    const instantiation = Template.instantiate(mapping.templates, field)
     dropped += instantiation.dropped
     const key = options.key === undefined ?
       digestOf(instantiation.text) :
-      keyOf(Template.fieldOf(record, options.key))
+      keyOf(field(options.key))
     if (key === undefined) {
-      failures.push({ record: `record ${at + 1}`, problems: [`--key field ${JSON.stringify(options.key)} is missing or empty`] })
+      unidentifiedFailures += 1
+      failures.push({ record: `record ${at + 1}`, problems: [`--key field ${JSON.stringify(options.key)} is missing, empty, or not a usable scalar`] })
       return
     }
     if (seen.has(key)) {
-      notes.push(`duplicate record key ${JSON.stringify(key)} — last record wins`)
+      notes.push(`duplicate record key ${JSON.stringify(key)} — last successful record wins`)
     }
     // Failed records still count as seen — pruning must never mistake a
     // transient failure for a record that left the source.
     seen.add(key)
     if (instantiation.problems.length > 0) {
+      if (options.key === undefined) unidentifiedFailures += 1
       failures.push({ record: `record ${at + 1} (${key})`, problems: instantiation.problems })
       return
     }
     const subject = naming.unit(key)
-    const sourceContext = options.source === undefined ? undefined :
-      SourceSpan.context(options.source, options.spans?.[at])
+    const sourceContext = recordSourceContexts?.[at] ?? defaultSourceContext
     const digest = digestOf(`${instantiation.text}\0${sourceContext ?? ''}`)
     if (!force && isConnected(store, subject, digest)) {
       skipped += 1
       return
     }
     try {
-      ingestUnit(subject, naming.run(key), instantiation.text, digest, sourceContext)
-      mapped += 1
+      if (ingestUnit(subject, naming.run(key), instantiation.text, digest, sourceContext)) mapped += 1
+      else skipped += 1
     } catch (error) {
       if (!isRecordError(error)) {
         throw error
       }
+      if (options.key === undefined) unidentifiedFailures += 1
       failures.push({ record: `record ${at + 1} (${key})`, problems: error.problems })
     }
   })
 
-  if (options.prune === true) {
+  if (options.prune === true && unidentifiedFailures > 0) {
+    // Without a usable key (or valid content for a content-addressed record),
+    // this pass cannot distinguish a damaged record from a vanished one.
+    notes.push(`pruning skipped: ${unidentifiedFailures} failed record(s) have no reliable identity; repair the source and rerun with --prune`)
+  }
+  if (options.prune === true && unidentifiedFailures === 0) {
     const prefix = naming.recordPrefix
-    // The source's own record digests, by range — never the whole history.
-    for (const row of currentDigestsUnder(store, prefix)) {
-      const key = row.subject.slice(prefix.length)
-      if (seen.has(key)) {
-        continue
-      }
-      store.transaction(() => {
+    store.transaction(() => {
+      // Discover the source's digests under the same reservation as their
+      // retractions, so a concurrent writer cannot slip into a stale list.
+      for (const row of currentDigestsUnder(store, prefix)) {
+        const key = row.subject.slice(prefix.length)
+        if (seen.has(key)) {
+          continue
+        }
         // The digest entity names the record; its claims are found by run.
         retracted += retractStale(store, naming.run(key), new Set())
         store.insertResult({
@@ -364,8 +428,8 @@ export const connect = (
           problems: []
         })
         pruned += 1
-      })
-    }
+      }
+    })
   }
 
   return { records: records.length, mapped, skipped, added, retracted, pruned, dropped, failures, notes }
@@ -375,8 +439,6 @@ export type FederatedOutcome = {
   readonly matches: readonly Match[]
   readonly report: Report
 }
-
-const rollback = Symbol('cave-connect query rollback')
 
 /**
  * Federation-lite (spec §23.3): appends the mapped claims inside a
@@ -392,17 +454,7 @@ export const federatedQuery = (
   pattern: string,
   queryOptions: QueryOptions = {}
 ): FederatedOutcome => {
-  let outcome: undefined | FederatedOutcome
-  try {
-    store.transaction(() => {
-      const report = connect(store, mapping, records, { ...options, force: true, prune: false })
-      outcome = { matches: caveQuery(store, pattern, queryOptions), report }
-      throw rollback
-    })
-  } catch (error) {
-    if (error !== rollback) {
-      throw error
-    }
-  }
-  return outcome!
+  const { result: matches, report } = withFederatedSource(
+    store, mapping, records, options, () => caveQuery(store, pattern, queryOptions))
+  return { matches, report }
 }

@@ -1,0 +1,76 @@
+{
+  "description": "Unshared-graph control for model-local canonical preparation cache; output bytes and hash unchanged.",
+  "platform": "darwin",
+  "arch": "arm64",
+  "currentCommand": "node --max-old-space-size=256 scripts/solver-canonical-serialization-bench.mjs 5000 unshared",
+  "method": "Sequential fresh processes; four calls, first discarded for median; JSON expansion, construction and result assertions outside timer but included in lifetime RSS. No concurrent builds/tests. Temporary driver selected a baseline snapshot or current public serialize; baseline wrapper performed the same mergeLimits/validate/clone/serializeOwned sequence. Retained driver adds an explicit shared/unshared option for current-source reproduction.",
+  "baselineDifference": "Move the resolved WeakMap allocation from canonicalOwned into expression, and remove the resolved parameter from expression calls; all token batching and public capture remain unchanged.",
+  "baselineSourceSha256": "9196ba0718dc80c3e274473074fa3aa797e0b9521b0d2004da9ffe4059d76d16",
+  "afterSources": {
+    "scripts/solver-canonical-serialization-bench.mjs": "c89a343d240e581e20330b30a9d308cbf82f1be59f7efb9281ad8d70c2f960bf",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+  },
+  "before": [
+    {
+      "node": "v24.21.0",
+      "count": 5000,
+      "samplesMs": [
+        342.124125,
+        316.70725000000004,
+        321.85133299999995,
+        293.582167
+      ],
+      "medianMs": 316.70725000000004,
+      "maxRssKiB": 295008,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    },
+    {
+      "node": "v26.8.1",
+      "count": 5000,
+      "samplesMs": [
+        307.930625,
+        298.0849999999999,
+        266.08845799999995,
+        268.573709
+      ],
+      "medianMs": 268.573709,
+      "maxRssKiB": 232320,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    }
+  ],
+  "after": [
+    {
+      "node": "v24.21.0",
+      "count": 5000,
+      "samplesMs": [
+        352.025667,
+        333.1605,
+        315.8804580000001,
+        334.2789170000001
+      ],
+      "medianMs": 333.1605,
+      "maxRssKiB": 290384,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    },
+    {
+      "node": "v26.8.1",
+      "count": 5000,
+      "samplesMs": [
+        317.135542,
+        311.522625,
+        271.8827090000001,
+        281.13583300000005
+      ],
+      "medianMs": 281.13583300000005,
+      "maxRssKiB": 228608,
+      "bytes": 2604001,
+      "digest": "f910bde5479a294009b3215b212ec0dd19924e02c3d0be04b5f80dafa506c319"
+    }
+  ]
+}

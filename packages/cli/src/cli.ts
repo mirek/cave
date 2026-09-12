@@ -35,13 +35,16 @@
  * `cave.db`. Every command answers `--help` with options and examples.
  */
 
-import { readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, readSync, realpathSync, statSync } from 'node:fs'
+import { readHooks } from './hooks-config.ts'
+import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { Version } from '@cavelang/core'
+import { writeOutput } from './atomic-output.ts'
+import { errorMessage } from './error-message.ts'
+import { Time, Version } from '@cavelang/core'
 import { parseDocument, Token } from '@cavelang/parser'
 import { Registry, standardRegistry } from '@cavelang/canonical'
-import { backup as backupStore, defaultDbPath, kindOf, LocateError, openAt, restoreBackup, Sensitivity, verifyBackup } from '@cavelang/store'
+import { backup as backupStore, defaultDbPath, kindOf, LocateError, openAt, QuerySql, restoreBackup, Sensitivity, verifyBackup } from '@cavelang/store'
 import type { OpenIntent, Store } from '@cavelang/store'
 import { Declared, assemble as assembleSources } from '@cavelang/connect'
 import { defaultLimit as defaultQueryLimit, maxLimit as maxQueryLimit, page as caveQueryPage } from '@cavelang/query'
@@ -529,7 +532,7 @@ Usage:
 
 Options:
   ${dbHelp}
-  --out <file>   write the generated module instead of stdout
+  --out <file>   atomically replace a file with the generated module
   --version <n>  generated-client format version (default and currently
                  supported: 1)
   --no-prelude   open the store without the standard verb registry
@@ -553,7 +556,7 @@ Usage:
 Options:
   ${dbHelp}
   --min <s>            minimum evidence score, 0..1 or N% (default 60%)
-  --limit <n>          at most n suggestions, strongest first
+  --limit <n>          positive safe integer; at most n suggestions, strongest first
   --agent <template>   LLM judge filtering the candidates — the cave
                        ingest/eval shell contract: the prompt (each pair
                        with both sides' current claims) is piped to stdin
@@ -583,6 +586,10 @@ claim, so the opt-in §13.6 closure links it until reviewed:
 (rejection retracts the suggestion's own series — contexts are part of
 claim identity, §9.2, so a plain @ 0% append would start a new series
 and leave the suggested link standing).
+
+Writes recheck pair history under their transaction reservation and skip
+reviewed pairs. --json returns the selected suggestion array; --json --write
+performs the write and returns { suggestions, appended }, with the actual count.
 
 Examples:
   cave suggest-alias --db k.db
@@ -641,7 +648,7 @@ Usage:
 
 Options:
   ${dbHelp}
-  --out <file>   write to a file instead of stdout — refused when it
+  --out <file>   atomically replace a file instead of stdout — refused when it
                  names the store's own database file
   --current      current beliefs only (skip superseded rows); compacting
                  view, not sanitization or selective erasure (spec §9.6)
@@ -656,6 +663,10 @@ Options:
 
 Retention: claim history is permanent. Retraction and --current do not
 guarantee erasure from the store, exports, peers, or backups (spec §9.6).
+
+File output is staged and flushed before replacement. Existing permissions
+and valid symlinks are preserved; hard-link aliases retain the previous file.
+Dangling symlinks and non-regular output files are refused.
 
 Examples:
   cave export --db k.db
@@ -676,7 +687,7 @@ Usage:
 
 Options:
   ${dbHelp}
-  --out <file>   write the rendered markdown to a file instead of stdout
+  --out <file>   atomically replace a file with the rendered markdown
   --aliases      queries match through the alias closure (spec §13.6)
   --resolve      queries match resolved winners only (spec §26) — the fix
                  when an inline splice reports an ambiguous fact
@@ -775,6 +786,15 @@ Examples:
   cave help serve`
 }
 
+const decodeInput = (bytes: Uint8Array, source: string): string => {
+  try {
+    // Keep the existing BOM behavior of Buffer.toString while rejecting loss.
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch (cause) {
+    throw new TypeError(`${source}: invalid UTF-8 input`, { cause })
+  }
+}
+
 const readStdin = (): string => {
   const chunks: Buffer[] = []
   const buffer = Buffer.allocUnsafe(64 * 1024)
@@ -782,7 +802,7 @@ const readStdin = (): string => {
   for (;;) {
     try {
       const size = readSync(0, buffer, 0, buffer.length, null)
-      if (size === 0) return Buffer.concat(chunks).toString('utf8')
+      if (size === 0) return decodeInput(Buffer.concat(chunks), 'stdin')
       chunks.push(Buffer.from(buffer.subarray(0, size)))
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EAGAIN') throw error
@@ -809,6 +829,32 @@ const openDb = (values: { db?: string, 'no-prelude'?: boolean }, intent: OpenInt
     assemble: assembleSources,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
+
+/** Retain command output and diagnostics when its owned store fails to close. */
+const closeCommandStore = (store: Store, output: Output): Output => {
+  try { store.close() } catch (error) {
+    const separator = output.err === '' || output.err.endsWith('\n') ? '' : '\n'
+    return { ...output, code: output.code === 0 ? 1 : output.code,
+      err: `${output.err}${separator}store close failed: ${errorMessage(error)}\n` }
+  }
+  return output
+}
+
+const withCommandStore = (store: Store, run: () => Output): Output => {
+  let output: Output
+  try { output = run() } catch (error) {
+    output = fail(`${errorMessage(error)}\n`)
+  }
+  return closeCommandStore(store, output)
+}
+
+const withAsyncCommandStore = async (store: Store, run: () => Promise<Output>): Promise<Output> => {
+  let output: Output
+  try { output = await run() } catch (error) {
+    output = fail(`${errorMessage(error)}\n`)
+  }
+  return closeCommandStore(store, output)
+}
 
 const sourcesRollback = Symbol('cave query --sources rollback')
 
@@ -847,7 +893,7 @@ const withSources = <T>(store: Store, discovered: Declared.Discovery, body: () =
 const readInput = (files: readonly string[]): string =>
   files.length === 0 || (files.length === 1 && files[0] === '-') ?
     readStdin() :
-    files.map(file => readFileSync(file, 'utf8')).join('\n')
+    files.map(file => decodeInput(readFileSync(file), file)).join('\n')
 
 export const parseCommand = (argv: readonly string[]): Output => {
   const { values, positionals } = parseArgs({
@@ -928,7 +974,7 @@ const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Out
   })
   const input = readInput(positionals)
   const store = openDb(values, 'write')
-  try {
+  return withCommandStore(store, () => {
     const options = {
       strict: values.strict === true,
       ...name === 'add' && values['no-src'] !== true ? { source: 'cli' } : {}
@@ -950,11 +996,7 @@ const ingestCommand = (name: 'add' | 'import') => (argv: readonly string[]): Out
       out: `added ${outcome.result.ids.length} claim(s), ${outcome.result.edges} edge(s)\n`,
       err: problems === '' ? '' : `${problems}\n`
     }
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 export const addCommand = ingestCommand('add')
@@ -1038,7 +1080,7 @@ export const querySourcesCommand = async (
   // The overlay appends inside a transaction it rolls back: writable, but
   // never creating or migrating (spec §13.7).
   const store = openDb(values, 'scratch')
-  try {
+  return await withAsyncCommandStore(store, async () => {
     for (let attempt = 0; attempt < Declared.overlayAttempts; attempt += 1) {
       const discovered = await Declared.discovery(store, root, {
         // The overlay applies every source it loads (force), so discovery
@@ -1053,11 +1095,7 @@ export const querySourcesCommand = async (
       }
     }
     throw Declared.staleOverlay()
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 export const queryCommand = (argv: readonly string[]): Output => {
@@ -1072,13 +1110,9 @@ export const queryCommand = (argv: readonly string[]): Output => {
     return fail('cave query: --sources loads the declared sources first and runs asynchronously — use querySourcesCommand\n')
   }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     return renderQueryPage(store, values, pattern, () => queryPage(store, values, pattern))
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /** Every match of the overlay: the pages are followed here, inside the transaction that holds it. */
@@ -1177,7 +1211,7 @@ export const searchCommand = (argv: readonly string[]): Output => {
     return fail(`cave search: --limit must be an integer from 1 to ${maxQueryLimit}\n`)
   }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     const raw = values.raw === true
     const found = store.search(query, { raw, limit: limit + 1 })
     const matches = found.slice(0, limit)
@@ -1201,11 +1235,7 @@ export const searchCommand = (argv: readonly string[]): Output => {
       lines.push(`more matches beyond ${limit}; raise --limit`)
     }
     return ok(`${lines.join('\n')}\n`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /**
@@ -1225,15 +1255,20 @@ export const resolveCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: false
   })
-  const percent = (value: number): string => `${Math.round(value * 1000) / 10}%`
+  const percent = (value: number): string => {
+    const rounded = Math.round(value * 1000) / 10
+    if (value > 0 && rounded === 0) return '<0.1%'
+    if (value < 1 && rounded === 100) return '>99.9%'
+    return `${rounded}%`
+  }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     if (values.policy === true) {
       const policy = store.resolutionPolicy()
       if (values.json === true) {
         return ok(`${JSON.stringify(policy, undefined, 2)}\n`)
       }
-      const width = Math.max(...policy.map(entry => entry.prefix.length + 7))
+      const width = policy.reduce((maximum, entry) => Math.max(maximum, entry.prefix.length + 7), 0)
       const lines = policy.map(entry => {
         const subject = entry.prefix === '' ? 'source' : `source/${entry.prefix}`
         const dimensions = [
@@ -1255,11 +1290,7 @@ export const resolveCommand = (argv: readonly string[]): Output => {
       group.rows.map((row, at) =>
         `${at === 0 ? '' : '  over '}${row.raw_line} ; class ${row.res_class}, effective ${percent(row.res_conf)}`))
     return ok(`${lines.join('\n')}\n`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 export const deriveCommand = (argv: readonly string[]): Output => {
@@ -1286,8 +1317,8 @@ export const deriveCommand = (argv: readonly string[]): Output => {
     return fail(`cave derive: --min-conf expects a confidence in 0..1 or N%, got ${JSON.stringify(values['min-conf'])}\n`)
   }
   const maxPasses = values['max-passes'] === undefined ? undefined : Number(values['max-passes'])
-  if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
-    return fail(`cave derive: --max-passes expects a positive integer, got ${JSON.stringify(values['max-passes'])}\n`)
+  if (maxPasses !== undefined && (!Number.isSafeInteger(maxPasses) || maxPasses < 1)) {
+    return fail(`cave derive: --max-passes expects a positive safe integer, got ${JSON.stringify(values['max-passes'])}\n`)
   }
   // The intent follows the branch order below: listing reads, retracting
   // writes, a dry run appends inside a rolled-back transaction.
@@ -1295,7 +1326,7 @@ export const deriveCommand = (argv: readonly string[]): Output => {
     values.list === true ? 'read' :
       values.retract !== undefined ? 'write' :
         values['dry-run'] === true ? 'scratch' : 'write')
-  try {
+  return withCommandStore(store, () => {
     if (values.list === true) {
       const rules = listRules(store)
       if (values.json === true) {
@@ -1355,13 +1386,15 @@ export const deriveCommand = (argv: readonly string[]): Output => {
       report = derive(store, options)
     }
     if (declaration !== undefined) {
-      err.push(...declaration.problems.map(problem => `rules line ${problem.line}: ${problem.message}`))
+      for (const problem of declaration.problems) err.push(`rules line ${problem.line}: ${problem.message}`)
       out.push(`declared ${declaration.declared} rule(s)` +
         (declaration.unchanged > 0 ? `, ${declaration.unchanged} unchanged` : '') +
         (declaration.prelude > 0 ? `, +${declaration.prelude} prelude claim(s)` : ''))
     }
+    const hasProblems = (declaration?.problems.length ?? 0) > 0 || !report.complete ||
+      report.problems.length > 0 || report.rules.some(rule => rule.problems.length > 0)
     if (values.json === true) {
-      return { code: report.problems.length > 0 || !report.complete ? 1 : 0, out: `${stableJson(store, report)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
+      return { code: hasProblems ? 1 : 0, out: `${stableJson(store, report)}\n`, err: err.join('\n') + (err.length > 0 ? '\n' : '') }
     }
     for (const problem of report.problems) {
       err.push(`${problem.subject}: ${problem.problems.join('; ')}`)
@@ -1371,33 +1404,15 @@ export const deriveCommand = (argv: readonly string[]): Output => {
         `${rule.solutions} solution(s), +${rule.appended} appended, ${rule.updated} updated, ${rule.retracted} retracted, ${rule.unchanged} unchanged` :
         'unchanged premises, skipped'
       out.push(`${rule.subject}: ${state}${rule.label === undefined ? '' : ` ; ${rule.label}`}`)
-      err.push(...rule.problems.map(problem => `${rule.subject}: ${problem}`))
+      for (const problem of rule.problems) err.push(`${rule.subject}: ${problem}`)
     }
-    out.push(...report.notes.map(note => `note: ${note}`))
+    for (const note of report.notes) out.push(`note: ${note}`)
     out.push(
-      `derived${values['dry-run'] === true ? ' (dry run)' : ''}: ` +
+      `derived${report.complete ? '' : ' (incomplete)'}${values['dry-run'] === true ? ' (dry run)' : ''}: ` +
       `+${report.appended} appended, ${report.updated} updated, ${report.retracted} retracted, ` +
       `${report.unchanged} unchanged (${report.passes} pass(es))`)
-    const hasProblems = !report.complete || report.problems.length > 0 || report.rules.some(rule => rule.problems.length > 0)
     return { code: hasProblems ? 1 : 0, out: `${out.join('\n')}\n`, err: err.length === 0 ? '' : `${err.join('\n')}\n` }
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
-}
-
-/**
- * Loads a hooks configuration file (spec §25.4): a JSON object mapping
- * hook names to shell command templates.
- */
-const readHooks = (path: string): Record<string, string> => {
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
-      Object.values(parsed).some(value => typeof value !== 'string')) {
-    throw new Error(`${path}: hooks must be a JSON object of name → shell template strings`)
-  }
-  return parsed as Record<string, string>
+  })
 }
 
 /** Text rendering of a spec §25.2 execution report. */
@@ -1417,15 +1432,14 @@ const renderActReport = (report: ActReport): { lines: string[], code: number } =
   ]
   let code = 0
   if (report.hook !== undefined) {
-    if (!report.hook.fired) {
-      lines.push(`hook ${report.hook.name}: not fired (${report.hook.note})`)
-    } else if (report.hook.error === undefined) {
-      lines.push(`hook ${report.hook.name}: ok`)
-    } else {
-      // The claims committed before the hook ran (spec §25.4) — the
-      // failure is reported, and the exit code carries it.
+    if (report.hook.error !== undefined) {
+      // Effects may already be committed even when hook lookup failed before spawn.
       lines.push(`hook ${report.hook.name}: ${report.hook.error}`)
       code = 1
+    } else if (!report.hook.fired) {
+      lines.push(`hook ${report.hook.name}: not fired (${report.hook.note})`)
+    } else {
+      lines.push(`hook ${report.hook.name}: ok`)
     }
   }
   return { lines, code }
@@ -1456,7 +1470,7 @@ export const actCommand = (argv: readonly string[]): Output => {
       values.list === true ? 'read' :
         values.retract !== undefined ? 'write' :
           values['dry-run'] === true ? 'scratch' : 'write')
-  try {
+  return withCommandStore(store, () => {
     if (values.declare === true) {
       const declaration = declareActions(store, readInput(positionals))
       const err = declaration.problems.map(problem => `line ${problem.line}: ${problem.message}`)
@@ -1503,7 +1517,13 @@ export const actCommand = (argv: readonly string[]): Output => {
       if (at <= 0) {
         return fail(`cave act: expected param=value, got ${JSON.stringify(pair)}\n`)
       }
-      args[pair.slice(0, at)] = pair.slice(at + 1)
+      const parameter = pair.slice(0, at)
+      if (Object.hasOwn(args, parameter)) {
+        return fail(`cave act: duplicate parameter ${JSON.stringify(parameter)}\n`)
+      }
+      Object.defineProperty(args, parameter, {
+        value: pair.slice(at + 1), enumerable: true, writable: true, configurable: true
+      })
     }
     const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
     const report = act(store, name, args, {
@@ -1519,11 +1539,7 @@ export const actCommand = (argv: readonly string[]): Output => {
     return report.ok ?
       { code, out: `${lines.join('\n')}\n`, err: '' } :
       { code, out: '', err: `${lines.join('\n')}\n` }
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /** Text rendering of the §20.2 report: always shape + coverage, non-empty advisory sections. */
@@ -1533,26 +1549,32 @@ const renderReport = (report: Report, staleDays: number): string => {
   lines.push(`shape: ${coverage.expectations} expectation(s), ${coverage.instances} instance(s), ${coverage.satisfied}/${coverage.checks} satisfied`)
   if (report.violations.length > 0) {
     lines.push(`violations (${report.violations.length}):`)
-    lines.push(...report.violations.map(violation => `  ${formatViolation(violation)}`))
+    for (const violation of report.violations) lines.push(`  ${formatViolation(violation)}`)
   }
   if (report.stale.length > 0) {
     lines.push(`stale (${report.stale.length}, older than ${staleDays} day(s)):`)
-    lines.push(...report.stale.map(({ row, ageDays }) => `  ${row.raw_line} (${ageDays}d)`))
+    for (const { row, ageDays } of report.stale) lines.push(`  ${row.raw_line} (${ageDays}d)`)
   }
   if (report.review.length > 0) {
     lines.push(`review candidates (${report.review.length}, conf 0.3-0.7):`)
-    lines.push(...report.review.map(row => `  ${row.raw_line}`))
+    for (const row of report.review) lines.push(`  ${row.raw_line}`)
   }
   if (report.disagreements.length > 0) {
     lines.push(`alias disagreements (${report.disagreements.length}):`)
     for (const disagreement of report.disagreements) {
       lines.push(`  ${disagreement.about} across ${disagreement.entities.join(', ')}:`)
-      lines.push(...disagreement.rows.map(row => `    ${row.raw_line}`))
+      for (const row of disagreement.rows) lines.push(`    ${row.raw_line}`)
     }
+  }
+  const confidencePercent = (value: number): string => {
+    const rounded = Math.round(value * 100)
+    if (value > 0 && rounded === 0) return '<1%'
+    if (value < 1 && rounded === 100) return '>99%'
+    return `${rounded}%`
   }
   const confidence = coverage.averageConfidence === null ?
     '' :
-    `; avg conf ${Math.round(coverage.averageConfidence * 100)}%, ${coverage.lowConfidence} low (< 0.3)`
+    `; avg conf ${confidencePercent(coverage.averageConfidence)}, ${coverage.lowConfidence} low (< 0.3)`
   lines.push(
     `coverage: ${coverage.rows} row(s), ${coverage.facts} fact(s) — ` +
     `${coverage.current} current, ${coverage.retracted} retracted, ${coverage.negated} negated` +
@@ -1577,16 +1599,14 @@ export const checkCommand = (argv: readonly string[]): Output => {
     return fail(`cave check: --stale expects a non-negative number of days, got ${JSON.stringify(values.stale)}\n`)
   }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     const report = caveCheck(store, { staleDays })
     const out = values.json === true ?
       `${stableJson(store, report)}\n` :
       renderReport(report, staleDays)
     // Violations fail the check (spec §20.2); the other sections are advisory.
     return { code: report.violations.length > 0 ? 1 : 0, out, err: '' }
-  } finally {
-    store.close()
-  }
+  })
 }
 
 const snapshotLine = (
@@ -1630,17 +1650,16 @@ export const backupCommand = (argv: readonly string[]): Output => {
     // the destination aliases the source: refuse before the file could be
     // replaced by a SQLite snapshot of itself (a SQLite source is covered by
     // the API's own check).
-    if (sameFile(dbPath, values.out)) {
+    if (sameStoreFile(dbPath, values.out)) {
       return fail(`cave backup: --out '${values.out}' is the source database — refusing to overwrite it\n`)
     }
+    const destination = values.out
     const store = openAt(dbPath, { intent: 'read', assemble: assembleSources })
-    try {
-      return ok(snapshotLine('created', backupStore(store, values.out, { force: values.force === true })))
-    } finally {
-      store.close()
-    }
+    return withCommandStore(store, () => {
+      return ok(snapshotLine('created', backupStore(store, destination, { force: values.force === true })))
+    })
   } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+    return fail(`${errorMessage(error)}\n`)
   }
 }
 
@@ -1670,7 +1689,7 @@ export const restoreCommand = (argv: readonly string[]): Output => {
       ...values.sha256 === undefined ? {} : { expectedSha256: values.sha256 }
     })))
   } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+    return fail(`${errorMessage(error)}\n`)
   }
 }
 
@@ -1709,15 +1728,15 @@ export const suggestAliasCommand = async (
       return fail(`cave suggest-alias: --min expects a score in 0..1 or N%, got ${JSON.stringify(values.min)}\n`)
     }
     const limit = values.limit === undefined ? undefined : Number(values.limit)
-    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
-      return fail(`cave suggest-alias: --limit expects a positive integer, got ${JSON.stringify(values.limit)}\n`)
+    if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) {
+      return fail(`cave suggest-alias: --limit expects a positive safe integer, got ${JSON.stringify(values.limit)}\n`)
     }
     const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
     if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
       return fail(`cave suggest-alias: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     }
     const store = openDb(values, values.write === true ? 'write' : 'read')
-    try {
+    return await withAsyncCommandStore(store, async () => {
       let suggestions = suggestAliases(store, { minScore, ...limit === undefined ? {} : { limit } })
       if (values.agent !== undefined && suggestions.length > 0) {
         const reply = await shellComplete(values.agent, {
@@ -1729,7 +1748,9 @@ export const suggestAliasCommand = async (
         suggestions = parseJudgeReply(reply, suggestions.length).map(index => suggestions[index]!)
       }
       if (values.json === true) {
-        return ok(`${JSON.stringify(suggestions, undefined, 2)}\n`)
+        const result = values.write === true ?
+          { suggestions, ...writeSuggestions(store, suggestions) } : suggestions
+        return ok(`${JSON.stringify(result, undefined, 2)}\n`)
       }
       if (suggestions.length === 0) {
         return ok('no alias suggestions\n')
@@ -1740,11 +1761,9 @@ export const suggestAliasCommand = async (
         return ok(`${lines.join('\n')}\nappended ${appended} suggested alias claim(s)\n`)
       }
       return ok(`${lines.join('\n')}\n`)
-    } finally {
-      store.close()
-    }
+    })
   } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+    return fail(`${errorMessage(error)}\n`)
   }
 }
 
@@ -1774,7 +1793,7 @@ export const syncCommand = (argv: readonly string[]): Output => {
   }
   const dbPath = values.db ?? defaultDbPath()
   const store = openDb(values, values['dry-run'] === true ? 'scratch' : 'write')
-  try {
+  return withCommandStore(store, () => {
     const options = {
       into: values.into === undefined ? labelOf(dbPath) : sanitizeLabel(values.into),
       record: values['no-record'] !== true,
@@ -1788,7 +1807,7 @@ export const syncCommand = (argv: readonly string[]): Output => {
       return { code: report.problems.length > 0 ? 1 : 0, out: `${JSON.stringify(report, undefined, 2)}\n`, err: '' }
     }
     if (report.problems.length > 0) {
-      const detail = report.problems.map(problem => `  line ${problem.line}: ${problem.message}`).join('\n')
+      const detail = report.problems.map(problem => `  ${problem.line === 0 ? '' : `line ${problem.line}: `}${problem.message}`).join('\n')
       return fail(`cave sync: ${source}: ${report.problems.length} problem(s), nothing merged\n${detail}\n`)
     }
     const lines = [
@@ -1800,17 +1819,14 @@ export const syncCommand = (argv: readonly string[]): Output => {
       lines.push(`record: ${report.record}`)
     }
     return ok(`${lines.join('\n')}\n`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /**
  * `cave report` — the §31 deliverable: a markdown template's cave-q
- * blocks and inline splices render from the store, every stated fact
- * cited back to its claim. Problems mark the text, land on stderr with
+ * blocks and inline splices render from the store, with matched rows
+ * cited back to their claims. Ordinary prose is not automatically checked
+ * or cited. Problems mark the text, land on stderr with
  * template line numbers, and fail the exit code — the render never
  * silently drops a fact.
  */
@@ -1829,16 +1845,22 @@ export const reportCommand = (argv: readonly string[]): Output => {
     },
     allowPositionals: true
   })
-  const template = readInput(positionals)
+  if (values.at !== undefined && Time.parseInstant(values.at) === undefined) {
+    return fail(`cave report: --at cannot parse at anchor ${JSON.stringify(values.at)}\n`)
+  }
+  if (values['as-of'] !== undefined && QuerySql.asOfBoundary(values['as-of']) === undefined) {
+    return fail(`cave report: --as-of cannot parse as-of boundary ${JSON.stringify(values['as-of'])}\n`)
+  }
   const maximum = Sensitivity.parse(values['max-sensitivity'] ?? Sensitivity.defaultMaximum)
   if (maximum === undefined) {
     return fail(`cave report: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
   }
-  if (values.out !== undefined && sameFile(values.db ?? defaultDbPath(), values.out)) {
+  if (values.out !== undefined && sameStoreFile(values.db ?? defaultDbPath(), values.out)) {
     return fail(`cave report: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
+  const template = readInput(positionals)
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     const rendered = caveReport(store, template, {
       aliases: values.aliases === true,
       resolve: values.resolve === true,
@@ -1853,17 +1875,13 @@ export const reportCommand = (argv: readonly string[]): Output => {
     if (values.out === undefined) {
       return { code, out: rendered.markdown, err: err === '' ? '' : `${err}\n` }
     }
-    writeFileSync(values.out, rendered.markdown)
+    writeOutput(values.out, rendered.markdown)
     return {
       code,
       out: `rendered ${rendered.citations} citation(s) to ${values.out}\n`,
       err: err === '' ? '' : `${err}\n`
     }
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /**
@@ -1880,6 +1898,21 @@ const sameFile = (a: string, b: string): boolean => {
     const right = statSync(b)
     return left.dev === right.dev && left.ino === right.ino
   } catch {
+    return false
+  }
+}
+
+/** Protect every physical file SQLite uses, including through a database symlink. */
+const sameStoreFile = (db: string, output: string): boolean => {
+  if (sameFile(db, output)) return true
+  try {
+    if (kindOf(db) !== 'sqlite') return false
+    const canonicalOutput = join(realpathSync(dirname(resolve(output))), basename(output))
+    return [...new Set([db, realpathSync(db)])].some(base =>
+      ['-wal', '-shm', '-journal'].some(suffix =>
+        sameFile(`${base}${suffix}`, output) || sameFile(`${base}${suffix}`, canonicalOutput)))
+  } catch {
+    // The normal store-open path reports missing or unreadable source files.
     return false
   }
 }
@@ -1902,26 +1935,22 @@ export const exportCommand = (argv: readonly string[]): Output => {
   if (maximum === undefined) {
     return fail(`cave export: --max-sensitivity expects ${Sensitivity.levels.join(', ')}, got ${JSON.stringify(values['max-sensitivity'])}\n`)
   }
-  if (values.out !== undefined && sameFile(db, values.out)) {
+  if (values.out !== undefined && sameStoreFile(db, values.out)) {
     return fail(`cave export: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     const text = store.exportText({ current: values.current === true, tx: values.tx === true, maxSensitivity: maximum })
     if (values.out === undefined) {
       return ok(text)
     }
-    writeFileSync(values.out, text)
+    writeOutput(values.out, text)
     // Root claims only: shorthand prefixes and §28.4 annotations are not
     // claims, while qualifier/grouping leaves have a materialized parent.
     const claims = parseDocument(text).lines
       .filter(line => line.kind === 'claim' && line.parent === undefined).length
     return ok(`exported ${claims} claim(s) to ${values.out}\n`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /** `cave generate` — spec §20.4's versioned TypeScript client artifact. */
@@ -1941,11 +1970,11 @@ export const generateCommand = (argv: readonly string[]): Output => {
     return fail(`cave generate: --version expects a positive integer, got ${JSON.stringify(values.version)}\n`)
   }
   const db = values.db ?? defaultDbPath()
-  if (values.out !== undefined && sameFile(db, values.out)) {
+  if (values.out !== undefined && sameStoreFile(db, values.out)) {
     return fail(`cave generate: --out '${values.out}' is the source database — refusing to overwrite it\n`)
   }
   const store = openDb(values, 'read')
-  try {
+  return withCommandStore(store, () => {
     const generated = generateClient(store, version === undefined ? {} : { version })
     if (!generated.ok) {
       return fail(`cave generate: schema cannot be generated:\n${generated.problems.map(problem => `  ${problem}`).join('\n')}\n`)
@@ -1953,14 +1982,10 @@ export const generateCommand = (argv: readonly string[]): Output => {
     if (values.out === undefined) {
       return ok(generated.code)
     }
-    writeFileSync(values.out, generated.code)
+    writeOutput(values.out, generated.code)
     return ok(`generated typed client v${generated.version} (${generated.fields.length} field(s), ` +
       `sha256:${generated.digest}) to ${values.out}\n`)
-  } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
-  } finally {
-    store.close()
-  }
+  })
 }
 
 /**
@@ -2010,7 +2035,7 @@ export const reconstructCommand = async (
       return fail(`cave reconstruct: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
     }
     const store = openDb(values, 'read')
-    try {
+    return await withAsyncCommandStore(store, async () => {
       const graph = sqliteStore(store)
       const result = values.agent === undefined ?
         reconstruct(graph, heuristicPolicy(budgets), positionals) :
@@ -2034,11 +2059,9 @@ export const reconstructCommand = async (
         ...result.claims.map(claim => emitClaim(claim))
       ]
       return ok(lines.length === 0 ? '' : `${lines.join('\n')}\n`)
-    } finally {
-      store.close()
-    }
+    })
   } catch (error) {
-    return fail(`${error instanceof Error ? error.message : String(error)}\n`)
+    return fail(`${errorMessage(error)}\n`)
   }
 }
 

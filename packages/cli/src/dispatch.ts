@@ -3,6 +3,7 @@
 import { cave, highlightCommand, querySourcesCommand, reconstructCommand, suggestAliasCommand } from './cli.ts'
 import { delegatedCommandNames } from './commands.ts'
 import type { Output } from './cli.ts'
+import { errorMessage } from './error-message.ts'
 
 export type CommandRuntime = {
   readonly stdin: NodeJS.ReadableStream
@@ -114,12 +115,12 @@ export const dispatch = async (
   runtime: CommandRuntime = processRuntime()
 ): Promise<number> => {
   try {
+    runtime.signal?.throwIfAborted()
     return await execute(argv, runtime)
   } catch (error) {
     if (runtime.signal?.aborted === true) return 0
     const command = argv[0] === 'q' ? 'query' : argv[0]
-    const message = runtime.debug === true && error instanceof Error && error.stack !== undefined ?
-      error.stack : error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error, runtime.debug === true)
     runtime.stderr.write(`cave${command === undefined || command.startsWith('-') ? '' : ` ${command}`}: ${message}\n`)
     return 1
   }

@@ -1,11 +1,97 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { PassThrough } from 'node:stream'
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
+import { Server as SdkServer } from '@modelcontextprotocol/server'
+import { EventEmitter, getEventListeners, once } from 'node:events'
 import { open } from '@cavelang/store'
 import {
   agentSource, allowsActions, instructions, instructionsFor, scopedTools, serve, tools
 } from '@cavelang/mcp'
 import { createToolSurface } from '../src/server.ts'
+
+test('programmatic source settings reject malformed provenance before writing and allow correction', () => {
+  const store = open()
+  const options: { source?: string | false } = {}
+  try {
+    const surface = createToolSurface(store, options)
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    for (const source of [null, true, 0, 42, [], {}, '', 'src:pipeline', '@pipeline', 'pipeline nightly',
+      ...['\n', '\r', '\r\n', '\u2028', '\u2029'].map(ending => `pipeline${ending}`)]) {
+      options.source = source as string
+      const reply = surface.call('cave_add', { text: 'a IS recorded' })
+      assert.equal(reply.isError, true, JSON.stringify(source))
+      assert.match(reply.content[0].text, /source must/)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    }
+    options.source = 'pipeline/recovered'
+    assert.equal(surface.call('cave_add', { text: 'a IS recorded' }).isError, undefined)
+    assert.deepEqual(store.toClaim(store.currentBeliefs()[0]!).contexts, ['src:pipeline/recovered'])
+  } finally { store.close() }
+})
+
+test('tool calls capture source configuration once and refresh it for the next call', () => {
+  const store = open()
+  let reads = 0
+  try {
+    const surface = createToolSurface(store, {
+      get source(): string { return ++reads === 1 ? 'pipeline/first' : 'pipeline/next' }
+    })
+    assert.equal(reads, 0, 'configuration remains lazy until a call')
+    assert.equal(surface.call('cave_add', { text: 'first IS recorded' }).isError, undefined)
+    assert.deepEqual(store.toClaim(store.currentBeliefs()[0]!).contexts, ['src:pipeline/first'])
+    assert.equal(reads, 1)
+    assert.equal(surface.call('cave_add', { text: 'second IS recorded' }).isError, undefined)
+    assert.equal(reads, 2)
+    const second = store.currentBeliefs().find(row => row.subject === 'second')!
+    assert.deepEqual(store.toClaim(second).contexts, ['src:pipeline/next'])
+  } finally { store.close() }
+})
+
+test('tool calls capture the hooks option once while preserving lazy recovery', () => {
+  const store = open()
+  let reads = 0, fail = false
+  try {
+    const surface = createToolSurface(store, {
+      get hooks(): Record<string, string> {
+        reads++
+        if (fail) throw new Error('hooks unavailable')
+        return {}
+      }
+    })
+    assert.equal(reads, 0)
+    assert.equal(surface.call('cave_add', { text: 'first IS recorded' }).isError, undefined)
+    assert.equal(reads, 1)
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    fail = true
+    assert.equal(surface.call('cave_add', { text: 'second IS recorded' }).isError, true)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    fail = false
+    assert.equal(surface.call('cave_add', { text: 'second IS recorded' }).isError, undefined)
+    assert.equal(reads, 3)
+  } finally { store.close() }
+})
+
+test('unprintable tool failures return a usable error reply and allow recovery', () => {
+  const store = open()
+  let fail = true
+  try {
+    const surface = createToolSurface(store, {
+      get source(): false {
+        if (fail) throw Object.create(null)
+        return false
+      }
+    })
+    assert.deepEqual(surface.call('cave_query', { pattern: '?s IS ?o' }), {
+      content: [{ type: 'text', text: '[unprintable thrown value]' }], isError: true
+    })
+    fail = false
+    store.ingest('local IS usable')
+    const recovered = surface.call('cave_query', { pattern: '?s IS ?o' })
+    assert.equal(recovered.isError, undefined)
+    assert.match(recovered.content[0].text, /local/)
+  } finally { store.close() }
+})
 
 type Response = {
   jsonrpc: '2.0'
@@ -78,15 +164,244 @@ const contentText = (response: Response): string => {
   return content[0]!.text
 }
 
-test('SDK stdio serving advertises the modern protocol era', async () => {
+for (const corruption of ['identity', 'provenance'] as const) {
+  test(`stdio query projection rejects ${corruption} corruption and recovers in the same session`, async () => {
+    const store = open(), input = new PassThrough(), output = new PassThrough()
+    const controller = new AbortController()
+    const fallback = setTimeout(() => controller.abort(), 5000)
+    const serving = serve(store, input, output, { signal: controller.signal })
+    const send = async (id: number): Promise<Response> => {
+      const reply = once(output, 'data', { signal: controller.signal })
+      input.write(JSON.stringify(request(id, 'tools/call', {
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+          'io.modelcontextprotocol/clientCapabilities': {}
+        },
+        name: 'cave_query', arguments: { pattern: '?x IS service' }
+      })) + '\n')
+      const [bytes] = await reply
+      return JSON.parse(String(bytes)) as Response
+    }
+    const history = () => JSON.stringify(Object.fromEntries(
+      ['cave_claim', 'cave_context', 'cave_tag', 'cave_provenance', 'cave_edge']
+        .map(table => [table, store.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()])
+    ))
+    try {
+      store.ingest('api IS service @src:inventory #phase:ready\nzeta IS service @src:inventory')
+      const row = store.currentBeliefs().find(row => row.subject === 'zeta')!
+      const original = history()
+      const valid = await send(1)
+      assert.equal(valid.result?.['isError'], undefined)
+      if (corruption === 'identity') {
+        store.db.prepare('UPDATE cave_claim SET tx = ? WHERE id = ?')
+          .run('018f0000-0000-7000-8000-000000000002', row.id)
+      } else {
+        store.db.prepare("INSERT INTO cave_provenance (claim_id, dimension, value) VALUES (?, 'source', '')").run(row.id)
+      }
+      const damaged = history()
+      const rejected = await send(2)
+      assert.equal(rejected.id, 2)
+      assert.equal(rejected.error, undefined)
+      assert.equal(rejected.result?.['isError'], true)
+      assert.deepEqual(rejected.result?.['content'], [{ type: 'text', text:
+        `CAVE record: malformed cave.claim/v1 ${corruption === 'identity' ? 'transaction identity' : 'provenance'}`
+      }])
+      assert.equal(history(), damaged)
+      if (corruption === 'identity') {
+        store.db.prepare('UPDATE cave_claim SET tx = ? WHERE id = ?').run(row.tx, row.id)
+      } else {
+        store.db.prepare("DELETE FROM cave_provenance WHERE claim_id = ? AND value = ''").run(row.id)
+      }
+      assert.equal(history(), original)
+      const recovered = await send(3)
+      assert.equal(recovered.id, 3)
+      assert.equal(recovered.result?.['isError'], undefined)
+      assert.deepEqual(recovered.result, valid.result)
+      assert.equal(history(), original)
+      input.end()
+      await serving
+      assert.equal(controller.signal.aborted, false)
+    } finally {
+      clearTimeout(fallback)
+      controller.abort()
+      await serving.catch(() => {})
+      input.destroy(); output.destroy(); store.close()
+    }
+  })
+}
+
+for (const mode of ['input-error', 'eof']) test(`stdio retains SDK-reported shutdown failure: ${mode}`, async t => {
+  const store = open(), input = new PassThrough({ autoDestroy: false }), output = new PassThrough()
+  const controller = new AbortController()
+  const operation = new Error('input stream failed'), shutdown = new Error('SDK transport close failed')
+  let closes = 0
+  try {
+    const close = StdioServerTransport.prototype.close
+    t.mock.method(StdioServerTransport.prototype, 'close', async function (this: StdioServerTransport) {
+      await close.call(this)
+      closes++
+      throw shutdown
+    })
+    const serving = serve(store, input, output, { signal: controller.signal })
+    const rejected = assert.rejects(serving, error => {
+      if (mode === 'eof') assert.equal(error, shutdown)
+      else {
+        assert.ok(error instanceof AggregateError)
+        assert.deepEqual(error.errors, [operation, shutdown])
+        assert.equal(error.cause, operation)
+        assert.ok(error.message.includes(operation.message))
+        assert.ok(error.message.includes(shutdown.message))
+      }
+      return true
+    })
+    if (mode === 'input-error') input.emit('error', operation)
+    else input.end()
+    await rejected
+    assert.equal(closes, 1)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    for (const event of ['finish', 'close', 'error']) assert.equal(output.listenerCount(event), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    assert.equal(input.destroyed, false)
+    assert.equal(input.isPaused(), true)
+    assert.equal(output.destroyed, false)
+    store.ingest('caller IS usable')
+    assert.match(store.exportText(), /caller IS usable/)
+  } finally {
+    t.mock.restoreAll()
+    controller.abort()
+    input.destroy()
+    output.destroy()
+    store.close()
+  }
+})
+
+for (const side of ['input', 'output']) test(`stdio ${side} errors close transport listeners before rejecting`, async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const failure = new Error(`${side} transport failed`)
+  const controller = new AbortController()
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 500)
+  try {
+    const serving = serve(store, input, output, { signal: controller.signal })
+    const rejected = assert.rejects(serving, error => error === failure)
+    ;(side === 'input' ? input : output).emit('error', failure)
+    await rejected
+    assert.equal(fallbackUsed, false)
+    assert.equal(input.listenerCount('data'), 0)
+    assert.equal(input.listenerCount('error'), 0)
+    assert.equal(input.listenerCount('end'), 0)
+    assert.equal(input.listenerCount('close'), 0)
+    assert.equal(output.listenerCount('error'), 0)
+    assert.equal(input.isPaused(), true)
+    assert.equal(input.destroyed, false)
+    store.ingest('local IS usable')
+    assert.match(store.exportText(), /local IS usable/)
+  } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+})
+
+test('closing stdio output ends serving without waiting for input cancellation', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const controller = new AbortController()
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 500)
+  try {
+    const serving = serve(store, input, output, { signal: controller.signal })
+    output.destroy()
+    await serving
+    assert.equal(fallbackUsed, false)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    for (const event of ['close', 'error']) assert.equal(output.listenerCount(event), 0)
+    assert.equal(input.destroyed, false)
+    assert.equal(input.isPaused(), true)
+    store.ingest('local IS usable')
+    assert.match(store.exportText(), /local IS usable/)
+  } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+})
+
+test('finishing stdio output without a close event ends serving', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough({ emitClose: false })
+  const controller = new AbortController()
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 500)
+  try {
+    const serving = serve(store, input, output, { signal: controller.signal })
+    output.end()
+    await serving
+    assert.equal(fallbackUsed, false)
+    assert.equal(output.writableFinished, true)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    for (const event of ['finish', 'close', 'error']) assert.equal(output.listenerCount(event), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    store.ingest('local IS usable')
+    assert.match(store.exportText(), /local IS usable/)
+  } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+})
+
+test('stdio serving captures its signal for subscription and cleanup', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const controller = new AbortController(), other = new AbortController()
+  let reads = 0
+  try {
+    const serving = serve(store, input, output, {
+      get signal() { return ++reads === 1 ? controller.signal : other.signal }
+    })
+    input.end()
+    await serving
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    assert.equal(getEventListeners(other.signal, 'abort').length, 0)
+    assert.equal(reads, 1)
+  } finally { controller.abort(); other.abort(); input.destroy(); output.destroy(); store.close() }
+})
+
+test('pre-cancelled stdio serving does not subscribe to protocol input', async t => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const subscribed = t.mock.method(input, 'on')
+  try {
+    await serve(store, input, output, { signal: AbortSignal.abort() })
+    assert.equal(subscribed.mock.calls.filter(call => call.arguments[0] === 'data').length, 0)
+    assert.equal(output.listenerCount('error'), 0)
+  } finally { t.mock.restoreAll(); input.destroy(); output.destroy(); store.close() }
+})
+
+test('stdio serving finishes immediately for already-ended or closed streams', async () => {
+  for (const mode of ['input-end', 'input-close', 'output-finish', 'output-close']) {
+    const store = open()
+    const input = new PassThrough(), output = new PassThrough()
+    const controller = new AbortController()
+    let fallback: ReturnType<typeof setTimeout> | undefined
+    let fallbackUsed = false
+    try {
+      const stream = mode.startsWith('input') ? input : output
+      const event = mode.endsWith('close') ? 'close' : mode === 'input-end' ? 'end' : 'finish'
+      const ended = once(stream, event)
+      if (event === 'close') stream.destroy()
+      else { stream.resume(); stream.end() }
+      await ended
+      fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 500)
+      await serve(store, input, output, { signal: controller.signal })
+      assert.equal(fallbackUsed, false, mode)
+      assert.equal(input.listenerCount('data'), 0)
+      assert.equal(input.listenerCount('error'), 0)
+      assert.equal(output.listenerCount('error'), 0)
+      assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+  }
+})
+
+test('SDK stdio serving drains buffered modern discovery requests before EOF shutdown', async () => {
   const store = open()
   const input = new PassThrough()
   const output = new PassThrough()
   let text = ''
   output.setEncoding('utf8').on('data', chunk => { text += chunk })
-  const serving = serve(store, input, output)
-  input.end(`${JSON.stringify({
-    jsonrpc: '2.0', id: 1, method: 'server/discover',
+  input.end([1, 2].map(id => JSON.stringify({
+    jsonrpc: '2.0', id, method: 'server/discover',
     params: {
       _meta: {
         'io.modelcontextprotocol/protocolVersion': '2026-07-28',
@@ -94,14 +409,281 @@ test('SDK stdio serving advertises the modern protocol era', async () => {
         'io.modelcontextprotocol/clientCapabilities': {}
       }
     }
-  })}\n`)
-  await serving
-  const response = JSON.parse(text.trim()) as Response
-  assert.deepEqual(response.result?.['supportedVersions'], ['2026-07-28'])
-  const meta = response.result?.['_meta'] as Record<string, unknown>
-  assert.equal((meta['io.modelcontextprotocol/serverInfo'] as { name: string }).name, 'cave')
+  })).join('\n') + '\n')
+  await serve(store, input, output)
+  const responses = text.trim().split('\n').map(line => JSON.parse(line) as Response)
+  assert.deepEqual(responses.map(response => response.id), [1, 2])
+  for (const response of responses) {
+    assert.deepEqual(response.result?.['supportedVersions'], ['2026-07-28'])
+    const meta = response.result?.['_meta'] as Record<string, unknown>
+    assert.equal((meta['io.modelcontextprotocol/serverInfo'] as { name: string }).name, 'cave')
+  }
   store.close()
 })
+
+test('stdio rejects SDK buffer exhaustion without waiting for input EOF', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  output.resume()
+  const controller = new AbortController()
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 1000)
+  try {
+    store.ingest('retained IS record')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    input.write(Buffer.alloc(10 * 1024 * 1024 + 1, 0x61))
+    await assert.rejects(serve(store, input, output, { signal: controller.signal }), /maximum size/)
+    assert.equal(fallbackUsed, false)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    assert.equal(output.listenerCount('error'), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    const retryInput = new PassThrough(), retryOutput = new PassThrough()
+    let text = ''
+    retryOutput.setEncoding('utf8').on('data', chunk => { text += chunk })
+    try {
+      retryInput.end(JSON.stringify(request(2, 'server/discover', { _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+        'io.modelcontextprotocol/clientCapabilities': {}
+      } })) + '\n')
+      await serve(store, retryInput, retryOutput)
+      const response = JSON.parse(text) as Response
+      assert.equal(response.id, 2)
+      assert.deepEqual(response.result?.['supportedVersions'], ['2026-07-28'])
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    } finally { retryInput.destroy(); retryOutput.destroy() }
+  } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+})
+
+test('buffer exhaustion after a completed write waits for server cleanup and retains its failure', async t => {
+  const store = open(), input = new PassThrough(), output = new PassThrough()
+  const controller = new AbortController()
+  const events = new EventEmitter()
+  const shutdown = new Error('server cleanup failed')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  let closes = 0, settled = false, fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 1000)
+  const close = SdkServer.prototype.close
+  t.mock.method(SdkServer.prototype, 'close', async function (this: SdkServer) {
+    await close.call(this)
+    closes++
+    events.emit('cleanup')
+    await gate
+    throw shutdown
+  })
+  const serving = serve(store, input, output, { signal: controller.signal })
+  void serving.then(() => { settled = true }, () => { settled = true })
+  try {
+    const reply = once(output, 'data', { signal: controller.signal })
+    input.write(JSON.stringify(request(1, 'tools/call', {
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+        'io.modelcontextprotocol/clientCapabilities': {}
+      }, name: 'cave_add', arguments: { text: 'committed IS record' }
+    })) + '\n')
+    const [bytes] = await reply
+    assert.equal((JSON.parse(String(bytes)) as Response).result?.['isError'], undefined)
+    assert.ok(store.currentBeliefs().some(row => row.subject === 'committed'))
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const started = once(events, 'cleanup', { signal: controller.signal })
+    const rejected = assert.rejects(serving, error => {
+      assert.ok(error instanceof AggregateError)
+      assert.equal(error.errors.length, 2)
+      assert.match(error.errors[0].message, /maximum size/)
+      assert.equal(error.errors[1], shutdown)
+      assert.equal(error.cause, error.errors[0])
+      assert.match(error.message, /maximum size/)
+      assert.match(error.message, /server cleanup failed/)
+      return true
+    })
+    input.write(Buffer.alloc(10 * 1024 * 1024 + 1, 0x61))
+    await started
+    await new Promise<void>(resolve => setImmediate(resolve))
+    assert.equal(settled, false)
+    release()
+    await rejected
+    assert.equal(fallbackUsed, false)
+    assert.equal(closes, 1)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    assert.equal(output.listenerCount('error'), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+  } finally {
+    release(); clearTimeout(fallback); controller.abort()
+    await serving.catch(() => {})
+    t.mock.restoreAll(); input.destroy(); output.destroy(); store.close()
+  }
+})
+
+test('stdio rejects invalid UTF-8 before replacement characters can become claims', async () => {
+  const meta = {
+    'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+    'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+    'io.modelcontextprotocol/clientCapabilities': {}
+  }
+  const message = JSON.stringify(request(1, 'tools/call', {
+    _meta: meta, name: 'cave_add', arguments: { text: 'bad IS record' }
+  })) + '\n'
+  const at = message.indexOf('bad') + 3
+  for (const bytes of [[0x80], [0xc0, 0xaf], [0xed, 0xa0, 0x80], [0xf0, 0x9f]]) {
+    const store = open()
+    const input = new PassThrough(), output = new PassThrough()
+    output.resume()
+    try {
+      const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      input.end(Buffer.concat([Buffer.from(message.slice(0, at)), Buffer.from(bytes), Buffer.from(message.slice(at))]))
+      await assert.rejects(serve(store, input, output), /valid UTF-8/)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+      store.ingest('local IS usable')
+      assert.match(store.exportText(), /local IS usable/)
+    } finally { input.destroy(); output.destroy(); store.close() }
+  }
+})
+
+test('invalid UTF-8 after a completed request preserves its committed history', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const controller = new AbortController()
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 1000)
+  const serving = serve(store, input, output, { signal: controller.signal })
+  try {
+    const reply = once(output, 'data', { signal: controller.signal })
+    input.write(JSON.stringify(request(1, 'tools/call', {
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+        'io.modelcontextprotocol/clientCapabilities': {}
+      },
+      name: 'cave_add', arguments: { text: 'committed IS record' }
+    })) + '\n')
+    const [bytes] = await reply
+    const response = JSON.parse(String(bytes)) as Response
+    assert.equal(response.id, 1)
+    assert.equal(response.result?.['isError'], undefined)
+    assert.ok(store.currentBeliefs().some(row => row.subject === 'committed'))
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const rejected = assert.rejects(serving, /valid UTF-8/)
+    input.end(Buffer.from([0x80]))
+    await rejected
+    assert.equal(fallbackUsed, false)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    assert.equal(output.listenerCount('error'), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+  } finally {
+    clearTimeout(fallback)
+    controller.abort()
+    await serving.catch(() => {})
+    input.destroy(); output.destroy(); store.close()
+  }
+})
+
+test('stdio validates incomplete UTF-8 at EOF and accepts split valid Unicode in a fresh session', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  output.resume()
+  try {
+    input.end(Buffer.from([0xf0, 0x9f]))
+    await assert.rejects(serve(store, input, output), /valid UTF-8/)
+    const validInput = new PassThrough(), validOutput = new PassThrough()
+    let text = ''
+    validOutput.setEncoding('utf8').on('data', chunk => { text += chunk })
+    try {
+      const message = Buffer.from(JSON.stringify(request(2, 'tools/call', {
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+          'io.modelcontextprotocol/clientCapabilities': {}
+        },
+        name: 'cave_add', arguments: { text: 'café😀� IS record' }
+      })) + '\n')
+      for (const byte of message) validInput.write(Buffer.from([byte]))
+      validInput.end()
+      await serve(store, validInput, validOutput)
+      const response = JSON.parse(text) as Response
+      assert.equal(response.id, 2)
+      assert.equal(response.result?.['isError'], undefined)
+      assert.ok(store.currentBeliefs().some(row => row.subject === 'café😀�'))
+    } finally { validInput.destroy(); validOutput.destroy() }
+  } finally { input.destroy(); output.destroy(); store.close() }
+})
+
+test('stdio drains valid requests between malformed frames before EOF', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  const controller = new AbortController()
+  let text = ''
+  let fallbackUsed = false
+  const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 1000)
+  const meta = {
+    'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+    'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+    'io.modelcontextprotocol/clientCapabilities': {}
+  }
+  const invalid = ['{', 'null', '[]', '{"jsonrpc":"2.0","id":true,"method":"server/discover"}']
+  try {
+    output.setEncoding('utf8').on('data', chunk => { text += chunk })
+    input.end(invalid.flatMap((line, id) => [line,
+      JSON.stringify(request(id, 'server/discover', { _meta: meta }))
+    ]).join('\n') + '\n')
+    await serve(store, input, output, { signal: controller.signal })
+    assert.equal(fallbackUsed, false)
+    const responses = text.trim().split('\n').map(line => JSON.parse(line) as Response)
+    assert.deepEqual(responses.map(response => response.id), [0, 1, 2, 3])
+    for (const response of responses) {
+      assert.deepEqual(response.result?.['supportedVersions'], ['2026-07-28'])
+    }
+    for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+    assert.equal(output.listenerCount('error'), 0)
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+    store.ingest('local IS usable')
+    assert.match(store.exportText(), /local IS usable/)
+  } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+})
+
+for (const mode of ['unsupported-revision', 'invalid-envelope', 'unknown-method']) {
+  test(`stdio EOF drains ${mode} errors and subsequent valid requests`, async () => {
+    const store = open()
+    const input = new PassThrough(), output = new PassThrough()
+    const controller = new AbortController()
+    let text = ''
+    let fallbackUsed = false
+    const fallback = setTimeout(() => { fallbackUsed = true; controller.abort() }, 1000)
+    const meta = {
+      'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      'io.modelcontextprotocol/clientInfo': { name: 'test', version: '0' },
+      'io.modelcontextprotocol/clientCapabilities': {}
+    }
+    const invalidMeta = mode === 'unsupported-revision'
+      ? { ...meta, 'io.modelcontextprotocol/protocolVersion': '2099-01-01' }
+      : mode === 'invalid-envelope'
+        ? { ...meta, 'io.modelcontextprotocol/clientInfo': false }
+        : meta
+    try {
+      output.setEncoding('utf8').on('data', chunk => { text += chunk })
+      input.end([
+        request('invalid', mode === 'unknown-method' ? 'cave/missing-method' : 'server/discover', { _meta: invalidMeta }),
+        request('valid', 'server/discover', { _meta: meta })
+      ].map(message => JSON.stringify(message)).join('\n') + '\n')
+      await serve(store, input, output, { signal: controller.signal })
+      assert.equal(fallbackUsed, false)
+      const responses = text.trim().split('\n').map(line => JSON.parse(line) as Response)
+      assert.equal(responses.length, 2)
+      assert.equal(typeof responses.find(response => response.id === 'invalid')?.error?.code, 'number')
+      assert.deepEqual(responses.find(response => response.id === 'valid')?.result?.['supportedVersions'], ['2026-07-28'])
+      for (const event of ['data', 'end', 'close', 'error']) assert.equal(input.listenerCount(event), 0)
+      assert.equal(output.listenerCount('error'), 0)
+      assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+      store.ingest('local IS usable')
+      assert.match(store.exportText(), /local IS usable/)
+    } finally { clearTimeout(fallback); input.destroy(); output.destroy(); store.close() }
+  })
+}
 
 test('tools/list exposes the full engine surface with schemas', () => {
   const store = open()
@@ -244,6 +826,16 @@ test('cave_add → cave_query round trip through the protocol', () => {
   store.close()
 })
 
+test('cave_query renders prototype-named variable bindings in tool results', () => {
+  const store = open()
+  try {
+    store.ingest('api IS service')
+    const result = call(createServer(store), 1, 'cave_query', { pattern: '?__proto__ IS service' })
+    assert.equal(result.error, undefined)
+    assert.equal(contentText(result), '?__proto__ = api  ; api IS service')
+  } finally { store.close() }
+})
+
 test('cave_query returns bounded continuations over a frozen snapshot', () => {
   const store = open()
   store.ingest('service/0 USES jwt\nservice/1 USES jwt\nservice/2 USES jwt')
@@ -261,6 +853,22 @@ test('cave_query returns bounded continuations over a frozen snapshot', () => {
   assert.match(second, /\?x = service\/2/)
   assert.doesNotMatch(second, /service\/later|next cursor:/)
   store.close()
+})
+
+test('cave_query reports stale snapshot cursors as tool errors', () => {
+  const store = open()
+  try {
+    const rows = store.ingest('service/0 USES jwt\nservice/1 USES jwt')
+    const server = createServer(store)
+    const first = contentText(call(server, 8, 'cave_query', { pattern: '?x USES jwt', limit: 1 }))
+    const cursor = /next cursor: (.+)$/.exec(first)?.[1]
+    assert.ok(cursor)
+    store.db.prepare('INSERT INTO cave_edge (parent_id, role, child_id) VALUES (?, ?, ?)')
+      .run(rows.ids[0]!, 'BECAUSE', rows.ids[1]!)
+    const stale = call(server, 9, 'cave_query', { pattern: '?x USES jwt', limit: 1, cursor })
+    assert.equal(stale.result?.['isError'], true)
+    assert.match(contentText(stale), /snapshot changed.*restart/i)
+  } finally { store.close() }
 })
 
 test('cave_query asOf resolves beliefs at a past tx (spec §12.3)', () => {
@@ -296,7 +904,7 @@ test('cave_fuse fuses the spec §10.1 worked example — pattern, about and text
   const aboutFused = contentText(call(createServer(metrics), 71, 'cave_fuse', { about: 'revenue' }))
   assert.match(aboutFused, /posterior: 19\.97B USD\/yr/)
 
-  // Literal text never touches the store: same math, no matching rows.
+  // Literal text supplies its own estimates: same math, no matching rows needed.
   const empty = open()
   const textFused = contentText(call(createServer(empty), 72, 'cave_fuse', {
     text: 'revenue IS 18B USD/yr +/- 3B USD/yr @ 60%\nrevenue IS 20B USD/yr +/- 0.5B USD/yr @ 95%'
@@ -327,6 +935,9 @@ test('cave_fuse guards: one selector, one quantity, one unit', () => {
   const mixed = call(server, 80, 'cave_fuse', { text: 'x IS 10 ms +/- 2 ms\nx IS 1 USD\/yr +/- 0.1 USD\/yr' })
   assert.equal(mixed.result?.['isError'], true)
   assert.match(contentText(mixed), /cannot fuse mixed units: ms, USD\/yr/)
+  const enormousSpread = call(server, 801, 'cave_fuse', { text: `x IS 1 +/- ${'1' + '0'.repeat(200)}` })
+  assert.equal(enormousSpread.result?.['isError'], true)
+  assert.match(contentText(enormousSpread), /posterior precision is outside the finite numeric range/)
   const anchored = call(server, 79, 'cave_fuse', { about: 'openai', asOf: '2026-01-01' })
   assert.equal(anchored.result?.['isError'], true)
   assert.match(contentText(anchored), /asOf composes with pattern only/)
@@ -513,7 +1124,44 @@ test('cave_derive fires rules declared through cave_add, incrementally (spec §2
   assert.match(contentText(badConf), /minConf must be a number in 0\.\.1/)
   const badPasses = call(server, 99, 'cave_derive', { maxPasses: 0 })
   assert.equal(badPasses.result?.['isError'], true)
+  const beforeInvalid = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+  for (const maxPasses of [1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const invalid = call(server, 100, 'cave_derive', { maxPasses })
+    assert.equal(invalid.result?.['isError'], true)
+    assert.match(contentText(invalid), /positive safe integer/)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), beforeInvalid)
+  }
   store.close()
+})
+
+test('cave_derive reports incomplete reconciliation and recovers on the same session', () => {
+  const store = open()
+  try {
+    const server = createServer(store)
+    call(server, 1, 'cave_add', { text: 'a IS ready\nrule/enable HAS rule: `?x IS ready => ?x IS enabled`' })
+    assert.match(contentText(call(server, 2, 'cave_derive', {})), /derived: \+1 appended/)
+    call(server, 3, 'cave_add', { text: 'a IS ready @ 0%' })
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    for (const dryRun of [false, true]) {
+      const response = call(server, 4, 'cave_derive', { maxPasses: 1, dryRun })
+      assert.notEqual(response.result?.['isError'], true, 'exhaustion returns the retained-work report')
+      const text = contentText(response)
+      assert.match(text, /note: stopped at 1 passes.*re-run to continue/)
+      const summary = text.split('\n').at(-1)!
+      assert.match(summary, /^derived \(incomplete\)/)
+      assert.equal(summary.includes('(dry run)'), dryRun)
+      assert.match(summary, /0 retracted/)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      assert.match(contentText(call(server, 5, 'cave_query', { pattern: 'a IS enabled' })), /a IS enabled/)
+    }
+    const retry = contentText(call(server, 6, 'cave_derive', { maxPasses: 3 }))
+    assert.match(retry, /derived: .*1 retracted/)
+    assert.doesNotMatch(retry, /incomplete/)
+    assert.equal(contentText(call(server, 7, 'cave_query', { pattern: 'a IS enabled' })), 'no matches')
+    const settled = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    assert.match(contentText(call(server, 8, 'cave_derive', {})), /unchanged premises, skipped/)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), settled)
+  } finally { store.close() }
 })
 
 test('cave_lint and cave_export', () => {
@@ -620,6 +1268,42 @@ test('actions are served as generated act_<name> tools (spec §25.5)', () => {
   assert.equal(failed.result?.['isError'], true)
   assert.match(contentText(failed), /precondition failed/)
   store.close()
+})
+
+test('generated action tools retain hook setup errors after committed effects', () => {
+  const store = open()
+  try {
+    store.ingest(`api IS service\n${deployAction}\naction/mark-deployed HAS hook: notify`)
+    let mode: 'throw' | 'invalid' | 'ok' = 'throw', lookups = 0
+    const surface = createToolSurface(store, { hooks: { get notify(): string {
+      lookups++
+      if (mode === 'throw') throw new Error('private configuration detail')
+      return mode === 'invalid' ? 42 as unknown as string : 'echo recovered'
+    } } })
+    for (const [version, failureMode, expected] of [
+      ['1', 'throw', 'hook configuration lookup failed'],
+      ['2', 'invalid', 'hook command must be a string']
+    ] as const) {
+      mode = failureMode
+      const reply = surface.call('act_mark-deployed', { service: 'api', version })
+      assert.equal(reply.isError, true)
+      const text = reply.content.map(item => item.text).join('\n')
+      assert.match(text, version === '1' ? /\+1 appended/ : /1 updated/)
+      assert.ok(text.includes(`hook notify: ${expected}`), text)
+      assert.doesNotMatch(text, /undefined|private configuration detail/)
+      const history = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      const beforeLookups = lookups
+      const repeated = surface.call('act_mark-deployed', { service: 'api', version })
+      assert.notEqual(repeated.isError, true)
+      assert.match(repeated.content.map(item => item.text).join('\n'), /nothing changed/)
+      assert.equal(lookups, beforeLookups)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), history)
+    }
+    mode = 'ok'
+    const recovered = surface.call('act_mark-deployed', { service: 'api', version: '3' })
+    assert.notEqual(recovered.isError, true)
+    assert.match(recovered.content.map(item => item.text).join('\n'), /hook notify: ok/)
+  } finally { store.close() }
 })
 
 test('an action declared mid-session appears without reconnecting (spec §25.5)', () => {

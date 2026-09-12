@@ -9,6 +9,7 @@
  * one machine (§19), and serving it wider is an explicit `--host` act.
  */
 
+import { maximumSensitivity } from './sensitivity.ts'
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { Version } from '@cavelang/core'
@@ -16,6 +17,7 @@ import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
 import { entity, history, lineage, overview, search, topic } from './api.ts'
 import { page } from './page.ts'
+import { errorMessage } from './error-message.ts'
 
 /** `cave` on a phone keypad. */
 export const defaultPort = 2283
@@ -44,13 +46,21 @@ const escapeHtml = (text: string): string =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 
 const json = (res: ServerResponse, status: number, body: unknown): void => {
+  // Serialization can fail; keep headers untouched so the request boundary
+  // can still send its ordinary JSON error response.
+  const encoded = JSON.stringify(body)
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'x-content-type-options': 'nosniff',
     'cache-control': 'no-store'
   })
-  res.end(JSON.stringify(body))
+  res.end(encoded)
 }
+
+const requiredParameters = new Map([
+  ['/api/entity', 'name'], ['/api/topic', 'name'], ['/api/history', 'key'],
+  ['/api/lineage', 'id'], ['/api/search', 'q']
+])
 
 /** A required query parameter, `undefined` when absent or blank. */
 const param = (url: URL, name: string): undefined | string => {
@@ -59,18 +69,29 @@ const param = (url: URL, name: string): undefined | string => {
 }
 
 const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
-  const html = page
-    .replaceAll('__CAVE_DB__', escapeHtml(label))
-    .replaceAll('__CAVE_VERSION__', escapeHtml(Version.current()))
-    .replaceAll('__CAVE_SENSITIVITY__', escapeHtml(maximum))
+  const values: Readonly<Record<string, string>> = {
+    DB: label, VERSION: Version.current(), SENSITIVITY: maximum
+  }
+  const html = page.replace(/__CAVE_(DB|VERSION|SENSITIVITY)__/g,
+    (_marker, name: string) => escapeHtml(values[name]!))
   return (req: IncomingMessage, res: ServerResponse): void => {
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        res.writeHead(405, { allow: 'GET, HEAD', 'content-type': 'application/json; charset=utf-8' })
-        res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ error: 'read-only surface — GET only (spec §30.3)' }))
+        res.setHeader('allow', 'GET, HEAD')
+        json(res, 405, { error: 'read-only surface — GET/HEAD only (spec §30.3)' })
         return
       }
-      const url = new URL(req.url ?? '/', 'http://cave.local')
+      let url: URL
+      try {
+        url = new URL(req.url ?? '/', 'http://cave.local')
+        // URLSearchParams replaces malformed UTF-8 instead of rejecting it.
+        // Validate the encoded query first, without decoding its delimiters
+        // or double-decoding values passed to the normal parameter parser.
+        decodeURIComponent(url.search)
+      } catch {
+        json(res, 400, { error: 'invalid request URL' })
+        return
+      }
       const head = req.method === 'HEAD'
       if (url.pathname === '/') {
         res.writeHead(200, {
@@ -89,7 +110,17 @@ const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
         json(res, 404, { error: `no such path: ${url.pathname}` })
         return
       }
-      const aliases = url.searchParams.get('aliases') === '1'
+      const required = requiredParameters.get(url.pathname)
+      if (required !== undefined && url.searchParams.getAll(required).length > 1) {
+        json(res, 400, { error: `${required} must be supplied at most once` })
+        return
+      }
+      const aliasValues = url.searchParams.getAll('aliases')
+      if (aliasValues.length > 1 || aliasValues.some(value => value !== '0' && value !== '1')) {
+        json(res, 400, { error: 'aliases must be supplied at most once as 0 or 1' })
+        return
+      }
+      const aliases = aliasValues[0] === '1'
       const body = ((): { status: number, body: unknown } => {
         switch (url.pathname) {
           case '/api/overview':
@@ -128,6 +159,9 @@ const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
           }
           case '/api/search': {
             const text = param(url, 'q')
+            if (text?.includes('\0')) {
+              return { status: 400, body: { error: 'search query must not contain NUL characters' } }
+            }
             return text === undefined ?
               { status: 400, body: { error: 'search requires ?q=' } } :
               { status: 200, body: search(store, text, { maxSensitivity: maximum }) }
@@ -136,37 +170,44 @@ const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
             return { status: 404, body: { error: `no such endpoint: ${url.pathname}` } }
         }
       })()
-      if (head) {
-        res.writeHead(body.status, { 'content-type': 'application/json; charset=utf-8' })
-        res.end()
-        return
-      }
+      // Node suppresses HEAD bodies; retain the same cache and content headers
+      // as GET, including validation errors and unknown endpoints.
       json(res, body.status, body.body)
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : String(error) })
+      json(res, 500, { error: errorMessage(error) })
     }
   }
 }
 
 /** Starts the read surface; resolves once the port is bound. */
 export const serve = (store: Store, options: ServeOptions = {}): Promise<Handle> => {
-  const host = options.host ?? defaultHost
+  const { port = defaultPort } = options
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new TypeError('port must be an integer in 0..65535')
+  }
+  const maximum = maximumSensitivity(options.maxSensitivity)
+  const { host = defaultHost } = options
+  if (typeof host !== 'string' || host.trim() === '') {
+    throw new TypeError('host must be a non-empty string')
+  }
   const server = createServer(handler(
     store,
     options.label ?? 'cave.db',
-    options.maxSensitivity ?? Sensitivity.defaultMaximum
+    maximum
   ))
   return new Promise((resolve, reject) => {
     server.once('error', reject)
-    server.listen(options.port ?? defaultPort, host, () => {
+    server.listen(port, host, () => {
+      server.removeListener('error', reject)
       const address = server.address()
-      const port = typeof address === 'object' && address !== null ? address.port : options.port ?? defaultPort
+      const boundPort = typeof address === 'object' && address !== null ? address.port : port
       // Bracket IPv6 hosts; the default is IPv4 loopback.
       const shown = host.includes(':') ? `[${host}]` : host
+      let closing: Promise<void> | undefined
       resolve({
-        url: `http://${shown}:${port}/`,
+        url: `http://${shown}:${boundPort}/`,
         server,
-        close: () => new Promise<void>((done, fail) =>
+        close: () => closing ??= new Promise<void>((done, fail) =>
           server.close(error => error === undefined ? done() : fail(error)))
       })
     })

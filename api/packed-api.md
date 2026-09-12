@@ -279,6 +279,14 @@ Kind: value.
 export declare const txComment: (tx: string) => string;
 ```
 
+### `txDataOfLine`
+
+Kind: value.
+
+```ts
+export declare const txDataOfLine: (raw: string) => undefined | string;
+```
+
 ### `txOfLine`
 
 Kind: value.
@@ -1622,6 +1630,7 @@ Kind: type.
 
 ```ts
 export type SettleOptions = {
+    readonly signal?: AbortSignal;
     readonly aliases?: boolean;
     readonly derive?: boolean;
     readonly check?: boolean;
@@ -1641,6 +1650,7 @@ Kind: type.
 
 ```ts
 export type SettleReport = {
+    readonly complete: boolean;
     readonly passes: number;
     readonly automations: readonly AutomationOutcome[];
     readonly problems: readonly LoadProblem[];
@@ -1961,6 +1971,7 @@ Kind: type.
 
 ```ts
 export type DiscoverOptions = {
+    readonly signal?: AbortSignal;
     readonly fetchImpl?: Source.FetchLike;
     readonly only?: string;
     readonly force?: boolean;
@@ -2049,7 +2060,7 @@ export declare const prefix = "source/";
 Kind: value.
 
 ```ts
-export declare const prepare: (declared: Declared, dir: string, fetchImpl?: Source.FetchLike) => Promise<Prepared>;
+export declare const prepare: (declared: Declared, dir: string, fetchImpl?: Source.FetchLike, signal?: AbortSignal) => Promise<Prepared>;
 ```
 
 #### `Prepared`
@@ -2402,6 +2413,7 @@ export type Options = {
     readonly sql?: string;
     readonly records?: string;
     readonly timeoutSeconds?: number;
+    readonly signal?: AbortSignal;
     readonly fetchImpl?: FetchLike;
 };
 ```
@@ -2543,6 +2555,7 @@ Kind: type.
 ```ts
 export type WatchLike = (path: string, listener: (event: string, filename: string | Buffer | null) => void) => {
     close(): void;
+    on?(event: 'error', listener: (error: Error) => void): unknown;
 };
 ```
 
@@ -3080,6 +3093,7 @@ Kind: type.
 
 ```ts
 export type AgentContext = {
+    readonly signal?: AbortSignal;
     readonly db: string;
     readonly mcpConfig?: string;
 };
@@ -3104,6 +3118,7 @@ Kind: type.
 export type BatchReport = {
     readonly files: readonly string[];
     readonly ok: boolean;
+    readonly partial?: boolean;
     readonly added: number;
     readonly problems: readonly string[];
     readonly note?: string;
@@ -3222,6 +3237,7 @@ Kind: value.
 export declare const select: (store: Store, paths: readonly string[], options?: {
     force?: boolean;
     cwd?: string;
+    embed?: boolean;
 }) => Selection;
 ```
 
@@ -3447,7 +3463,7 @@ export type FailureKind = 'network' | 'http';
 Kind: value.
 
 ```ts
-export declare const fetchDocument: (url: string, fetchImpl?: FetchLike, timeoutSeconds?: number) => Promise<Selected>;
+export declare const fetchDocument: (url: string, fetchImpl?: FetchLike, timeoutSeconds?: number, signal?: AbortSignal) => Promise<Selected>;
 ```
 
 #### `FetchLike`
@@ -3482,6 +3498,7 @@ Kind: value.
 export declare const select: (store: Store, urls: readonly string[], options?: {
     force?: boolean;
     fetchImpl?: FetchLike;
+    signal?: AbortSignal;
 }) => Promise<Selection & {
     failures: readonly Failure[];
 }>;
@@ -3636,6 +3653,22 @@ Kind: value.
 export declare const heuristicPolicy: (options?: HeuristicOptions) => Policy;
 ```
 
+### `jsonValueEnds`
+
+Kind: value.
+
+```ts
+export declare const jsonValueEnds: (text: string) => Int32Array;
+```
+
+### `lastJsonArray`
+
+Kind: value.
+
+```ts
+export declare const lastJsonArray: (output: string, property?: string) => unknown[] | undefined;
+```
+
 ### `LlmOptions`
 
 Kind: type.
@@ -3727,7 +3760,7 @@ export declare class ProcessFailure extends Error {
 Kind: type.
 
 ```ts
-export type ProcessFailureKind = 'spawn' | 'timeout' | 'aborted' | 'stdout-limit' | 'stderr-limit';
+export type ProcessFailureKind = 'spawn' | 'timeout' | 'aborted' | 'stdout-limit' | 'stderr-limit' | 'stdout-encoding';
 ```
 
 ### `ProcessFailureRecord`
@@ -3757,6 +3790,7 @@ export type ProcessOptions = {
     readonly signal?: AbortSignal;
     readonly maxStdoutBytes?: number;
     readonly maxStderrBytes?: number;
+    readonly strictStdoutUtf8?: boolean;
 };
 ```
 
@@ -4956,6 +4990,7 @@ export type ClaimView = {
     readonly attribute?: string;
     readonly value?: string;
     readonly delta?: string;
+    readonly sigmaLevel?: number;
     readonly conf: number;
     readonly importance: boolean;
     readonly comment?: string;
@@ -5482,6 +5517,14 @@ Kind: value.
 
 ```ts
 export declare const format: (conf: Confidence) => string;
+```
+
+#### `formatExact`
+
+Kind: value.
+
+```ts
+export declare const formatExact: (conf: Confidence) => string;
 ```
 
 #### `parse`
@@ -6510,7 +6553,7 @@ export type Posterior = {
 Kind: value.
 
 ```ts
-export declare const createHighlighter: (language: Language, querySource: string) => Highlighter;
+export declare const createHighlighter: (language: Language, querySource: string) => OwnedHighlighter;
 ```
 
 ### `defaultTheme`
@@ -6537,6 +6580,16 @@ Kind: type.
 export type Highlighter = {
     readonly spans: (text: string) => readonly Span[];
     readonly ansi: (text: string, theme?: Theme) => string;
+};
+```
+
+### `OwnedHighlighter`
+
+Kind: type.
+
+```ts
+export type OwnedHighlighter = Highlighter & {
+    readonly close: () => void;
 };
 ```
 
@@ -6587,7 +6640,7 @@ export type BrowserHighlighterOptions = {
 Kind: value.
 
 ```ts
-export declare const createBrowserHighlighter: ({ parserWasmUrl, languageWasmUrl, querySource, }: BrowserHighlighterOptions) => Promise<Highlighter>;
+export declare const createBrowserHighlighter: ({ parserWasmUrl, languageWasmUrl, querySource, }: BrowserHighlighterOptions) => Promise<OwnedHighlighter>;
 ```
 
 ### `createHighlighter`
@@ -6595,7 +6648,7 @@ export declare const createBrowserHighlighter: ({ parserWasmUrl, languageWasmUrl
 Kind: value.
 
 ```ts
-export declare const createHighlighter: (language: Language, querySource: string) => Highlighter;
+export declare const createHighlighter: (language: Language, querySource: string) => OwnedHighlighter;
 ```
 
 ### `defaultTheme`
@@ -6614,6 +6667,16 @@ Kind: type.
 export type Highlighter = {
     readonly spans: (text: string) => readonly Span[];
     readonly ansi: (text: string, theme?: Theme) => string;
+};
+```
+
+### `OwnedHighlighter`
+
+Kind: type.
+
+```ts
+export type OwnedHighlighter = Highlighter & {
+    readonly close: () => void;
 };
 ```
 
@@ -6996,6 +7059,14 @@ Kind: value.
 
 ```ts
 export declare const topLevel: (text: string, needle: string) => number[];
+```
+
+#### `txDataOfLine`
+
+Kind: value.
+
+```ts
+export declare const txDataOfLine: (raw: string) => undefined | string;
 ```
 
 #### `txOfLine`
@@ -7474,6 +7545,7 @@ export type InputRecord = {
     readonly schema: typeof schema;
     readonly scenarioId: string;
     readonly modelDigest: string;
+    readonly definitionDigest: string;
     readonly digest: string;
     readonly snapshot: FrozenSnapshot;
     readonly overlay: {
@@ -7973,6 +8045,9 @@ export type Limits = {
     readonly maxEnumValues: number;
     readonly maxExpressionNodes: number;
     readonly maxExpressionDepth: number;
+    readonly maxNumericDigits: number;
+    readonly maxExplanationBits: number;
+    readonly maxExplanationWork: number;
     readonly maxOutputBytes: number;
 };
 ```
@@ -8075,7 +8150,7 @@ Kind: value, namespace.
 Kind: value.
 
 ```ts
-export declare const digest: (input: Model) => string;
+export declare const digest: (input: Model, limits?: Partial<Limits>) => string;
 ```
 
 #### `serialize`
@@ -8083,7 +8158,7 @@ export declare const digest: (input: Model) => string;
 Kind: value.
 
 ```ts
-export declare const serialize: (input: Model) => string;
+export declare const serialize: (input: Model, limits?: Partial<Limits>) => string;
 ```
 
 ### `Capability`
@@ -8128,6 +8203,14 @@ Kind: value.
 
 ```ts
 export declare const compare: (left: Rational, right: Rational) => -1 | 0 | 1;
+```
+
+#### `fromBigInts`
+
+Kind: value.
+
+```ts
+export declare const fromBigInts: (numerator: bigint, denominator: bigint) => Normalized;
 ```
 
 #### `integer`
@@ -8187,6 +8270,7 @@ Kind: type.
 ```ts
 export type Constraint = Element & {
     readonly evaluation: 'satisfied' | 'violated' | 'indeterminate';
+    readonly evaluationReason?: string;
 };
 ```
 
@@ -8373,6 +8457,7 @@ Kind: type.
 ```ts
 export type SoftConstraintResult = Element & {
     readonly evaluation: 'accepted' | 'violated' | 'indeterminate';
+    readonly evaluationReason?: string;
     readonly weight: ReturnType<typeof Exact.rational>;
 };
 ```
@@ -8397,7 +8482,7 @@ export type Analysis = {
 Kind: value.
 
 ```ts
-export declare const model: (input: Model) => Analysis;
+export declare const model: (input: Model, limits?: Partial<Limits>) => Analysis;
 ```
 
 ### `Model`
@@ -8665,6 +8750,14 @@ export declare const runWithExplanation: (adapter: SolverAdapter, model: Model, 
 
 Kind: value, namespace.
 
+#### `explanationContext`
+
+Kind: value.
+
+```ts
+export declare const validateContext: (context: Context) => void;
+```
+
 #### `mergeLimits`
 
 Kind: value.
@@ -8705,6 +8798,14 @@ export declare class ModelValidationError extends Error {
 }
 ```
 
+#### `resultMetadata`
+
+Kind: value.
+
+```ts
+export declare const resultMetadata: (value: unknown) => void;
+```
+
 #### `Stats`
 
 Kind: type.
@@ -8718,6 +8819,14 @@ export type Stats = {
     readonly expressionNodes: number;
     readonly expressionDepth: number;
 };
+```
+
+#### `unknownReason`
+
+Kind: value.
+
+```ts
+export declare const unknownReason: (value: unknown) => void;
 ```
 
 ### `Workflow`
@@ -9245,6 +9354,22 @@ export type Input = {
 };
 ```
 
+#### `normalize`
+
+Kind: value.
+
+```ts
+export declare const normalize: (value: t) => t;
+```
+
+#### `parse`
+
+Kind: value.
+
+```ts
+export declare const parse: (value: unknown) => undefined | t;
+```
+
 #### `t`
 
 Kind: type.
@@ -9686,7 +9811,7 @@ export declare const check: (db: Database) => void;
 Kind: value.
 
 ```ts
-export declare const currentVersion = 1;
+export declare const currentVersion = 2;
 ```
 
 #### `ddl`
@@ -10327,8 +10452,8 @@ export declare const nodeSqliteAdapter: Adapter;
 Every packed CAVE declaration loaded by the consumer is fingerprinted, including internal types referenced by public signatures.
 
 - `@cavelang/canonical/dist/src/canonicalize.d.ts` — `0a460cfd9ca2c669df2d8c2a65329da7f2a4b2a86d983b922dcf46253a3ad7b3`
-- `@cavelang/canonical/dist/src/emit.d.ts` — `a800ffa4675d6d12d6c191b4e518bfde1aba9d4ff9492e709b75a25a8b2a09de`
-- `@cavelang/canonical/dist/src/index.d.ts` — `addefd17b342523986bdde32a74f0d9fcab585a7e5b522f1dbfcb9b1131a694f`
+- `@cavelang/canonical/dist/src/emit.d.ts` — `659e798e68c83c09089166d4580d54b6840812617d5ac26bee861e34db7248df`
+- `@cavelang/canonical/dist/src/index.d.ts` — `8749018de3b347ed1fcb1e97ae1b0df33f61f6f90df2d8cb0941d0a962bf1efa`
 - `@cavelang/canonical/dist/src/prelude.d.ts` — `8b1619bd2b54af08b7db0500ca71c4ddb9566fbf0a103a38e4d56e675c6a9d3e`
 - `@cavelang/canonical/dist/src/registry.d.ts` — `514f54a68544b8a793c3f317b3bc6b613868002db19963c3039c46c760b0d7d4`
 - `@cavelang/cli/dist/internal/act/action.d.ts` — `ec0b1d99aeda19dd58a0d66056a84dca745b898b47b9c56a132c48847a0cdc14`
@@ -10337,14 +10462,14 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/act/index.d.ts` — `9a6d75b6ec86e49673c74eb728119d4d433672db555e10ad764e2907121d8035`
 - `@cavelang/cli/dist/internal/automate/automation.d.ts` — `04ba611611e811a6bb1fe0485f75222fe884dadade366d0fb81c9efbfce77ede`
 - `@cavelang/cli/dist/internal/automate/declare.d.ts` — `a9d0cac8e6da13402c9bb61e849b554b1a07d1a727756c1471ed35a9719b4a35`
-- `@cavelang/cli/dist/internal/automate/engine.d.ts` — `5c2173a6e370c69d0fab89446aba75d3a69e9b8cf1ee721252c63b11ab7d6df7`
+- `@cavelang/cli/dist/internal/automate/engine.d.ts` — `08c903d51aea2d3fcea282af865846cfd6475ebede6fdd76868454e37b3f1525`
 - `@cavelang/cli/dist/internal/automate/index.d.ts` — `22c5f9b2b1aca3f0bd47951ce9b666abb9a575a608d9795422994db29329bcdc`
 - `@cavelang/cli/dist/internal/automate/main.d.ts` — `278b305337703102e5447aa3032db63b293c7fc19a4911ef6f862eb72f1053e4`
-- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `a2348015651c01e3e8f3c545f9b422cde87f277be2de538172407c371ae93f5f`
+- `@cavelang/cli/dist/internal/connect/declared.d.ts` — `9214d9e2187c7a0bec14fdc0dc131a60b5800fe2de6c453a7c9102057e65e322`
 - `@cavelang/cli/dist/internal/connect/index.d.ts` — `a54395904b587a7c09318258378718693c473e632c7255b0ba90d69a2b873739`
-- `@cavelang/cli/dist/internal/connect/main.d.ts` — `383cd8e89777dc340c4da9258d84262aef1ccd75720ea803a5e091ca40fc95b8`
+- `@cavelang/cli/dist/internal/connect/main.d.ts` — `76f7e9279f05d08ed1f3f8d522814dbe583752980821cf0b4bc4ddef2caf1afc`
 - `@cavelang/cli/dist/internal/connect/run.d.ts` — `85249a81287ac394e0b61d6633c0f1b139e36c87aff8828f2e46b5f83c149fd4`
-- `@cavelang/cli/dist/internal/connect/source.d.ts` — `638cd767ebb0656058ca376b583bf9f3083e8527123087c4b9f730dcae138329`
+- `@cavelang/cli/dist/internal/connect/source.d.ts` — `d95f58b590022273a1a25d98051cba7661c211ab6e17d2cdf93c67192efe8831`
 - `@cavelang/cli/dist/internal/connect/template.d.ts` — `c41e8780a5434ed0a2acd359d356e7ee5c6a8731f73f7ed2675f089e863862d3`
 - `@cavelang/cli/dist/internal/eval/index.d.ts` — `d2d611f5af29180aabd1e99a7e7a7d1522215f7f49907dedfd0063ade57696c1`
 - `@cavelang/cli/dist/internal/eval/judge.d.ts` — `237ab4139a721b6aa824dc94a3688b47f481c3b51757460a445a1aa182852bbd`
@@ -10355,16 +10480,18 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/eval/score.d.ts` — `3995c714319f2830b706018757eb49651b73adcb7ece0326552a9039c99bf459`
 - `@cavelang/cli/dist/internal/eval/suite.d.ts` — `f99f960c14eebc9d21d93b355fd92ee67c4466f48593330eacb0a088a0674503`
 - `@cavelang/cli/dist/internal/ingest/context.d.ts` — `247b304f240ff9a2a8da1207a42b0f2215424fcfdea8446bb7b1ac05c5324bf6`
-- `@cavelang/cli/dist/internal/ingest/files.d.ts` — `ec7df43b0a3f3f05ae69f87ebecdbf98b000e4ad433c46fcef56ce7a584adf8a`
+- `@cavelang/cli/dist/internal/ingest/files.d.ts` — `e13a6371964c4475d421411a551a82253fcb3ead3c9912155ee6cd70bf0376d3`
 - `@cavelang/cli/dist/internal/ingest/index.d.ts` — `20d3da3c6fd96d856a37708da3d4460fb5d4610e2c5d5d55e1f31e4a6ae3b572`
 - `@cavelang/cli/dist/internal/ingest/main.d.ts` — `32dfdb5cc6dfe113fc1484f12bdaf2e1031dd7ad4c4a7c04f4c8c7161d19fc59`
 - `@cavelang/cli/dist/internal/ingest/prompt.d.ts` — `041dc1ddd1ef22117522373a4309a62734a110fa149f0ff6b1e7068aab907798`
-- `@cavelang/cli/dist/internal/ingest/run.d.ts` — `ab65d097a3fa29451970dd6cb9f440a137cc3aeda8dcc3f5172c353198b56326`
-- `@cavelang/cli/dist/internal/ingest/web.d.ts` — `caf6e251257efc3500b95c0fec5e627350c86eb490d8749939a8a107247339f8`
+- `@cavelang/cli/dist/internal/ingest/run.d.ts` — `e382433060dc174310cc2e961d688b9e082571cefbe271ae93d857af1b00895c`
+- `@cavelang/cli/dist/internal/ingest/web.d.ts` — `6d933a519a0e9a94ddb21530584d8ae1923a38581ed70eb029a2ee5e7096b233`
 - `@cavelang/cli/dist/internal/loop/demo.d.ts` — `b37bc4af14e1b24b006c26c04113c6124d1f221f550431c9157c570c541392ff`
-- `@cavelang/cli/dist/internal/loop/index.d.ts` — `22bd41abaae81428ad3f26548a53aa02e35b8420efcbe40fa495674e7e3dc28b`
+- `@cavelang/cli/dist/internal/loop/index.d.ts` — `7d0d375adb5fced8d5f6170926c2da44ca58642baf5c72d76127846c1d706b90`
+- `@cavelang/cli/dist/internal/loop/json-answer.d.ts` — `bbc333d2f75144e3fc4722ae0f6bcf919b910c6a26f28ded29d6d69c525e8c1b`
+- `@cavelang/cli/dist/internal/loop/json-spans.d.ts` — `655b707d06b05f264f6c5213a3979db07748d3869ab4f5aed09322c7fb87cbdc`
 - `@cavelang/cli/dist/internal/loop/llm.d.ts` — `75be20270a2c8c8392b41c33fddc1cde139a14b60eb2eebf72daac16fb9950e5`
-- `@cavelang/cli/dist/internal/loop/process.d.ts` — `d7e0e84a9dea81ba74308b7e56a0975387bc856097089721df72c337706f0465`
+- `@cavelang/cli/dist/internal/loop/process.d.ts` — `e917b55c7d461a592fdfb3c55e735715943c98bf4b146fad3c770aedbc26c25a`
 - `@cavelang/cli/dist/internal/loop/reconstruct.d.ts` — `b105d88232728cb02c0acd21c5727e380e4a211b74bc77649f9c85589ada31ce`
 - `@cavelang/cli/dist/internal/loop/sqlite.d.ts` — `7f6cbf331eac3e8095f9deaaf0e239293a2f6beb34ad03d6540d263ac501f728`
 - `@cavelang/cli/dist/internal/loop/store.d.ts` — `0fbc7f47a361e53f5c5c6d3c45647b8f3c3a3e6a38d2e7f5fc3c09f9bcfb14cd`
@@ -10376,14 +10503,15 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/rules/engine.d.ts` — `6fa09461bb604d31e5ef00c6f0d934587fa3f9b64998fb37deb8c844f57e52fc`
 - `@cavelang/cli/dist/internal/rules/index.d.ts` — `550f8ea95eb2a5fa4538513bba50b435a7cf22a75c016d0d827582d2cd75da0f`
 - `@cavelang/cli/dist/internal/rules/rule.d.ts` — `ada748e6d996b09536baedd5a8961ef84fe31ed124c066beb03ed3d20598894d`
-- `@cavelang/cli/dist/internal/shape/check.d.ts` — `39208a05554d0a7cc67ad4f058bc2f38f2383f9183ff6f0a4280e5f5e4a46303`
+- `@cavelang/cli/dist/internal/shape/check.d.ts` — `7b06d43ce95f7671f1b92b9a48b5bed4f46d00317bbfb3b082913341ec1b8a03`
 - `@cavelang/cli/dist/internal/shape/client.d.ts` — `44278d6171c836b65d595195dec6ac142ffdfdc6b2d89a13a2b6ce561d23e4d5`
+- `@cavelang/cli/dist/internal/shape/constraints.d.ts` — `c1d179b3c281a53a94d65775dd085941e8af3f496935166dc6ba7d14122888e3`
 - `@cavelang/cli/dist/internal/shape/gate.d.ts` — `3eff7524850ef9446ad7308316eea6d7f60fde42685a4938bd04891b9881fdf7`
 - `@cavelang/cli/dist/internal/shape/index.d.ts` — `a7bf072d48d5ca56006171f9a701fb82bd440be6176be2da2f5edf408cf043c5`
 - `@cavelang/cli/dist/internal/shape/suggest.d.ts` — `2ab8788483c7534b3f05cd60d662421c53c9c5a65f004342f18368b6aab87115`
 - `@cavelang/cli/dist/internal/sync/index.d.ts` — `1a194eabf5ed8fe507ecbd8c680ca9bd0b2ac22a4e73aac11bf75c85dbc76e04`
 - `@cavelang/cli/dist/internal/sync/sync.d.ts` — `4993115e2e89482d95091aefcc8d9192bef57f2a1f9499493c62c4388901277d`
-- `@cavelang/cli/dist/internal/view/api.d.ts` — `68425c7f8a0c86e9e70f2af0ca44a81ab8aff66d26cfd9c94a35f506311a524d`
+- `@cavelang/cli/dist/internal/view/api.d.ts` — `23d1ebd18ab1a69043a6eaa87b5d7aae5822f8492f4b8421f9d7e7bced1a3264`
 - `@cavelang/cli/dist/internal/view/index.d.ts` — `3c0b42259fe456e35e41dd15fe629f671020bc373653f5c4f78390fae3c0040b`
 - `@cavelang/cli/dist/internal/view/main.d.ts` — `7e74be111be0e5698b8ba68840461d55b27599e83c67547a6971308c496d89ce`
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
@@ -10395,7 +10523,7 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/src/doctor.d.ts` — `12e186bfd1e6db3e52658bea0d0ca042bbbd967ebcbcf06f5c36f5ee61ab78ac`
 - `@cavelang/cli/dist/src/index.d.ts` — `16b623fc03187932bc93c40b12cfa3f55c6f36b8d220f739612b469edfc165ce`
 - `@cavelang/core/dist/src/claim.d.ts` — `aaf35bf598486be9edfeef5ff4ef4f4b6196d18789e80df8d859e332f8308db1`
-- `@cavelang/core/dist/src/confidence.d.ts` — `d67ec940afbe75fc4028dc825e4d720f8f3ec38eb1d9d5a28f842c555f213694`
+- `@cavelang/core/dist/src/confidence.d.ts` — `0bdf03a1c046dacb2f6eaf5ab8d2d0084c610204df77d15ad25e3d3d502e58e3`
 - `@cavelang/core/dist/src/context.d.ts` — `57c44c0613aebb617c1f81c0d067ed4c33488a32564856cad0f05c9371961507`
 - `@cavelang/core/dist/src/entity.d.ts` — `e79edbb79344c273655896ad110565b5a4afd61fab30e0939bdd2eecce67dfa4`
 - `@cavelang/core/dist/src/index.d.ts` — `7c70a1ea9dc7f1253499afddeca431fc68ca97c284b919873ac6a508f348750c`
@@ -10412,39 +10540,40 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/fusion/dist/src/conditional.d.ts` — `e5183f0252fd1aec69c0085fc0df9daf58e315c3099b6ebd8e0bbc886bdeaaaf`
 - `@cavelang/fusion/dist/src/fuse.d.ts` — `3a6f206a605cd3e0ea8ee8ab7878a255d835581a7da84d629a23f55447b1928c`
 - `@cavelang/fusion/dist/src/index.d.ts` — `4b81c280507baf20f0cae3c7cb7dbb3afeb5f5e6a84d32c4d9a5a667ce32566f`
-- `@cavelang/highlight/dist/src/browser.d.ts` — `512506147a1bf5bf9d29850ff6070d9b69f51e54bcad54c945fbf066337649be`
-- `@cavelang/highlight/dist/src/core.d.ts` — `7f254f1808f1620d8250c0abc69ae426ccde4646a3b23fa16f2990a716cf224c`
+- `@cavelang/highlight/dist/src/browser.d.ts` — `a219aaadf42c33d2dd072419718309e8a2ab2975d26abae34095937df9bcc61c`
+- `@cavelang/highlight/dist/src/core.d.ts` — `5a69545067512442ac4c4b880c3178ceddc7a72a4e32daa9009e4be94e8637f6`
 - `@cavelang/highlight/dist/src/index.d.ts` — `90763c76868a213d06c7d5efdaa10c398021fd55fa8f24ae5c02c02837d3f1f4`
 - `@cavelang/parser/dist/src/ast.d.ts` — `7f84ec5ee54f3aefbb549843906f3d8f0bd90a2cdf2c26a964d5d4cbd2992546`
 - `@cavelang/parser/dist/src/document.d.ts` — `2571df5f76191edfcb008f7acea13d97c25ddf64af24da50526da9ec620a42ec`
 - `@cavelang/parser/dist/src/index.d.ts` — `25846cb1d030f184c46f49c8fb941b57e0fe9661da006933b3cf26d1aa5647e6`
 - `@cavelang/parser/dist/src/line.d.ts` — `c7766d6ba681f31c878a5c97c8ec2b132e4fe1bdbf42db212cd41fe3f0e0d439`
-- `@cavelang/parser/dist/src/token.d.ts` — `017b6ae39f22dddec57e8d1542d2a86bb6f1065fec33abae2789f5f9b6ec18d0`
-- `@cavelang/query/dist/src/bounded.d.ts` — `3aec072e05d3ce3f0e19eb683f16839d89653d845892b3de263f88774a0b1366`
-- `@cavelang/query/dist/src/compile.d.ts` — `8617165963b21b8dabdf24d401436a858173412764efe407daca3e02161737c9`
+- `@cavelang/parser/dist/src/token.d.ts` — `9ac24d9084dcd7c0735870c81ab96ea6af9c65c7242c87f79de84e05665f2519`
+- `@cavelang/query/dist/src/bounded.d.ts` — `ac6386cbfdab800a7ec01adebf245ab181f01ab54e49794891fe509b40fb25e7`
+- `@cavelang/query/dist/src/compile.d.ts` — `92c569dda8361b96222c9c4c07399417d8bf114cee1c1a38c600b7a73028f187`
 - `@cavelang/query/dist/src/index.d.ts` — `1c175d519d9034a4a3469bb14c52735c0f9a80a013cd79dae3b8ae4b2e702f8f`
 - `@cavelang/query/dist/src/page.d.ts` — `5713324006866019d5c966af56c39cbc9e353851a05993118dd764a7497d973c`
 - `@cavelang/query/dist/src/pattern.d.ts` — `10f537a7d3bfbc8fc53a71e439291453a104f5c612d93e752847bc84f744d535`
 - `@cavelang/query/dist/src/record.d.ts` — `9f21f9ea484c80de7f3ce4b1d18b9e1d32a4dc0dfe47cd533ea709a87f3d7cc0`
-- `@cavelang/scenario/dist/src/bind.d.ts` — `f04676b603f08c12159cc34491b8c06a050cc783d9c24c0aca347ef357f42f7d`
-- `@cavelang/scenario/dist/src/error.d.ts` — `a669c00d87f690e2b37c32168ab2761d4f7f4a87875a4400d12c50370c32b0a3`
+- `@cavelang/scenario/dist/src/bind.d.ts` — `6869b463ef6670e236ce987fce868cf3b79bea98bebaffbb55d3399c7e5200d8`
+- `@cavelang/scenario/dist/src/error.d.ts` — `a8a7a2e7dcb67e5e76b9f5005025ce2482a6818d740e7aac2984cb25a7e8e88d`
 - `@cavelang/scenario/dist/src/explain.d.ts` — `ba2349a429e40d4c0ee331ff5a5d2cebbe3c88200d55d8b94f5cf920a8b4780c`
 - `@cavelang/scenario/dist/src/index.d.ts` — `e38b763b08408199c05a457582016545f3b1e914bc7780e28e55a575cb2d8170`
-- `@cavelang/scenario/dist/src/model.d.ts` — `26e5f526a183e98a9103c31b1ed98d5c00e7a50ddc0ce52b621e701db57461c2`
-- `@cavelang/scenario/dist/src/record.d.ts` — `bc331dd3afc697a41623fcbee9246f4d93aea2df3398d962a23321f37dea555d`
+- `@cavelang/scenario/dist/src/model.d.ts` — `a1d6ffb16bb9e0defd15e6ca2632b093183e8c948431f282ebc39c3dad1c060b`
+- `@cavelang/scenario/dist/src/record.d.ts` — `03c65e696ea331b498ee6d9c9fd4d3406e162710c8169f19b77c7da58612ddd8`
 - `@cavelang/solver-z3/dist/src/index.d.ts` — `7744472a09b3a38738ab267fcd234c60491ee2d893cf9c7e9240494dc2772ea5`
 - `@cavelang/solver-z3/dist/src/runtime.d.ts` — `60a18e2e62b6a3c90a7b39c00a671a2aff60ee7b6e340eed806688cbd42efe41`
 - `@cavelang/solver-z3/dist/src/workflow-fixture.d.ts` — `1ac7f75b5e47905fd2b7635d174811d669fb98560050ff7c1ae7f7ae1b7c531a`
-- `@cavelang/solver/dist/src/adapter.d.ts` — `6f7901fddf8539fe6d70f403f711a7450721f60b8287376fa36f2bcc8d5676a1`
-- `@cavelang/solver/dist/src/canonical.d.ts` — `36aef7aa9edb618860fa8a9fc8bd8432d1b4fc88c03f843b3e27e7a2e2010e6c`
+- `@cavelang/solver/dist/src/adapter.d.ts` — `fd88296e0d00e270e24d98cd4b17ed192e0693ee7237c3db5bc6bb469de6aa89`
+- `@cavelang/solver/dist/src/canonical.d.ts` — `688a2c010e159dccf16805bf8b360db4e2e5021409f835463d4708b74d623002`
 - `@cavelang/solver/dist/src/capability.d.ts` — `ce4bdc5f9baa6ca9005fab012e21968e5f9155ef4e8b13df0d16dea7f0de02fb`
-- `@cavelang/solver/dist/src/exact.d.ts` — `6ae8676e42488804491a4514d216c04a90fa57a71534a6035aaf044edc3f2983`
-- `@cavelang/solver/dist/src/explain.d.ts` — `94b8e59b0e2f6d96dc4739af81f1f406841b66587d5f532b8ebb3c6bc6810064`
+- `@cavelang/solver/dist/src/context.d.ts` — `7f8fc6524c6c80cba23bc3ebc4f4c59165a3c3b8e081b26f97f70872b5c764db`
+- `@cavelang/solver/dist/src/exact.d.ts` — `86829d9b36ac931031487b61845b249795cec22d00623b7b44c9efe1c6662d55`
+- `@cavelang/solver/dist/src/explain.d.ts` — `ff5c6959b2a8263da59b7b58cf7a0509314e0c6dea6503a8e2e1edf2c53f5055`
 - `@cavelang/solver/dist/src/index.d.ts` — `73b629b562f06b5273fdd38f021ccccdd9ac9fccc82f3b6b98aa1d8ee2c7928f`
-- `@cavelang/solver/dist/src/linear.d.ts` — `760aae84067e8a899aa68da04f13830390049dcb90a84bdc1f1114895c861e09`
+- `@cavelang/solver/dist/src/linear.d.ts` — `96b9cf6bc92a73e87e81a5eac925430ae2c3d0d413c736dd59efbedbb240305a`
 - `@cavelang/solver/dist/src/model.d.ts` — `f2ad7c261bee08eccf1358876d0a7d8313af646ca5d26a695388b1ca9d5fcd61`
 - `@cavelang/solver/dist/src/solve.d.ts` — `4d6aa042d688166c0e51b93040ab8e6a5cd5fdf4fbaeabbdbba2a7f124d7ce4b`
-- `@cavelang/solver/dist/src/validate.d.ts` — `59de37888eaadeea3c4d15b9c16dde1ea79756196a8fac04a46ad0cd657802bc`
+- `@cavelang/solver/dist/src/validate.d.ts` — `b9ac02ed9921227eb46067532d90c9a459c0f8fdaf68db0bfe907c51e1cfcddb`
 - `@cavelang/solver/dist/src/workflow.d.ts` — `ec848f4cdf3812ff20a26323d6e353bb130a6675989100a550244239dcb4b605`
 - `@cavelang/store/dist/src/adapter-entry.d.ts` — `0c74dcd8323b25aa37bd4888214c69b48f0ef3010ccbede828706a6cc46d428a`
 - `@cavelang/store/dist/src/adapter.d.ts` — `ac1a4c44abcb0ce5bc81f4880052927e7542e95c4b13fa53e762a7be42b557c3`
@@ -10454,12 +10583,12 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/store/dist/src/node-adapter-entry.d.ts` — `caa3e62eae43a241439666faadb32bfe6e37b63e383008dfc10f49c7fc9fda07`
 - `@cavelang/store/dist/src/node-adapter.d.ts` — `a1da5678ae06fdda86856834f7f2a75fc329c4202801ece383890f6d3d7429e8`
 - `@cavelang/store/dist/src/open.d.ts` — `842d7f35311ce7b46bb7337a74247ba268ff9e5241e0dbb57bd9c11cc9afa08f`
-- `@cavelang/store/dist/src/provenance.d.ts` — `1484b573505704d5beb36ea5f19d3411f798d36e2f5b59aae0477472fffab079`
+- `@cavelang/store/dist/src/provenance.d.ts` — `b500ac467f32cc0d8fd5d77b0e2b7619adad75d12471ce9038782dfda4664bdc`
 - `@cavelang/store/dist/src/query-sql.d.ts` — `f6a103f6c708e28c549453a03800fa37c66c087645795136dbbcdc9c379571b1`
 - `@cavelang/store/dist/src/record.d.ts` — `d1573ad1d88be6c49e069ca904e86da092306fcdb177d5d32aed34b8ef96a2bb`
 - `@cavelang/store/dist/src/resolve.d.ts` — `d13b19bdd7d46eb57ad75a4ae43cc9f53a6b115d4861f17a9cebb55b1479b458`
 - `@cavelang/store/dist/src/row.d.ts` — `3bead05cb6fa8e4558badc91efd60362c028a5c53ee0e5cd6ce97a20628c10fb`
 - `@cavelang/store/dist/src/runtime.d.ts` — `2fda7e7dadd437a4b3cf85797ba962d7468a0f6cff67d88c27d3623c632bb02d`
-- `@cavelang/store/dist/src/schema.d.ts` — `daeecab6c304b4f2bdf5d33509e2de6dfe44b1dcfeac69970565d1dd6755ab37`
+- `@cavelang/store/dist/src/schema.d.ts` — `fd5f7ae9676163b74a1dfacb0a916c882a3180afd645bb85f183c0f627b054eb`
 - `@cavelang/store/dist/src/sensitivity.d.ts` — `4a8e9a09f9bdcff92bdebfa2839760a0880cec2f9685f7061251e1af4cdec3f4`
-- `@cavelang/store/dist/src/store.d.ts` — `b30431dbed2de58fe85360d2c99253d321f04f63e7a5aab2f21cb0b78ec097a6`
+- `@cavelang/store/dist/src/store.d.ts` — `2e77b8ad322b616d94f81099627c6c6fc2b54b0dc1706cdd7b93935bd8fc802b`

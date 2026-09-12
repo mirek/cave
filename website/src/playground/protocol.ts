@@ -12,8 +12,8 @@ export type QueryResult = {
 export type PlaygroundRequest =
   | { readonly id: number, readonly operation: 'open', readonly source: string, readonly sourceName: string }
   | { readonly id: number, readonly operation: 'append', readonly source: string }
-  | { readonly id: number, readonly operation: 'query', readonly pattern: string }
+  | { readonly id: number, readonly operation: 'query', readonly pattern: string, readonly at?: string }
 
 export type PlaygroundResponse =
   | { readonly id: number, readonly ok: true, readonly result: OpenResult | QueryResult }
-  | { readonly id: number, readonly ok: false, readonly error: string }
+  | { readonly id: number, readonly ok: false, readonly error: string, readonly fatal?: boolean }

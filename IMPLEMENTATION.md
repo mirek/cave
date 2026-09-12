@@ -4,10 +4,10 @@ A pnpm TypeScript monorepo implementing the CAVE specification
 (split across the skills in [`.claude/skills/`](.claude/skills) — see the
 [README's section index](README.md#the-specification) for which skill holds
 which § sections).
-Functional style throughout (immutable domain values and namespace modules in
-the `@prelude` convention; classes are limited to typed `Error` subclasses),
-built bottom-up — each package is documented and tested alongside its public
-behavior.
+Domain APIs use immutable values and namespace modules in the `@prelude`
+convention. Classes also support typed errors, runtime ownership and React error
+boundaries. Packages are built bottom-up and documented and tested alongside
+their public behavior.
 
 ## Packages
 
@@ -49,41 +49,709 @@ Dependency order, bottom to top:
 Outside the npm dependency graph, [`editors/vscode`](editors/vscode)
 packages the same grammar WASM and highlight query as a VSCode extension
 (semantic tokens — deliberately no TextMate grammar to drift out of sync).
+Activation owns the parser and compiled query. Its disposable unregisters the
+provider before freeing both; failed setup frees partial allocations. Document
+trees are released after each request even when capture generation fails.
+Node's shared highlighter and the website's page-wide loader cache in-flight
+and successful initialization, but clear rejected loads so a later request can
+retry. The website keeps plain source visible on failure; mounting another code
+block or editing source triggers a new attempt, without a background retry loop.
+Explicit core/browser factories return `OwnedHighlighter`, whose idempotent
+`close()` releases the parser and query and prevents further highlighting.
+The Node singleton exposes only the shared interface; the website cache lives
+for the page lifetime. Closing an owned instance does not unload the language or
+WASM runtime.
+The public ANSI renderer validates custom spans as ordered, non-overlapping
+UTF-16 ranges inside the source and rejects invalid ranges with `TypeError`.
+Theme lookup considers only own properties, so prototype entries cannot become
+escape-sequence parameters for unknown captures.
+
+Solver capability negotiation follows expression result semantics as well as
+declared variable and literal sorts. In particular, every division requires
+`rationals` because portable division returns an exact real even for integer
+operands; unsupported backends are rejected before execution.
+The solve boundary copies and deeply freezes the validated model before adapter
+execution, with a frozen set of resolved limits. Explanation runs also copy
+their context and check its replay digest before execution, so edits to caller
+objects during an asynchronous solve cannot change the submitted identity or
+its evidence. Caller objects themselves remain editable.
+Portable model/context records and arrays are copied iteratively with an
+identity map before freezing or workflow execution. Shared references and
+ordinary data keys remain intact; native structured cloning handles values
+outside portable containers. Copying deep portable inputs no longer consumes
+the native clone call stack.
+Copy preflight inspects property descriptors and detects proxies without
+evaluating accessors. Accessors, proxies, and nonportable containers use one
+native clone of the complete input graph, preserving getter order/count and
+native rejection behavior; iterative copying is reserved for data properties.
+Workflow entry points capture model, options, and context for the whole
+operation. Sensitivity captures its request as well, preserving sample bindings
+and limits across successive backend calls. Replay identity is checked before
+backend execution in every workflow.
+Workflow scope theories use the same capability analysis as solver preflight,
+covering arithmetic expressions and rational soft weights as well as variable
+sorts. Domains remain the bounds of declared variables; no synthetic domain is
+invented for constant expressions.
+Solver and workflow entry points validate options before applying defaults:
+unknown option/limit names, malformed limit containers, and non-Boolean
+`unsatCore` values fail with `TypeError`. Sensitivity rejects unknown operation
+names with `WorkflowValidationError`, rather than treating them as optimization.
+Canonical serialization and hashing accept explicit validation limits, and
+solve/workflow explanations use their resolved limits for identity and replay
+checks. Limits do not enter canonical content: raising a bound permits larger
+models without changing the identity of an already accepted model.
+Canonical expression conversion and JSON token rendering are iterative. Prepared expressions are
+reused by object identity across constraints and objectives within one captured
+model; validation still charges every occurrence and each operation starts with
+a fresh cache. Operand
+ordering compares token streams lazily using the same lexical ordering as
+complete canonical strings, preserving format/digests while avoiding recursive
+stack growth and eager subtree rendering during comparisons.
+Digest-only operations hash batches from that same canonical token stream,
+avoiding a second full-model string allocation. Batches flush after reaching
+65,536 UTF-16 code units; a single larger token is kept intact. This preserves
+UTF-8 digest identity, including escaped and supplementary characters, but does
+not cap individual tokens or canonical model preparation. Public serialization
+joins these same batches to return the complete string, avoiding an array entry
+for every token. It still retains the output and canonical model; public hashing
+retains validation before and after model capture.
+Explanation evaluation uses an explicit stack of suspended expression
+evaluations. Boolean operators and conditionals request only the children they
+need, retaining short-circuit semantics. Deep valid constraints no longer hide
+call-stack exhaustion as `indeterminate`; selected undefined arithmetic and
+missing assignments retain that evaluation state.
+Each report has one local arithmetic budget shared by hard and soft constraint
+evaluation. `maxExplanationBits` checks conservative integer-size estimates
+before numeric parsing and guarded fraction arithmetic; `maxExplanationWork`
+charges the largest estimate at each successful size check against a cumulative
+allowance. Size checks run first. A refused work charge leaves the remaining
+allowance available for cheaper later evaluations. Exhaustion records a local
+`indeterminate` reason without changing the backend status or assignment.
+Resolved limits are recorded with new reports; reading or replaying historical
+reports preserves their original limit fields.
+
+The report also caches completed predicate evaluations by ordered syntax,
+including literal representation, enum domain and operand order. It uses this
+identity rather than canonical model identity because reordering operands can
+change short-circuit behavior or the first local failure. Identical hard/soft
+predicates reuse their result while retaining each declaration's metadata.
+Variable names, enum domains and enum values are interned in a table shared by
+that report's evaluation keys, so repeated long strings use compact references
+without conflating distinct IDs, domains, values or literal sorts.
+Canonical serialization and public names remain unchanged.
+Assignments, evaluation results and the allowance belong to one report, so a
+new assignment or larger limit cannot reuse a previous report's local failure.
+Distinct constraints compete for the shared allowance in evaluation order.
+
+These guards account for selected arithmetic, not all work performed by a
+report. Model/result capture, validation, syntax-key construction, unguarded
+traversal, formatting (including soft-weight normalization), standalone `Exact`
+helpers, linear classification and backend execution remain outside that
+counter. Neither arithmetic limit establishes a wall-clock or process-memory
+ceiling. Defaults, calibration and exact accounting are documented in the
+[solver validation and resource-limit guide](packages/solver/README.md#validation-and-identity).
+
+Text explanations retain normalized and authored input values plus sorted
+evidence-row and scenario-claim references. Missing inputs use an explicit
+`(no value)` marker, distinct from JSON null, rather than printing JavaScript
+`undefined` and losing the authored source text.
+Explanation report construction and solve/workflow preflight share binding
+validation: unique nonempty input IDs, string queries, and dense nonempty-string
+source-reference lists. Ambiguous bindings and malformed lists fail with
+`TypeError` before backend execution. External source IDs remain opaque.
+Input payload validation walks iteratively with active/completed object sets,
+rejecting cycles while allowing shared subobjects. Finite JSON primitives,
+dense arrays and plain records are accepted; non-finite numbers, non-JSON
+objects and custom serializers fail before cloning can erase their structure.
+Optional undefined object properties remain supported, unlike undefined array
+members that would serialize as null.
+Text rendering also uses an iterative token stack for these payloads. Node 22's
+native `JSON.stringify` overflows on validated 20,000-level values even though
+Node 26 accepts them. Both nested records and arrays retain ordinary JSON
+ordering, escaping, and optional-property omission across supported runtimes.
+Explanation metadata preflight checks snapshot policy enums, finite confidence
+within `[0, 1]`, transaction-time string/null, optional valid-time strings, and
+nonempty scenario identity/digest strings. External labels remain opaque; their
+shape does not establish that the referenced snapshot exists or is current.
+The text projection includes supplied snapshot policies and confidence threshold
+alongside time labels, and labels both scenario input and overlay digests.
+Omitted policies stay omitted, while an explicit zero threshold remains visible.
+Linear-subset recognition evaluates constant divisors with exact rational
+arithmetic. Computed zero and undefined constant divisors are outside LP/MIP,
+even when the general SMT model remains valid; nonzero constants are not
+classified using floating-point approximations.
+`Linear.model` accepts explicit validation limits, just like canonical identity
+generation, so larger validated models can be classified without reverting to
+default size bounds. Limits govern acceptance rather than linearity.
+Affine classification and constant evaluation use explicit stacks with per-model
+caches. Shared factors reuse their classification while each occurrence still
+counts toward the product's variable-bearing factor limit.
+The Z3 adapter guards its instance's native reference-decrement and context
+deletion calls during asynchronous solver and optimizer checks. The binding's
+finalizers bypass its check mutex; deleting ASTs while a pthread check runs
+can corrupt later results or crash in native reference cleanup. Releases are
+queued only while a native check is active and drained when its promise
+settles, including rejection, before control returns to CAVE. This leaves
+synchronous cleanup immediate and avoids retaining every compiled expression
+for the runtime's lifetime. The runtime CI matrix runs both solver suites and
+the large forced-GC diagnostic on each configured runtime/OS entry. A
+five-minute step timeout bounds a native hang. The large memory diagnostic
+verifies the original
+75,000-variable sequence and subsequent exact optimization under forced GC.
+
+The Z3 adapter also compiles expressions with an explicit traversal stack and
+per-model expression cache. Deep accepted models reach the backend without
+recursive JavaScript compilation, while shared terms retain every operand
+occurrence and never reuse expressions from another request.
+Boolean conjunctions and disjunctions compile through groups of at most 1,024
+operands. Grouping preserves their meaning while bounding argument lists;
+passing an AstVector alone would still encounter internal argument spreading
+in the current Z3 binding.
+Generated domain bounds enter both Solver and Optimize in batches of at most
+1,024 assertions, retaining all bounds under raised variable limits without
+an unbounded spread call.
+Unsat-core trackers use fresh Z3 Boolean symbols, mapped back to portable
+constraint IDs. Deriving tracker names directly from those IDs could collide
+with user variables and incorrectly turn a satisfiable model into an
+infeasibility result when core extraction was requested.
+Optimization checks every explicit objective's lower and upper bounds against
+the value attained by the returned model using exact rational comparison.
+Z3's successful optimization check alone does not establish a finite attained
+optimum: unbounded objectives and strict unattained bounds return portable
+`unknown/indeterminate` rather than `optimalityProved: true`.
+Z3 runtime creation waits for a pending shutdown before initializing a shared
+replacement. Each runtime retains one close promise, so concurrent closes
+drain accepted work once and later closes cannot clear a newer singleton.
+Exact integer parsing accepts only primitive safe numbers and full integer
+strings; numeric strings cannot hide final line terminators behind a regex end
+anchor. Exact decimal zero is normalized before power-of-ten expansion, while
+retaining exponent validation, avoiding unnecessary huge allocations or errors.
+Solver declaration identifiers likewise require complete primitive-string
+matches, preventing final line terminators or coerced objects from entering
+variable, enum-domain, constraint, or objective identity maps.
+Model and expression containers are checked before traversal; declaration lists
+must be dense arrays of objects. Provenance locations and reference lists receive
+field-specific model diagnostics for malformed runtime types or sparse entries.
+Variable, combined hard/soft constraint, and objective counts are checked before
+declaration entries are read. Enum-value counts accumulate by domain and reject
+an oversized domain before its members are inspected. These count checks precede
+semantic validation inside the oversized declarations.
+Enum-domain validation requires dense arrays of distinct primitive strings,
+ensuring backend assignments retain the portable enum-value type. Empty and
+Unicode strings remain valid members; members are not declaration identifiers.
+Model validation explicitly rejects unknown variable/literal sorts and requires
+Boolean literals to contain Boolean values. An unknown literal sort cannot fall
+through to variable-reference inference or enter an adapter as valid data.
+Expression node and depth budgets are enforced at traversal entry, before an
+over-budget node is inspected. This bounds default validation of deeply nested
+or cyclic expressions and reports the first exceeded boundary rather than
+attempting a complete traversal before rejection.
+Validation uses an explicit post-order traversal stack and infers each parent
+from its completed children. Raised depth limits therefore do not consume the
+JavaScript call stack. Children are visited lazily, and shared expression
+objects still count at every occurrence with their own diagnostic paths.
+Capability discovery uses iterative traversal with active/completed node sets
+and computes variable dependence bottom-up once per node within each expression
+root. It rejects cycles, avoids repeated nonlinear-arithmetic subtree scans,
+and counts repeated variable-bearing factors separately when classifying a
+product. Validation occurrence counts remain independent of this graph reuse.
 
 ## Toolchain
 
-- **Runtime support is explicit.** The supported Node.js lines are 22, 24, and
-  26: 22.18.0 is the exact minimum, 24.18.0 Active LTS is recommended, and
-  26.4.0 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
+Hook-file validation currently has three owning readers:
+
+| Entry points | Reader | Regression coverage |
+|---|---|---|
+| Action CLI and doctor | `packages/cli/src/hooks-config.ts` | `packages/cli/test/cli.test.ts` |
+| Automation CLI | `packages/automate/src/main.ts` | `packages/automate/test/main.test.ts` |
+| MCP startup | `packages/mcp/src/main.ts` | `packages/mcp/test/stdio.test.ts` |
+
+Keep their file contract aligned: fatal UTF-8 decoding, a JSON object with
+nonblank names and string commands, and well-formed Unicode in both names and
+commands. Validation precedes action execution, automation settlement, or MCP
+startup; doctor uses the action reader with redacted diagnostics. Regression
+coverage checks rejected writes/startup and corrected retries at each boundary.
+
+Sharing these readers across private packages requires a packaging decision.
+`packages/cli/scripts/consolidate.mjs` copies private command modules into the
+CLI and rewrites `@cavelang/<package>` imports to `@cavelang/cli/<package>`.
+A new private-package subpath therefore also needs a resolvable published CLI
+subpath or a change to that rewrite strategy. Moving a helper between packages
+alone is insufficient. Keep any such refactor paired with packed smoke and the
+reviewed public API check; source tests do not prove installed resolution.
+
+
+- **Consolidation verifies runtime dependency declarations.** The CLI's build
+  checks literal ESM imports/re-exports, dynamic imports and CommonJS loads in
+  `dist/src` and `dist/internal` against its production, optional and peer
+  dependencies. `scripts/check-runtime-dependencies.mjs` uses TypeScript's
+  syntax tree, so comments, ordinary strings and unrelated methods named
+  `require` are not imports. Literal `require.resolve` lookups are checked too.
+  Published self imports, builtins, relative/absolute paths, URL specifiers and
+  package-local aliases do not require an external package declaration.
+  Excluded compiled tests may use development dependencies. This is an early
+  manifest check; computed import names, alias/export resolution and installed
+  availability remain the responsibility of packed smoke checks.
+- **The aggregate CI gate includes release metadata.** The `test` job waits for
+  source, runtime, browser, packed-artifact, VSIX and changeset checks. Changeset
+  failure or cancellation fails the aggregate; a skipped changeset job is accepted
+  only on pushes. Every PR runs the job. Its new-changeset requirement is waived
+  only for the exact `changeset-release/main` head in the same repository targeting
+  `main`; the step succeeds explicitly for that version PR. Forks, prefix matches,
+  case variants and other base branches retain normal validation. Workflow
+  regression checks execute the aggregate shell gate for these result states.
+  A successful aggregate reports workflow results; enforcing it before merge
+  requires a required-status-check rule in GitHub. The live `main` ruleset audit
+  on 2026-09-07 found pull-request/squash, deletion and force-push protections,
+  but no required status checks. Contributor review and green-CI obligations
+  remain in `CLAUDE.md`; the workflow alone does not enforce those merge settings.
+  The changeset job passes its base ref through an environment variable and reads
+  Git's NUL-delimited added paths into a quoted Bash array. Spaces, quotes,
+  newlines, Unicode and glob characters in filenames do not split or expand into
+  other paths; shell syntax in a branch name stays data. Failed Git comparisons
+  fail the job explicitly instead of being treated as an empty changeset list.
+  `scripts/check-changesets.mjs` validates added files using the same
+  `scripts/changeset-metadata.mjs` parser and package/severity checks as release
+  preflight: malformed entries, empty summaries, duplicate or unknown packages,
+  private-only releases and insufficient bundled CLI severity fail in CI.
+  Documentation-only empty frontmatter remains supported. This working-tree
+  check does not replace release preflight's committed-state, version and tag
+  validation.
+- **Publication reporting follows verified release success.** The pnpm release
+  script calls `scripts/release-output.mjs` after registry visibility checks and
+  validated tag handling. When `CHANGESETS_OUTPUT` is set, the helper appends
+  JSON-line `git-tag` events (`tag`, `packageName`) for the initially missing
+  packages. A fully published tag-recovery run creates an empty output file;
+  no new package publication is reported. Publication, verification and tag-push
+  failures stop before reporting. Without the environment variable the helper
+  does nothing. It never publishes or creates tags itself. Changesets action
+  2.1.2 consumes this interface with both GitHub release creation and action-level
+  tag pushing disabled; `ensure_tag` owns the single lockstep tag.
+- **Changesets CLI 3.0.2 and action 2.1.2 move together.** The workflow uses
+  the v2 script inputs and default token input. `version-packages` intentionally
+  fails when no changesets remain; the action selects versioning only while
+  changesets are pending. Private-package opt-in does not version the root.
+  After Changesets, the synchronizer aligns all package manifests, the root,
+  extension and grammar metadata, leaving the ignored website unchanged. It
+  adds alignment changelog entries for workspaces it advances so the action
+  can summarize every changed package, preserving existing release entries.
+  When Changesets gives a workspace a provisional version between the old
+  root version and the new fixed-group version, the synchronizer retitles its
+  leading changelog entry to the actual lockstep release. Its detailed notes
+  stay intact; entries at or below the old root version remain history.
+  These comparisons use semver precedence, including prerelease identifiers
+  and ignoring build metadata.
+  Each alignment changelog is written before its manifest version advances.
+  A changelog failure therefore leaves that workspace eligible for a retry,
+  with the original release severity; successful earlier workspace writes may
+  remain. After fixing the filesystem error, rerun `node scripts/sync-versions.mjs`
+  directly, since the preceding Changesets stage may already have consumed its
+  input files. This is retryable ordering, not a transaction across all files.
+  An isolated test runs the installed CLI against CAVE's workspace manifests
+  and verifies both stages and the empty second run. The migrated workflow's
+  hosted 0.36.0 release evidence is recorded in
+  [Dependency maintenance](DEPENDENCY-MAINTENANCE.md#hosted-migration-verification).
+  To preview pending changes without consuming them, run
+  `pnpm exec changeset status --output /tmp/cave-release-plan.json` from the
+  repository root. This reports Changesets' raw plan: private workspaces may
+  show a lower bump and the ignored extension may show no change. The CAVE
+  synchronizer subsequently aligns those version sources with the public fixed
+  group; the ignored website stays separate. Status does not run that stage,
+  generate changelogs, or establish release readiness. The release preflight
+  validates committed inputs and rejects modified release files, so a worktree
+  status preview is not a substitute for that committed-checkout gate.
+  The working-tree changeset checker also validates complete fixed-group
+  membership against current public manifests, catching omitted, duplicate,
+  private or unknown members in the PR changeset check before release preflight.
+  It rejects missing or duplicate workspace names before building release-owner
+  maps, preventing a private manifest from shadowing the public CLI's bundled
+  exports and bypassing their required CLI release severity.
+- **Runtime support is explicit.** The supported Node.js lines are 24 and 26, starting at
+  24.16.0 and 26.1.0 respectively; 24.21.0 Active LTS is recommended, and
+  26.8.2 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
   are the CI representatives for the supported Linux, macOS, and Windows
   families. The full suite stays on the recommended Linux runtime; a focused
-  matrix covers the minimum, Node 26, and platform-specific process,
-  filesystem, native grammar, SQLite, and
+  matrix covers the selected Node 24 and 26 releases and platform-specific process,
+  filesystem, native grammar, SQLite, solver/adapter and forced-GC cleanup, and
   consolidated-package behavior.
+  Packed shell-agent adapter checks exercise strict reply decoding, malformed
+  prompt rejection, and valid Unicode round-trips through the installed loop
+  and ingestion entry points. They complement the generic process-runner flag
+  checks by verifying that structured adapters opt in correctly.
+  Installed solver checks exercise missing own slots in all five declaration
+  lists: inherited getters remain uncalled, errors retain indexed field paths,
+  and defining valid own entries permits retry on the same arrays.
+  Installed Z3 checks preserve empty, prototype-like and distinct Unicode enum
+  members across reversed/extended domain arrays, verify exact assignments and
+  unchanged inputs, and close the runtime after the checks.
+  Package packing in the smoke workflow captures stdout and stderr per package.
+  A failed pack prints the package manifest path and complete captured output,
+  then preserves its exit status, so compiler diagnostics are visible in CI.
+  The packed API renderer emits lines through an iterative namespace traversal.
+  A 17,000-export fixture verifies all 136,000 report lines without expanding
+  them into function arguments. Namespace re-export cycles produce a reference
+  to the ancestor namespace; sibling aliases still render their full contents.
+  TypeScript declarations and the final snapshot remain in memory, so this is
+  not a general compilation or report-size budget.
+  Packed CLI and HTTP smoke checks consume complete output before deciding
+  whether expected content is present. An early-exiting `grep -q` can otherwise
+  give a producer a broken pipe under `pipefail` despite matching output.
+  Consuming the stream preserves both producer failures and missing-match
+  failures; it does not weaken the smoke result to the consumer's status alone.
+  Installed connector checks reject duplicate SQL result names for populated
+  and header-only sources under `--prune`, require status 1 and a diagnostic
+  without stdout, and compare complete annotated history before and after.
+  Restoring the source and correcting the projection must succeed without
+  changing that history.
+  The same installed workflow rejects a non-projecting DELETE over a header-only
+  source before pruning, and verifies normalized source/destination labels in a
+  sync merge record when caller labels contain colons.
+  Installed sync API checks preserve complete annotated target history during
+  database and text previews with inherited or non-enumerable options. They
+  also verify one read of a changing text-sync dry-run getter, then require a
+  real merge to succeed and a repeated merge to add nothing.
+  Malformed UTF-8 in an annotated text comment must fail in both preview and
+  commit modes without changing target history. Restoring valid bytes must allow
+  a successful preview on the same target before the eventual real merge.
+  Installed solver checks capture model and option getters once, retain inherited
+  and non-enumerable timeout overrides through solving and workflows, and reject
+  invalid inherited limits before adapter execution. Completed explanations stay
+  unchanged when original backend metadata and diagnostics are later mutated.
+  Conversely, mutating a returned report from direct explanation or solving
+  cannot change caller model/result/context data or a later report. The installed
+  checks cover metadata, diagnostics, limits, inputs, assignments and provenance,
+  including shared references inside the captured graphs.
+  Installed enum checks refresh membership after domain mutation, recover the
+  original digest after repair, retain duplicate/count rejection and charge every
+  shared literal occurrence. Empty, special-key and distinct Unicode strings
+  retain exact membership. Custom array iterators cannot substitute members or
+  hide duplicates; installed checks verify zero iterator calls and corrected
+  indexed-entry retries.
+  Installed text diagnostics preserve full short messages through 160 UTF-16
+  code units and bound longer previews, retaining both ends, original lengths
+  and JSON escaping without modifying caller input. Unknown option/limit names
+  and large primitive limit values also stay bounded; invalid options suppress
+  adapter calls and corrected requests succeed.
+  Installed declaration and operand checks cannot be skipped by overridden
+  array methods: malformed models reject, valid arrays remain accepted and
+  caller methods stay uncalled.
+  Installed provenance checks reject duplicate and sparse reference lists using
+  their own entries, without custom iterator or inherited getter calls, and
+  accept the same lists after repair.
+  Installed validation rejects inherited operand slots without reading getters
+  and accepts the same array after dense repair. Referenced malformed variable
+  sorts retain classified errors without invoking object coercion.
+  Installed validation also retains classified errors for BigInt/cyclic fields
+  without invoking JSON hooks, rejects invalid objective directions before digest
+  generation and adapter execution with corrected retries in both directions,
+  and rejects callable rationals in normalization and
+  zero checks before reading their fields, retains zero-denominator rejection,
+  enforces digit budgets on corrected pairs, and permits corrected solve
+  requests after rejection before adapter execution.
+  Installed scenario checks capture changing artifact and predecessor getters
+  once, return the persisted JSON snapshot despite later caller mutations, and
+  retain idempotent recording. Corrupt base64url and UTF-8 payloads reject without
+  changing history; unrelated valid records and corrected payloads remain readable.
+  Packed fusion checks retain identical subnormal means under unequal weights,
+  a representable contribution whose initial root weight underflows, and a small
+  residual after cancellation. These execute the installed JavaScript export,
+  complementing the source-level numeric regressions and public type snapshot.
+  Installed store/query checks reject both lone surrogate halves without a
+  partial append or a false query match, preserve complete annotated history,
+  and round-trip explicit replacement characters, accented text and emoji.
+  A paginated history query uses a changing option getter and follows its cursor
+  with plain options, verifying that the emitted implementation captures options
+  once and returns both historical values.
+  The same installed query check verifies a changing transaction-boundary getter
+  and structured term getter retain their first values. Direct store search also
+  rejects malformed Unicode. The installed HTTP server rejects malformed UTF-8
+  and percent escapes with matching GET/HEAD status and cache headers, then serves
+  a valid entity request in the same process.
+  Installed MCP API checks submit two discovery requests before serving starts
+  and require both replies before normal EOF shutdown. Already-ended input and
+  already-finished output, plus closed streams on either side, must settle
+  without fallback cancellation or retained transport and abort listeners.
+  The installed viewer API rejects invalid port, host and sensitivity options
+  before invoking a listener. A corrected public-only server serves visible
+  content, supports concurrent and repeated close calls, and leaves the caller's
+  complete annotated store history unchanged.
+  Installed viewer model checks reject invalid dashboard caps, preserve zero
+  caps, capture search sensitivity once, and retain repeated lineage branches.
+  A later evidence append appears in the next lineage response while the earlier
+  completed response keeps its original values; public views exclude the
+  restricted evidence and its link counts.
+  Installed read-snapshot checks use separate WAL writer and read-only reader
+  connections. Commits between dashboard sections or between search matches and
+  evidence projection leave the current response consistent; the next response
+  sees the new data. Failed searches release their read snapshot, and calls
+  inside a writer transaction preserve the caller's subsequent rollback.
+  Installed reports capture getter-backed query options once across different
+  template queries. Historical alias queries retain both historical values and
+  citations; a new render with current options sees later values. Rendering
+  preserves the complete annotated store history.
+  Installed action checks change getter-backed dry-run options in both
+  directions. Preview execution preserves history and skips command lookup;
+  normal execution retains committed effects and reports a deferred hook lookup
+  failure. Execution mode and hook mapping are each captured once.
+  Installed automation checks replace caller signal fields during an agent
+  completion and a watch report callback. Both calls preserve the original
+  cancellation reason. The cancelled reply is discarded, its committed firing
+  watermark remains, and the next settle call does not replay the claimed batch.
+  Installed preparation checks raise cancellation during premise projection,
+  both alone and alongside independent or already-wrapped projection failures.
+  They retain original diagnostics and unchanged history, then verify that a
+  fresh settle fires once and a subsequent settle does not repeat it.
+  The installed automation command also captures an already-aborted context
+  signal once: retraction returns quietly without changing declaration history
+  even when a later getter read would have returned no signal.
+  Installed rule and automation declaration checks reject empty and nonempty
+  binary bodies with field/claim diagnostics, preserve claims and lineage, then
+  retry after repair without repeating completed work. The rule cases also check
+  failure propagation through automation settling with derivation enabled.
+  Installed rules retain the confidence threshold and pass limit accepted by
+  validation when options have changing getters. A later lower-threshold call
+  reevaluates normally, while invalid limits leave complete history unchanged.
+  Installed ingestion checks replace the target option during an awaited agent
+  call and still require publication to the original store, leaving the other
+  store's history unchanged. A changing batch size during URL selection cannot
+  alter the validated batch plan; selection itself leaves history unchanged.
+  Installed shell-agent checks retain an already-aborted signal and one-byte
+  stdout/stderr limits when their getters change, exercising actual process
+  forwarding through the bundled ingestion adapter.
+  Installed direct URL selection checks retain both forced refresh and
+  unchanged-source skipping when caller policy changes during fetching.
+  Replacing the caller's signal cannot hide cancellation, and all these
+  selection calls preserve complete annotated store history.
+  Installed ingestion preflight rejects misspelled and null commit policies
+  and output modes without agent calls or history changes. A subsequent valid
+  run of the same source still publishes normally.
+  Installed evaluation checks reject invalid modes and timeout values before
+  fixture discovery and accept supported millisecond boundaries. Two repeated
+  runs retain the original agent when its first awaited call replaces the
+  caller's agent option, preserving the expected perfect fixture score.
+  Direct installed comparisons also retain one validated tolerance across all
+  facts when a getter changes; a subsequent exact comparison scores separately.
+  Installed reconstruction policies reject invalid step and claim budgets
+  before model work. Zero budgets prevent all expansions and completions;
+  the documented unlimited claim budget still traverses normally.
+  A two-completion reconstruction also retains its original query, guidance and
+  offered-cue limit after an awaited callback changes the caller's settings.
+  Invalid cue limits reject in both installed prompt rendering and policy
+  creation before a completion can run, including with an empty frontier.
+  Installed scoring preflight rejects nonfinite and negative factors and
+  floors, while zero decay, finite amplification and above-seed pruning retain
+  their traversal behavior.
+  Repeated installed reconstruction seeds retain first-seen frontier order
+  and expose both distinct seeds under a two-cue prompt limit without changing
+  the caller's list.
+  A deadline-bounded subprocess verifies that empty cue names cannot stall
+  installed reply parsing or reconstruction with an unrecognized model reply;
+  exact empty-name replies and explicit stopping retain their behavior.
+  Installed reply checks also distinguish standalone cues and stop words from
+  substrings next to Unicode letters, combining marks, numbers and path
+  separators, including astral letters and emoji punctuation.
+  Installed shell completions retain a getter-backed output limit across
+  repeated calls and their original cancellation signal after caller options
+  change; a new adapter can use a different limit normally.
+  Shell completion and web-fetch adapters accept 1.001-second deadlines as
+  1001 milliseconds. Invalid fractional or out-of-range limits reject before
+  adapter creation or fetch work instead of failing as process/network errors.
+  Installed web-source selection rejects malformed UTF-8 response bytes before
+  text extraction or digesting, keeps healthy Unicode sources selectable,
+  leaves target history unchanged and accepts a corrected response on retry.
+  Malformed Unicode URL paths reject before the installed fetch callback runs;
+  source tests additionally verify valid accented and emoji paths over HTTP.
+  Installed structured connectors likewise reject malformed URLs and invalid
+  deadlines before fetch, accept whole-millisecond decimal deadlines, and
+  retain record parsing settings and cancellation across callback mutation.
+  Retained states in synchronous and asynchronous installed reconstructions
+  also keep the claim counts and evidence from their original expansion step.
+  The installed SQLite adapter preserves current entity evidence in transaction
+  order, including retractions and self-relations, leaves history unchanged on
+  reads and observes later updates without recreating the adapter.
+  It rejects unpaired Unicode surrogates before SQLite binding. Current-claim
+  selection runs in SQLite so superseded entity revisions stay out of the
+  adapter's JavaScript result arrays.
+  A revised equal-score graph also produces the same bounded traversal and
+  collected evidence through the installed memory and SQLite adapters.
+  Mixed incoming and outgoing evidence also has matching transaction order,
+  and modifying a returned memory-adapter array leaves subsequent reads intact.
+  Installed connector prefix reads match literal prefix filtering for empty,
+  astral and Unicode-boundary prefixes, reject malformed surrogates and leave
+  complete store history unchanged.
+  A changing installed connector prune getter is read once and cannot retract
+  records when initially false; a later explicit pruning pass still succeeds.
+  Installed declared discovery retains its first cancellation signal across a
+  URL fetch, propagates that abort reason and preserves complete origin history.
+  Installed source preparation also retains the fetched declaration's name and
+  path after caller mutation, applying its content with the original declaration
+  digest and source stamp.
+  The installed connector command reads an already-aborted signal once and
+  exits quietly without creating its database, even when a later getter read
+  would have returned no signal.
+  The installed process API checks strict stdout decoding in both asynchronous
+  and synchronous runners, including the packaged bridge worker. A changing
+  getter is read once, malformed bytes yield the typed encoding failure, and
+  valid replacement characters, accented text and emoji succeed afterward.
+  The installed health-report smoke checks 100 alias conflict slots with
+  independently attributed production evidence and separate staging claims.
+  It validates the returned claim records and actor provenance, excludes staging
+  rows from production conflicts, and compares complete annotated history before
+  and after the CLI read. This exercises the shape code bundled into the CLI.
+  The installed generator also emits a TypeScript module into the scratch
+  application, which imports it against installed store packages. A WAL writer
+  updates both fields between field reads; the generated reader must return one
+  consistent snapshot, see the update on its next call, and recover after an
+  exact-one cardinality failure.
+  Installed alias discovery rejects shared numeric trajectories as identity
+  evidence while retaining quoted identifiers, captures a changing result-limit
+  getter once, and preserves complete history while reading. A rejection
+  committed after discovery prevents the retained suggestion from being written.
+  Installed rule, action and automation declaration commands report malformed
+  prelude lines at their original CRLF file locations, preserve complete history
+  after those failures, and accept corrected files with idempotent replay.
+  The installed CLI snapshot smoke creates a backup, independently hashes its
+  file bytes, verifies that digest, rejects an incorrect digest, restores the
+  snapshot byte-for-byte, and compares restricted-scope exports with transaction
+  annotations against the original store's complete history. It also exercises a
+  version-1 fixture through the installed verify/restore commands, checks exact
+  restored bytes, checks read-only export refuses migration, and upgrades
+  only the restored copy with an empty add while retaining history and the
+  original snapshot's checksum and version.
+  Installed report checks render a cited query and reject invalid `--at` and
+  `--as-of` options for a static template. They verify exit status 1, an option
+  diagnostic, empty stdout and byte-for-byte preservation of an existing output.
+  The installed highlighter check loads the browser factory and its grammar/query
+  assets from tarballs, highlights a real claim, closes twice, and verifies that
+  both highlighting methods reject further use.
 - **Tool versions and generated output are deterministic.** `make bootstrap`
   reads the exact pnpm version from the root `packageManager` field, preferring
   an already matching binary, then Corepack, then an exact ephemeral npm
   package. `pnpm clean` removes compiler output, website and VS Code bundles,
-  packaged extensions, generated tree-sitter files, build metadata, and legal
-  files staged by package hooks. CI and release workflows pin third-party
+  packaged extensions, build metadata, and legal files staged by package hooks.
+  Committed grammar sources and Wasm remain in place; the release grammar
+  build regenerates them with the pinned toolchain. CI and release workflows pin third-party
   actions to reviewed commit revisions while retaining major-version comments
   for update tooling.
+- **Publication uses the committed version identity.** Release validation
+  requires each changeset touching a bundled private module to name the CLI
+  at the same or higher severity. Bundled modules are derived from committed
+  CLI export targets under `dist/internal`, so naming an unrelated public
+  package cannot conceal the CLI release impact.
+  The publish entrypoint
+  fixes `CAVE_RELEASE_ROOT` to its own checkout for every child command.
+  It rejects all positional arguments and flags before preflight; in particular,
+  `--dry-run` is not a supported publishing mode and cannot be silently ignored.
+  Standalone validator calls retain the explicit-root facility for fixtures
+  and manual tag validation; it cannot redirect the publisher to another tree.
+  Publish preflight
+  rejects tracked edits and non-ignored untracked files, while allowing ignored
+  build outputs. Release preparation runs `pnpm clean` before grammar generation
+  and compilation, removing altered or obsolete ignored outputs that an
+  incremental build could otherwise retain. The script validates again after
+  build/tests/smoke and before
+  npm publication, so preparation cannot silently change source inputs under
+  an unchanged release identity. Final tagging revalidates that identity.
+  Before publishing missing package versions, the script also requires its
+  version to match the freshly fetched `origin/main` manifest. Superseded
+  versions may recover tags when already fully published, but cannot publish
+  missing packages through the automatic `latest` path. This guard belongs to
+  CAVE: [pnpm publishes natively and defaults to updating `latest`](https://pnpm.io/cli/publish),
+  so a separately installed npm CLI's publish checks are not the contract.
+  Registry probes distinguish matching identity, an unambiguous npm `E404`
+  error-code record, and probe failure. Missing-package recognition reads the
+  explicit code line, never prose or URL substrings; conflicting code records
+  fail closed. Probes explicitly disable color and JSON output and select the
+  error log level, so inherited npm formatting cannot change that contract. Unexpected successful output and transport errors
+  halt publication; an npm exit code cannot stand in for the missing-package
+  sentinel. `CAVE_NPM_VIEW_ATTEMPTS` and `CAVE_NPM_VISIBILITY_ATTEMPTS` must be
+  positive safe integers (defaults 4 and 8). Their corresponding
+  `CAVE_NPM_VIEW_RETRY_DELAY_SECONDS` and
+  `CAVE_NPM_VISIBILITY_RETRY_DELAY_SECONDS` must be integer seconds in 0..60
+  (defaults 2 and 5); exponential backoff caps at 60 seconds. Invalid settings
+  fail before the first registry request. Visibility retries also tolerate
+  temporary missing responses after publication.
+- **Published artifacts have a separate audit.** Run `pnpm release:audit`
+  from the checkout whose declared versions you want to inspect. It installs
+  every public package at its exact manifest version into an OS temporary
+  directory, disables lifecycle scripts, lists the installed package set,
+  and runs [`npm audit signatures`](https://docs.npmjs.com/verifying-registry-signatures/).
+  The audit removes its temporary installation after success or failure. If
+  both auditing and removal fail, it preserves both errors and reports both
+  diagnostics; removal cannot replace the original audit failure.
+  npm verifies registry signatures and available attestations for the installed
+  dependency tree. The command uses npm's user/environment registry settings;
+  the checkout's project `.npmrc` is not copied into the temporary directory.
+  Any install, dependency-list, or verification failure fails the command;
+  its temporary installation is removed on success or a handled failure.
+  npm may populate its ordinary cache, but repository files are untouched.
+  Unpublished manifest versions fail installation, so this is a post-publication
+  audit, not a prerequisite for creating a new version.
+  Recovery's name/version probes establish presence only. Neither those probes
+  nor a successful signature audit proves byte equality with a local rebuild.
+  `gitHead` is optional registry metadata and cannot serve as a required identity
+  check. Available provenance is verified, but the command does not require
+  provenance for every dependency: local first-publication bootstrap remains
+  supported before npm trusted publishing can be configured.
 - **The VS Code extension is a separately delivered product with shared
   identity.** The automated version PR stamps its private manifest from the
   same lockstep version as the npm packages. CI creates and inspects the real
-  VSIX archive, then retains it as a short-lived artifact. Marketplace
-  publication is an explicit dispatch against an existing `v<version>` tag;
-  the workflow re-runs release validation, rebuilds the VSIX, and obtains its
-  token only from the protected `vscode-marketplace` environment.
-- **Build-free development, emitted releases.** Node ≥ 22.18 can run the
+  VSIX archive, then retains it as a short-lived artifact. Archive validation
+  checks both runtime and grammar WASM payloads for binary validity, in addition
+  to required nonempty files, strict UTF-8 JSON objects for the package manifest
+  and language configuration, identity and entry points; editor-host behavior
+  remains a separate check. Marketplace
+  publication follows the npm release through the chained Publish workflow
+  job; an explicit dispatch against an existing `v<version>` tag supports
+  republication. Both paths rerun release validation, build the VSIX, and obtain
+  their token from the protected `vscode-marketplace` environment. The manual
+  path runs the workflow commit's validator against the selected tag checkout:
+  `CAVE_RELEASE_TAG` must resolve to that checkout and match its release version.
+  This dispatch-only target replaces the workflow-SHA equality check; normal
+  push releases still require it.
+- **Build-free development, emitted releases.** Supported Node releases can run the
   workspace `.ts` sources directly through type stripping and pnpm symlinks.
   `pnpm build` is the canonical composite `tsc -b` operation: it typechecks
   and emits package `dist/` trees. `pnpm typecheck` is a compatibility alias
   for that same emitting build, not a check-only command. CI starts from clean
   outputs, builds once, verifies a second incremental build would compile no
-  project, then tests. Package `prepack` scripts emit the JavaScript and
+  project, then tests. `pnpm build:verify` always selects the repository project
+  graph, even when its script is invoked from another directory. It launches
+  the fixed pnpm command through `cmd.exe` on Windows and reports process-start
+  failures separately from compiler diagnostics or pending rebuilds.
+  A successful exit alone is insufficient: the verifier requires an explicit
+  up-to-date compiler result for every project referenced by the root config.
+  Empty output, version banners and incomplete project results fail the gate.
+  Compiler path parsing preserves spaces and embedded apostrophes; an isolated
+  real-compiler regression checks both a completed build and removed build outputs
+  in such a checkout.
+  The gate follows TypeScript's incremental decisions; it does not inspect the
+  completeness of emitted artifacts. The clean build remains the check that
+  regenerates all outputs.
+  TypeScript does not remove old outputs when a source file is deleted or moved;
+  clean the output directories before checking artifact completeness after such
+  changes. Shape client tests place temporary generated consumers outside their
+  project's include globs and verify that exclusion with the real compiler, so
+  an overlapping build cannot turn those fixtures into orphaned test outputs.
+  The CLI package build covers only its TypeScript dependency graph, not
+  every root project: solver, solver-z3 and scenario have separate root
+  references. Use the root `pnpm build` when validating repository-wide
+  changes; a successful CLI build does not typecheck tests in those packages.
+  Source tests run through type stripping, so their passing runtime assertions
+  do not replace this compiler check.
+  Package `prepack` scripts emit the JavaScript and
   declarations published to npm.
+  The CLI package build then consolidates private modules and rewrites their
+  imports to public CLI subpaths. A forced root TypeScript build can restore
+  workspace imports in `packages/cli/dist/src`; run `pnpm --dir packages/cli build`
+  to restore the consolidated package layout. When comparing compiler outputs
+  with previously packed output, apply the same consolidation step on both
+  sides. An up-to-date incremental result alone does not verify this packaging
+  transformation or installed module resolution.
 - **Builtin test runner** — `node --test`, zero test dependencies.
+  Process-cancellation regressions wait for descendant readiness and trigger
+  survival probes after CLI exit; startup deadlines cannot establish whether
+  a descendant survived cancellation under a loaded runner.
 - **SQLite has an explicit adapter boundary.** Node uses builtin
   `node:sqlite` with no native modules; the browser playground injects SQL.js
   WASM. Transactions, full-text mode, extension loading, and snapshot support
@@ -91,7 +759,7 @@ packages the same grammar WASM and highlight query as a VSCode extension
   original request said "builtin mssql"; Node has no builtin MSSQL driver and
   the spec's storage model is SQLite/FTS5, so SQLite is the interpretation.)
 - **SQLite schema changes are ordered migrations** (§13.2.1): version 0 is
-  the legacy unversioned baseline and version 1 is current. Each forward step
+  the legacy unversioned baseline and version 2 is current. Each forward step
   performs DDL, data backfill, structural validation, and `user_version`
   advancement in one immediate transaction. Open and database sync reject
   newer formats; rollback is restoration of a closed pre-upgrade copy, never
@@ -115,9 +783,20 @@ packages the same grammar WASM and highlight query as a VSCode extension
   integrity, foreign keys, current schema, fsync, and SHA-256 gate atomic
   publication. Restore verifies the source and temporary copy, rejects stale
   WAL/SHM sidecars, and atomically publishes identical snapshot bytes.
+  Verification also rejects source sidecars: metadata must describe the same
+  standalone bytes being hashed and copied, never additional WAL-only rows.
+  Live stores first pass through the online backup operation. Verification and
+  restore accept versioned schemas 1 through the current version, validating
+  their recorded structure without migration. Restored older bytes upgrade only
+  on a later writable open; the retained snapshot and checksum remain unchanged.
+  Backup and restore publication both require destinations without sidecars,
+  even with force, and cannot target a sidecar belonging to their source.
 - **Runtime dependencies stay at feature boundaries.** The parser uses
   `@prelude/parser`; highlighting uses `web-tree-sitter`; web ingestion uses
-  `@mozilla/readability` and `linkedom`; and the opt-in `solver-z3` adapter
+  `@mozilla/readability` and `linkedom`; report code-block, inline-span and literal HTML boundaries use
+  `mdast-util-from-markdown` with `mdast-util-gfm-footnote` and
+  `micromark-extension-gfm-footnote` (also production dependencies of the CLI
+  that packages the view module); and the opt-in `solver-z3` adapter
   alone depends on the official threaded `z3-solver` Wasm distribution.
   Website-only dependencies include React, Markdown rendering, `sql.js`, and
   Tree-sitter. The domain and solver-neutral model packages remain
@@ -165,8 +844,8 @@ Package READMEs document local decisions; these are the global ones:
   the same fact from different actors keeps separate belief series
   (§9.4). `cave add` passes `cli`, the MCP server `agent/<client-name>`
   (from the initialize handshake; `--src`/`--no-src` override), stdout
-  ingest `ingest/<batch-digest>` (content-derived for key-stable
-  re-runs) — and `cave import` passes nothing, because interchange
+  ingest `ingest` (stable across batches and source revisions so updates do
+  not fork claim keys) — and `cave import` passes nothing, because interchange
   replay must preserve exported claim keys.
 - **Retention is permanent** (§9.6): retraction is an append-only belief
   update, not erasure; store, export/import, and sync expose no selective
@@ -184,7 +863,16 @@ Package READMEs document local decisions; these are the global ones:
 - **Source spans retain both anchor and identity** (§9.8):
   `SourceSpan` formats/parses `src:<escaped-source>#Lx-Ly`; the exact context
   survives interchange while §26 source policy ignores the line fragment.
-  Ingest prompts line-number embedded text, connect carries CSV/TSV/JSONL
+  Embedded local ingest text is retained when its digest is selected, so later
+  batches use that same source version even if files change. Store context still
+  refreshes between batches using current, non-retracted beliefs, so later
+  prompts see staged updates without superseded values. Related-claim search
+  retrieves at most five current matches per path token, filtering historical
+  rows before the limit so revision history cannot crowd out current knowledge.
+  Non-embedded batches recheck file digests before
+  and after agent calls; changed/unreadable inputs reject the batch and withhold
+  digests. Strict discards staging; lenient retains already committed direct
+  agent writes while continuing. Ingest prompts line-number embedded text, connect carries CSV/TSV/JSONL
   record ranges, and view/report outputs share the parsed location/link shape.
 - **Provenance dimensions are explicit** (§9.5.1): `cave_provenance`
   separates actor, physical source, lifecycle run, and domain while compact
@@ -213,7 +901,12 @@ Package READMEs document local decisions; these are the global ones:
   longer yields), and `connect-digest` claims — computed over the
   *instantiated* text — make re-runs row-level incremental. `--query` runs
   a CAVE-Q pattern over the store + mapped claims inside a rolled-back
-  transaction: query-time federation without persisting.
+  transaction: query-time federation without persisting. Direct and declared
+  URL loads combine caller cancellation with the fetch timeout. Preparation and
+  discovery check aborts before applying loaded data; discovery disposes its
+  snapshot, and watch shutdown suppresses queued passes and closes subscriptions.
+  Ordinary declared passes retain only sources committed before cancellation;
+  dry-run/query discovery publishes no cancelled result.
 - **Rules are claims; derivations are appends** (§24): `@cavelang/rules`
   stores each rule as `rule/<digest> HAS rule: `…`` (digest over
   normalized text), joins premises by specializing CAVE-Q patterns per
@@ -221,7 +914,9 @@ Package READMEs document local decisions; these are the global ones:
   `BECAUSE` edges to the exact premise rows and a `VIA` edge to the rule.
   Confidence is `@cavelang/fusion` noisy-AND (max across derivations of
   one key); per-rule `derive-watermark` claims make re-runs skip rules no
-  new row could affect, idempotency makes re-fires append nothing, and
+  new row could affect only when the companion vocabulary/evaluation-policy
+  fingerprint also matches. Changes to alias matching or the confidence floor
+  re-evaluate support without `--full`. Idempotency makes re-fires append nothing, and
   support is recomputed per firing so retracting a premise retracts the
   dependent chain — mutually-supporting cycles included.
 - **Actions are named rules the caller fires; hooks stay out-of-band**
@@ -352,7 +1047,12 @@ Package READMEs document local decisions; these are the global ones:
   Binding is `127.0.0.1` unless `--host` widens it deliberately. Every model
   runs against a §9.7 sensitivity-scoped projection, not against full-store
   results scrubbed afterward. Narrow audiences reuse immutable, indexed
-  projections keyed by source revision and sensitivity ceiling; local writes
+  projections keyed by source revision and sensitivity ceiling. Transactional
+  reads use disposable projections because SQLite change counters do not rewind
+  on rollback; adapters without transaction-state inspection also bypass reuse.
+  Store cleanup
+  hooks close all cached projections when the source store closes; HTTP-handle
+  closure retains caller ownership of that source. Local writes
   and commits from other connections invalidate them before the next read,
   while an explicit `restricted` read uses the complete store directly.
 - **Reports render deterministically or mark the hole** (§31):
@@ -373,6 +1073,26 @@ Package READMEs document local decisions; these are the global ones:
   §5.5 prelude registry (`--no-prelude` / `Registry.empty` to opt out).
 
 ## Status vs the spec
+
+Numeric value parsing checks finiteness after multiplier normalization.
+Oversized scalars or trajectory endpoints retain their authored text as atoms,
+so storage does not receive infinity from those literals.
+Multiplier normalization shifts the decimal exponent before one numeric
+conversion, avoiding intermediate underflow and double rounding. A nonzero
+literal whose scaled value still rounds to zero stays textual instead of
+acquiring a false zero numeric projection.
+`Claim.of` also rejects non-finite metric/attribute numeric fields and confidence
+outside the finite `[0, 1]` interval, enforcing numeric boundaries for callers
+that construct claims directly rather than parsing text.
+
+Trajectory interpolation preserves clamped endpoints directly and uses a
+weighted sum for opposite-sign endpoints to avoid overflowing their difference.
+Display formatting retains the finite unscaled value if four-digit rounding,
+including multiplier expansion, would overflow. These safeguards preserve the
+§32 linear model at floating-point extremes.
+Interpolation range selection rejects open ranges rather than ignoring them:
+a closed range combined with an open range remains ambiguous, even though
+either range may independently make the claim visible to an `at` query.
 
 - **Normative spec**: implemented, including legacy acceptance
   (colonless attributes parse, emitters always produce the colon form).

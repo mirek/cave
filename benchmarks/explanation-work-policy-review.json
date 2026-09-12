@@ -1,0 +1,189 @@
+{
+  "description": "Experimental cumulative accounting at existing bit-size checks for distinct predicates. Prototype instrumentation only; no shipped runtime limit or default. One measured full report per case, not statistical benchmark medians.",
+  "runs": {
+    "24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "accounting": "sum of maximum estimated bit bounds at each successful size check; rejected charges do not consume the remaining allowance",
+      "timing": "one full report per fresh child; diagnostic instrumentation included; construction and assertions excluded; no warmup or statistical timing claim",
+      "childAllowance": {
+        "timeoutMs": 120000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/explanation-work-policy-probe.mjs": "00c5c215b1d76f030aab4f06c2b7e5c9622337660aaab34f693686c740968669",
+        "packages/solver/src/adapter.ts": "0c78db45b625f2f97feb22f6a240674023bd35139286a4d73bbeffcba8a0b9a0",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "c065de6c9ad8947a8c5e319458a9a3a8490f8a2d093ca01ef866c950c6914917",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/expression-key.ts": "e8521f1cf69b79a24ef1d6f6dbad73e63baaefae5a5a94832c8778ca8e58db02",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "maximum": 9007199254740991,
+          "used": 260443664,
+          "checks": 98944,
+          "rejected": 0,
+          "satisfied": 384,
+          "indeterminate": 0,
+          "elapsedMs": 32293.96675,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        },
+        {
+          "maximum": 1000000,
+          "used": 999998,
+          "checks": 1116,
+          "rejected": 383,
+          "satisfied": 1,
+          "indeterminate": 383,
+          "elapsedMs": 537.501167,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        },
+        {
+          "maximum": 10000000,
+          "used": 9999993,
+          "checks": 4497,
+          "rejected": 370,
+          "satisfied": 14,
+          "indeterminate": 370,
+          "elapsedMs": 1644.108583,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        }
+      ]
+    },
+    "26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "accounting": "sum of maximum estimated bit bounds at each successful size check; rejected charges do not consume the remaining allowance",
+      "timing": "one full report per fresh child; diagnostic instrumentation included; construction and assertions excluded; no warmup or statistical timing claim",
+      "childAllowance": {
+        "timeoutMs": 120000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/explanation-work-policy-probe.mjs": "00c5c215b1d76f030aab4f06c2b7e5c9622337660aaab34f693686c740968669",
+        "packages/solver/src/adapter.ts": "0c78db45b625f2f97feb22f6a240674023bd35139286a4d73bbeffcba8a0b9a0",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "c065de6c9ad8947a8c5e319458a9a3a8490f8a2d093ca01ef866c950c6914917",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/expression-key.ts": "e8521f1cf69b79a24ef1d6f6dbad73e63baaefae5a5a94832c8778ca8e58db02",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "maximum": 9007199254740991,
+          "used": 260443664,
+          "checks": 98944,
+          "rejected": 0,
+          "satisfied": 384,
+          "indeterminate": 0,
+          "elapsedMs": 30979.379375,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        },
+        {
+          "maximum": 1000000,
+          "used": 999998,
+          "checks": 1116,
+          "rejected": 383,
+          "satisfied": 1,
+          "indeterminate": 383,
+          "elapsedMs": 506.232583,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        },
+        {
+          "maximum": 10000000,
+          "used": 9999993,
+          "checks": 4497,
+          "rejected": 370,
+          "satisfied": 14,
+          "indeterminate": 370,
+          "elapsedMs": 1566.633292,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          }
+        }
+      ]
+    }
+  }
+}

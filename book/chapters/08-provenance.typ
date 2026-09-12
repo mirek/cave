@@ -163,13 +163,13 @@ For an exact copy, with every id, transaction, edge, and provenance row,
 
 ```sh
 $ cave backup --db roastery.db --out roastery.snapshot.db
-created exact backup (<n> row(s), schema v1, <n> bytes, sha256:<hex>) at <path>
+created exact backup (<n> row(s), schema v2, <n> bytes, sha256:<hex>) at <path>
 
 $ cave backup --verify roastery.snapshot.db
-verified exact backup (<n> row(s), schema v1, <n> bytes, sha256:<hex>) at <path>
+verified exact backup (<n> row(s), schema v2, <n> bytes, sha256:<hex>) at <path>
 
 $ cave restore roastery.snapshot.db --db restored.db
-restored exact backup (<n> row(s), schema v1, <n> bytes, sha256:<hex>) at <path>
+restored exact backup (<n> row(s), schema v2, <n> bytes, sha256:<hex>) at <path>
 
 $ cave query --db restored.db 'la-cima SUPPLIES ?lot'
 ?lot = lot/huila-26
@@ -182,7 +182,10 @@ integrity and schema, hashed, and published atomically; the hash printed is
 the token you record and pass to `--sha256` on verify and restore. Restore
 refuses a destination with WAL or journal sidecars, because that means
 something is still using it: stop every process first. On any failure the
-previous destination is untouched.
+previous destination is untouched. Snapshots from schema version 1 onward
+remain recoverable through the current version. Verify and restore preserve
+their bytes; opening an older restored copy for writing migrates that copy,
+leaving the retained backup unchanged.
 
 #recap[Every append surface stamps `@src:` unless the claim names its own
 source, and the stamp is part of the key, so actors get separate series.

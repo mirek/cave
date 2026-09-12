@@ -1,0 +1,586 @@
+{
+  "description": "Large native memory-recovery diagnostic after queued cleanup failure handling and deadline interrupt containment",
+  "processTimeoutSeconds": 300,
+  "execution": "Sequential fresh processes; --expose-gc memory-stress.ts --large; three cycles per runtime",
+  "scope": "Workload-specific recovery and clean exit; no general native-state recovery, memory or elapsed-time guarantee",
+  "sources": {
+    "packages/solver-z3/src/cleanup.ts": "6ac1d041594b6232bd97c088736dc790bdf8652ffa6ffbaba1062375eb4344eb",
+    "packages/solver-z3/src/deadline.ts": "bfef334d980d6895e02415bae49192fb0bd76cca1b509091ccb527a58b9ca113",
+    "packages/solver-z3/src/runtime.ts": "e94a54c784dd80cd643e6c3ae4ff852c324bb5b737064149b427394deb8f9319",
+    "packages/solver-z3/scripts/memory-stress.ts": "549fe263d0a9e2e886363fb8a016c3ab8633bfc66b3fdc1e733cff53c39bfa9d"
+  },
+  "runs": [
+    {
+      "nodeMajor": 26,
+      "exitCode": 0,
+      "entries": [
+        {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64",
+          "backend": {
+            "name": "z3-wasm",
+            "version": "Z3 5.1.0.0"
+          },
+          "iterations": 3,
+          "variables": 3000,
+          "largeVariables": 75000
+        },
+        {
+          "iteration": 0,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 3
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 10072
+          },
+          "wallMs": 10385.598666999998,
+          "memory": {
+            "rss": 775192576,
+            "heapTotal": 262160384,
+            "heapUsed": 201719048,
+            "external": 6100738,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 7244
+          },
+          "wallMs": 7546.366333,
+          "memory": {
+            "rss": 865763328,
+            "heapTotal": 303235072,
+            "heapUsed": 254594496,
+            "external": 6100778,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1112,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 0
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 10733
+          },
+          "wallMs": 11042.827290999998,
+          "memory": {
+            "rss": 677969920,
+            "heapTotal": 259473408,
+            "heapUsed": 182290824,
+            "external": 6127546,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 7855
+          },
+          "wallMs": 8217.658708000003,
+          "memory": {
+            "rss": 729759744,
+            "heapTotal": 302022656,
+            "heapUsed": 256066088,
+            "external": 6127546,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1206,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 0
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 10603
+          },
+          "wallMs": 10881.619208999997,
+          "memory": {
+            "rss": 641695744,
+            "heapTotal": 260521984,
+            "heapUsed": 182329560,
+            "external": 6127546,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 8201
+          },
+          "wallMs": 8489.187708000005,
+          "memory": {
+            "rss": 797130752,
+            "heapTotal": 307789824,
+            "heapUsed": 256135040,
+            "external": 6127546,
+            "arrayBuffers": 162685
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1072,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        }
+      ],
+      "otherOutput": []
+    },
+    {
+      "nodeMajor": 24,
+      "exitCode": 0,
+      "entries": [
+        {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64",
+          "backend": {
+            "name": "z3-wasm",
+            "version": "Z3 5.1.0.0"
+          },
+          "iterations": 3,
+          "variables": 3000,
+          "largeVariables": 75000
+        },
+        {
+          "iteration": 0,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 2
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 11638
+          },
+          "wallMs": 11950.240166,
+          "memory": {
+            "rss": 886046720,
+            "heapTotal": 361889792,
+            "heapUsed": 243840728,
+            "external": 9359844,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 8281
+          },
+          "wallMs": 8602.622542,
+          "memory": {
+            "rss": 998490112,
+            "heapTotal": 443858944,
+            "heapUsed": 285921872,
+            "external": 9359884,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 0,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 0,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1246,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 0
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 11568
+          },
+          "wallMs": 11860.179541000001,
+          "memory": {
+            "rss": 992116736,
+            "heapTotal": 365871104,
+            "heapUsed": 249629736,
+            "external": 9390337,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 8922
+          },
+          "wallMs": 9245.556583999998,
+          "memory": {
+            "rss": 943882240,
+            "heapTotal": 438304768,
+            "heapUsed": 286887864,
+            "external": 9390337,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 1,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 1,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1300,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "phase": "limited",
+          "result": {
+            "status": "unknown",
+            "reason": {
+              "kind": "resource-limit",
+              "message": "Z3 exceeded maxMemoryBytes",
+              "limit": "maxMemoryBytes"
+            },
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 0
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "large-feasibility-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "large-feasibility",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 12016
+          },
+          "wallMs": 12284.198583000005,
+          "memory": {
+            "rss": 862371840,
+            "heapTotal": 366657536,
+            "heapUsed": 249782328,
+            "external": 9390337,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "large-optimization-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "large-optimization",
+          "result": {
+            "status": "unsatisfied",
+            "infeasibilityProved": true,
+            "backend": {
+              "name": "z3-wasm",
+              "version": "Z3 5.1.0.0"
+            },
+            "diagnostics": [],
+            "elapsedMs": 9343
+          },
+          "wallMs": 9646.018334,
+          "memory": {
+            "rss": 922615808,
+            "heapTotal": 444596224,
+            "heapUsed": 286995176,
+            "external": 9390337,
+            "arrayBuffers": 162559
+          }
+        },
+        {
+          "iteration": 2,
+          "phase": "recovery-start"
+        },
+        {
+          "iteration": 2,
+          "phase": "recovered",
+          "status": "optimal",
+          "elapsedMs": 1269,
+          "objectives": [
+            {
+              "objectiveId": "total",
+              "value": {
+                "sort": "int",
+                "value": "3000"
+              }
+            }
+          ]
+        }
+      ],
+      "otherOutput": []
+    }
+  ]
+}

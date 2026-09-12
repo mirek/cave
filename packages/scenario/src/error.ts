@@ -1,5 +1,6 @@
 export type Code =
   | 'invalid-definition'
+  | 'snapshot-changed'
   | 'invalid-overlay'
   | 'missing-input'
   | 'ambiguous-input'

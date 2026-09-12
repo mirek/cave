@@ -4,8 +4,10 @@
  * long-running loop: a cheap `MAX(tx)` poll, a cycle whenever it moves.
  */
 
+import { errorMessage } from './error-message.ts'
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
+import { setImmediate as yieldToLoop } from 'node:timers/promises'
 import { Registry } from '@cavelang/canonical'
 import { shellComplete } from '@cavelang/loop'
 import { defaultDbPath, openAt } from '@cavelang/store'
@@ -14,6 +16,7 @@ import type { Store } from '@cavelang/store'
 import { declareAutomations, listAutomations, retractAutomation } from './declare.ts'
 import { defaultAgentTimeoutSeconds, defaultMaxPasses, settle, settled } from './engine.ts'
 import type { SettleOptions, SettleReport } from './engine.ts'
+import { captureSettleOptions } from './options.ts'
 
 const usage = `cave automate — the event-driven loop (spec §29)
 
@@ -101,28 +104,99 @@ type IO = {
   readonly signal?: AbortSignal
 }
 
-const waitForAbort = (signal?: AbortSignal): Promise<void> =>
-  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
-
 /** Loads a §25.4 hooks configuration file: name → shell command template. */
 const readHooks = (path: string): Record<string, string> => {
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
-      Object.values(parsed).some(value => typeof value !== 'string')) {
-    throw new Error(`${path}: hooks must be a JSON object of name → shell template strings`)
+  const bytes = readFileSync(path)
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch (cause) {
+    throw new TypeError(`${path}: invalid UTF-8 hooks configuration`, { cause })
   }
-  return parsed as Record<string, string>
+  const parsed: unknown = JSON.parse(text)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
+      Object.entries(parsed).some(([name, command]) => name.trim() === '' || typeof command !== 'string')) {
+    throw new Error(`${path}: hooks must be a JSON object of nonblank names to shell template strings`)
+  }
+  const hooks = parsed as Record<string, string>
+  if (Object.entries(hooks).some(([name, command]) => /[\uD800-\uDFFF]/u.test(name) || /[\uD800-\uDFFF]/u.test(command))) {
+    throw new Error(`${path}: hook names and commands must contain well-formed Unicode`)
+  }
+  return hooks
 }
 
-const readInput = async (files: readonly string[], input: NodeJS.ReadableStream): Promise<string> => {
+const inputDecoder = (source: string) => {
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
+  return (bytes?: Uint8Array, stream = false): string => {
+    try {
+      return decoder.decode(bytes, { stream })
+    } catch (cause) {
+      throw new TypeError(`${source}: invalid UTF-8 automation input`, { cause })
+    }
+  }
+}
+
+const readInput = async (files: readonly string[], input: NodeJS.ReadableStream, signal?: AbortSignal): Promise<string> => {
+  signal?.throwIfAborted()
   if (files.length > 0 && !(files.length === 1 && files[0] === '-')) {
-    return files.map(file => readFileSync(file, 'utf8')).join('\n')
+    return files.map(file => inputDecoder(file)(readFileSync(file))).join('\n')
   }
-  let text = ''
-  for await (const chunk of input as NodeJS.ReadableStream & AsyncIterable<string | Buffer>) {
-    text += String(chunk)
-  }
-  return text
+  return new Promise<string>((resolve, reject) => {
+    let text = ''
+    const decode = inputDecoder('stdin')
+    let finished = false
+    const finish = (errors: unknown[], result?: string): void => {
+      if (finished) return
+      finished = true
+      for (const cleanup of [
+        () => input.pause(),
+        () => input.off('data', onData),
+        () => input.off('end', onEnd),
+        () => input.off('error', onError),
+        () => input.off('close', onClose),
+        () => signal?.removeEventListener('abort', onAbort)
+      ]) {
+        try { cleanup() } catch (error) { errors.push(error) }
+      }
+      if (errors.length === 0) resolve(result!)
+      else if (errors.length === 1) reject(errors[0])
+      else reject(new AggregateError(errors,
+        `automation input failed: ${errors.map(errorMessage).join('; ')}`,
+        { cause: errors[0] }))
+    }
+    const onError = (error: unknown) => finish([error])
+    const onAbort = () => onError(signal!.reason)
+    const onClose = () => onError(new Error('stdin closed before declaration input ended'))
+    const onData = (chunk: string | Buffer) => {
+      if (finished) return
+      try {
+        // Binary chunks can split a code point. Already-decoded string chunks
+        // remain strings so malformed UTF-16 still reaches store validation.
+        text += typeof chunk === 'string' ? decode() + chunk : decode(chunk, true)
+      } catch (error) { onError(error) }
+    }
+    const onEnd = () => {
+      if (finished) return
+      try { finish([], text + decode()) } catch (error) { onError(error) }
+    }
+    if ((input as { readableEnded?: boolean }).readableEnded === true) {
+      resolve('')
+      return
+    }
+    if (input.readable === false) {
+      reject(new Error('stdin is not readable'))
+      return
+    }
+    try {
+      input.on('end', onEnd)
+      input.on('error', onError)
+      input.on('close', onClose)
+      signal?.addEventListener('abort', onAbort, { once: true })
+      input.on('data', onData)
+      if (signal?.aborted === true) onAbort()
+      else if (!finished) input.resume()
+    } catch (error) { onError(error) }
+  })
 }
 
 /** Text rendering of one cycle — only what fired, plus problems and notes. */
@@ -154,7 +228,7 @@ const renderReport = (report: SettleReport): string[] => {
   const derived = report.derive === undefined ?
     '' :
     `; derived +${report.derive.appended} appended, ${report.derive.updated} updated, ${report.derive.retracted} retracted`
-  lines.push(`settled: ${fired} firing(s) over ${report.passes} pass(es)${derived}`)
+  lines.push(`${report.complete ? 'settled' : 'incomplete'}: ${fired} firing(s) over ${report.passes} pass(es)${derived}`)
   return lines
 }
 
@@ -162,6 +236,7 @@ const settleOptions = (values: Values, signal?: AbortSignal): SettleOptions => {
   const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
   const timeoutSeconds = values.timeout === undefined ? defaultAgentTimeoutSeconds : Number(values.timeout)
   return {
+    ...signal === undefined ? {} : { signal },
     aliases: values.aliases === true,
     derive: values['no-derive'] !== true,
     check: values['no-check'] !== true,
@@ -191,12 +266,16 @@ export const watchCycle = async (
   options: SettleOptions,
   onReport: (report: SettleReport) => void
 ): Promise<null | string> => {
+  options = captureSettleOptions(options)
   for (;;) {
+    options.signal?.throwIfAborted()
     const boundary = maxTxOf(store)
     onReport(await settle(store, options))
+    options.signal?.throwIfAborted()
     if (maxTxOf(store) === boundary) {
       return boundary
     }
+    await yieldToLoop()
   }
 }
 
@@ -204,6 +283,14 @@ export const watchCycle = async (
 const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: number, io: IO): Promise<number> => {
   let seen: null | string = null
   let running = false
+  let stopped = false
+  const reportFailure = (error: unknown, prefix: string): void => {
+    try { io.stderr.write(`${prefix}: ${errorMessage(error)}\n`) }
+    catch (outputError) {
+      const messages = [error, outputError].map(errorMessage)
+      throw new AggregateError([error, outputError], `${messages[0]}; diagnostic output also failed: ${messages[1]}`, { cause: error })
+    }
+  }
   const onReport = (report: SettleReport): void => {
     const fired = report.automations.some(automation => automation.fired > 0)
     if (fired || report.problems.length > 0 || report.notes.length > 0) {
@@ -215,35 +302,68 @@ const runWatch = async (store: Store, options: SettleOptions, intervalSeconds: n
     try {
       seen = await watchCycle(store, options, onReport)
     } catch (error) {
-      io.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
+      if (io.signal?.aborted) {
+        if (error !== io.signal.reason) throw error
+      } else {
+        reportFailure(error, 'cave automate')
+      }
       // `seen` stays put: the next tick retries the pending events —
       // settling is idempotent (§29.3) — instead of stalling them
       // behind an unrelated later append.
-    }
-    running = false
+    } finally { running = false }
   }
   let active: undefined | Promise<void> = cycle()
   await active
+  if (io.signal?.aborted) return 0
   io.stdout.write(`watching (poll every ${intervalSeconds}s, ctrl-c to stop)\n`)
+  const failures: unknown[] = []
+  let wake!: () => void
+  const done = new Promise<void>(resolve => { wake = resolve })
+  const fail = (error: unknown): void => {
+    failures.push(error)
+    stopped = true
+    wake()
+  }
   const timer = setInterval(() => {
-    if (!running && maxTxOf(store) !== seen) {
-      active = cycle()
-      void active
+    if (stopped || running || io.signal?.aborted) return
+    try {
+      if (maxTxOf(store) !== seen) {
+        active = cycle()
+        void active.catch(fail)
+      }
+    } catch (error) {
+      // A boundary read can retry; a broken diagnostic sink ends the watch.
+      try { reportFailure(error, 'cave automate poll') } catch (outputError) { fail(outputError) }
     }
-  }, intervalSeconds * 1000)
-  await waitForAbort(io.signal)
-  clearInterval(timer)
-  await active
+  }, Math.round(intervalSeconds * 1000))
+  io.signal?.addEventListener('abort', wake, { once: true })
+  if (io.signal?.aborted) wake()
+  await done
+  stopped = true
+  io.signal?.removeEventListener('abort', wake)
+  try { clearInterval(timer) } catch (error) { failures.push(error) }
+  try { await active } catch (error) {
+    if (!failures.includes(error)) failures.push(error)
+  }
+  if (failures.length === 1) throw failures[0]
+  if (failures.length > 1) {
+    throw new AggregateError(failures,
+      `automation watch failed: ${failures.map(errorMessage).join('; ')}`,
+      { cause: failures[0] })
+  }
   return 0
 }
 
 export const runAutomate = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const signal = context.signal
   const io: IO = {
     stdin: context.stdin ?? process.stdin,
     stdout: context.stdout ?? process.stdout,
     stderr: context.stderr ?? process.stderr,
-    ...context.signal === undefined ? {} : { signal: context.signal }
+    ...signal === undefined ? {} : { signal }
   }
+  // Avoid narrowing this live signal property across the awaits below.
+  if (Boolean(io.signal?.aborted)) return 0
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -271,19 +391,29 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
     return 0
   }
   const intervalSeconds = values.interval === undefined ? 2 : Number(values.interval)
-  if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
-    io.stderr.write(`cave automate: --interval must be a positive number of seconds, got '${values.interval}'\n`)
+  const intervalMs = intervalSeconds * 1000
+  const roundedIntervalMs = Math.round(intervalMs)
+  const intervalTolerance = Number.EPSILON * Math.max(1, Math.abs(intervalMs))
+  if (!Number.isFinite(intervalSeconds) || roundedIntervalMs < 1 || roundedIntervalMs > 2147483647 ||
+      Math.abs(intervalMs - roundedIntervalMs) > intervalTolerance) {
+    io.stderr.write(`cave automate: --interval must resolve to whole milliseconds in 0.001..2147483.647 seconds, got '${values.interval}'\n`)
     return 1
   }
   const maxPasses = values['max-passes'] === undefined ? undefined : Number(values['max-passes'])
-  if (maxPasses !== undefined && (!Number.isInteger(maxPasses) || maxPasses < 1)) {
-    io.stderr.write(`cave automate: --max-passes expects a positive integer, got '${values['max-passes']}'\n`)
+  if (maxPasses !== undefined && (!Number.isSafeInteger(maxPasses) || maxPasses < 1)) {
+    io.stderr.write(`cave automate: --max-passes expects a positive safe integer, got '${values['max-passes']}'\n`)
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
-  if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    io.stderr.write(`cave automate: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
-    return 1
+  if (timeoutSeconds !== undefined) {
+    const milliseconds = timeoutSeconds * 1000
+    const rounded = Math.round(milliseconds)
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(milliseconds))
+    if (!Number.isFinite(timeoutSeconds) || rounded < 1 || rounded > 2147483647 ||
+        Math.abs(milliseconds - rounded) > tolerance) {
+      io.stderr.write(`cave automate: --timeout must resolve to whole milliseconds in 0.001..2147483.647 seconds, got '${values.timeout}'\n`)
+      return 1
+    }
   }
   // The intent follows the branch order below: declaring writes before
   // listing is considered.
@@ -292,9 +422,11 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
     assemble,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
-  try {
+  const execute = async (): Promise<number> => {
     if (values.declare === true) {
-      const declaration = declareAutomations(store, await readInput(positionals, io.stdin))
+      const text = await readInput(positionals, io.stdin, io.signal)
+      io.signal?.throwIfAborted()
+      const declaration = declareAutomations(store, text)
       for (const problem of declaration.problems) {
         io.stderr.write(`line ${problem.line}: ${problem.message}\n`)
       }
@@ -347,10 +479,23 @@ export const runAutomate = async (argv: readonly string[], context: RunContext =
       return settled(report) ? 0 : 1
     }
     return await runWatch(store, options, intervalSeconds, io)
-  } catch (error) {
-    io.stderr.write(`cave automate: ${error instanceof Error ? error.message : String(error)}\n`)
-    return 1
-  } finally {
-    store.close()
   }
+  let code = 1
+  const errors: unknown[] = []
+  try { code = await execute() } catch (error) { errors.push(error) }
+  let closeFailed = false
+  try { store.close() } catch (error) {
+    closeFailed = true
+    errors.push(error)
+  }
+  if (errors.length === 0) return code
+  if (io.signal?.aborted === true && !closeFailed && errors.every(error => error === io.signal!.reason)) return 0
+  const diagnostic = errors.map(errorMessage).join('; store close also failed: ')
+  try { io.stderr.write(`cave automate: ${diagnostic}\n`) }
+  catch (outputError) {
+    throw new AggregateError([...errors, outputError],
+      `${diagnostic}; diagnostic output also failed: ${errorMessage(outputError)}`,
+      { cause: errors[0] })
+  }
+  return 1
 }

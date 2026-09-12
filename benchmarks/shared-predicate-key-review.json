@@ -1,0 +1,593 @@
+{
+  "scope": "Before/after report-local expression identity reuse; full-report timings and complete output hashes, not isolated key timings or universal performance bounds.",
+  "runs": [
+    {
+      "before": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+        "memory": "process lifetime peak RSS includes construction and all four reports; not isolated cache allocation",
+        "childAllowance": {
+          "timeoutMs": 60000,
+          "maxOldSpaceMb": 256
+        },
+        "sources": {
+          "scripts/solver-shared-predicate-key-bench.mjs": "2070b9036ea0886f2e0105a995bf11dcc939bd2bb25b714fd016a4b7bbf01a13",
+          "packages/solver/src/explain.ts": "0acd48c852ec1fba1aef076f34003f3dd44a123ee27f0c8433842f78c56513e4",
+          "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+          "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+          "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+        },
+        "results": [
+          {
+            "count": 1,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              10.182791000000009,
+              4.354666999999992,
+              3.442333000000005,
+              1.2427089999999907
+            ],
+            "medianMs": 3.442333000000005,
+            "processMaxRssKiB": 106032
+          },
+          {
+            "count": 1,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              4.478166999999999,
+              2.3327919999999978,
+              2.0422080000000022,
+              1.6899170000000083
+            ],
+            "medianMs": 2.0422080000000022,
+            "processMaxRssKiB": 107152
+          },
+          {
+            "count": 32,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              17.170292000000003,
+              10.018833,
+              10.354875000000007,
+              8.32712500000001
+            ],
+            "medianMs": 10.018833,
+            "processMaxRssKiB": 118480
+          },
+          {
+            "count": 32,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              40.67145799999999,
+              31.501416000000006,
+              26.93754199999998,
+              27.484250000000003
+            ],
+            "medianMs": 27.484250000000003,
+            "processMaxRssKiB": 129824
+          },
+          {
+            "count": 128,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              41.081709000000004,
+              38.30883299999999,
+              27.355333,
+              34.679625000000016
+            ],
+            "medianMs": 34.679625000000016,
+            "processMaxRssKiB": 140976
+          },
+          {
+            "count": 128,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              120.48037500000001,
+              112.577417,
+              109.788542,
+              112.02324999999996
+            ],
+            "medianMs": 112.02324999999996,
+            "processMaxRssKiB": 199680
+          }
+        ]
+      },
+      "after": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+        "memory": "process lifetime peak RSS includes construction and all four reports; not isolated cache allocation",
+        "childAllowance": {
+          "timeoutMs": 60000,
+          "maxOldSpaceMb": 256
+        },
+        "sources": {
+          "scripts/solver-shared-predicate-key-bench.mjs": "2070b9036ea0886f2e0105a995bf11dcc939bd2bb25b714fd016a4b7bbf01a13",
+          "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+          "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+          "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+          "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+        },
+        "results": [
+          {
+            "count": 1,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              8.008375000000001,
+              2.3722080000000005,
+              1.875708000000003,
+              1.2120829999999927
+            ],
+            "medianMs": 1.875708000000003,
+            "processMaxRssKiB": 105184
+          },
+          {
+            "count": 1,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              5.380541999999991,
+              2.0764580000000024,
+              3.8144169999999917,
+              1.3020410000000027
+            ],
+            "medianMs": 2.0764580000000024,
+            "processMaxRssKiB": 106496
+          },
+          {
+            "count": 32,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              17.515500000000003,
+              8.537875,
+              9.244709,
+              7.424790999999999
+            ],
+            "medianMs": 8.537875,
+            "processMaxRssKiB": 114432
+          },
+          {
+            "count": 32,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              43.875708,
+              31.822125,
+              26.604917,
+              24.148791999999986
+            ],
+            "medianMs": 26.604917,
+            "processMaxRssKiB": 129728
+          },
+          {
+            "count": 128,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              39.214209,
+              31.587625000000003,
+              26.161624999999987,
+              33.7295
+            ],
+            "medianMs": 31.587625000000003,
+            "processMaxRssKiB": 140816
+          },
+          {
+            "count": 128,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              121.440625,
+              110.971834,
+              106.25295900000003,
+              106.69462500000003
+            ],
+            "medianMs": 106.69462500000003,
+            "processMaxRssKiB": 200640
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+        "memory": "process lifetime peak RSS includes construction and all four reports; not isolated cache allocation",
+        "childAllowance": {
+          "timeoutMs": 60000,
+          "maxOldSpaceMb": 256
+        },
+        "sources": {
+          "scripts/solver-shared-predicate-key-bench.mjs": "2070b9036ea0886f2e0105a995bf11dcc939bd2bb25b714fd016a4b7bbf01a13",
+          "packages/solver/src/explain.ts": "0acd48c852ec1fba1aef076f34003f3dd44a123ee27f0c8433842f78c56513e4",
+          "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+          "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+          "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+        },
+        "results": [
+          {
+            "count": 1,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              5.979709,
+              2.4737499999999955,
+              1.9009159999999952,
+              1.3049999999999926
+            ],
+            "medianMs": 1.9009159999999952,
+            "processMaxRssKiB": 101344
+          },
+          {
+            "count": 1,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              4.8805420000000055,
+              2.314292000000009,
+              2.7114580000000075,
+              1.5288749999999993
+            ],
+            "medianMs": 2.314292000000009,
+            "processMaxRssKiB": 103920
+          },
+          {
+            "count": 32,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              16.782792,
+              11.766417000000004,
+              9.893208999999999,
+              9.590542
+            ],
+            "medianMs": 9.893208999999999,
+            "processMaxRssKiB": 111040
+          },
+          {
+            "count": 32,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              44.97395900000001,
+              33.90825000000001,
+              31.158209,
+              31.941917000000018
+            ],
+            "medianMs": 31.941917000000018,
+            "processMaxRssKiB": 128384
+          },
+          {
+            "count": 128,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              42.789874999999995,
+              38.884208000000015,
+              34.08808299999998,
+              34.341125000000005
+            ],
+            "medianMs": 34.341125000000005,
+            "processMaxRssKiB": 134960
+          },
+          {
+            "count": 128,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              130.74875,
+              120.77099999999999,
+              121.635584,
+              110.74670799999996
+            ],
+            "medianMs": 120.77099999999999,
+            "processMaxRssKiB": 194592
+          }
+        ]
+      },
+      "after": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "timing": "sequential fresh child per case; four complete reports, first discarded; construction and assertions outside timer",
+        "memory": "process lifetime peak RSS includes construction and all four reports; not isolated cache allocation",
+        "childAllowance": {
+          "timeoutMs": 60000,
+          "maxOldSpaceMb": 256
+        },
+        "sources": {
+          "scripts/solver-shared-predicate-key-bench.mjs": "2070b9036ea0886f2e0105a995bf11dcc939bd2bb25b714fd016a4b7bbf01a13",
+          "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+          "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+          "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+          "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f"
+        },
+        "results": [
+          {
+            "count": 1,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              7.346209000000002,
+              2.1947920000000067,
+              2.361165999999997,
+              1.3531249999999915
+            ],
+            "medianMs": 2.1947920000000067,
+            "processMaxRssKiB": 100768
+          },
+          {
+            "count": 1,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 1,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 256,
+              "expressionDepth": 2
+            },
+            "outputHash": "3e80eabdf75b89e4f4c1e63627604df2ed3d8ca0b0a7017f26aad8b8f5f579e5",
+            "samplesMs": [
+              6.7108750000000015,
+              2.341916999999995,
+              1.9540829999999971,
+              1.3270839999999993
+            ],
+            "medianMs": 1.9540829999999971,
+            "processMaxRssKiB": 102352
+          },
+          {
+            "count": 32,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              19.462833000000003,
+              11.572000000000003,
+              9.352166999999994,
+              8.651584
+            ],
+            "medianMs": 9.352166999999994,
+            "processMaxRssKiB": 107248
+          },
+          {
+            "count": 32,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 32,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 8192,
+              "expressionDepth": 2
+            },
+            "outputHash": "685d12a7f3429d18c09efc04b7c969a5b077e249f386b2d7c52958e39900896d",
+            "samplesMs": [
+              44.725667,
+              35.78941599999999,
+              31.163749999999993,
+              33.953291999999976
+            ],
+            "medianMs": 33.953291999999976,
+            "processMaxRssKiB": 143648
+          },
+          {
+            "count": 128,
+            "shared": true,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              46.66712500000001,
+              39.46437499999999,
+              31.178875000000005,
+              31.325874999999996
+            ],
+            "medianMs": 31.325874999999996,
+            "processMaxRssKiB": 135552
+          },
+          {
+            "count": 128,
+            "shared": false,
+            "stats": {
+              "variables": 1,
+              "constraints": 128,
+              "objectives": 0,
+              "enumValues": 0,
+              "expressionNodes": 32768,
+              "expressionDepth": 2
+            },
+            "outputHash": "f6f85ae96d703a01b9820117c99e953262a0cfaa636ce99ced66d6b7df01ad31",
+            "samplesMs": [
+              131.778458,
+              126.006958,
+              119.46825000000001,
+              115.13987500000002
+            ],
+            "medianMs": 119.46825000000001,
+            "processMaxRssKiB": 198464
+          }
+        ]
+      }
+    }
+  ]
+}

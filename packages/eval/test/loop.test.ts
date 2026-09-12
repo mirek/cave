@@ -86,7 +86,7 @@ test('parseSpec screams on misspelled knobs instead of defaulting', () => {
   assert.equal(problems.length, 5, problems.join('\n'))
   assert.match(problems[0]!, /expected subject 'loop'/)
   assert.match(problems[1]!, /unknown attribute 'step'/)
-  assert.match(problems[2]!, /steps must be a positive integer/)
+  assert.match(problems[2]!, /steps must be a positive safe integer/)
   assert.match(problems[3]!, /expected 'loop SEEDS <entity>'/)
   assert.match(problems[4]!, /declares no seeds/)
 })
@@ -144,6 +144,22 @@ test('a function agent drives the LLM policy; queries are asked of the reconstru
     assert.equal(stopped!.queriesPassed, 0, 'the knowledge alone answers nothing — only the reconstruction counts')
   }))
 
+test('cancellation stops reconstruction completions and later evaluation runs', () =>
+  withLoopSuite(async dir => {
+    const controller = new AbortController()
+    const reason = new Error('stop reconstruction')
+    let calls = 0
+    await assert.rejects(run({
+      suites: [dir], runs: 3, signal: controller.signal,
+      agent: async () => {
+        calls++
+        controller.abort(reason)
+        return 'reject-valid-tokens'
+      }
+    }), error => error === reason)
+    assert.equal(calls, 1)
+  }))
+
 test('a failing loop agent is a failed run, not a silent baseline', () =>
   withLoopSuite(async dir => {
     const report = await run({
@@ -157,3 +173,51 @@ test('a failing loop agent is a failed run, not a silent baseline', () =>
     assert.match(only!.note!, /rate limited/)
     assert.equal(report.failedRuns, 1)
   }))
+
+
+test('unsafe reconstruction budgets are fixture problems before policy execution', () =>
+  withLoopSuite(async dir => {
+    for (const attribute of ['steps', 'claims']) {
+      writeFileSync(join(dir, 'incident.loop.cave'), `${loopText}\nloop HAS ${attribute}: 9007199254740992`)
+      let calls = 0
+      const report = await run({ suites: [dir], agent: async () => { calls++; return '[]' } })
+      assert.equal(calls, 0)
+      assert.equal(report.cases[0]!.runs.length, 0)
+      assert.match(report.cases[0]!.fixture.join('\n'), new RegExp(`${attribute} must be a positive safe integer`))
+      assert.equal(report.mean, undefined)
+      const parsed = Loop.parseSpec(`loop SEEDS a\nloop HAS ${attribute}: 9007199254740991`, standardRegistry)
+      assert.deepEqual(parsed.problems, [])
+      assert.equal(attribute === 'steps' ? parsed.spec.maxSteps : parsed.spec.maxClaims, Number.MAX_SAFE_INTEGER)
+    }
+  }))
+
+
+test('direct reconstruction calls honor cancellation before and after completions', async () => {
+  const spec = { seeds: ['reject-valid-tokens'] }
+  const reason = new Error('cancel direct reconstruction')
+  for (const agent of [undefined, async () => { throw new Error('must not run') }]) {
+    await assert.rejects(async () => Loop.runSpec(knowledgeText, spec, standardRegistry, {
+      ...(agent === undefined ? {} : { agent }), signal: AbortSignal.abort(reason)
+    }), error => error === reason)
+  }
+  for (const fails of [false, true]) {
+    const controller = new AbortController()
+    const failure = new Error('completion failed')
+    let calls = 0
+    await assert.rejects(Loop.runSpec(knowledgeText, spec, standardRegistry, {
+      signal: controller.signal,
+      agent: async () => {
+        calls++
+        controller.abort(reason)
+        if (fails) throw failure
+        return 'reject-valid-tokens'
+      }
+    }), error => {
+      if (!fails) return error === reason
+      assert.ok(error instanceof AggregateError)
+      assert.deepEqual(error.errors, [reason, failure])
+      return true
+    })
+    assert.equal(calls, 1)
+  }
+})

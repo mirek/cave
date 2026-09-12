@@ -1,0 +1,543 @@
+{
+  "description": "Unknown-reason rendering before/after reusing the 35 fixed JSON control escapes. Sequential fresh children; exact-output and nonmutation checks. Workload-specific observations, not a general resource bound.",
+  "before": [
+    {
+      "format": "cave.solver-diagnostic-render",
+      "version": 1,
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four render calls, first discarded; construction and exact-output/nonmutation assertions outside timing",
+      "memory": "process lifetime peak RSS includes fixture/report/expected-output construction, checks and four renders; not isolated renderer allocation",
+      "scope": "single unknown-reason string, plain ASCII or U+0085; no general report-size or elapsed-time guarantee",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-diagnostic-render-bench.mjs": "402ca344d0498ce442a9bea557beebb29d0ecde987fe16c6c4b045266a06ec19",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "family": "plain",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 1024,
+          "outputCodeUnits": 1185,
+          "outputSha256": "09ea9c7fb581c8ccb8392fbff8031805b4e6ee93a21aee662942a2a44f28f119",
+          "samplesMs": [
+            0.33729099999999335,
+            0.006708000000003267,
+            0.005250000000003752,
+            0.003124999999997158
+          ],
+          "medianMs": 0.005250000000003752,
+          "processMaxRssKiB": 101328
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 65536,
+          "outputCodeUnits": 65697,
+          "outputSha256": "923bc493e9e382af08cec1894e9a6f81429dbf53e74e28a5e35e63dbb5759e46",
+          "samplesMs": [
+            0.23116699999999923,
+            0.06570800000000077,
+            0.05529099999999687,
+            0.04841600000000312
+          ],
+          "medianMs": 0.05529099999999687,
+          "processMaxRssKiB": 102960
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 1048576,
+          "outputCodeUnits": 1048737,
+          "outputSha256": "a7d71bc94223dde9a4e864abba2ec8fa07a79ef0214e1ece247467933d55d13e",
+          "samplesMs": [
+            1.2275410000000022,
+            4.380750000000006,
+            3.128583000000006,
+            0.9027500000000117
+          ],
+          "medianMs": 3.128583000000006,
+          "processMaxRssKiB": 121296
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 6146,
+          "outputCodeUnits": 6307,
+          "outputSha256": "eced7982fee45fcad62569b74ee5a3a37b1161ff08e7e5f42507df1132fda3a4",
+          "samplesMs": [
+            0.6235829999999964,
+            0.42287499999999056,
+            0.061917000000008215,
+            0.05116699999999241
+          ],
+          "medianMs": 0.061917000000008215,
+          "processMaxRssKiB": 101776
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 393218,
+          "outputCodeUnits": 393379,
+          "outputSha256": "c6ee0e253efdb21ff0c987d633a868d5057aa71a1bd5f0bd15183dd5268281a6",
+          "samplesMs": [
+            6.792084000000003,
+            9.932292000000004,
+            5.114542,
+            6.312832999999998
+          ],
+          "medianMs": 6.312832999999998,
+          "processMaxRssKiB": 130960
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 6291458,
+          "outputCodeUnits": 6291619,
+          "outputSha256": "76f0abbd670fb8b35692c64129a7f6f35b47a60a1551dc3f3f0d58e6910a0164",
+          "samplesMs": [
+            116.126042,
+            97.09691600000002,
+            98.12824999999998,
+            94.58087499999999
+          ],
+          "medianMs": 97.09691600000002,
+          "processMaxRssKiB": 307728
+        }
+      ]
+    },
+    {
+      "format": "cave.solver-diagnostic-render",
+      "version": 1,
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four render calls, first discarded; construction and exact-output/nonmutation assertions outside timing",
+      "memory": "process lifetime peak RSS includes fixture/report/expected-output construction, checks and four renders; not isolated renderer allocation",
+      "scope": "single unknown-reason string, plain ASCII or U+0085; no general report-size or elapsed-time guarantee",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-diagnostic-render-bench.mjs": "402ca344d0498ce442a9bea557beebb29d0ecde987fe16c6c4b045266a06ec19",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "798394338ecf5d95ded3aee5e170028a390927ce13968f98e50e9327d601dd5a",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "family": "plain",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 1024,
+          "outputCodeUnits": 1185,
+          "outputSha256": "09ea9c7fb581c8ccb8392fbff8031805b4e6ee93a21aee662942a2a44f28f119",
+          "samplesMs": [
+            0.3470000000000084,
+            0.0050420000000030996,
+            0.0071249999999878355,
+            0.0029580000000066775
+          ],
+          "medianMs": 0.0050420000000030996,
+          "processMaxRssKiB": 98048
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 65536,
+          "outputCodeUnits": 65697,
+          "outputSha256": "923bc493e9e382af08cec1894e9a6f81429dbf53e74e28a5e35e63dbb5759e46",
+          "samplesMs": [
+            0.23891600000000324,
+            0.06383300000000247,
+            0.06862499999999727,
+            0.06733400000000245
+          ],
+          "medianMs": 0.06733400000000245,
+          "processMaxRssKiB": 100016
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 1048576,
+          "outputCodeUnits": 1048737,
+          "outputSha256": "a7d71bc94223dde9a4e864abba2ec8fa07a79ef0214e1ece247467933d55d13e",
+          "samplesMs": [
+            2.0506249999999966,
+            2.326332999999991,
+            0.919708,
+            1.024583000000007
+          ],
+          "medianMs": 1.024583000000007,
+          "processMaxRssKiB": 114144
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 6146,
+          "outputCodeUnits": 6307,
+          "outputSha256": "eced7982fee45fcad62569b74ee5a3a37b1161ff08e7e5f42507df1132fda3a4",
+          "samplesMs": [
+            0.3586659999999995,
+            0.545583999999991,
+            0.08374999999999488,
+            0.07391699999999446
+          ],
+          "medianMs": 0.08374999999999488,
+          "processMaxRssKiB": 99552
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 393218,
+          "outputCodeUnits": 393379,
+          "outputSha256": "c6ee0e253efdb21ff0c987d633a868d5057aa71a1bd5f0bd15183dd5268281a6",
+          "samplesMs": [
+            6.09375,
+            7.686917000000008,
+            5.43887500000001,
+            6.095250000000007
+          ],
+          "medianMs": 6.095250000000007,
+          "processMaxRssKiB": 124704
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 6291458,
+          "outputCodeUnits": 6291619,
+          "outputSha256": "76f0abbd670fb8b35692c64129a7f6f35b47a60a1551dc3f3f0d58e6910a0164",
+          "samplesMs": [
+            111.2015,
+            99.68654199999997,
+            87.04166700000002,
+            100.64337499999999
+          ],
+          "medianMs": 99.68654199999997,
+          "processMaxRssKiB": 425856
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "format": "cave.solver-diagnostic-render",
+      "version": 1,
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four render calls, first discarded; construction and exact-output/nonmutation assertions outside timing",
+      "memory": "process lifetime peak RSS includes fixture/report/expected-output construction, checks and four renders; not isolated renderer allocation",
+      "scope": "single unknown-reason string, plain ASCII or U+0085; no general report-size or elapsed-time guarantee",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-diagnostic-render-bench.mjs": "402ca344d0498ce442a9bea557beebb29d0ecde987fe16c6c4b045266a06ec19",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "dc87a702d13859119785c8d436af865615a7adeb46006ec77f57c0073921f0df",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "family": "plain",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 1024,
+          "outputCodeUnits": 1185,
+          "outputSha256": "09ea9c7fb581c8ccb8392fbff8031805b4e6ee93a21aee662942a2a44f28f119",
+          "samplesMs": [
+            0.3389580000000052,
+            0.0050409999999914135,
+            0.00549999999999784,
+            0.0027079999999983784
+          ],
+          "medianMs": 0.0050409999999914135,
+          "processMaxRssKiB": 101712
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 65536,
+          "outputCodeUnits": 65697,
+          "outputSha256": "923bc493e9e382af08cec1894e9a6f81429dbf53e74e28a5e35e63dbb5759e46",
+          "samplesMs": [
+            0.2324169999999981,
+            0.049875000000000114,
+            0.06679199999999241,
+            0.06041599999998937
+          ],
+          "medianMs": 0.06041599999998937,
+          "processMaxRssKiB": 102336
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 1048576,
+          "outputCodeUnits": 1048737,
+          "outputSha256": "a7d71bc94223dde9a4e864abba2ec8fa07a79ef0214e1ece247467933d55d13e",
+          "samplesMs": [
+            1.2247500000000002,
+            2.7273330000000016,
+            0.9155839999999955,
+            0.938834
+          ],
+          "medianMs": 0.938834,
+          "processMaxRssKiB": 117552
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 6146,
+          "outputCodeUnits": 6307,
+          "outputSha256": "eced7982fee45fcad62569b74ee5a3a37b1161ff08e7e5f42507df1132fda3a4",
+          "samplesMs": [
+            1.1319170000000014,
+            0.06487500000000068,
+            0.05095899999999176,
+            0.27966700000000344
+          ],
+          "medianMs": 0.06487500000000068,
+          "processMaxRssKiB": 101648
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 393218,
+          "outputCodeUnits": 393379,
+          "outputSha256": "c6ee0e253efdb21ff0c987d633a868d5057aa71a1bd5f0bd15183dd5268281a6",
+          "samplesMs": [
+            3.987833000000009,
+            4.905833999999999,
+            3.0175410000000085,
+            2.9951249999999874
+          ],
+          "medianMs": 3.0175410000000085,
+          "processMaxRssKiB": 116992
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 6291458,
+          "outputCodeUnits": 6291619,
+          "outputSha256": "76f0abbd670fb8b35692c64129a7f6f35b47a60a1551dc3f3f0d58e6910a0164",
+          "samplesMs": [
+            41.0055,
+            33.669708,
+            42.693791000000004,
+            34.18587499999998
+          ],
+          "medianMs": 34.18587499999998,
+          "processMaxRssKiB": 241760
+        }
+      ]
+    },
+    {
+      "format": "cave.solver-diagnostic-render",
+      "version": 1,
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per case; four render calls, first discarded; construction and exact-output/nonmutation assertions outside timing",
+      "memory": "process lifetime peak RSS includes fixture/report/expected-output construction, checks and four renders; not isolated renderer allocation",
+      "scope": "single unknown-reason string, plain ASCII or U+0085; no general report-size or elapsed-time guarantee",
+      "childAllowance": {
+        "timeoutMs": 60000,
+        "maxOldSpaceMb": 256
+      },
+      "sources": {
+        "scripts/solver-diagnostic-render-bench.mjs": "402ca344d0498ce442a9bea557beebb29d0ecde987fe16c6c4b045266a06ec19",
+        "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+        "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+        "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+        "packages/solver/src/clone.ts": "ab7c62df8b1e104c546b6ef6b24f56f2a8b6700f545d7ed4c388bffc8f29e8ef",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/explain.ts": "dc87a702d13859119785c8d436af865615a7adeb46006ec77f57c0073921f0df",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+        "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+        "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+        "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+        "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1"
+      },
+      "results": [
+        {
+          "family": "plain",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 1024,
+          "outputCodeUnits": 1185,
+          "outputSha256": "09ea9c7fb581c8ccb8392fbff8031805b4e6ee93a21aee662942a2a44f28f119",
+          "samplesMs": [
+            0.3256250000000023,
+            0.004750000000001364,
+            0.00679200000000435,
+            0.0026249999999947704
+          ],
+          "medianMs": 0.004750000000001364,
+          "processMaxRssKiB": 97520
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 65536,
+          "outputCodeUnits": 65697,
+          "outputSha256": "923bc493e9e382af08cec1894e9a6f81429dbf53e74e28a5e35e63dbb5759e46",
+          "samplesMs": [
+            0.2454579999999993,
+            0.06833299999999554,
+            0.08225000000000193,
+            0.15379099999999823
+          ],
+          "medianMs": 0.08225000000000193,
+          "processMaxRssKiB": 99632
+        },
+        {
+          "family": "plain",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 1048576,
+          "outputCodeUnits": 1048737,
+          "outputSha256": "a7d71bc94223dde9a4e864abba2ec8fa07a79ef0214e1ece247467933d55d13e",
+          "samplesMs": [
+            1.951207999999994,
+            3.7250000000000085,
+            0.9045830000000024,
+            1.2549999999999955
+          ],
+          "medianMs": 1.2549999999999955,
+          "processMaxRssKiB": 116560
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1024,
+          "renderedMessageCodeUnits": 6146,
+          "outputCodeUnits": 6307,
+          "outputSha256": "eced7982fee45fcad62569b74ee5a3a37b1161ff08e7e5f42507df1132fda3a4",
+          "samplesMs": [
+            0.9521250000000094,
+            0.06949999999999079,
+            0.04512500000001296,
+            0.363749999999996
+          ],
+          "medianMs": 0.06949999999999079,
+          "processMaxRssKiB": 97488
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 65536,
+          "renderedMessageCodeUnits": 393218,
+          "outputCodeUnits": 393379,
+          "outputSha256": "c6ee0e253efdb21ff0c987d633a868d5057aa71a1bd5f0bd15183dd5268281a6",
+          "samplesMs": [
+            3.6404159999999877,
+            4.696624999999997,
+            2.6605420000000066,
+            2.286167000000006
+          ],
+          "medianMs": 2.6605420000000066,
+          "processMaxRssKiB": 110592
+        },
+        {
+          "family": "control",
+          "inputCodeUnits": 1048576,
+          "renderedMessageCodeUnits": 6291458,
+          "outputCodeUnits": 6291619,
+          "outputSha256": "76f0abbd670fb8b35692c64129a7f6f35b47a60a1551dc3f3f0d58e6910a0164",
+          "samplesMs": [
+            44.91566700000001,
+            39.755874999999975,
+            47.04245800000001,
+            38.43391700000001
+          ],
+          "medianMs": 39.755874999999975,
+          "processMaxRssKiB": 237216
+        }
+      ]
+    }
+  ]
+}

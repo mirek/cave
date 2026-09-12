@@ -1,0 +1,483 @@
+{
+  "format": "cave.pagination-row-width-review/v1",
+  "runs": [
+    {
+      "format": "cave.pagination-row-width-benchmark/v1",
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            1078.4095,
+            1078.1401669999996,
+            1058.1562919999997
+          ],
+          "medianMs": 1078.1401669999996,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce2-dc44-7019-a9a1-b48230062f2b') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "late",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            945.0167499999998,
+            1020.8647079999996,
+            883.0484999999999
+          ],
+          "medianMs": 945.0167499999998,
+          "sql": "SELECT materialized.* FROM (SELECT c.id FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce2-dc44-7019-a9a1-b48230062f2b') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?) selected\n        JOIN cave_claim materialized ON materialized.id = selected.id ORDER BY materialized.tx",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE selected"
+            },
+            {
+              "id": 4,
+              "parent": 2,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 10,
+              "parent": 4,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 52,
+              "parent": 2,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 73,
+              "parent": 2,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 91,
+              "parent": 2,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            },
+            {
+              "id": 102,
+              "parent": 0,
+              "notused": 90,
+              "detail": "SCAN selected"
+            },
+            {
+              "id": 105,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH materialized USING INDEX sqlite_autoindex_cave_claim_1 (id=?)"
+            },
+            {
+              "id": 138,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            400.5292079999999,
+            431.96300000000156,
+            405.6108750000003
+          ],
+          "medianMs": 405.6108750000003,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce2-f583-7033-9680-95d79e8f6250') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "late",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            421.9285829999999,
+            443.1126669999994,
+            408.26195800000096
+          ],
+          "medianMs": 421.9285829999999,
+          "sql": "SELECT materialized.* FROM (SELECT c.id FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce2-f583-7033-9680-95d79e8f6250') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?) selected\n        JOIN cave_claim materialized ON materialized.id = selected.id ORDER BY materialized.tx",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE selected"
+            },
+            {
+              "id": 4,
+              "parent": 2,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 10,
+              "parent": 4,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 52,
+              "parent": 2,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 73,
+              "parent": 2,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 91,
+              "parent": 2,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            },
+            {
+              "id": 102,
+              "parent": 0,
+              "notused": 90,
+              "detail": "SCAN selected"
+            },
+            {
+              "id": 105,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH materialized USING INDEX sqlite_autoindex_cave_claim_1 (id=?)"
+            },
+            {
+              "id": 138,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.pagination-row-width-benchmark/v1",
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            1307.9763750000002,
+            1053.2070840000001,
+            1056.8327499999996
+          ],
+          "medianMs": 1056.8327499999996,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce3-2206-7001-9a8c-7f4341840ac3') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "late",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            1012.519166,
+            880.5133329999999,
+            877.1988330000004
+          ],
+          "medianMs": 880.5133329999999,
+          "sql": "SELECT materialized.* FROM (SELECT c.id FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce3-2206-7001-9a8c-7f4341840ac3') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?) selected\n        JOIN cave_claim materialized ON materialized.id = selected.id ORDER BY materialized.tx",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE selected"
+            },
+            {
+              "id": 4,
+              "parent": 2,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 10,
+              "parent": 4,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 52,
+              "parent": 2,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 73,
+              "parent": 2,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 91,
+              "parent": 2,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            },
+            {
+              "id": 102,
+              "parent": 0,
+              "notused": 90,
+              "detail": "SCAN selected"
+            },
+            {
+              "id": 105,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH materialized USING INDEX sqlite_autoindex_cave_claim_1 (id=?)"
+            },
+            {
+              "id": 138,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            404.0478750000002,
+            406.1599589999987,
+            404.5538750000014
+          ],
+          "medianMs": 404.5538750000014,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce3-3bba-7014-a924-49618ed208ee') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "late",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            403.53450000000066,
+            425.12191599999915,
+            399.10562500000015
+          ],
+          "medianMs": 403.53450000000066,
+          "sql": "SELECT materialized.* FROM (SELECT c.id FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce3-3bba-7014-a924-49618ed208ee') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?) selected\n        JOIN cave_claim materialized ON materialized.id = selected.id ORDER BY materialized.tx",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE selected"
+            },
+            {
+              "id": 4,
+              "parent": 2,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 10,
+              "parent": 4,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 52,
+              "parent": 2,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 73,
+              "parent": 2,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 91,
+              "parent": 2,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            },
+            {
+              "id": 102,
+              "parent": 0,
+              "notused": 90,
+              "detail": "SCAN selected"
+            },
+            {
+              "id": 105,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH materialized USING INDEX sqlite_autoindex_cave_claim_1 (id=?)"
+            },
+            {
+              "id": 138,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

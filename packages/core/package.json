@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/core",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "type": "module",
   "description": "CAVE domain model — claims, values, units, uncertainty, claim keys, UUIDv7 transactions.",
   "keywords": [
@@ -21,7 +21,7 @@
     "directory": "packages/core"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"

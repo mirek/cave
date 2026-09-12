@@ -19,6 +19,7 @@
  */
 
 import { Claim, Key, Value } from '@cavelang/core'
+import { canonicalizeText } from '@cavelang/canonical'
 import { parseDocument } from '@cavelang/parser'
 import { Rule } from '@cavelang/rules'
 import { Row, type Store } from '@cavelang/store'
@@ -47,23 +48,28 @@ const declarationKey = (subject: string, attribute: string): string =>
  * decide whether a disabled declaration matters.
  */
 export const currentAttribute = (store: Store, subject: string, attribute: string): undefined | Row.t => {
-  let winner: undefined | Row.t
-  for (const row of store.currentBeliefs()) {
-    if (row.subject === subject && row.verb === 'HAS' && row.attribute === attribute &&
-        (winner === undefined || winner.tx < row.tx)) {
-      winner = row
-    }
-  }
-  return winner
+  // The newest row across all series is necessarily current in its own series.
+  // Keep disabled rows in this contest: a newer retraction/negation must win.
+  return store.db.prepare(`SELECT * FROM cave_claim
+    WHERE subject = ? AND verb = 'HAS' AND attribute = ?
+    ORDER BY tx DESC LIMIT 1`).get(subject, attribute) as unknown as undefined | Row.t
 }
 
 const enabled = (row: undefined | Row.t): row is Row.t =>
   row !== undefined && row.conf > 0 && row.negated === 0 && row.value_text !== null
 
+/** Decode enabled action metadata without coercing malformed SQLite values. */
+const storedText = (row: Row.t): string => {
+  if (typeof row.value_text !== 'string') {
+    throw new TypeError(`stored action field ${JSON.stringify(row.attribute)} value_text must be text (claim ${JSON.stringify(row.id)})`)
+  }
+  return Row.parseValue(row.value_text).raw
+}
+
 /** Current positive action declaration rows, newest series winner per subject. */
-const currentActionRows = (store: Store): Row.t[] => {
+const currentActionRows = (rows: readonly Row.t[]): Row.t[] => {
   const bySubject = new Map<string, Row.t>()
-  for (const row of store.currentBeliefs()) {
+  for (const row of rows) {
     if (row.verb !== 'HAS' || row.attribute !== Action.actionAttribute ||
         Action.actionName(row.subject) === undefined) {
       continue
@@ -95,7 +101,7 @@ export const loadAction = (store: Store, name: string): undefined | { loaded?: L
   if (!enabled(row)) {
     return undefined
   }
-  const parsed = Action.parse(subject, Row.parseValue(row.value_text!).raw)
+  const parsed = Action.parse(subject, storedText(row))
   if (!parsed.ok) {
     return { problems: parsed.problems }
   }
@@ -112,19 +118,7 @@ export const loadAction = (store: Store, name: string): undefined | { loaded?: L
 /** The hook name the action currently references, if any (§25.4). */
 export const currentHook = (store: Store, subject: string): undefined | string => {
   const row = currentAttribute(store, subject, Action.hookAttribute)
-  return enabled(row) ? Row.parseValue(row.value_text!).raw : undefined
-}
-
-/** Parameter doc — the comment of `action/<name>/<param> IS param` (§25.1). */
-const paramDoc = (store: Store, subject: string, param: string): undefined | string => {
-  let winner: undefined | Row.t
-  for (const row of store.currentBeliefs()) {
-    if (row.subject === `${subject}/${param}` && row.verb === 'IS' && row.object === 'param' &&
-        row.negated === 0 && row.conf > 0 && (winner === undefined || winner.tx < row.tx)) {
-      winner = row
-    }
-  }
-  return winner?.comment ?? undefined
+  return enabled(row) ? storedText(row) : undefined
 }
 
 export type ListedParam = {
@@ -145,17 +139,31 @@ export type ListedAction = {
 }
 
 /** Current positive actions of a store, in declaration order. */
-export const listActions = (store: Store): ListedAction[] =>
-  currentActionRows(store).map(row => {
-    const text = Row.parseValue(row.value_text!).raw
+export const listActions = (store: Store): ListedAction[] => {
+  const rows = store.currentBeliefs()
+  const docs = new Map<string, Row.t>()
+  const hooks = new Map<string, Row.t>()
+  for (const row of rows) {
+    if (row.verb === 'IS' && row.object === 'param' && row.negated === 0 && row.conf > 0) {
+      const seen = docs.get(row.subject)
+      if (seen === undefined || seen.tx < row.tx) docs.set(row.subject, row)
+    }
+    if (row.verb === 'HAS' && row.attribute === Action.hookAttribute) {
+      const seen = hooks.get(row.subject)
+      if (seen === undefined || seen.tx < row.tx) hooks.set(row.subject, row)
+    }
+  }
+  return currentActionRows(rows).map(row => {
+    const text = storedText(row)
     const parsed = Action.parse(row.subject, text)
     const params = parsed.ok ?
       parsed.action.params.map(name => {
-        const doc = paramDoc(store, row.subject, name)
+        const doc = docs.get(`${row.subject}/${name}`)?.comment ?? undefined
         return { name, ...doc === undefined ? {} : { doc } }
       }) :
       []
-    const hook = currentHook(store, row.subject)
+    const hookRow = hooks.get(row.subject)
+    const hook = enabled(hookRow) ? storedText(hookRow) : undefined
     return {
       subject: row.subject,
       name: Action.actionName(row.subject)!,
@@ -167,6 +175,7 @@ export const listActions = (store: Store): ListedAction[] =>
       problems: parsed.ok ? [] : parsed.problems
     }
   })
+}
 
 export type Declaration = {
   /** Actions newly declared (or re-declared after a change/retraction). */
@@ -231,6 +240,13 @@ export const declareActions = (store: Store, text: string): Declaration => {
   const problems: { line: number, message: string }[] = []
   const actions: Action.t[] = []
   const preludeLines: string[] = []
+  const preludeSourceLines: number[] = []
+  const addPrelude = (lines: readonly string[], at: number): void => {
+    lines.forEach((line, index) => {
+      preludeLines.push(line)
+      preludeSourceLines.push(at + index)
+    })
+  }
   const declarations: { declaration: DeclarationLine, at: number }[] = []
 
   // Top-level blocks: a structural unindented line plus what follows it.
@@ -242,7 +258,7 @@ export const declareActions = (store: Store, text: string): Declaration => {
     if (isStructural(line) && indentOf(line) === 0) {
       blocks.push({ lines: [line], at: index + 1 })
     } else if (blocks.length === 0) {
-      preludeLines.push(line)
+      addPrelude([line], index + 1)
     } else {
       blocks[blocks.length - 1]!.lines.push(line)
     }
@@ -250,7 +266,7 @@ export const declareActions = (store: Store, text: string): Declaration => {
   for (const block of blocks) {
     const declaration = asDeclaration(block.lines[0]!)
     if (declaration === undefined) {
-      preludeLines.push(...block.lines)
+      addPrelude(block.lines, block.at)
       continue
     }
     if (block.lines.slice(1).some(isStructural)) {
@@ -258,18 +274,26 @@ export const declareActions = (store: Store, text: string): Declaration => {
       continue
     }
     declarations.push({ declaration, at: block.at })
-    preludeLines.push(...block.lines.slice(1))
+    addPrelude(block.lines.slice(1), block.at + 1)
   }
 
   return store.transaction(() => {
+    store.registry()
     let prelude = 0
     const preludeText = preludeLines.join('\n')
     if (preludeText.trim() !== '') {
+      // Validate even cached input: older versions cached failed preludes too.
+      const canonical = canonicalizeText(preludeText, store.registry())
+      if (canonical.problems.length > 0) {
+        for (const problem of canonical.problems) problems.push({
+          ...problem, line: preludeSourceLines[problem.line - 1] ?? problem.line
+        })
+        return { declared: 0, unchanged: 0, prelude: 0, actions, problems }
+      }
       const digest = Rule.digestOf(preludeText)
       const known = store.currentBelief(declarationKey(preludeSubject, preludeDigestAttribute))
       if (known === undefined || known.conf <= 0 || known.value_text !== digest) {
-        const result = store.ingest(preludeText, { source: 'cave-act' })
-        problems.push(...result.problems)
+        const result = store.insertResult(canonical, { source: 'cave-act' })
         prelude = result.ids.length
         store.ingest(`${preludeSubject} HAS ${preludeDigestAttribute}: ${digest} @${provenanceContext}`)
       }
@@ -280,7 +304,7 @@ export const declareActions = (store: Store, text: string): Declaration => {
     for (const { declaration, at } of declarations) {
       const parsed = Action.parse(declaration.subject, declaration.body)
       if (!parsed.ok) {
-        problems.push(...parsed.problems.map(message => ({ line: at, message })))
+        for (const message of parsed.problems) problems.push({ line: at, message })
         continue
       }
       const action = parsed.action
@@ -319,13 +343,13 @@ export type Retraction =
  */
 export const retractAction = (store: Store, ref: string): Retraction => {
   const subject = Action.actionSubject(ref)
-  const rows = store.currentBeliefs().filter(row =>
-    row.subject === subject && row.verb === 'HAS' && row.attribute === Action.actionAttribute &&
-    row.negated === 0 && row.conf > 0)
-  if (rows.length === 0) {
-    return { ok: false, error: `no current action matches ${JSON.stringify(ref)}` }
-  }
   return store.transaction(() => {
+    const rows = store.currentBeliefs().filter(row =>
+      row.subject === subject && row.verb === 'HAS' && row.attribute === Action.actionAttribute &&
+      row.negated === 0 && row.conf > 0)
+    if (rows.length === 0) {
+      return { ok: false, error: `no current action matches ${JSON.stringify(ref)}` }
+    }
     for (const row of rows) {
       store.insertResult({
         claims: [{ claim: { ...store.toClaim(row), conf: 0, raw: '', comment: 'retracted: cave act --retract' }, line: 0 }],

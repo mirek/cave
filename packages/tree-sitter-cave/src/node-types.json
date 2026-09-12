@@ -79,7 +79,7 @@
       },
       "verb": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "verb",
@@ -92,6 +92,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "claim_marker",
+          "named": true
+        },
         {
           "type": "comment",
           "named": true
@@ -308,6 +312,11 @@
     }
   },
   {
+    "type": "entity",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "object",
     "named": true,
     "fields": {},
@@ -340,6 +349,10 @@
         "types": [
           {
             "type": "attr_value",
+            "named": true
+          },
+          {
+            "type": "claim_marker",
             "named": true
           },
           {
@@ -491,6 +504,10 @@
       "types": [
         {
           "type": "attribute",
+          "named": true
+        },
+        {
+          "type": "claim_marker",
           "named": true
         },
         {
@@ -669,6 +686,10 @@
     "named": true
   },
   {
+    "type": "claim_marker",
+    "named": true
+  },
+  {
     "type": "code",
     "named": true
   },
@@ -682,10 +703,6 @@
   },
   {
     "type": "context",
-    "named": true
-  },
-  {
-    "type": "entity",
     "named": true
   },
   {

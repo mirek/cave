@@ -11,6 +11,8 @@ import { defaultDbPath, kindOf, openAt } from '@cavelang/store'
 import { assemble } from '@cavelang/connect'
 import { serve, serverInfo } from './server.ts'
 import { scopedTools, type Permission, type Scope } from './tools.ts'
+import { errorMessage } from './error-message.ts'
+import { sourceValue } from './source.ts'
 
 export const usage = `cave mcp — serve a CAVE knowledge database as an MCP server on stdio
 
@@ -64,12 +66,23 @@ Examples:
  * misconfigured side-effect surface must not come up at all.
  */
 export const readHooks = (path: string): Record<string, string> => {
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
-      Object.values(parsed).some(value => typeof value !== 'string')) {
-    throw new Error(`${path}: hooks must be a JSON object of name → shell template strings`)
+  const bytes = readFileSync(path)
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch (cause) {
+    throw new TypeError(`${path}: invalid UTF-8 hooks configuration`, { cause })
   }
-  return parsed as Record<string, string>
+  const parsed: unknown = JSON.parse(text)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) ||
+      Object.entries(parsed).some(([name, command]) => name.trim() === '' || typeof command !== 'string')) {
+    throw new Error(`${path}: hooks must be a JSON object of nonblank names to shell template strings`)
+  }
+  const hooks = parsed as Record<string, string>
+  if (Object.entries(hooks).some(([name, command]) => /[\uD800-\uDFFF]/u.test(name) || /[\uD800-\uDFFF]/u.test(command))) {
+    throw new Error(`${path}: hook names and commands must contain well-formed Unicode`)
+  }
+  return hooks
 }
 
 export type RunContext = {
@@ -80,19 +93,13 @@ export type RunContext = {
 }
 
 /** Validates the single accepted `--src` spelling: a non-empty context token without `src:`. */
-export const sourceFromOption = (value: undefined | string): undefined | string => {
-  if (value === undefined) return undefined
-  if (!/^[A-Za-z0-9._/:-]+$/.test(value)) {
-    throw new Error('--src must be a context token (letters, digits, . _ / : -)')
-  }
-  if (value.startsWith('src:')) {
-    throw new Error('--src must not include the src: prefix')
-  }
-  return value
-}
+export const sourceFromOption = (value: undefined | string): undefined | string =>
+  sourceValue(value, '--src')
 
 /** Runs the server; resolves with the process exit code. */
 export const runMcp = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const signal = context.signal
+  if (signal?.aborted === true) return 0
   const stdin = context.stdin ?? process.stdin
   const stdout = context.stdout ?? process.stdout
   const stderr = context.stderr ?? process.stderr
@@ -119,7 +126,7 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
   try {
     sourceOverride = sourceFromOption(values.src)
   } catch (error) {
-    stderr.write(`cave mcp: ${error instanceof Error ? error.message : String(error)}\n`)
+    stderr.write(`cave mcp: ${errorMessage(error)}\n`)
     return 2
   }
   const scope: Scope = {
@@ -140,7 +147,7 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
     const hooksPath = values.hooks ?? process.env['CAVE_HOOKS']
     hooks = hooksPath === undefined ? undefined : readHooks(hooksPath)
   } catch (error) {
-    stderr.write(`cave mcp: ${error instanceof Error ? error.message : String(error)}\n`)
+    stderr.write(`cave mcp: ${errorMessage(error)}\n`)
     return 2
   }
   const db = values.db ?? defaultDbPath()
@@ -154,22 +161,28 @@ export const runMcp = async (argv: readonly string[], context: RunContext = {}):
     assemble,
     ...values['no-prelude'] === true ? { registry: Registry.empty } : {}
   })
-  const scopeNote = [
-    ...values['read-only'] === true ? ['read-only'] : [],
-    ...scope.permissions === undefined ? [] : [`permissions ${scope.permissions.join(',')}`],
-    ...scope.tools === undefined ? [] : [`tools ${scopedTools(scope).map(tool => tool.name).join(',')}`]
-  ]
-  stderr.write(`${serverInfo.name} mcp server ${serverInfo.version} — db ${db}` +
-    `${scopeNote.length > 0 ? ` (${scopeNote.join('; ')})` : ''}\n`)
   try {
+    const scopeNote = [
+      ...values['read-only'] === true ? ['read-only'] : [],
+      ...scope.permissions === undefined ? [] : [`permissions ${scope.permissions.join(',')}`],
+      ...scope.tools === undefined ? [] : [`tools ${scopedTools(scope).map(tool => tool.name).join(',')}`]
+    ]
+    stderr.write(`${serverInfo.name} mcp server ${serverInfo.version} — db ${db}` +
+      `${scopeNote.length > 0 ? ` (${scopeNote.join('; ')})` : ''}\n`)
     await serve(store, stdin, stdout, {
       ...scope,
       ...values['no-src'] === true ? { source: false } : sourceOverride === undefined ? {} : { source: sourceOverride },
       ...hooks === undefined ? {} : { hooks },
-      ...context.signal === undefined ? {} : { signal: context.signal }
+      ...signal === undefined ? {} : { signal }
     })
-  } finally {
-    store.close()
+  } catch (error) {
+    try { store.close() } catch (closeError) {
+      const messages = [error, closeError].map(errorMessage)
+      throw new AggregateError([error, closeError],
+        `MCP server failed: ${messages[0]}; store close also failed: ${messages[1]}`, { cause: error })
+    }
+    throw error
   }
+  store.close()
   return 0
 }

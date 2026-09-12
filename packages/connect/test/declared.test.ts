@@ -1,10 +1,110 @@
 import { test } from 'node:test'
+import fs from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
+import { syncBuiltinESMExports } from 'node:module'
 import * as assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { LocateError, open, openAt } from '@cavelang/store'
 import { Declared, assemble, declaredNaming } from '@cavelang/connect'
+
+test('declared ownership closure handles cycles, shared descendants and duplicate selections', () => {
+  const store = open()
+  try {
+    store.ingest('source/root HAS path: root.cave\nsource/unrelated HAS path: unrelated.cave')
+    store.ingest('source/a HAS path: a.cave\nsource/b HAS path: b.cave', { provenance: { run: 'root/record' } })
+    store.ingest('source/root HAS path: root.cave\nsource/leaf HAS path: leaf.cave', { provenance: { run: 'a' } })
+    store.ingest('source/leaf HAS path: leaf.cave', { provenance: { run: 'b' } })
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    for (const names of [['root'], ['root', 'root', 'a'], ['a']]) {
+      assert.deepEqual(Declared.closure(store, names).map(source => source.name).sort(), ['a', 'b', 'leaf', 'root'])
+    }
+    assert.deepEqual(Declared.closure(store, ['b']).map(source => source.name).sort(), ['b', 'leaf'])
+    assert.deepEqual(Declared.closure(store, Array.from({ length: 10_000 }, (_, i) => `missing${i}`)), [])
+    assert.deepEqual(Declared.closure(store, []), [])
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('cancelled declared discovery discards its snapshot and preserves the abort reason', async t => {
+  const store = open()
+  const controller = new AbortController(), reason = new Error('cancel discovery')
+  const snapshots: string[] = []
+  try {
+    store.ingest('source/a HAS path: https://records.test/a.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const capability = store.adapter.capabilities.backup!
+    const write = capability.write.bind(capability)
+    t.mock.method(capability, 'write', (db: Parameters<typeof write>[0], destination: string) => {
+      snapshots.push(destination)
+      return write(db, destination)
+    })
+    const options = {
+      signal: controller.signal,
+      fetchImpl: async () => {
+        controller.abort(reason)
+        return new Response('source/next HAS path: https://records.test/next.cave')
+      }
+    }
+    await assert.rejects(Declared.discovery(store, 'root.db', options), error => error === reason)
+    assert.equal(snapshots.length, 1)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    await assert.rejects(Declared.discovery(store, 'root.db', options), error => error === reason)
+    assert.equal(snapshots.length, 1, 'pre-aborted discovery does not allocate a snapshot')
+  } finally { store.close() }
+})
+
+test('declared discovery retains the initially selected cancellation signal', async () => {
+  const store = open()
+  const controller = new AbortController(), reason = new Error('original discovery signal')
+  try {
+    store.ingest('source/a HAS path: https://records.test/a.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    let reads = 0
+    await assert.rejects(Declared.discovery(store, 'root.db', {
+      get signal() { return ++reads === 1 ? controller.signal : undefined },
+      fetchImpl: async () => {
+        await Promise.resolve()
+        controller.abort(reason)
+        return new Response('a IS remote')
+      }
+    }), error => error === reason)
+    assert.equal(reads, 1)
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('declared preparation retains the identity whose content was fetched', async () => {
+  const declared = { name: 'original', path: 'https://records.test/original.cave' }
+  const expected = { ...declared }
+  const ready = await Declared.prepare(declared, '.', async () => {
+    await Promise.resolve()
+    declared.name = 'replacement'
+    declared.path = 'https://records.test/replacement.cave'
+    return new Response('a IS remote')
+  })
+  assert.deepEqual(ready.declared, expected)
+  declared.name = 'later'
+  assert.deepEqual(ready.declared, expected)
+  const store = open()
+  try {
+    assert.deepEqual(Declared.run(store, ready).failures, [])
+    assert.equal(Declared.recordedDeclaration(store, 'original'), Declared.declarationDigest(expected))
+    const row = store.currentBeliefs().find(row => row.subject === 'a')!
+    assert.ok(store.toClaim(row).contexts.includes('src:original'))
+  } finally { store.close() }
+})
+
+test('synchronous preparation owns its declaration after returning', () => withDir(dir => {
+  writeFileSync(join(dir, 'source.cave'), 'a IS local')
+  const declared = { name: 'original', path: 'source.cave' }
+  const ready = Declared.prepareSync(declared, dir)
+  declared.name = 'replacement'
+  declared.path = 'other.cave'
+  assert.deepEqual(ready.declared, { name: 'original', path: 'source.cave' })
+}))
 
 const withDir = (body: (dir: string) => void): void => {
   const dir = mkdtempSync(join(tmpdir(), 'cave-declared-'))
@@ -46,6 +146,92 @@ test('declared sources are current source/<name> claims with a path; retracting 
   } finally {
     store.close()
   }
+})
+
+test('invalid declared CSV refreshes preserve claims, digests and declaration ownership', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db')
+    const source = join(dir, 'people.csv')
+    writeFileSync(source, people)
+    writeFileSync(join(dir, 'people.map.cave'), peopleMap)
+    const store = open(db)
+    try {
+      store.ingest('source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id')
+      assemble(store, db)
+      const declaration = Declared.declaredSources(store)[0]!
+      const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      for (const malformed of [
+        'id,name,company\n1,"unfinished',
+        'id,name,company\n1,"ann"suffix,acme',
+        'id,name,name\n1,ann,overwritten',
+        'id,name,company\n1,ann,acme,discarded'
+      ]) {
+        writeFileSync(source, malformed)
+        assert.throws(() => Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true }), /CSV line/)
+        assert.throws(() => assemble(store, db), error => error instanceof LocateError && /source\/people.*CSV line/.test(error.message))
+        assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      }
+      writeFileSync(source, people)
+      const recovered = Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true })
+      assert.equal(recovered.skipped, 2)
+      assert.equal(recovered.pruned, 0)
+      assert.equal(recovered.added, 0)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    } finally { store.close() }
+  })
+})
+
+test('invalid source encoding and SQL projections during refresh preserve declared source history', () => {
+  withDir(dir => {
+    const path = join(dir, 'k.db')
+    const source = join(dir, 'people.csv')
+    writeFileSync(source, people)
+    writeFileSync(join(dir, 'people.map.cave'), peopleMap)
+    const store = open(path)
+    try {
+      store.ingest('source/people HAS path: people.csv\nsource/people HAS map: people.map.cave\nsource/people HAS key: id\nsource/people HAS sql: "SELECT *, name AS label FROM records"')
+      assemble(store, path)
+      const declaration = Declared.declaredSources(store)[0]!
+      const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      const mutation = { ...declaration, sql: 'DELETE FROM records' }
+      assert.throws(() => Declared.run(store, Declared.prepareSync(mutation, dir), { prune: true }), /SQL source query must return columns/)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      for (const invalid of ['id,name,company,label\n1,ann,acme,collision', 'id,name,company,label\n']) {
+        writeFileSync(source, invalid)
+        assert.throws(() => Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true }), /duplicate SQL result column "label"/)
+        assert.throws(() => assemble(store, path), error => error instanceof LocateError && /duplicate SQL result column "label"/.test(error.message))
+        assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      }
+      writeFileSync(source, Buffer.concat([Buffer.from('id,name,company\n1,ann,'), Buffer.from([0xff])]))
+      assert.throws(() => Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true }), /invalid UTF-8/)
+      assert.throws(() => assemble(store, path), error => error instanceof LocateError && /invalid UTF-8/.test(error.message))
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      writeFileSync(source, people)
+      const recovered = Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true })
+      assert.equal(recovered.skipped, 2)
+      assert.equal(recovered.pruned, 0)
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    } finally { store.close() }
+  })
+})
+
+test('declared CAVE and mapping files reject invalid UTF-8 before refresh', () => {
+  withDir(dir => {
+    const store = open()
+    try {
+      writeFileSync(join(dir, 'people.csv'), people)
+      for (const mapping of [false, true]) {
+        const file = join(dir, mapping ? 'people.map.cave' : 'people.cave')
+        writeFileSync(file, Buffer.concat([Buffer.from('api IS service ; invalid '), Buffer.from([0xff])]))
+        const declaration = mapping ? { name: 'mapped', path: 'people.csv', map: 'people.map.cave', key: 'id' } : { name: 'cave', path: 'people.cave' }
+        const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+        assert.throws(() => Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true }), /invalid UTF-8/)
+        assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+        writeFileSync(file, mapping ? peopleMap : 'api IS service')
+        assert.equal(Declared.run(store, Declared.prepareSync(declaration, dir)).failures.length, 0)
+      }
+    } finally { store.close() }
+  })
 })
 
 test('declared naming mirrors the stamp and the source entity (spec §23.4, §26.3)', () => {
@@ -675,20 +861,183 @@ test('a shape transition re-runs a same-text prelude, and the declaration marker
   })
 })
 
-test('a failed snapshot leaves no temporary directory behind', async () => {
+test('assembly keeps source context when preparation errors cannot be formatted', t => {
   const store = open()
+  const failure = Object.create(null)
+  try {
+    store.ingest('source/records HAS path: unprintable-records.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const read = fs.readFileSync
+    t.mock.method(fs, 'readFileSync', (...args: Parameters<typeof fs.readFileSync>) => {
+      if (String(args[0]).endsWith('unprintable-records.cave')) throw failure
+      return read(...args)
+    })
+    syncBuiltinESMExports()
+    assert.throws(() => Declared.assemble(store, ':memory:'), error => {
+      assert.ok(error instanceof LocateError)
+      assert.match(error.message, /source\/records \(unprintable-records.cave\): \[unprintable thrown value\]/)
+      assert.equal(error.cause, failure)
+      return true
+    })
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    store.ingest('caller IS usable')
+  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); store.close() }
+})
+
+for (const reader of ['declarationsIn', 'declaredIn'] as const) {
+  for (const invalid of [false, true]) {
+    for (const unprintable of [false, true]) test(`${reader} preserves scratch read and close failures (invalid=${invalid}, unprintable=${unprintable})`, t => {
+      const text = invalid ? 'source/\ud800 HAS path: x.cave' : 'source/x HAS path: x.cave'
+      let original: Error | undefined
+      if (invalid) assert.throws(() => Declared[reader](text), error => {
+        assert.ok(error instanceof Error)
+        original = error
+        return true
+      })
+      else Declared[reader](text) // Initialize the native probe before fault injection.
+      const closeError = new Error('declaration scratch close failed')
+      if (unprintable) Object.defineProperty(closeError, 'message', { value: Object.create(null) })
+      const close = DatabaseSync.prototype.close
+      let closes = 0
+      try {
+        t.mock.method(DatabaseSync.prototype, 'close', function (this: DatabaseSync) {
+          close.call(this)
+          closes++
+          throw closeError
+        })
+        assert.throws(() => Declared[reader](text), error => {
+          if (original === undefined) assert.equal(error, closeError)
+          else {
+            assert.ok(error instanceof AggregateError)
+            assert.equal(error.errors.length, 2)
+            assert.equal(error.errors[0].constructor, original.constructor)
+            assert.equal(error.errors[0].message, original.message)
+            assert.equal(error.errors[1], closeError)
+            assert.equal(error.cause, error.errors[0])
+            assert.ok(error.message.includes(original.message))
+            assert.ok(error.message.includes(unprintable ? '[unprintable thrown value]' : closeError.message))
+          }
+          return true
+        })
+        assert.equal(closes, 1)
+      } finally { t.mock.restoreAll() }
+      assert.deepEqual(Declared.declaredIn('source/x HAS path: x.cave'), [{ name: 'x', path: 'x.cave' }])
+    })
+  }
+}
+
+for (const mode of ['copy-remove', 'read-close', 'close-remove', 'read-close-remove', 'read-close-remove-unprintable', 'close', 'remove'] as const) {
+  test(`discovery preserves failures and attempts all snapshot cleanup: ${mode}`, async t => {
+    const store = open()
+    const created: string[] = []
+    const operationError = new Error('snapshot operation failed')
+    const closeError = new Error('snapshot close failed')
+    const removeError = new Error('snapshot removal failed')
+    if (mode.endsWith('unprintable')) {
+      Object.defineProperty(operationError, 'message', { value: Object.create(null) })
+      Object.defineProperty(closeError, 'message', { get() { throw new Error('message unavailable') } })
+    }
+    let closes = 0, removals = 0
+    try {
+      store.ingest('source/x HAS path: https://records.test/x.cave')
+      const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      const makeDirectory = fs.mkdtempSync, remove = fs.rmSync
+      t.mock.method(fs, 'mkdtempSync', (...args: Parameters<typeof fs.mkdtempSync>) => {
+        const path = makeDirectory(...args)
+        if (String(args[0]).endsWith('cave-discover-')) created.push(String(path))
+        return path
+      })
+      t.mock.method(fs, 'rmSync', (...args: Parameters<typeof fs.rmSync>) => {
+        if (created.includes(String(args[0]))) {
+          removals++
+          if (mode.includes('remove')) throw removeError
+        }
+        return remove(...args)
+      })
+      const close = DatabaseSync.prototype.close
+      t.mock.method(DatabaseSync.prototype, 'close', function (this: DatabaseSync) {
+        const path = this.location()
+        close.call(this)
+        if (path !== null && basename(path) === 'snapshot.db' && mode.includes('close')) {
+          closes++
+          throw closeError
+        }
+      })
+      syncBuiltinESMExports()
+      const origin = mode === 'copy-remove' ? new Proxy(store, {
+        get: (target, key, receiver) => key === 'adapter' ?
+          { ...target.adapter, capabilities: { ...target.adapter.capabilities, backup: { ...target.adapter.capabilities.backup!, write: () => { throw operationError } } } } :
+          Reflect.get(target, key, receiver)
+      }) : store
+      const expected = [
+        ...(mode === 'copy-remove' || mode.startsWith('read') ? [operationError] : []),
+        ...(mode.includes('close') ? [closeError] : []),
+        ...(mode.includes('remove') ? [removeError] : [])
+      ]
+      await assert.rejects(Declared.discover(origin, ':memory:', {
+        fetchImpl: async () => {
+          if (mode.startsWith('read')) throw operationError
+          return new Response('fact IS discovered\n')
+        }
+      }), error => {
+        if (expected.length === 1) assert.equal(error, expected[0])
+        else {
+          assert.ok(error instanceof AggregateError)
+          if (mode.startsWith('read')) {
+            const located = error.errors[0]
+            assert.ok(located instanceof LocateError)
+            assert.match(located.message, /source\/x \(https:\/\/records.test\/x.cave\)/)
+            assert.equal(located.cause, operationError)
+            expected[0] = located
+          }
+          assert.deepEqual(error.errors, expected)
+          assert.equal(error.cause, expected[0])
+          if (mode.endsWith('unprintable')) {
+            assert.ok(error.message.includes('[unprintable thrown value]'))
+            assert.ok(error.message.includes(removeError.message))
+          } else for (const failure of expected) assert.ok(error.message.includes(failure.message))
+        }
+        return true
+      })
+      assert.equal(closes, mode.includes('close') ? 1 : 0)
+      assert.equal(removals, 1)
+      assert.equal(created.length, 1)
+      assert.equal(existsSync(created[0]!), mode.includes('remove'))
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+      store.ingest('caller IS usable')
+    } finally {
+      t.mock.restoreAll()
+      syncBuiltinESMExports()
+      for (const path of created) rmSync(path, { recursive: true, force: true })
+      store.close()
+    }
+  })
+}
+
+test('a failed snapshot leaves no temporary directory behind', async t => {
+  const store = open()
+  const created: string[] = []
   try {
     store.ingest('source/x HAS path: x.cave')
-    const leftovers = (): number => readdirSync(tmpdir()).filter(name => name.startsWith('cave-discover-')).length
-    const before = leftovers()
+    const makeDirectory = fs.mkdtempSync
+    t.mock.method(fs, 'mkdtempSync', (...args: Parameters<typeof fs.mkdtempSync>) => {
+      const path = makeDirectory(...args)
+      if (String(args[0]).endsWith('cave-discover-')) created.push(String(path))
+      return path
+    })
+    syncBuiltinESMExports()
     const failing = new Proxy(store, {
       get: (target, key, receiver) => key === 'adapter' ?
         { ...target.adapter, capabilities: { ...target.adapter.capabilities, backup: { ...target.adapter.capabilities.backup!, write: () => { throw new Error('disk full') } } } } :
         Reflect.get(target, key, receiver)
     })
     await assert.rejects(Declared.discover(failing, ':memory:'), /disk full/)
-    assert.equal(leftovers(), before, 'the snapshot directory was removed')
+    assert.equal(created.length, 1)
+    assert.equal(existsSync(created[0]!), false, 'the owned snapshot directory was removed')
   } finally {
+    t.mock.restoreAll()
+    syncBuiltinESMExports()
+    for (const path of created) rmSync(path, { recursive: true, force: true })
     store.close()
   }
 })
@@ -744,6 +1093,41 @@ test('a transition whose replacement fails to ingest keeps the last good data', 
   })
 })
 
+test('a declaration transition with a failed record rolls back the entire replacement', () => {
+  withDir(dir => {
+    writeFileSync(join(dir, 'facts.cave'), 'fact IS old\n')
+    writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n,bob\n')
+    const previous = { name: 'b', path: 'facts.cave' }
+    const replacement = { name: 'b', path: 'people.csv', map: '?name IS person', key: 'id' }
+    const store = open(join(dir, 'k.db'))
+    try {
+      Declared.run(store, Declared.prepareSync(previous, dir))
+      const before = store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all()
+      assert.throws(() => Declared.run(store, Declared.prepareSync(replacement, dir)), /replacement failed/)
+      assert.deepEqual(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all(), before,
+        'retirement, valid replacement records, and bookkeeping all roll back')
+      assert.equal(Declared.recordedDeclaration(store, 'b'), Declared.declarationDigest(previous))
+
+      writeFileSync(join(dir, 'people.csv'), 'id,name\n1,ann\n2,bob\n')
+      const repaired = Declared.run(store, Declared.prepareSync(replacement, dir))
+      assert.equal(repaired.mapped, 2)
+      assert.equal(Declared.recordedDeclaration(store, 'b'), Declared.declarationDigest(replacement))
+      const current = store.currentBeliefs().filter(row => row.conf > 0)
+      assert.ok(!current.some(row => row.subject === 'fact'))
+      assert.deepEqual(current.filter(row => row.object === 'person').map(row => row.subject).sort(), ['ann', 'bob'])
+      const beforeRepeat = store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all()
+      const repeated = Declared.run(store, Declared.prepareSync(replacement, dir))
+      assert.equal(repeated.mapped, 0)
+      assert.equal(repeated.skipped, 2)
+      assert.equal(repeated.retracted, 0)
+      assert.equal(repeated.pruned, 0)
+      assert.deepEqual(repeated.failures, [])
+      assert.deepEqual(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all(), beforeRepeat,
+        'an unchanged retry after repaired replacement must add no history')
+    } finally { store.close() }
+  })
+})
+
 test('a declared source may carry its mapping inline and reshape its records with sql', () => {
   withDir(dir => {
     writeFileSync(join(dir, 'people.csv'), 'id,name,company\n1,ann,acme\n2,bob,globex\n')
@@ -779,4 +1163,178 @@ test('a declared map naming an existing file is read as a file even when its nam
       store.close()
     }
   })
+})
+
+test('malformed declared JSON refresh preserves ownership and permits an unchanged retry', () => withDir(dir => {
+  const db = join(dir, 'k.db'), source = join(dir, 'people.json')
+  const valid = JSON.stringify([{ id: 1, name: 'ann', company: 'acme' }, { id: 2, name: 'bob', company: 'globex' }])
+  writeFileSync(source, valid)
+  writeFileSync(join(dir, 'people.map.cave'), peopleMap)
+  const store = open(db)
+  try {
+    store.ingest('source/people HAS path: people.json\nsource/people HAS map: people.map.cave\nsource/people HAS key: id')
+    assemble(store, db)
+    const declaration = Declared.declaredSources(store)[0]!
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    writeFileSync(source, '[{"id":1,"name":"changed","company":"other"},')
+    assert.throws(() => Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true }), error =>
+      error instanceof SyntaxError && error.message.startsWith(`${source}: invalid JSON — `))
+    assert.throws(() => assemble(store, db), error =>
+      error instanceof LocateError && error.message.includes('source/people') && error.message.includes(`${source}: invalid JSON — `))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    writeFileSync(source, valid)
+    const retry = Declared.run(store, Declared.prepareSync(declaration, dir), { prune: true })
+    assert.equal(retry.skipped, 2)
+    assert.equal(retry.added, 0)
+    assert.equal(retry.pruned, 0)
+    assert.deepEqual(retry.failures, [])
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+}))
+
+for (const mode of ['wrapped', 'independent'] as const) test(`declared discovery retains ${mode} cancellation failure and releases its snapshot`, async t => {
+  const store = open()
+  const controller = new AbortController(), reason = new Error('cancel declared fetch')
+  const transport = new Error('transport detail')
+  const failure = mode === 'wrapped' ? new AggregateError([reason, transport], 'cancel with transport detail', { cause: reason }) : transport
+  const snapshots: string[] = []
+  try {
+    store.ingest('source/a HAS path: https://records.test/a.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const capability = store.adapter.capabilities.backup!
+    const write = capability.write.bind(capability)
+    t.mock.method(capability, 'write', (db: Parameters<typeof write>[0], destination: string) => {
+      snapshots.push(destination)
+      return write(db, destination)
+    })
+    await assert.rejects(Declared.discovery(store, 'root.db', {
+      signal: controller.signal,
+      fetchImpl: async () => { controller.abort(reason); throw failure }
+    }), error => {
+      assert.ok(error instanceof AggregateError)
+      if (mode === 'wrapped') assert.equal(error, failure)
+      assert.deepEqual(error.errors, [reason, transport])
+      assert.equal(error.cause, reason)
+      return true
+    })
+    assert.equal(snapshots.length, 1)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    const retry = await Declared.discovery(store, 'root.db', {
+      fetchImpl: async () => new Response('remote IS fetched')
+    })
+    assert.equal(retry.sequence.length, 1)
+    assert.equal(snapshots.length, 2)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('declared file failures preserve imported data and declaration removal does not retire it', () => {
+  withDir(dir => {
+    const db = join(dir, 'k.db'), path = join(dir, 'facts.cave')
+    writeFileSync(path, 'fact IS old\n')
+    const store = open(db)
+    try {
+      store.ingest('source/facts HAS path: facts.cave\nlocal IS retained')
+      assemble(store, db)
+      const snapshot = () => store.exportText({ tx: true, maxSensitivity: 'restricted' })
+      const before = snapshot()
+      const declaration = Declared.recordedDeclaration(store, 'facts')
+      rmSync(path)
+      assert.throws(() => assemble(store, db), /ENOENT|no such file/)
+      assert.equal(snapshot(), before)
+      assert.equal(Declared.recordedDeclaration(store, 'facts'), declaration)
+      writeFileSync(path, 'broken\n')
+      assert.throws(() => assemble(store, db), /does not parse/)
+      assert.equal(snapshot(), before)
+      assert.equal(Declared.recordedDeclaration(store, 'facts'), declaration)
+      writeFileSync(path, 'fact IS old\n')
+      assemble(store, db)
+      assert.equal(snapshot(), before, 'restoring unchanged source bytes does not duplicate history')
+      writeFileSync(path, 'fact IS new\n')
+      assemble(store, db)
+      const facts = () => store.currentBeliefs().filter(row => row.subject === 'fact' && row.conf > 0).map(row => row.object)
+      assert.deepEqual(facts(), ['new'])
+      store.ingest('source/facts HAS path: facts.cave @ 0%')
+      const removed = snapshot()
+      assert.deepEqual(Declared.declaredSources(store), [])
+      assert.deepEqual(assemble(store, db), [])
+      assert.equal(snapshot(), removed)
+      assert.deepEqual(facts(), ['new'], 'removing the declaration is not an imported-data retraction')
+      store.ingest('source/facts HAS path: facts.cave')
+      const restored = snapshot()
+      assemble(store, db)
+      assert.equal(snapshot(), restored, 'restoring the same declaration reuses its successful digest')
+      assert.deepEqual(facts(), ['new'])
+      assert.ok(store.currentBeliefs().some(row => row.subject === 'local' && row.conf > 0))
+    } finally { store.close() }
+  })
+})
+
+
+test('discovery locates preparation failures, preserves causes and releases its snapshot', async t => {
+  const store = open()
+  const snapshots: string[] = []
+  const unreadable = new Error('unreadable')
+  Object.defineProperty(unreadable, 'message', { get() { throw new Error('message unavailable') } })
+  try {
+    store.ingest('source/records HAS path: https://records.test/data.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const capability = store.adapter.capabilities.backup!
+    const write = capability.write.bind(capability)
+    t.mock.method(capability, 'write', (db: Parameters<typeof write>[0], destination: string) => {
+      snapshots.push(destination)
+      return write(db, destination)
+    })
+    for (const failure of [new Error('load failed'), Object.create(null), unreadable]) {
+      await assert.rejects(Declared.discovery(store, 'root.db', { fetchImpl: async () => { throw failure } }), error => {
+        assert.ok(error instanceof LocateError)
+        assert.match(error.message, /source\/records \(https:\/\/records.test\/data.cave\)/)
+        assert.equal(error.cause, failure)
+        assert.ok(error.message.endsWith(failure instanceof Error && failure !== unreadable ? 'load failed' : '[unprintable thrown value]'))
+        return true
+      })
+      assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+      assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    }
+    const retry = await Declared.discovery(store, 'root.db', { fetchImpl: async () => new Response('remote IS valid') })
+    assert.equal(retry.sequence.length, 1)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
+test('discovery locates application failures and releases its snapshot before retry', async t => {
+  const store = open()
+  const snapshots: string[] = []
+  try {
+    store.ingest('source/vocabulary HAS path: https://records.test/vocabulary.cave')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const capability = store.adapter.capabilities.backup!
+    const write = capability.write.bind(capability)
+    t.mock.method(capability, 'write', (db: Parameters<typeof write>[0], destination: string) => {
+      snapshots.push(destination)
+      return write(db, destination)
+    })
+    await assert.rejects(Declared.discovery(store, 'root.db', {
+      fetchImpl: async () => new Response('CONTAINS REVERSE ELSEWHERE\n')
+    }), error => {
+      assert.ok(error instanceof LocateError)
+      assert.match(error.message, /source\/vocabulary \(https:\/\/records.test\/vocabulary\.cave\)/)
+      assert.ok(error.cause instanceof Error)
+      assert.ok(!(error.cause instanceof LocateError), 'source context is added exactly once')
+      assert.match(error.cause.message, /prelude failed to ingest/)
+      return true
+    })
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    const retry = await Declared.discovery(store, 'root.db', {
+      fetchImpl: async () => new Response('remote IS valid\n')
+    })
+    assert.equal(retry.sequence.length, 1)
+    assert.equal(snapshots.length, 2)
+    assert.ok(snapshots.every(path => !existsSync(dirname(path))))
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
 })

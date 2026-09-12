@@ -12,8 +12,10 @@
  */
 
 import { Claim, Key, Value } from '@cavelang/core'
+import { canonicalizeText } from '@cavelang/canonical'
 import { Row, type Store } from '@cavelang/store'
 import * as Rule from './rule.ts'
+import { currentDeclarations, declarationText } from './declarations.ts'
 import { provenanceContext, ruleAttribute, ruleSubject } from './engine.ts'
 
 /** Subject of the prelude digest bookkeeping claim. */
@@ -51,24 +53,34 @@ export const declareRules = (store: Store, text: string): Declaration => {
   const problems: { line: number, message: string }[] = []
   const rules: Rule.t[] = []
   const preludeLines: string[] = []
+  const preludeSourceLines: number[] = []
   const ruleLines: { line: string, at: number }[] = []
   text.split(/\r?\n/).forEach((line, index) => {
     if (Rule.isRuleLine(line)) {
       ruleLines.push({ line, at: index + 1 })
     } else {
       preludeLines.push(line)
+      preludeSourceLines.push(index + 1)
     }
   })
 
   return store.transaction(() => {
+    store.registry()
     let prelude = 0
     const preludeText = preludeLines.join('\n')
     if (preludeText.trim() !== '') {
+      // Validate even cached input: older versions cached failed preludes too.
+      const canonical = canonicalizeText(preludeText, store.registry())
+      if (canonical.problems.length > 0) {
+        for (const problem of canonical.problems) problems.push({
+          ...problem, line: preludeSourceLines[problem.line - 1] ?? problem.line
+        })
+        return { declared: 0, unchanged: 0, prelude: 0, rules, problems }
+      }
       const digest = Rule.digestOf(preludeText)
       const known = store.currentBelief(declarationKey(preludeSubject, preludeDigestAttribute))
       if (known === undefined || known.conf <= 0 || known.value_text !== digest) {
-        const result = store.ingest(preludeText, { source: 'cave-derive' })
-        problems.push(...result.problems)
+        const result = store.insertResult(canonical, { source: 'cave-derive' })
         prelude = result.ids.length
         store.ingest(`${preludeSubject} HAS ${preludeDigestAttribute}: ${digest} @${provenanceContext}`)
       }
@@ -79,7 +91,7 @@ export const declareRules = (store: Store, text: string): Declaration => {
     for (const { line, at } of ruleLines) {
       const parsed = Rule.parse(line)
       if (!parsed.ok) {
-        problems.push(...parsed.problems.map(message => ({ line: at, message })))
+        for (const message of parsed.problems) problems.push({ line: at, message })
         continue
       }
       const rule = parsed.rule
@@ -116,10 +128,10 @@ export type ListedRule = {
 
 /** Current positive rules of a store, in declaration order. */
 export const listRules = (store: Store): ListedRule[] =>
-  store.currentBeliefs()
-    .filter(row => row.verb === 'HAS' && row.attribute === ruleAttribute && row.negated === 0 && row.conf > 0 && row.value_text !== null)
+  currentDeclarations(store, ruleAttribute)
+    .filter(row => row.value_text !== null)
     .map(row => {
-      const text = Row.parseValue(row.value_text!).raw
+      const text = declarationText(row)
       const parsed = Rule.parse(text)
       const label = (parsed.ok ? parsed.rule.label : undefined) ?? row.comment ?? undefined
       return {
@@ -141,19 +153,18 @@ export type Retraction =
  * justification does not outlive its rule.
  */
 export const retractRule = (store: Store, ref: string): Retraction => {
-  const declarations = store.currentBeliefs().filter(row =>
-    row.verb === 'HAS' && row.attribute === ruleAttribute && row.negated === 0 && row.conf > 0)
-  const matches = declarations.filter(row =>
-    row.subject === ref || row.subject === ruleSubject(ref) ||
-    (ref.length >= 4 && row.subject.startsWith(ruleSubject(ref))))
-  const subjects = [...new Set(matches.map(row => row.subject))]
-  if (subjects.length === 0) {
-    return { ok: false, error: `no current rule matches ${JSON.stringify(ref)}` }
-  }
-  if (subjects.length > 1) {
-    return { ok: false, error: `${JSON.stringify(ref)} is ambiguous — matches ${subjects.join(', ')}` }
-  }
   return store.transaction(() => {
+    const declarations = currentDeclarations(store, ruleAttribute)
+    const matches = declarations.filter(row =>
+      row.subject === ref || row.subject === ruleSubject(ref) ||
+      (ref.length >= 4 && row.subject.startsWith(ruleSubject(ref))))
+    const subjects = [...new Set(matches.map(row => row.subject))]
+    if (subjects.length === 0) {
+      return { ok: false, error: `no current rule matches ${JSON.stringify(ref)}` }
+    }
+    if (subjects.length > 1) {
+      return { ok: false, error: `${JSON.stringify(ref)} is ambiguous — matches ${subjects.join(', ')}` }
+    }
     let derived = 0
     for (const declaration of matches) {
       store.insertResult({

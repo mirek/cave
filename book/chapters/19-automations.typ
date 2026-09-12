@@ -29,11 +29,18 @@ steps, each one of:
   variables of the same name;
 - `hook/<name>`: run the named hook from the same configuration actions
   use, with the triggering rows on standard input;
-- a quoted prompt: send it to an agent, bound variables substituted, and
+- a quoted prompt: send it to an agent, bound variables substituted once, and
   record the agent's CAVE reply.
+
+Prompt substitution reads only template tokens. Inserted values that contain
+another variable name or replacement text such as `$&` remain literal.
 
 Like rule text and action bodies, the declaration is pure data. It names
 things to run; the commands themselves stay in configuration.
+
+As with rules and actions, the declaration call validates the whole prelude
+before using its digest cache. A prelude error appends nothing and declares no
+automations; corrected retries work normally without duplicating partial rows.
 
 == Arming, and the first cycle
 
@@ -134,6 +141,29 @@ automations chain. And every write path is idempotent, so a cycle
 converges unless something genuinely new keeps arriving; a pair of
 automations whose agents keep answering each other with fresh values is a
 design error that the pass guard bounds per cycle but cannot prevent.
+
+Each batch reserves a write transaction, refreshes its declaration and
+vocabulary, evaluates triggers, and commits the watermark before running
+steps. Two runners cannot claim the same batch. A declaration revoked while an
+earlier agent runs is checked again before its batch is claimed; already-claimed
+steps continue. Agent execution holds no write lock. The `settle` API rejects
+caller-owned transactions because a savepoint cannot commit the firing log
+before external execution.
+
+The report's `complete` flag requires a quiet final pass and completed rule
+derivation. Hitting the pass limit prints `incomplete` and makes `--once` exit
+nonzero; retrying keeps committed watermarks, so steps are not replayed. If
+rule derivation reaches its separate limit, run `cave derive` with a higher
+`--max-passes` before retrying.
+Malformed stored rules also make `--once` fail when derivation is enabled;
+they appear in the report's `problems` list while valid declarations continue.
+`--no-derive` skips rule evaluation and those checks.
+
+Programmatic callers can pass `signal` to `settle` or `watchCycle`. Cancellation
+stops further claims and steps and discards late agent replies, while committed
+watermarks stay committed; unfinished steps in a claimed batch are not replayed.
+Custom completion callbacks must cancel their own work. The daemon yields
+between repeated settles so shutdown callbacks can run even on a busy store.
 
 Declaring is arming, and re-declaring after a retraction does not replay
 the rows recorded while the automation was off. Retractions fire nothing,

@@ -2,8 +2,10 @@
 
 The fixtures behind [Tutorial I in the root README](../../README.md#tutorial-i--a-monorepo-one-claim-at-a-time):
 a small package graph that grows one idea per step. Run from this directory
-with `cave` on the path (`pnpm install` at the repository root puts it there)
-and no `repo.db` yet.
+with no `repo.db` yet. Use globally installed `cave`, or replace `cave` with
+`pnpm exec cave` after the repository setup; a local install does not add the
+command to your shell's global path. See [Run the fixtures](../README.md#run-the-fixtures)
+for setup and working-directory conventions.
 
 | Step | File | Adds |
 |---|---|---|

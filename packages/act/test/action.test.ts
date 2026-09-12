@@ -5,6 +5,19 @@ import * as Action from '../src/action.ts'
 const parse = (body: string) =>
   Action.parse('action/mark-deployed', body)
 
+test('large invalid effect metadata returns every diagnostic', () => {
+  const size = 130_000
+  const contexts = Array.from({ length: size }, (_, i) => `@source-${i}:?value`)
+  const result = parse(`?service => ?service IS deployed ${contexts.join(' ')}`)
+  assert.equal(result.ok, false)
+  if (result.ok) return
+  assert.equal(result.problems.length, size)
+  for (let i = 0; i < size; i++) {
+    assert.equal(result.problems[i], `variables cannot appear in effect contexts (${contexts[i]})`)
+  }
+  assert.equal(parse('?service => ?service IS deployed').ok, true)
+})
+
 test('parses parameters, premises, constraints and effects (spec §25.1)', () => {
   const parsed = parse(
     '?service, ?version, ?service IS service, ?service HAS owner: ?owner, ?version != latest ' +
@@ -58,6 +71,9 @@ test('rejects malformed bodies with reported problems, never throws', () => {
   assert.match(problemsOf('?service, ?service => ?service EXISTS')[0]!, /declared twice/)
   assert.match(problemsOf('?service => _ USES ?service')[0]!, /"_" is not allowed/)
   assert.match(problemsOf('?action => x EXISTS')[0]!, /reserved/)
+  for (const name of ['__proto__', '1param', '-param']) {
+    assert.match(problemsOf(`?${name} => x EXISTS`)[0]!, /start with a letter/)
+  }
   assert.match(problemsOf('?x => a HAS ?x: 1')[0]!, /cannot name attributes/)
   assert.match(problemsOf('?x => a EXISTS @env:?x')[0]!, /effect contexts/)
 })

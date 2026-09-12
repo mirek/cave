@@ -2,22 +2,23 @@
 
 import { readFileSync } from 'node:fs'
 import { performance } from 'node:perf_hooks'
-import { open } from '../packages/store/src/index.ts'
+import { assertPerformanceCoverage, validatePerformanceBaseline } from './performance-baseline.mjs'
+import { open, Schema } from '../packages/store/src/index.ts'
 import { evaluate } from '../packages/shape/src/check.ts'
 import { page, query } from '../packages/query/src/index.ts'
 import { compile } from '../packages/query/src/compile.ts'
 import * as Pattern from '../packages/query/src/pattern.ts'
 import { topics } from '../packages/view/src/api.ts'
+import { paint } from '../packages/highlight/src/core.ts'
 import { clearScopedStoreCache, scopedStoreCacheStats } from '../packages/view/src/scope.ts'
 
 const baseline = JSON.parse(readFileSync(
   new URL('../benchmarks/performance-baseline.json', import.meta.url), 'utf8'))
-if (baseline.format !== 'cave.performance-baseline' || baseline.version !== 1) {
-  throw new Error('performance benchmark: unsupported baseline format')
-}
+validatePerformanceBaseline(baseline)
 
 const measurements = {}
 const measure = (name, body) => {
+  if (Object.hasOwn(measurements, name)) throw new Error(`performance benchmark: duplicate measurement for ${name}`)
   const expected = baseline.workloads[name]
   if (expected === undefined) throw new Error(`performance benchmark: no baseline for ${name}`)
   const started = performance.now()
@@ -26,6 +27,7 @@ const measure = (name, body) => {
   measurements[name] = {
     ms,
     baselineMs: expected.baselineMs,
+    baselineRuntime: expected.runtime ?? baseline.runtime,
     thresholdMs: expected.thresholdMs,
     ratio: Number((ms / expected.baselineMs).toFixed(2)),
     evidence
@@ -134,6 +136,40 @@ if (!boundedPlan.some(step => step.includes('INDEX')) ||
 }
 
 const viewTopics = 50
+const highlightLines = 5_000
+const highlightLine = '𐐀pi HAS label: "café 😀"\n'
+const highlightText = highlightLine.repeat(highlightLines)
+const highlightRanges = Array.from({ length: highlightLines }, (_, index) => [
+  [0, 4, 'variable'], [5, 8, 'keyword'], [9, 15, 'property'], [16, highlightLine.length - 1, 'string']
+].map(([start, end, capture]) => ({
+  start: index * highlightLine.length + start,
+  end: index * highlightLine.length + end,
+  capture
+}))).flat()
+measure('highlightPaint', () => {
+  const rendered = paint(highlightText, highlightRanges)
+  if (rendered.replaceAll(/\u001B\[[0-9;]*m/gu, '') !== highlightText ||
+      !rendered.includes('\u001B[35mHAS\u001B[0m')) {
+    throw new Error('highlight benchmark changed source text or omitted keyword styling')
+  }
+  return { lines: highlightLines, spans: highlightRanges.length, codeUnits: highlightText.length }
+})
+
+const legacyContexts = 40_000
+const legacyStore = open()
+const legacyId = legacyStore.ingest('legacy IS item ' +
+  Array.from({ length: legacyContexts }, (_, index) => `@src:source-${index}`).join(' '), { strict: true }).ids[0]
+legacyStore.db.exec('DROP TABLE cave_provenance; PRAGMA user_version = 0')
+measure('legacyMigration', () => {
+  Schema.init(legacyStore.db, legacyStore.adapter.capabilities)
+  const sources = legacyStore.provenanceOf(legacyId).sources
+  if (Schema.versionOf(legacyStore.db) !== Schema.currentVersion || sources.length !== legacyContexts ||
+      !sources.includes('source-0') || !sources.includes(`source-${legacyContexts - 1}`)) {
+    throw new Error('legacy migration benchmark did not preserve source provenance')
+  }
+  return { claims: 1, contexts: legacyContexts, sources: sources.length }
+})
+
 const sensitivitySuffixes = [
   ' #sensitivity:public',
   '',
@@ -213,12 +249,20 @@ measure('restrictedViewLarge', () => {
 const report = {
   format: 'cave.performance-report',
   version: 1,
+  runtime: {
+    node: process.version,
+    sqlite: process.versions.sqlite,
+    platform: process.platform,
+    arch: process.arch
+  },
+  baselineRuntime: baseline.runtime,
   fixture: {
     resolutionGroups: groups,
     shapeExpectations,
     shapeInstances,
     services,
     hops,
+    legacyContexts,
     smallViewRows,
     largeViewRows,
     viewTopics
@@ -227,6 +271,7 @@ const report = {
     resolution: storeSize(importedStore),
     shape: storeSize(shapeStore),
     query: storeSize(queryStore),
+    legacy: storeSize(legacyStore),
     view: storeSize(largeViewStore)
   },
   plans: {
@@ -245,9 +290,12 @@ sourceStore.close()
 importedStore.close()
 shapeStore.close()
 queryStore.close()
+legacyStore.close()
 clearScopedStoreCache(smallViewStore)
 smallViewStore.close()
 largeViewStore.close()
+
+assertPerformanceCoverage(baseline, measurements)
 
 if (failures.length > 0) {
   throw new Error(`performance regression threshold exceeded:\n${failures.join('\n')}`)

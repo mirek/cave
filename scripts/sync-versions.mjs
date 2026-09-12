@@ -5,13 +5,15 @@
 // version-packages` so the version packages PR carries every version
 // source in one commit.
 //
-// Changesets still does not manage either private workspace member. The
-// website has no released artifact version; the VS Code manifest is updated
+// Changesets can version private packages under packages/, but this script
+// brings every one to the fixed-group version. The ignored website has no
+// released artifact version; the ignored VS Code manifest is updated
 // here only after Changesets has finished so its Marketplace artifact shares
 // the repository release identity without entering the npm fixed group.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { gt as after } from 'semver'
 
 const root = resolve(process.env.CAVE_RELEASE_ROOT ?? join(import.meta.dirname, '..'))
 
@@ -28,20 +30,53 @@ const releaseType = (previous, next) => {
 // @cavelang/core is in the fixed group, so it always carries the current
 // lockstep version after `changeset version` has run.
 const version = read(join(root, 'packages/core/package.json')).version
+// Changesets leaves the private root untouched, so it identifies the last
+// lockstep release even after individual private packages have been bumped.
+const rootManifestPath = join(root, 'package.json')
+const rootManifest = read(rootManifestPath)
+
+// The action reads a changelog entry for every version-changed workspace,
+// including private packages advanced only by this synchronizer.
+const alignChangelog = (directory, name, previousVersion, description) => {
+  const changelogPath = join(directory, 'CHANGELOG.md')
+  const title = `# ${name}`
+  const changelog = existsSync(changelogPath)
+    ? readFileSync(changelogPath, 'utf8').trimEnd()
+    : title
+  const heading = `## ${version}`
+  if (changelog.split('\n').includes(heading)) return
+  // A private patch/minor bump below the fixed-group release is provisional,
+  // not published history. Attribute its actual notes to the lockstep version.
+  const firstVersion = /^## .+$/m.exec(changelog)
+  if (after(previousVersion, rootManifest.version) && after(version, previousVersion) &&
+      firstVersion?.[0] === `## ${previousVersion}`) {
+    const start = firstVersion.index
+    writeFileSync(changelogPath, changelog.slice(0, start) + heading +
+      changelog.slice(start + firstVersion[0].length) + '\n')
+    console.log(`${changelogPath}: ${previousVersion} -> ${version}`)
+    return
+  }
+  const firstBreak = changelog.indexOf('\n')
+  const header = firstBreak < 0 ? changelog : changelog.slice(0, firstBreak)
+  const history = firstBreak < 0 ? '' : changelog.slice(firstBreak).trim()
+  const entry = `${heading}\n\n### ${releaseType(previousVersion, version)} Changes\n\n` +
+    `- Align ${description} with the CAVE ${version} release identity.`
+  writeFileSync(changelogPath, `${header}\n\n${entry}${history.length > 0 ? `\n\n${history}` : ''}\n`)
+  console.log(`${changelogPath}: ${version}`)
+}
 
 for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
   const manifestPath = join(root, 'packages', entry.name, 'package.json')
   if (!entry.isDirectory() || !existsSync(manifestPath)) continue
   const manifest = read(manifestPath)
   if (manifest.version !== version) {
+    alignChangelog(join(root, 'packages', entry.name), manifest.name, manifest.version, `the ${manifest.name} workspace`)
     manifest.version = version
     write(manifestPath, manifest)
     console.log(`packages/${entry.name}/package.json: ${version}`)
   }
 }
 
-const rootManifestPath = join(root, 'package.json')
-const rootManifest = read(rootManifestPath)
 if (rootManifest.version !== version) {
   rootManifest.version = version
   write(rootManifestPath, rootManifest)
@@ -51,27 +86,12 @@ if (rootManifest.version !== version) {
 const vscodeManifestPath = join(root, 'editors/vscode/package.json')
 const vscodeManifest = read(vscodeManifestPath)
 if (vscodeManifest.version !== version) {
-  const previousVersion = vscodeManifest.version
+  // Keep the old manifest version on changelog failure so a retry still
+  // creates the entry with the correct release severity.
+  alignChangelog(join(root, 'editors/vscode'), vscodeManifest.name, vscodeManifest.version, 'the VS Code extension')
   vscodeManifest.version = version
   write(vscodeManifestPath, vscodeManifest)
   console.log(`editors/vscode/package.json: ${version}`)
-
-  // changesets/action summarizes every version-changed workspace package,
-  // including this ignored private package, and therefore requires a
-  // changelog entry even though Changesets itself does not generate one.
-  const changelogPath = join(root, 'editors/vscode/CHANGELOG.md')
-  const changelog = existsSync(changelogPath)
-    ? readFileSync(changelogPath, 'utf8').trimEnd()
-    : '# cave-language'
-  const heading = `## ${version}`
-  if (!changelog.split('\n').includes(heading)) {
-    const title = '# cave-language'
-    const history = changelog === title ? '' : changelog.slice(title.length).trim()
-    const entry = `${heading}\n\n### ${releaseType(previousVersion, version)} Changes\n\n` +
-      `- Align the VS Code extension with the CAVE ${version} release identity.`
-    writeFileSync(changelogPath, `${title}\n\n${entry}${history.length > 0 ? `\n\n${history}` : ''}\n`)
-    console.log(`editors/vscode/CHANGELOG.md: ${version}`)
-  }
 }
 
 const grammarPath = join(root, 'packages/tree-sitter-cave/tree-sitter.json')

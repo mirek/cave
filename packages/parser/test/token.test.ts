@@ -99,6 +99,9 @@ test('txOfLine recognizes §28.4 annotations only', () => {
   assert.equal(Token.txOfLine('; plain comment'), undefined)
   assert.equal(Token.txOfLine(';@'), undefined)
   assert.equal(Token.txOfLine(';@ two tokens'), undefined)
+  assert.equal(Token.txDataOfLine(';@ two tokens'), undefined)
+  assert.equal(Token.txDataOfLine('  ;@ 0198   '), undefined)
+  assert.equal(Token.txDataOfLine(';@ 0198 {"provenance":{}}'), '{"provenance":{}}')
 })
 
 test('topLevel splits outside literals and refuses an empty separator', () => {

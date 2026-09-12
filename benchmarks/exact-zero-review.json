@@ -1,0 +1,438 @@
+{
+  "platform": "macOS arm64",
+  "description": "Sequential standalone zero detection versus rational normalization with zero and nonzero numerators",
+  "runs": [
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.02329199999999787,
+        0.02200000000001978,
+        0.026833000000010543,
+        0.022124999999988404,
+        0.021290999999990845,
+        0.031542000000001735,
+        0.03462500000000546
+      ],
+      "medianMs": 0.02329199999999787,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.0012499999999988631,
+        0.0012080000000196378,
+        0.0035829999999918982,
+        0.0013749999999959073,
+        0.0011669999999810443,
+        0.001082999999994172,
+        0.0014170000000035543
+      ],
+      "medianMs": 0.0012499999999988631,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.004209000000003016,
+        0.0257090000000062,
+        0.0016660000000001673,
+        0.0007920000000183336,
+        0.0007500000000106866,
+        0.0007080000000030395,
+        0.0007090000000005148
+      ],
+      "medianMs": 0.0007920000000183336,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.0008330000000000837,
+        0.0007090000000005148,
+        0.0007080000000030395,
+        0.0007080000000030395,
+        0.0007080000000030395,
+        0.0007499999999822649,
+        0.0007080000000030395
+      ],
+      "medianMs": 0.0007080000000030395,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        13.119,
+        13.119833,
+        13.315917000000013,
+        13.07650000000001,
+        13.093500000000006,
+        13.084874999999954,
+        13.131792000000019
+      ],
+      "medianMs": 13.119,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.07791700000001356,
+        0.077541999999994,
+        0.07837499999999409,
+        0.07549999999997681,
+        0.07825000000002547,
+        0.07554199999998445,
+        0.077541999999994
+      ],
+      "medianMs": 0.077541999999994,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.039249999999981355,
+        0.03920800000003055,
+        0.03795800000000327,
+        0.038833000000011,
+        0.03754199999997354,
+        0.03879100000000335,
+        0.038250000000005
+      ],
+      "medianMs": 0.03879100000000335,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 100000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.0394579999999678,
+        0.03987500000005184,
+        0.039499999999975444,
+        0.03874999999999318,
+        0.038832999999954154,
+        0.0394579999999678,
+        0.039083000000005086
+      ],
+      "medianMs": 0.0394579999999678,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        208.473208,
+        207.91649999999993,
+        208.90945799999986,
+        209.02391699999998,
+        208.39587499999993,
+        206.91325000000006,
+        208.22304099999997
+      ],
+      "medianMs": 208.39587499999993,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.7782919999999649,
+        0.7783329999997477,
+        0.7742499999999382,
+        0.7793750000000728,
+        0.7922920000000886,
+        0.7822909999999865,
+        0.7792500000000473
+      ],
+      "medianMs": 0.7792500000000473,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.3900829999997768,
+        0.38933399999996254,
+        0.38762499999984357,
+        0.3892919999998412,
+        0.38991600000008475,
+        0.39337499999965075,
+        0.39425000000028376
+      ],
+      "medianMs": 0.38991600000008475,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v24.21.0",
+      "digits": 1000000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.3844579999999951,
+        0.3852500000002692,
+        0.3889590000003409,
+        0.39054099999975733,
+        0.38704199999983757,
+        0.3912909999999101,
+        0.38850000000002183
+      ],
+      "medianMs": 0.38850000000002183,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.02600000000001046,
+        0.02266700000001265,
+        0.027124999999955435,
+        0.02375000000000682,
+        0.023541999999963537,
+        0.027874999999994543,
+        0.0498330000000351
+      ],
+      "medianMs": 0.02600000000001046,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.0012909999999806132,
+        0.0012080000000196378,
+        0.003290999999990163,
+        0.001458000000013726,
+        0.001125000000001819,
+        0.001125000000001819,
+        0.0014170000000035543
+      ],
+      "medianMs": 0.0012909999999806132,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.0009160000000179025,
+        0.0007080000000314612,
+        0.0006670000000212895,
+        0.0006250000000136424,
+        0.0006250000000136424,
+        0.0006670000000212895,
+        0.0006670000000212895
+      ],
+      "medianMs": 0.0006670000000212895,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.0007500000000391083,
+        0.0007500000000391083,
+        0.0007499999999822649,
+        0.0007079999999746178,
+        0.0007080000000314612,
+        0.0007080000000314612,
+        0.0006670000000212895
+      ],
+      "medianMs": 0.0007080000000314612,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        13.767083000000014,
+        13.923625000000015,
+        13.004709000000048,
+        13.071875000000034,
+        13.54279200000002,
+        13.617583000000025,
+        13.460582999999986
+      ],
+      "medianMs": 13.54279200000002,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.07745899999997619,
+        0.07795800000002373,
+        0.07749999999998636,
+        0.07791599999995924,
+        0.07808399999998983,
+        0.07758300000000418,
+        0.07858300000003737
+      ],
+      "medianMs": 0.07791599999995924,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.03837500000003047,
+        0.038875000000018645,
+        0.03900000000004411,
+        0.03712500000000318,
+        0.03766699999999901,
+        0.03812500000003638,
+        0.038792000000000826
+      ],
+      "medianMs": 0.03837500000003047,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 100000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.03895800000003646,
+        0.03891700000002629,
+        0.03904099999999744,
+        0.04020900000000438,
+        0.03979200000003402,
+        0.038457999999991443,
+        0.03958299999999326
+      ],
+      "medianMs": 0.03904099999999744,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "zero": false,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        206.77425000000005,
+        205.58712500000001,
+        206.86262499999998,
+        206.26879200000008,
+        207.04345899999998,
+        204.89554199999998,
+        204.80516699999998
+      ],
+      "medianMs": 206.26879200000008,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "zero": false,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.7707080000000133,
+        0.7807910000001357,
+        0.7739580000002206,
+        0.778041999999914,
+        0.7899170000000595,
+        0.7781249999998181,
+        0.7763749999999163
+      ],
+      "medianMs": 0.778041999999914,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "zero": true,
+      "mode": "normalization-reference",
+      "warmups": 2,
+      "samplesMs": [
+        0.39008300000023155,
+        0.38970800000015515,
+        0.3898749999998472,
+        0.39066700000012133,
+        0.3866670000002159,
+        0.39229199999999764,
+        0.3894580000001042
+      ],
+      "medianMs": 0.3898749999998472,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    },
+    {
+      "node": "v26.8.1",
+      "digits": 1000000,
+      "zero": true,
+      "mode": "zero-detection",
+      "warmups": 2,
+      "samplesMs": [
+        0.391208000000006,
+        0.3817500000000109,
+        0.38266699999985576,
+        0.38537499999983993,
+        0.3896249999997963,
+        0.38466699999980847,
+        0.3868750000001455
+      ],
+      "medianMs": 0.38537499999983993,
+      "timingScope": "zero detection including validation; fixture and assertion excluded"
+    }
+  ]
+}

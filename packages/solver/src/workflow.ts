@@ -1,5 +1,10 @@
+import { validateContext } from './context.ts'
+import { clone } from './clone.ts'
+import { numericDigits } from './numeric-size.ts'
+import { defaultLimits } from './adapter.ts'
 import type { Limits, Options, Result, SolverAdapter } from './adapter.ts'
 import * as Canonical from './canonical.ts'
+import * as Capability from './capability.ts'
 import * as Exact from './exact.ts'
 import * as Explain from './explain.ts'
 import type {
@@ -13,6 +18,7 @@ import type {
 } from './model.ts'
 import * as Solve from './solve.ts'
 import * as Validate from './validate.ts'
+import { validateOptions } from './options.ts'
 
 export const schema = 'cave.solver/workflow@1' as const
 
@@ -158,11 +164,11 @@ const boundedScope = (model: Model, limits: Partial<Limits> = {}): Scope => {
       }
     })
     .sort((left, right) => compareText(left.variableId, right.variableId))
-  const sorts = new Set(model.variables.map(variable => variable.sort))
+  const required = Capability.required(model)
   const theories: Scope['theories'][number][] = ['booleans']
-  if (sorts.has('int')) theories.push('bounded-integers')
-  if (sorts.has('real')) theories.push('exact-rationals')
-  if (sorts.has('enum')) theories.push('finite-enums')
+  if (required.has('integers')) theories.push('bounded-integers')
+  if (required.has('rationals')) theories.push('exact-rationals')
+  if (required.has('finite-enums')) theories.push('finite-enums')
   return {
     domains,
     assumptions: model.constraints.map(constraint => constraint.id),
@@ -174,13 +180,20 @@ const variableMap = (model: Model): ReadonlyMap<string, Variable> =>
   new Map(model.variables.map(variable => [variable.id, variable]))
 
 const normalizedValue = (variable: Variable, value: Value, domains: ReadonlyMap<string, readonly string[]>): Value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new WorkflowValidationError(`value for variable ${JSON.stringify(variable.id)} must be an object`)
+  }
   if (variable.sort !== value.sort) {
     throw new WorkflowValidationError(
       `variable ${JSON.stringify(variable.id)} is ${variable.sort}, received ${value.sort}`
     )
   }
   switch (value.sort) {
-    case 'bool': return value
+    case 'bool':
+      if (typeof value.value !== 'boolean') {
+        throw new WorkflowValidationError(`value for variable ${JSON.stringify(variable.id)} must be a boolean`)
+      }
+      return { sort: value.sort, value: value.value }
     case 'int': {
       const normalized = String(Exact.integer(value.value))
       if (Exact.compare(normalized, String(Exact.integer((variable as Variable & { sort: 'int' }).min))) < 0 ||
@@ -208,7 +221,7 @@ const normalizedValue = (variable: Variable, value: Value, domains: ReadonlyMap<
       if (!(domains.get(value.domain) ?? []).includes(value.value)) {
         throw new WorkflowValidationError(`value ${JSON.stringify(value.value)} is outside enum ${JSON.stringify(value.domain)}`)
       }
-      return value
+      return { sort: value.sort, domain: value.domain, value: value.value }
     }
   }
 }
@@ -353,7 +366,14 @@ const run = async (
   options: Options,
   context: Explain.Context
 ): Promise<{ readonly explanation: Explain.Report, readonly tieBreak: readonly TieBreak[] }> => {
+  validateContext(context)
   const limits = Validate.mergeLimits(options.limits)
+  if (context.modelDigest !== undefined) {
+    const digest = Canonical.digest(sourceModel, limits)
+    if (context.modelDigest !== digest) {
+      throw new TypeError(`scenario model digest ${context.modelDigest} does not match ${digest}`)
+    }
+  }
   const prepared = preparedModel(solveModel, kind)
   const result = await Solve.run(adapter, prepared.model, {
     limits,
@@ -369,7 +389,6 @@ const run = async (
 }
 
 const report = (
-  model: Model,
   operation: Operation,
   scope: Scope,
   tie: readonly TieBreak[],
@@ -377,7 +396,7 @@ const report = (
 ): Report => ({
   schema,
   operation,
-  modelDigest: Canonical.digest(model),
+  modelDigest: explanation.run.modelDigest,
   scope,
   tieBreak: tie,
   explanation
@@ -389,9 +408,12 @@ export const feasibility = async (
   options: Options = {},
   context: Explain.Context = {}
 ): Promise<Report> => {
+  options = validateOptions(options)
+  validateContext(context)
+  ;({ model, options, context } = clone({ model, options, context }))
   const scope = boundedScope(model, options.limits)
   const result = await run(adapter, model, model, 'feasibility', options, context)
-  return report(model, { kind: 'feasibility' }, scope, result.tieBreak, result.explanation)
+  return report({ kind: 'feasibility' }, scope, result.tieBreak, result.explanation)
 }
 
 export const optimization = async (
@@ -400,9 +422,12 @@ export const optimization = async (
   options: Options = {},
   context: Explain.Context = {}
 ): Promise<Report> => {
+  options = validateOptions(options)
+  validateContext(context)
+  ;({ model, options, context } = clone({ model, options, context }))
   const scope = boundedScope(model, options.limits)
   const result = await run(adapter, model, model, 'optimization', options, context)
-  return report(model, { kind: 'optimization' }, scope, result.tieBreak, result.explanation)
+  return report({ kind: 'optimization' }, scope, result.tieBreak, result.explanation)
 }
 
 export const counterexample = async (
@@ -412,6 +437,9 @@ export const counterexample = async (
   options: Options = {},
   context: Explain.Context = {}
 ): Promise<Report> => {
+  options = validateOptions(options)
+  validateContext(context)
+  ;({ model, options, context } = clone({ model, options, context }))
   const baseScope = boundedScope(model, options.limits)
   const invariant = model.constraints.find(constraint => constraint.id === invariantId)
   if (invariant === undefined) {
@@ -432,7 +460,7 @@ export const counterexample = async (
     ...baseScope,
     assumptions: baseScope.assumptions.filter(id => id !== invariantId)
   }
-  return report(model, { kind: 'counterexample', invariantId, verdict }, scope, result.tieBreak, result.explanation)
+  return report({ kind: 'counterexample', invariantId, verdict }, scope, result.tieBreak, result.explanation)
 }
 
 const bindingConstraint = (binding: Binding, id: string): HardConstraint => ({
@@ -446,10 +474,14 @@ const bindingConstraint = (binding: Binding, id: string): HardConstraint => ({
 })
 
 const normalizeBindings = (model: Model, bindings: readonly Binding[]): readonly Binding[] => {
+  if (!Array.isArray(bindings)) throw new WorkflowValidationError('fixed bindings must be an array')
   const variables = variableMap(model)
   const domains = new Map((model.enums ?? []).map(domain => [domain.id, domain.values]))
   const seen = new Set<string>()
-  return bindings.map(binding => {
+  return Array.from(bindings, (binding, index) => {
+    if (binding === null || typeof binding !== 'object' || Array.isArray(binding)) {
+      throw new WorkflowValidationError(`fixed binding at index ${index} must be an object`)
+    }
     if (seen.has(binding.variableId)) {
       throw new WorkflowValidationError(`variable ${JSON.stringify(binding.variableId)} is fixed more than once`)
     }
@@ -517,20 +549,49 @@ export const sensitivity = async (
   options: Options = {},
   context: Explain.Context = {}
 ): Promise<SensitivityReport> => {
+  options = validateOptions(options)
+  validateContext(context)
+  ;({ model, options, context, request } = clone({ model, options, context, request }))
   const scope = boundedScope(model, options.limits)
+  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
+    throw new WorkflowValidationError('sensitivity request must be an object')
+  }
+  if (!Array.isArray(request.samples)) {
+    throw new WorkflowValidationError('sensitivity samples must be an array')
+  }
+  for (const field of ['fixed', 'observe'] as const) {
+    if (request[field] !== undefined && !Array.isArray(request[field])) {
+      throw new WorkflowValidationError(`sensitivity ${field} must be an array`)
+    }
+  }
   const maxRuns = request.maxRuns ?? defaultMaxSensitivityRuns
   if (!Number.isSafeInteger(maxRuns) || maxRuns <= 0) {
-    throw new WorkflowValidationError(`maxRuns must be a positive safe integer, received ${String(maxRuns)}`)
+    const received = typeof maxRuns === 'object' || typeof maxRuns === 'function' ? typeof maxRuns : String(maxRuns)
+    throw new WorkflowValidationError(`maxRuns must be a positive safe integer, received ${received}`)
   }
   if (request.samples.length === 0) throw new WorkflowValidationError('sensitivity needs at least one sample')
   if (request.samples.length > maxRuns) {
     throw new WorkflowValidationError(`sensitivity samples exceed maxRuns: ${request.samples.length} > ${maxRuns}`)
   }
+  const maximumDigits = options.limits?.maxNumericDigits ?? defaultLimits.maxNumericDigits
+  let requestDigits = 0
+  const charge = (value: Value): void => {
+    if (value === null || typeof value !== 'object') return // Shape validation below supplies context.
+    if (value.sort === 'int') requestDigits += numericDigits(value.value, 'int')
+    else if (value.sort === 'real') requestDigits += numericDigits(value, 'real')
+    if (requestDigits > maximumDigits) {
+      throw new WorkflowValidationError(`sensitivity request exceeds maxNumericDigits: ${requestDigits} > ${maximumDigits}`)
+    }
+  }
+  for (const value of request.samples) charge(value)
+  for (const binding of request.fixed ?? []) {
+    if (binding !== null && typeof binding === 'object') charge(binding.value)
+  }
   const variables = variableMap(model)
   const selected = variables.get(request.variableId)
   if (selected === undefined) throw new WorkflowValidationError(`unknown sensitivity variable ${JSON.stringify(request.variableId)}`)
   const domains = new Map((model.enums ?? []).map(domain => [domain.id, domain.values]))
-  const samples = request.samples.map(value => normalizedValue(selected, value, domains))
+  const samples = Array.from(request.samples, value => normalizedValue(selected, value, domains))
   if (new Set(samples.map(value => JSON.stringify(value))).size !== samples.length) {
     throw new WorkflowValidationError('sensitivity samples contain duplicate values')
   }
@@ -543,31 +604,36 @@ export const sensitivity = async (
     if (!variables.has(id)) throw new WorkflowValidationError(`unknown observed variable ${JSON.stringify(id)}`)
   }
   const kind = request.operation ?? 'optimization'
+  if (request.operation !== undefined && request.operation !== 'feasibility' && request.operation !== 'optimization') {
+    throw new WorkflowValidationError('sensitivity operation must be feasibility or optimization')
+  }
   const used = new Set(model.constraints.map(constraint => constraint.id))
   const fixedConstraints = fixed.map((binding, index) =>
     bindingConstraint(binding, freshId(used, `fixed/${index}`)))
+  const sampleConstraints = samples.map((value, index) =>
+    bindingConstraint({ variableId: request.variableId, value }, freshId(used, `sample/${index}`)))
+  const modelForSample = (constraint: HardConstraint): Model => ({
+    ...model,
+    constraints: [...model.constraints, ...fixedConstraints, constraint]
+  })
+  // Validate the complete batch before any backend call without retaining a
+  // separate copy of all model constraints for every sample.
+  for (const constraint of sampleConstraints) {
+    Validate.model(preparedModel(modelForSample(constraint), kind).model, options.limits)
+  }
   const points: SensitivityPoint[] = []
   for (const [index, value] of samples.entries()) {
-    const sample: Binding = { variableId: request.variableId, value }
-    const solveModel: Model = {
-      ...model,
-      constraints: [
-        ...model.constraints,
-        ...fixedConstraints,
-        bindingConstraint(sample, freshId(used, `sample/${index}`))
-      ]
-    }
-    const solved = await run(adapter, model, solveModel, kind, options, context)
+    const solved = await run(adapter, model, modelForSample(sampleConstraints[index]!), kind, options, context)
     points.push({
       index,
       value,
-      report: report(model, { kind }, scope, solved.tieBreak, solved.explanation)
+      report: report({ kind }, scope, solved.tieBreak, solved.explanation)
     })
   }
   return {
     schema,
     operation: 'sensitivity',
-    modelDigest: Canonical.digest(model),
+    modelDigest: points[0]!.report.modelDigest,
     variableId: request.variableId,
     fixed,
     observe,

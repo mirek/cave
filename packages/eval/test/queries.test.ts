@@ -141,3 +141,118 @@ test('formatSolution renders like cave query output', () => {
   assert.equal(Queries.formatSolution({ a: 'anna', b: 'x y' }), '?a = anna  ?b = x y')
   assert.equal(Queries.formatSolution({}), '(match)')
 })
+
+for (const unreadableMessage of [false, true]) {
+  test(`check: an unprintable query failure remains reportable (${unreadableMessage})`, t => {
+    const store = seeded()
+    try {
+      const failure = unreadableMessage ? new Error('query failed') : Object.create(null)
+      if (unreadableMessage) {
+        Object.defineProperty(failure, 'message', { get() { throw new Error('unreadable message') } })
+      }
+      const prepare = store.db.prepare.bind(store.db)
+      let fail = true
+      const mocked = t.mock.method(store.db, 'prepare', (...args: Parameters<typeof prepare>) => {
+        if (fail) {
+          fail = false
+          throw failure
+        }
+        return prepare(...args)
+      })
+      const outcomes = check(store, 'maria PARENT-OF anna\nmaria PARENT-OF anna')
+      assert.deepEqual(outcomes[0], {
+        pattern: 'maria PARENT-OF anna', pass: false, matches: 0,
+        missing: [], unexpected: [], error: '[unprintable thrown value]'
+      })
+      assert.equal(outcomes[1]!.pass, true)
+      assert.doesNotThrow(() => JSON.stringify(outcomes))
+      mocked.mock.restore()
+    } finally {
+      store.close()
+    }
+  })
+}
+
+
+test('expectations preserve prototype-named variables through real queries', () => {
+  const store = open()
+  try {
+    store.ingest('api IS service')
+    for (const name of ['__proto__', 'constructor', 'toString']) {
+      const parsed = Queries.parseQueries(`?${name} IS service\n  ?${name} = api`)
+      assert.deepEqual(parsed.problems, [])
+      const q = parsed.queries[0]!
+      assert.equal(q.expect.kind, 'solutions')
+      if (q.expect.kind !== 'solutions') throw new Error('expected solutions')
+      const solution = q.expect.solutions[0]!
+      assert.ok(Object.hasOwn(solution, name))
+      assert.equal(solution[name], 'api')
+      assert.equal(Queries.checkQuery(store, q).pass, true)
+      const wrong = Queries.parseQueries(`?${name} IS service\n  ?${name} = ghost`)
+      assert.equal(Queries.checkQuery(store, wrong.queries[0]!).pass, false)
+    }
+  } finally {
+    store.close()
+  }
+})
+
+test('duplicate variables in one expectation are fixture errors', () => {
+  for (const name of ['x', '__proto__', 'constructor']) {
+    const parsed = Queries.parseQueries(`?${name} IS service\n  ?${name} = ghost ?${name} = api`)
+    assert.equal(parsed.problems.length, 1)
+    assert.match(parsed.problems[0]!, /queries line 2: expected/)
+  }
+})
+
+
+test('binding markers inside literal values remain part of the expected value', () => {
+  const store = open()
+  try {
+    for (const delimiter of ['"', '`']) {
+      const value = `${delimiter}literal ?note = text; ?other = data${delimiter}`
+      store.ingest(`api HAS note: ${value}`)
+      const parsed = Queries.parseQueries(`?owner HAS note: ?note\n  ?owner = api ?note = ${value} ; expected`)
+      assert.deepEqual(parsed.problems, [])
+      assert.deepEqual(parsed.queries[0]!.expect, {
+        kind: 'solutions', solutions: [{ owner: 'api', note: value }]
+      })
+      assert.equal(Queries.checkQuery(store, parsed.queries[0]!).pass, true)
+    }
+  } finally {
+    store.close()
+  }
+})
+
+
+test('tab-separated WHERE clauses remain query filters in fixtures', () => {
+  const store = seeded()
+  try {
+    const source = 'jan HAS birth-year: ?y\n\tWHERE\tconf >= 0.6\n  ?y = 1932'
+    const parsed = Queries.parseQueries(source)
+    assert.deepEqual(parsed.problems, [])
+    assert.equal(parsed.queries.length, 1)
+    assert.equal(parsed.queries[0]!.pattern, 'jan HAS birth-year: ?y\nWHERE\tconf >= 0.6')
+    assert.equal(Queries.checkQuery(store, parsed.queries[0]!).pass, true)
+    assert.match(Queries.parseQueries('WHERE\tconf >= 0.6').problems[0]!, /WHERE without a pattern/)
+    const incomplete = Queries.parseQueries('jan HAS birth-year: ?y\n  WHERE')
+    assert.deepEqual(incomplete.problems, [])
+    assert.equal(Queries.checkQuery(store, incomplete.queries[0]!).pass, false)
+    assert.match(Queries.checkQuery(store, incomplete.queries[0]!).error!, /WHERE/)
+  } finally { store.close() }
+})
+
+
+test('solution comparison ignores insertion order for distinct Unicode variable names', () => {
+  const store = open()
+  try {
+    store.ingest('api HAS owner: platform')
+    const first = '\u00e9', second = 'e\u0301'
+    const parsed = Queries.parseQueries(`?${first} HAS owner: ?${second}\n  ?${second} = platform ?${first} = api`)
+    assert.deepEqual(parsed.problems, [])
+    const result = Queries.checkQuery(store, parsed.queries[0]!)
+    assert.equal(result.pass, true, JSON.stringify(result))
+    assert.equal(result.matches, 1)
+    assert.deepEqual(result.missing, [])
+    assert.deepEqual(result.unexpected, [])
+  } finally { store.close() }
+})

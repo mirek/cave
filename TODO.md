@@ -2,8 +2,7 @@
 
 ## Active backlog
 
-- [Remove narrow-screen website overflow](todo/narrow-screen-overflow.md) — Keep the site navigation and home-page cards usable at the advertised 320 px minimum width.
-- [Migrate release automation to Changesets v3](todo/changesets-v3-migration.md) — Move `@changesets/cli` and `changesets/action` past their coupled majors without breaking the fixed-group release flow.
+- [Review the complete system](todo/system-review.md) — Continue the user-requested runtime, workflow, documentation, website, and enhancement audit.
 
 New work belongs in a self-contained `todo/<name>.md` file linked here.
 Deliberate non-features and their evidence-based reopening criteria live in

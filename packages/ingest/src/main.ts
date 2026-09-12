@@ -4,6 +4,9 @@
  * Copilot CLI, SDK scripts).
  */
 
+import { errorMessage } from './error-message.ts'
+import { sourceLabel } from './content.ts'
+import { agentTimeoutMs } from './timeout.ts'
 import { parseArgs } from 'node:util'
 import { Registry } from '@cavelang/canonical'
 import { LocateError, defaultDbPath, kindOf, open, openAt } from '@cavelang/store'
@@ -35,6 +38,7 @@ Options:
   --lenient              commit accepted batches and continue after failures;
                          default strict mode stages and commits the whole run
   --json                 print the complete machine-readable result manifest
+                         (execution only; cannot combine with --plan/--dry-run)
   --timeout <seconds>    per-batch agent timeout (default 600)
   --plan                 print batches as NDJSON and exit (drive with an SDK)
   --dry-run              print the plan and the first prompt, run nothing
@@ -57,7 +61,8 @@ export type RunContext = {
 export const runIngest = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
   const stdout = context.stdout ?? process.stdout
   const stderr = context.stderr ?? process.stderr
-  context.signal?.throwIfAborted()
+  const signal = context.signal
+  signal?.throwIfAborted()
   const { values, positionals } = parseArgs({
     args: [...argv],
     options: {
@@ -88,19 +93,26 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
   }
   const db = values.db ?? defaultDbPath()
   const planning = values.plan === true || values['dry-run'] === true
+  if (planning && values.json === true) {
+    stderr.write('cave ingest: --json cannot be combined with --plan or --dry-run; use --plan for machine-readable planning\n')
+    return 1
+  }
   if (values.agent === undefined && !planning) {
     stderr.write('cave ingest: --agent is required (or use --plan / --dry-run)\n')
     return 1
   }
   const batchSize = values.batch === undefined ? undefined : Number(values.batch)
-  if (batchSize !== undefined && (!Number.isInteger(batchSize) || batchSize < 1)) {
-    stderr.write(`cave ingest: --batch must be a positive integer, got '${values.batch}'\n`)
+  if (batchSize !== undefined && (!Number.isSafeInteger(batchSize) || batchSize < 1)) {
+    stderr.write(`cave ingest: --batch must be a positive safe integer, got '${values.batch}'\n`)
     return 1
   }
   const timeoutSeconds = values.timeout === undefined ? undefined : Number(values.timeout)
-  if (timeoutSeconds !== undefined && (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)) {
-    stderr.write(`cave ingest: --timeout must be a positive number of seconds, got '${values.timeout}'\n`)
-    return 1
+  if (timeoutSeconds !== undefined) {
+    try { agentTimeoutMs(timeoutSeconds) }
+    catch (error) {
+      stderr.write(`cave ingest: --${errorMessage(error)}, got '${values.timeout}'\n`)
+      return 1
+    }
   }
   const noPrelude = values['no-prelude'] === true
   const registry = noPrelude ? { registry: Registry.empty } : {}
@@ -118,7 +130,7 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
     stderr.write(`cave ingest: ${error.message}\n`)
     return 1
   }
-  try {
+  const execute = async (): Promise<number> => {
     const options = {
       db,
       patterns: positionals,
@@ -132,12 +144,12 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       force: values.force === true,
       policy: values.lenient === true ? 'lenient' as const : 'strict' as const,
       noPrelude,
-      ...context.signal === undefined ? {} : { signal: context.signal }
+      ...signal === undefined ? {} : { signal }
     }
     if (planning) {
       const { selection, batches } = await selectBatches(store, options)
       if (values.plan === true) {
-        const mcpConfig = writeMcpConfig(db, { noPrelude })
+        let mcpConfig: string | undefined
         for (const failure of selection.failures) {
           stdout.write(`${JSON.stringify({
             source: failure.path,
@@ -150,6 +162,7 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
         }
         for (const files of batches) {
           const prompt = promptFor(store, files, options)
+          mcpConfig ??= writeMcpConfig(db, { noPrelude })
           stdout.write(`${JSON.stringify({ files: files.map(file => file.path), prompt, mcpConfig, db })}\n`)
         }
         return 0
@@ -157,16 +170,16 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       stdout.write([
         `ingest plan: ${selection.files.length} source(s) in ${batches.length} batch(es), ` +
           `${selection.skipped.length} skipped (unchanged), ${selection.failures.length} rejected`,
-        ...selection.skipped.map(path => `  skip ${path}`),
+        ...selection.skipped.map(path => `  skip ${sourceLabel(path)}`),
         ...selection.failures.map(failure =>
-          `  reject ${failure.path}: ${failure.kind}, ${failure.retryable ? 'retryable' : 'permanent'} — ${failure.message}`),
-        ...batches.map((files, index) => `  batch ${index + 1}: ${files.map(file => file.path).join(', ')}`),
+          `  reject ${sourceLabel(failure.path)}: ${failure.kind}, ${failure.retryable ? 'retryable' : 'permanent'} — ${failure.message}`),
+        ...batches.map((files, index) => `  batch ${index + 1}: ${files.map(file => sourceLabel(file.path)).join(', ')}`),
         ...batches.length > 0 ? ['', '--- prompt for batch 1 ---', promptFor(store, batches[0]!, options)] : []
       ].join('\n') + '\n')
       return 0
     }
     const report = await run(options)
-    context.signal?.throwIfAborted()
+    signal?.throwIfAborted()
     const failed = report.failed > 0 || report.sources.some(source => source.status === 'not-run')
     if (values.json === true) {
       stdout.write(`${JSON.stringify(report, undefined, 2)}\n`)
@@ -176,6 +189,9 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
       `ingest (${report.policy}): ${report.matched} source(s) matched, ${report.skipped.length} skipped (unchanged), ` +
         `${report.batches.length} batch(es), ${report.applied ? 'applied' : 'not applied'}`
     ]
+    if (report.policy === 'strict' && !report.applied) {
+      lines.push('strict run discarded: no staged claims or source digests were applied')
+    }
     report.batches.forEach((batch, index) => {
       const status = batch.ok ? `+${batch.added} claim(s)` : `FAILED${batch.note === undefined ? '' : ` — ${batch.note}`}`
       lines.push(`batch ${index + 1}/${report.batches.length} (${batch.files.length} file(s)): ${status}`)
@@ -195,12 +211,21 @@ export const runIngest = async (argv: readonly string[], context: RunContext = {
             (source.httpStatus === undefined ? '' : ` HTTP ${source.httpStatus}`),
         ...source.problems
       ].filter((value): value is string => value !== undefined).join('; ')
-      lines.push(`source ${source.status}: ${source.path}${detail === '' ? '' : ` — ${detail}`}`)
+      lines.push(`source ${source.status}: ${sourceLabel(source.path)}${detail === '' ? '' : ` — ${detail}`}`)
     }
     lines.push(`done: +${report.added} claim(s)${report.failed > 0 ? `, ${report.failed} failed outcome(s)` : ''}`)
     stdout.write(`${lines.join('\n')}\n`)
     return failed ? 1 : 0
-  } finally {
-    store.close()
   }
+  let code: number
+  try { code = await execute() }
+  catch (error) {
+    try { store.close() }
+    catch (closeError) {
+      throw new AggregateError([error, closeError], `${errorMessage(error)}; store close also failed: ${errorMessage(closeError)}`, { cause: error })
+    }
+    throw error
+  }
+  store.close()
+  return code
 }

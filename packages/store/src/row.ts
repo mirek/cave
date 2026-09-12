@@ -124,8 +124,31 @@ export const toClaim = (
   row: Row,
   contexts: readonly string[],
   tags: readonly { key: string, value: null | string }[]
-): Claim.t =>
-  Claim.of({
+): Claim.t => {
+  // SQLite TEXT affinity permits blobs. Check the decoded column types before
+  // parsing or constructing a claim, including text not used in its key.
+  for (const field of ['subject', 'verb', 'raw_line'] as const) {
+    if (typeof row[field] !== 'string') {
+      throw new TypeError(`stored claim ${field} must be a string`)
+    }
+  }
+  for (const field of ['object', 'attribute', 'value_text', 'delta_text', 'comment'] as const) {
+    if (row[field] !== null && typeof row[field] !== 'string') {
+      throw new TypeError(`stored claim ${field} must be a string or null`)
+    }
+  }
+  for (const field of ['negated', 'importance', 'value_approx'] as const) {
+    if (row[field] !== 0 && row[field] !== 1) {
+      throw new TypeError(`stored claim ${field} must be 0 or 1`)
+    }
+  }
+  if (row.object !== null && (row.attribute !== null || row.value_text !== null)) {
+    throw new TypeError('stored claim payload cannot combine an object with an attribute or value')
+  }
+  if (row.attribute !== null && row.value_text === null) {
+    throw new TypeError('stored claim attribute payload requires a value')
+  }
+  const claim = Claim.of({
     subject: parseTerm(row.subject),
     verb: row.verb,
     negated: row.negated !== 0,
@@ -143,3 +166,19 @@ export const toClaim = (
     ...row.comment !== null ? { comment: row.comment } : {},
     raw: row.raw_line
   })
+  const value = claim.payload.kind === 'attribute' || claim.payload.kind === 'metric'
+    ? claim.payload.value : undefined
+  const expected = {
+    value_num: value?.num ?? null,
+    value_unit: value?.unit ?? null,
+    value_approx: value?.approx === true ? 1 : 0,
+    delta_num: claim.delta?.num ?? null,
+    delta_unit: claim.delta?.unit ?? null
+  }
+  for (const field of Object.keys(expected) as (keyof typeof expected)[]) {
+    if (row[field] !== expected[field]) {
+      throw new TypeError(`stored claim ${field} does not agree with its authored value`)
+    }
+  }
+  return claim
+}

@@ -1,10 +1,11 @@
 /** Deterministic TypeScript client generation from §20 EXPECTS claims (spec §20.4). */
 
+import { readSnapshot } from './snapshot.ts'
 import { createHash } from 'node:crypto'
 import { Registry } from '@cavelang/canonical'
 import type { Store } from '@cavelang/store'
-import { expectations } from './check.ts'
-import type { Expectation } from './check.ts'
+import { declarationSnapshot } from './check.ts'
+import { constraintProblem } from './constraints.ts'
 
 export const clientFormatVersion = 1 as const
 
@@ -47,22 +48,32 @@ const identifierOf = (type: string): undefined | string => {
 
 const compare = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0
 
-const tagsOf = (store: Store, expectation: Expectation): { key: string, value: null | string }[] =>
-  store.db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ? ORDER BY rowid')
-    .all(expectation.row.id) as { key: string, value: null | string }[]
+// These emitted type bindings cannot coexist with a generated interface.
+// Value-only helpers do not reserve names in TypeScript's type namespace.
+const reservedTypeNames = new Set(['Store', 'CaveValue'])
 
 const normalizedFields = (store: Store): { fields: ClientField[], problems: string[] } => {
+  return readSnapshot(store, 'cave_client_schema', () => readNormalizedFields(store))
+}
+
+const readNormalizedFields = (store: Store): { fields: ClientField[], problems: string[] } => {
   const problems: string[] = []
   const typeNames = new Map<string, string>()
   const fields = new Map<string, ClientField>()
-  const declarations = [...expectations(store)].sort((a, b) =>
+  const snapshot = declarationSnapshot(store)
+  const declarations = [...snapshot.expectations].sort((a, b) =>
     compare(a.type, b.type) || compare(a.kind, b.kind) || compare(a.name, b.name) ||
     compare(a.row.claim_key, b.row.claim_key))
+  const declarationTags = snapshot.tags
 
   for (const expectation of declarations) {
     const typeName = identifierOf(expectation.type)
     if (typeName === undefined) {
       problems.push(`${expectation.type} cannot become a TypeScript type name`)
+      continue
+    }
+    if (reservedTypeNames.has(typeName)) {
+      problems.push(`type ${JSON.stringify(expectation.type)} generates reserved client type ${typeName}; rename the CAVE type`)
       continue
     }
     const priorType = typeNames.get(typeName)
@@ -72,19 +83,12 @@ const normalizedFields = (store: Store): { fields: ClientField[], problems: stri
     }
     typeNames.set(typeName, expectation.type)
 
-    const tags = tagsOf(store, expectation)
+    const tags = declarationTags.get(expectation.row.id) ?? []
     const cardinalities = tags.filter(tag => tag.key === 'cardinality').map(tag => tag.value)
     const units = tags.filter(tag => tag.key === 'unit').map(tag => tag.value)
-    if (cardinalities.length > 1 || cardinalities.some(value => value !== 'one' && value !== 'some')) {
-      problems.push(`${expectation.type} EXPECTS ${expectation.name}: cardinality must be one or some, at most once`)
-      continue
-    }
-    if (units.length > 1 || units.some(value => value === null || value === '')) {
-      problems.push(`${expectation.type} EXPECTS ${expectation.name}: unit must have one non-empty value`)
-      continue
-    }
-    if (expectation.kind === 'relation' && units.length > 0) {
-      problems.push(`${expectation.type} EXPECTS ${expectation.name}: relation expectations cannot declare #unit`)
+    const problem = constraintProblem(expectation, tags)
+    if (problem !== undefined) {
+      problems.push(problem)
       continue
     }
 
@@ -99,7 +103,7 @@ const normalizedFields = (store: Store): { fields: ClientField[], problems: stri
       ...units[0] === undefined || units[0] === null ? {} : { unit: units[0] },
       ...relation === undefined ? {} : { primary: relation.primary, inverse: relation.isInverse }
     }
-    const key = `${field.type}\0${field.kind}\0${field.name}`
+    const key = JSON.stringify([field.type, field.kind, field.name])
     const prior = fields.get(key)
     if (prior !== undefined && JSON.stringify(prior) !== JSON.stringify(field)) {
       problems.push(`${expectation.type} EXPECTS ${expectation.name}: conflicting current declarations`)
@@ -132,7 +136,9 @@ const expression = (field: ClientField): string => {
 const emit = (fields: readonly ClientField[], digest: string): string => {
   const groups = new Map<string, ClientField[]>()
   for (const field of fields) {
-    groups.set(field.type, [...groups.get(field.type) ?? [], field])
+    const group = groups.get(field.type) ?? []
+    group.push(field)
+    groups.set(field.type, group)
   }
   const types = [...groups.entries()].sort(([a], [b]) => compare(a, b))
   const declarations = types.flatMap(([type, typeFields]) => {
@@ -142,9 +148,9 @@ const emit = (fields: readonly ClientField[], digest: string): string => {
       ...typeFields.map(field => `  readonly ${q(field.name)}: ${propertyType(field)}`),
       '}',
       '',
-      `export const read${typeName} = (store: Store, entity: string): ${typeName} => ({`,
-      ...typeFields.map(field => `  ${q(field.name)}: ${expression(field)},`),
-      '})',
+      `export const read${typeName} = (store: Store, entity: string): ${typeName} => readSnapshot(store, () => ({`,
+      ...typeFields.map(field => `  [${q(field.name)}]: ${expression(field)},`),
+      '}))',
       ''
     ]
   })
@@ -164,6 +170,21 @@ const emit = (fields: readonly ClientField[], digest: string): string => {
     '}',
     '',
     'const currentSql = QuerySql.current()',
+    '',
+    'const readSnapshot = <T>(store: Store, read: () => T): T => {',
+    "  store.db.exec('SAVEPOINT cave_client_read')",
+    '  let result: T',
+    '  try { result = read() }',
+    '  catch (error) {',
+    "    try { store.db.exec('RELEASE cave_client_read') }",
+    '    catch (releaseError) {',
+    "      throw new AggregateError([error, releaseError], 'CAVE client read failed and snapshot release also failed', { cause: error })",
+    '    }',
+    '    throw error',
+    '  }',
+    "  store.db.exec('RELEASE cave_client_read')",
+    '  return result',
+    '}',
     '',
     'const attributeValues = <Unit extends string | undefined>(',
     '  store: Store, entity: string, attribute: string, expectedUnit: Unit',

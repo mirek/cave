@@ -83,11 +83,13 @@ const parseNumeric = (body: string): undefined | Numeric => {
     return undefined
   }
   const [, digits, glued] = match
-  let num = Number(digits)
+  let exponent = 0
   let unit: undefined | string
   if (glued !== undefined && glued !== '') {
     if (Multiplier.is(glued)) {
-      num *= Multiplier.factor(glued)
+      // Apply the decimal scale before conversion, avoiding double rounding
+      // and premature underflow of a tiny significand.
+      exponent = Math.log10(Multiplier.factor(glued))
     } else if (isUnit(glued)) {
       unit = glued
     } else {
@@ -100,6 +102,9 @@ const parseNumeric = (body: string): undefined | Numeric => {
     }
     unit = tail
   }
+  const num = Number(exponent === 0 ? digits : `${digits}e${exponent}`)
+  if (!Number.isFinite(num)) return undefined
+  if (num === 0 && /[1-9]/.test(digits!)) return undefined
   return unit === undefined ? { num } : { num, unit }
 }
 
@@ -202,10 +207,17 @@ export const formatNumber = (n: number): string => {
  * Linear interpolation of a trajectory at `fraction` ∈ [0, 1], clamped
  * (spec §32.3). @returns `undefined` for non-trajectory values.
  */
-export const interpolate = (value: Value, fraction: number): undefined | number =>
-  value.from === undefined || value.to === undefined ?
-    undefined :
-    value.from + (value.to - value.from) * Math.min(1, Math.max(0, fraction))
+export const interpolate = (value: Value, fraction: number): undefined | number => {
+  if (value.from === undefined || value.to === undefined) return undefined
+  const position = Math.min(1, Math.max(0, fraction))
+  if (position === 0) return value.from
+  if (position === 1) return value.to
+  // Opposite extreme signs can overflow the difference even though every
+  // interpolated value is finite. Same-sign endpoints have a safe difference.
+  return (value.from < 0) !== (value.to < 0)
+    ? value.from * (1 - position) + value.to * position
+    : value.from + (value.to - value.from) * position
+}
 
 /**
  * Canonical scalar text of a trajectory at `fraction`, in the
@@ -222,16 +234,21 @@ export const formatAt = (value: Value, fraction: number): undefined | string => 
   const style = parseTrajectory(value.approx ? value.raw.slice(1) : value.raw)
   let scaled = num
   let letter = ''
+  let factor = 1
   if (style?.multiplier === true) {
     for (const m of ['T', 'B', 'M', 'K'] as const) {
       if (Math.abs(num) >= Multiplier.factor(m)) {
         scaled = num / Multiplier.factor(m)
         letter = m
+        factor = Multiplier.factor(m)
         break
       }
     }
   }
-  const digits = formatNumber(Number(scaled.toPrecision(4)))
+  const rounded = Number(scaled.toPrecision(4))
+  const finite = Number.isFinite(rounded) && Number.isFinite(rounded * factor)
+  const digits = formatNumber(finite ? rounded : num)
+  if (!finite) letter = ''
   return value.unit === undefined ?
     `${digits}${letter}` :
     `${digits}${letter}${style?.glued === true ? '' : ' '}${value.unit}`

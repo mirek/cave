@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/loop",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "private": true,
   "type": "module",
   "description": "cave-loop — active-reconstruction agent layer over the CAVE graph (spec §18, non-normative).",
@@ -12,7 +12,7 @@
     "directory": "packages/loop"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"

@@ -1,0 +1,1063 @@
+{
+  "format": "cave.pagination-membership-review/v1",
+  "sqlControls": [
+    {
+      "format": "cave.current-membership-benchmark/v1",
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            1108.8212919999999,
+            1070.7509170000003,
+            1075.1554999999998
+          ],
+          "medianMs": 1075.1554999999998,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce9-f441-700c-af48-e913dcb323ec') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "membership",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            941.7009579999999,
+            954.5172090000001,
+            1011.4932500000004
+          ],
+          "medianMs": 954.5172090000001,
+          "sql": "SELECT c.* FROM (SELECT c.* FROM cave_claim c WHERE (c.claim_key, c.tx) IN (\n      SELECT claim_key, MAX(tx) FROM (SELECT * FROM cave_claim WHERE tx <= '01a08ce9-f441-700c-af48-e913dcb323ec') GROUP BY claim_key)) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 18,
+              "parent": 0,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 2"
+            },
+            {
+              "id": 25,
+              "parent": 18,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 55,
+              "parent": 18,
+              "notused": 0,
+              "detail": "CREATE BLOOM FILTER"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            403.92604200000005,
+            411.47270800000115,
+            404.7194589999999
+          ],
+          "medianMs": 404.7194589999999,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-0df5-7032-817a-73b01b4b35d1') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "membership",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            321.39404099999956,
+            319.5704170000008,
+            322.0513749999991
+          ],
+          "medianMs": 321.39404099999956,
+          "sql": "SELECT c.* FROM (SELECT c.* FROM cave_claim c WHERE (c.claim_key, c.tx) IN (\n      SELECT claim_key, MAX(tx) FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-0df5-7032-817a-73b01b4b35d1') GROUP BY claim_key)) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 18,
+              "parent": 0,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 2"
+            },
+            {
+              "id": 25,
+              "parent": 18,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 55,
+              "parent": 18,
+              "notused": 0,
+              "detail": "CREATE BLOOM FILTER"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.current-membership-benchmark/v1",
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            1101.7340410000002,
+            1109.9834580000002,
+            1060.608083
+          ],
+          "medianMs": 1101.7340410000002,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-511c-701e-b810-dc67fae176cb') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "membership",
+          "historyRows": 10000,
+          "currentKeys": 10000,
+          "requests": 100,
+          "samplesMs": [
+            918.6025420000001,
+            918.9255830000002,
+            940.4095419999994
+          ],
+          "medianMs": 918.9255830000002,
+          "sql": "SELECT c.* FROM (SELECT c.* FROM cave_claim c WHERE (c.claim_key, c.tx) IN (\n      SELECT claim_key, MAX(tx) FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-511c-701e-b810-dc67fae176cb') GROUP BY claim_key)) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 18,
+              "parent": 0,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 2"
+            },
+            {
+              "id": 25,
+              "parent": 18,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 55,
+              "parent": 18,
+              "notused": 0,
+              "detail": "CREATE BLOOM FILTER"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "full",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            417.4482079999998,
+            406.4952090000006,
+            406.5735420000001
+          ],
+          "medianMs": 406.5735420000001,
+          "sql": "SELECT c.* FROM (\nSELECT c.* FROM cave_claim c\nJOIN (\n  SELECT claim_key, MAX(tx) AS max_tx\n  FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-6a44-701b-b6a9-46d19bec6e04') GROUP BY claim_key\n) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx\n) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE latest"
+            },
+            {
+              "id": 8,
+              "parent": 2,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 50,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH latest USING AUTOMATIC COVERING INDEX (claim_key=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "mode": "membership",
+          "historyRows": 10000,
+          "currentKeys": 100,
+          "requests": 100,
+          "samplesMs": [
+            322.7943750000004,
+            318.1793749999988,
+            327.1816250000011
+          ],
+          "medianMs": 322.7943750000004,
+          "sql": "SELECT c.* FROM (SELECT c.* FROM cave_claim c WHERE (c.claim_key, c.tx) IN (\n      SELECT claim_key, MAX(tx) FROM (SELECT * FROM cave_claim WHERE tx <= '01a08cea-6a44-701b-b6a9-46d19bec6e04') GROUP BY claim_key)) c WHERE c.verb = 'HAS' AND c.attribute = 'score' AND c.conf > 0 ORDER BY c.tx LIMIT ? OFFSET ?",
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH c USING INDEX idx_cave_attribute (attribute=?)"
+            },
+            {
+              "id": 18,
+              "parent": 0,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 2"
+            },
+            {
+              "id": 25,
+              "parent": 18,
+              "notused": 211,
+              "detail": "SCAN cave_claim USING COVERING INDEX idx_cave_claim_key_tx"
+            },
+            {
+              "id": 55,
+              "parent": 18,
+              "notused": 0,
+              "detail": "CREATE BLOOM FILTER"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "before": [
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 6.948292000000038,
+          "samplesMs": [
+            11.333166000000006,
+            8.142583000000002,
+            6.792291999999975,
+            6.636333000000036,
+            6.948292000000038
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 69.44900000000001,
+          "samplesMs": [
+            69.44900000000001,
+            69.87604200000004,
+            67.13483299999996
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 5.772000000000048,
+          "samplesMs": [
+            5.772000000000048,
+            5.424832999999921,
+            5.949542000000065,
+            5.655750000000012,
+            7.476167000000032
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 63.198083,
+          "samplesMs": [
+            62.426624999999945,
+            63.198083,
+            63.4396670000001
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.326291999999967,
+          "samplesMs": [
+            24.285666999999876,
+            25.420292000000018,
+            25.249791999999843,
+            25.326291999999967,
+            25.575667000000067
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3146.0989579999996,
+          "samplesMs": [
+            3163.0035000000003,
+            3146.0989579999996,
+            3084.1276670000007
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.25329099999908,
+          "samplesMs": [
+            25.422082999999475,
+            25.166541000000507,
+            25.168125000000146,
+            25.284959000000526,
+            25.25329099999908
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3209.9326249999995,
+          "samplesMs": [
+            3209.9326249999995,
+            3222.2182080000002,
+            3097.6394169999985
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.735999999997148,
+          "samplesMs": [
+            2.7384579999998095,
+            2.760874999999942,
+            2.735999999997148,
+            2.7252079999998386,
+            2.7113750000025902
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 30.838999999999942,
+          "samplesMs": [
+            30.60637499999939,
+            30.838999999999942,
+            32.263999999999214
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 22.18170800000007,
+          "samplesMs": [
+            20.52991699999984,
+            22.141833000001498,
+            22.58991700000115,
+            22.199625000001106,
+            22.18170800000007
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2771.739666999998,
+          "samplesMs": [
+            2771.739666999998,
+            2862.452333000001,
+            2730.0064170000005
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 7.414458000000025,
+          "samplesMs": [
+            12.813333999999998,
+            7.869082999999989,
+            6.701208000000008,
+            7.414458000000025,
+            6.828374999999994
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 66.78616600000004,
+          "samplesMs": [
+            66.78616600000004,
+            67.85087499999997,
+            63.867875000000026
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 5.791666999999961,
+          "samplesMs": [
+            5.791666999999961,
+            5.7934999999999945,
+            5.630167000000029,
+            5.568540999999982,
+            7.34050000000002
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 61.204875000000015,
+          "samplesMs": [
+            61.618832999999995,
+            59.00262500000008,
+            61.204875000000015
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.49591700000019,
+          "samplesMs": [
+            24.742500000000064,
+            26.273083999999926,
+            25.470000000000027,
+            27.505292000000054,
+            25.49591700000019
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3109.355166,
+          "samplesMs": [
+            3109.355166,
+            3121.9915419999998,
+            3065.4859579999993
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 25.0870419999992,
+          "samplesMs": [
+            25.39166699999987,
+            25.167207999998936,
+            25.0870419999992,
+            24.90887499999917,
+            25.027625000000626
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 3114.2235419999997,
+          "samplesMs": [
+            3145.4835839999996,
+            3114.2235419999997,
+            3113.5992499999993
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.789082999999664,
+          "samplesMs": [
+            2.9163750000006985,
+            2.867000000002008,
+            2.789082999999664,
+            2.759582999999111,
+            2.747624999999971
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 30.88012499999968,
+          "samplesMs": [
+            30.88012499999968,
+            30.85741599999892,
+            30.908916000000318
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 22.131124999999884,
+          "samplesMs": [
+            20.426125000001775,
+            22.26445800000147,
+            22.102708000002167,
+            22.191666000002442,
+            22.131124999999884
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2746.445125000002,
+          "samplesMs": [
+            2746.445125000002,
+            2825.2256250000028,
+            2736.019791999999
+          ]
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 7.009957999999983,
+          "samplesMs": [
+            8.809916000000015,
+            7.041792000000015,
+            5.986000000000018,
+            7.009957999999983,
+            5.703874999999982
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 64.460916,
+          "samplesMs": [
+            62.56762499999999,
+            67.59954100000002,
+            64.460916
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 5.539041999999995,
+          "samplesMs": [
+            5.539041999999995,
+            5.0311249999999745,
+            5.565249999999992,
+            5.509707999999989,
+            7.088124999999991
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 60.78724999999997,
+          "samplesMs": [
+            61.122833000000014,
+            59.601999999999975,
+            60.78724999999997
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 20.476292000000058,
+          "samplesMs": [
+            22.227541000000087,
+            20.476292000000058,
+            20.42429100000004,
+            20.18983300000002,
+            21.550500000000056
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 2560.690375,
+          "samplesMs": [
+            2559.463916,
+            2560.690375,
+            2637.7112500000003
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 20.114832999999635,
+          "samplesMs": [
+            20.37829199999942,
+            19.87525000000096,
+            19.837540999998964,
+            20.114832999999635,
+            20.941417
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 2541.0547909999987,
+          "samplesMs": [
+            2541.0547909999987,
+            2602.336625,
+            2536.230749999999
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.1756659999991825,
+          "samplesMs": [
+            2.3066670000007434,
+            2.1866249999984575,
+            2.1756659999991825,
+            2.160874999997759,
+            2.1406669999996666
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 24.902749999997468,
+          "samplesMs": [
+            24.966083999999682,
+            24.855290999999852,
+            24.902749999997468
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 17.005208999999013,
+          "samplesMs": [
+            16.518833999998606,
+            17.005208999999013,
+            16.825166999999055,
+            17.546249999999418,
+            18.009707999997772
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2239.1131669999995,
+          "samplesMs": [
+            2343.6818340000027,
+            2239.1131669999995,
+            2227.4781250000015
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.pagination-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "sqlite": "3.53.4",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "measurements": [
+        {
+          "kind": "valid-time",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 6.816041999999982,
+          "samplesMs": [
+            12.159125000000017,
+            7.443208000000027,
+            6.087750000000028,
+            6.816041999999982,
+            5.623459000000025
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 61.97862500000002,
+          "samplesMs": [
+            61.97862500000002,
+            63.28641699999997,
+            58.67279099999996
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 1000,
+          "limit": 100,
+          "medianMs": 4.837791999999922,
+          "samplesMs": [
+            5.1033330000000205,
+            4.828750000000014,
+            4.837791999999922,
+            4.8179170000000795,
+            6.610541999999896
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 1000,
+          "limit": 100,
+          "pages": 10,
+          "matches": 1000,
+          "medianMs": 54.76829200000009,
+          "samplesMs": [
+            55.63445899999999,
+            53.534666000000016,
+            54.76829200000009
+          ]
+        },
+        {
+          "kind": "valid-time",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 20.696042000000034,
+          "samplesMs": [
+            20.935416000000032,
+            20.64800000000014,
+            22.339333000000124,
+            20.696042000000034,
+            20.31116700000007
+          ]
+        },
+        {
+          "kind": "valid-time-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 2587.3015830000004,
+          "samplesMs": [
+            2521.24725,
+            2645.0589579999996,
+            2587.3015830000004
+          ]
+        },
+        {
+          "kind": "exact-number",
+          "rows": 10000,
+          "limit": 100,
+          "medianMs": 19.610249999999724,
+          "samplesMs": [
+            19.94999999999891,
+            19.610249999999724,
+            19.53479200000038,
+            19.686916000000565,
+            19.467334000000847
+          ]
+        },
+        {
+          "kind": "exact-number-traversal",
+          "rows": 10000,
+          "limit": 100,
+          "pages": 100,
+          "matches": 10000,
+          "medianMs": 2611.1032909999994,
+          "samplesMs": [
+            2611.1032909999994,
+            2682.659834,
+            2493.103957999998
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 1000,
+          "limit": 1,
+          "medianMs": 2.2126250000001164,
+          "samplesMs": [
+            2.305458999999246,
+            2.2663749999992433,
+            2.20166700000118,
+            2.2126250000001164,
+            2.173917000000074
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 1000,
+          "limit": 1,
+          "pages": 10,
+          "matches": 10,
+          "medianMs": 25.078457999999955,
+          "samplesMs": [
+            24.98683300000266,
+            25.31737499999872,
+            25.078457999999955
+          ]
+        },
+        {
+          "kind": "selective-valid-time",
+          "rows": 10000,
+          "limit": 1,
+          "medianMs": 16.929791000002297,
+          "samplesMs": [
+            16.647375000000466,
+            16.929791000002297,
+            16.808082999999897,
+            17.296042000001762,
+            18.4375
+          ]
+        },
+        {
+          "kind": "selective-valid-time-traversal",
+          "rows": 10000,
+          "limit": 1,
+          "pages": 100,
+          "matches": 100,
+          "medianMs": 2239.2685829999973,
+          "samplesMs": [
+            2313.710500000001,
+            2198.255541999999,
+            2239.2685829999973
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+{
+  "date": "2026-09-09",
+  "method": "Sequential runs without concurrent builds or tests. Baseline removes only the Row.toClaim validation call; it is restored before the validated runs. Each runtime pair uses the same benchmark fixtures. Order is baseline Node 24, baseline Node 26, validated Node 24, validated Node 26. Before-run method wording is normalized to the final benchmark description; timing samples are unchanged.",
+  "comparisons": [
+    {
+      "withoutPrimaryFieldValidation": {
+        "format": "cave.view-search-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Seeding and result assertions excluded. Includes query, metadata reads and view construction, plus primary-field validation when enabled in the measured source; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 4.024541999999997,
+            "samplesMs": [
+              4.333917000000042,
+              4.080832999999984,
+              4.024541999999997,
+              3.9103749999999877,
+              3.8376670000000104
+            ]
+          },
+          {
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 34.775999999999954,
+            "samplesMs": [
+              34.775999999999954,
+              40.95079099999998,
+              40.620250000000055,
+              34.09145799999999,
+              34.586208000000056
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 3.725999999999999,
+            "samplesMs": [
+              3.989332999999988,
+              5.684208000000012,
+              3.725999999999999,
+              3.6942080000000033,
+              3.723041999999964
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 64.27654200000006,
+            "samplesMs": [
+              65.66641700000002,
+              57.29975000000002,
+              64.27654200000006,
+              69.66166700000008,
+              55.995124999999916
+            ]
+          }
+        ]
+      },
+      "withPrimaryFieldValidation": {
+        "format": "cave.view-search-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Seeding and result assertions excluded. Includes query, metadata reads and view construction, plus primary-field validation when enabled in the measured source; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 4.265333999999996,
+            "samplesMs": [
+              4.294583999999986,
+              4.265333999999996,
+              4.183166999999969,
+              4.0586249999999495,
+              5.922458000000006
+            ]
+          },
+          {
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 40.37654200000003,
+            "samplesMs": [
+              42.481041000000005,
+              40.37654200000003,
+              36.807707999999934,
+              38.3772909999999,
+              46.481042
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 4.0662079999999605,
+            "samplesMs": [
+              4.0722090000000435,
+              4.044291000000044,
+              4.0662079999999605,
+              3.9395419999999604,
+              5.902125000000069
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 49.577042000000006,
+            "samplesMs": [
+              53.694624999999974,
+              46.2995830000001,
+              49.577042000000006,
+              55.866333000000054,
+              48.650750000000016
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "withoutPrimaryFieldValidation": {
+        "format": "cave.view-search-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Seeding and result assertions excluded. Includes query, metadata reads and view construction, plus primary-field validation when enabled in the measured source; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 4.25366600000001,
+            "samplesMs": [
+              4.476749999999981,
+              4.25366600000001,
+              4.415458000000001,
+              4.120584000000008,
+              3.784708999999964
+            ]
+          },
+          {
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 38.73300000000006,
+            "samplesMs": [
+              46.157917,
+              36.801999999999964,
+              38.73300000000006,
+              40.18045900000004,
+              36.06212500000004
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 3.8778750000000173,
+            "samplesMs": [
+              3.8724580000000515,
+              4.004500000000007,
+              3.8144999999999527,
+              3.97300000000007,
+              3.8778750000000173
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 58.082041000000004,
+            "samplesMs": [
+              56.71283400000004,
+              65.7617919999999,
+              58.082041000000004,
+              53.53816699999993,
+              62.61770799999999
+            ]
+          }
+        ]
+      },
+      "withPrimaryFieldValidation": {
+        "format": "cave.view-search-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "method": "One warmup and five timed complete search view calls per case. In-memory SQLite, default internal sensitivity, numeric or 2048-character text payloads. Seeding and result assertions excluded. Includes query, metadata reads and view construction, plus primary-field validation when enabled in the measured source; excludes HTTP and browser rendering.",
+        "measurements": [
+          {
+            "kind": "numeric",
+            "rows": 100,
+            "valueBytes": 34,
+            "medianMs": 4.144208999999989,
+            "samplesMs": [
+              4.634624999999971,
+              4.2183749999999804,
+              4.144208999999989,
+              4.123958000000016,
+              4.0367500000000405
+            ]
+          },
+          {
+            "kind": "numeric",
+            "rows": 1000,
+            "valueBytes": 34,
+            "medianMs": 41.28533300000004,
+            "samplesMs": [
+              41.93308300000001,
+              41.28533300000004,
+              36.360041000000024,
+              40.151917000000026,
+              47.06512500000008
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 100,
+            "valueBytes": 2050,
+            "medianMs": 3.99574999999993,
+            "samplesMs": [
+              4.049875000000043,
+              3.9758339999999635,
+              3.99574999999993,
+              3.925875000000019,
+              5.735041000000024
+            ]
+          },
+          {
+            "kind": "text",
+            "rows": 1000,
+            "valueBytes": 2050,
+            "medianMs": 49.945334,
+            "samplesMs": [
+              52.474750000000085,
+              45.86875000000009,
+              49.945334,
+              55.799582999999984,
+              49.11041599999999
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

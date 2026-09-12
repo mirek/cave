@@ -68,6 +68,11 @@ or `@cavelang/core` for spec/docs-wide changes; the fixed group bumps every
 package together. Private workspaces such as `@cavelang/mcp` and
 `@cavelang/website` sit outside the group, so a changeset naming only them
 would not advance the release; CI and `scripts/release-validate.mjs` reject it.
+Internal packages bundled into the public CLI, including `act`, `automate`,
+`shape` and `sync`, are also outside that group. Their changesets must include
+`@cavelang/cli` at the intended release severity; naming only the internal
+workspace does not advance the public release. Check current package manifests
+and `.changeset/config.json` when choosing the owner.
 
 - patch (0.x.Y) — fixes, docs, instruction/skill wording that doesn't
   change semantics
@@ -76,6 +81,12 @@ would not advance the release; CI and `scripts/release-validate.mjs` reject it.
 
 CI rejects PRs that add no changeset. A change without a changeset is an
 incomplete change.
+
+The release toolchain pairs Changesets CLI 3.0.2 with action 2.1.2. Run
+`pnpm run version-packages` only with pending changesets: an empty run fails
+before synchronization or grammar generation. The synchronizer adds changelog
+entries for any workspace versions it aligns after Changesets, since the
+action reads them when constructing the version PR.
 
 Releases are automated (.github/workflows/publish.yml): merged changesets
 accumulate in a `chore(release): version packages` PR; merging it bumps
@@ -86,8 +97,23 @@ changeset structure, and workspace dependency ranges while allowing the
 version PR to repair manifest drift. Once the version PR consumes the pending
 changesets, `--mode=publish` requires exact package, derived-manifest,
 changelog, version-commit, and tag coherence before npm authentication or
-builds. Rerun an interrupted release at that exact version commit;
-already-published packages are skipped and a missing tag is repaired only
+builds. The publish entrypoint fixes `CAVE_RELEASE_ROOT` to the checkout it
+builds, so an inherited override cannot redirect validation elsewhere.
+Publish mode also requires clean tracked files and no non-ignored
+untracked files; ignored build outputs are allowed at preflight, then removed
+with `pnpm clean` before release generation and compilation. This prevents
+incremental builds from retaining altered or obsolete emitted files.
+Validation runs again
+after build/tests/smoke and before npm publication, and before final tagging.
+Registry probes fail closed on transport errors or unexpected successful
+responses; only an unambiguous npm `E404` error-code record schedules
+publication. URLs, prose mentioning 404, and conflicting error codes are not
+evidence of absence.
+Retry attempts must be positive safe integers and retry delays integer seconds
+in 0..60 (the variables and defaults are listed in `IMPLEMENTATION.md`). Rerun an interrupted release at that exact version commit;
+already-published packages are skipped. Missing versions publish only while
+the release version matches the freshly fetched `origin/main` version; an
+older fully published release may still recover its tag. A missing tag is repaired only
 after the build, tests, and packed-artifact smoke test.
 
 A brand-new public package must exist on npm before its trusted publisher can
@@ -97,3 +123,9 @@ rerun that commit's Publish workflow. Do not substitute `npm publish` for the
 repository command: pnpm materializes each package's production `exports` and
 `bin` fields from `publishConfig`, while direct npm publication ignores those
 manifest overrides.
+
+`pnpm release:audit` verifies registry signatures and available attestations for
+the declared public package versions through an isolated, script-disabled npm
+installation. Run it after those versions exist on npm. Recovery probes prove
+presence only; the audit also does not establish byte equality with a local
+rebuild. Details and registry configuration are in `IMPLEMENTATION.md`.

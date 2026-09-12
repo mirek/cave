@@ -1,8 +1,9 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 // A composite project that imports a workspace package without a direct
 // project reference only typechecks while some other reference happens to
@@ -165,7 +166,7 @@ test('bootstrap and clean derive deterministic tooling from the root manifest', 
   assert.match(makefile, /^bootstrap:\n\tnode scripts\/bootstrap\.mjs$/m)
 
   const bootstrap = readFileSync(join(root, 'scripts/bootstrap.mjs'), 'utf8')
-  assert.match(bootstrap, /const \{ packageManager \} = JSON\.parse/)
+  assert.match(bootstrap, /const \{ packageManager, engines \} = JSON\.parse/)
   assert.match(bootstrap, /availableVersion\('corepack', \[manager, '--version'\]\)/)
   assert.match(bootstrap, /\['exec', '--yes', '--package', `\$\{manager\}@\$\{version\}`/)
   assert.doesNotMatch(bootstrap, /install -g|corepack enable/)
@@ -218,7 +219,12 @@ test('dependency maintenance is grouped, reviewable, and owned', () => {
   const advisories = readFileSync(join(root, '.github/workflows/dependency-advisories.yml'), 'utf8')
   assert.match(advisories, /schedule:[\s\S]*cron: '17 5 \* \* 1-5'/)
   assert.match(advisories, /pnpm install --frozen-lockfile/)
-  assert.match(advisories, /pnpm audit --prod --audit-level=low/)
+  assert.match(advisories, /run: pnpm audit --audit-level=low\s*\n/,
+    'the advisory gate must include development and packaging dependencies')
+  assert.match(advisories, /continue-on-error: true/)
+  assert.match(advisories, /if: steps\.audit\.outcome == 'failure'/)
+  assert.match(advisories, /development tooling, including packaging and publishing tools/)
+  assert.match(advisories, /exit 1/)
   assert.match(advisories, /Owner @mirek[\s\S]*DEPENDENCY-MAINTENANCE\.md/)
 
   const policy = readFileSync(join(root, 'DEPENDENCY-MAINTENANCE.md'), 'utf8')
@@ -233,22 +239,52 @@ test('dependency maintenance is grouped, reviewable, and owned', () => {
   ]) assert.ok(policyProse.includes(requirement), `maintenance policy omits: ${requirement}`)
 })
 
+test('the aggregate CI gate rejects failed changesets and only allows intentional skips', () => {
+  const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
+  const aggregate = ci.slice(ci.indexOf('\n  test:\n'))
+  assert.match(aggregate, /needs:[\s\S]*?\n      - changeset\n/)
+  assert.ok(aggregate.includes('CHANGESET_RESULT: ${{ needs.changeset.result }}'))
+  const condition = /\n  changeset:\n    if: (.+)/.exec(ci)?.[1]
+  assert.ok(condition)
+  assert.ok(aggregate.includes(`REQUIRE_CHANGESET: \${{ ${condition} }}`), 'skip allowance must match the changeset job condition')
+  const script = aggregate.slice(aggregate.indexOf('        run: |\n') + '        run: |\n'.length)
+    .split('\n').map(line => line.slice(10)).join('\n')
+  for (const required of ['true', 'false']) {
+    for (const outcome of ['success', 'failure', 'cancelled', 'skipped', '']) {
+      const result = spawnSync('bash', ['-c', script], { encoding: 'utf8', env: {
+        ...process.env, SUITE_RESULT: 'success', RUNTIME_RESULT: 'success', BROWSER_RESULT: 'success',
+        SMOKE_RESULT: 'success', VSCODE_RESULT: 'success', REQUIRE_CHANGESET: required, CHANGESET_RESULT: outcome
+      } })
+      assert.equal(result.error, undefined)
+      const accepted = outcome === 'success' || (required === 'false' && outcome === 'skipped')
+      assert.equal(result.status === 0, accepted, `${required}/${outcome}: ${result.stderr}`)
+    }
+  }
+})
+
 test('the stable CI check and release script both require packed-artifact smoke tests', () => {
   const ci = readFileSync(fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url)), 'utf8')
   assert.match(ci, /\n  smoke:\n[\s\S]*?bash scripts\/smoke\.sh/)
   assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - browser\n      - smoke/)
 
   const pages = readFileSync(fileURLToPath(new URL('../../../.github/workflows/pages.yml', import.meta.url)), 'utf8')
-  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
+  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps --no-shell chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
 
   const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
+  const clean = release.indexOf('pnpm clean')
+  const grammarBuild = release.indexOf('pnpm --filter @cavelang/tree-sitter-cave build')
   const smoke = release.indexOf('bash scripts/smoke.sh')
   const recoveryTag = release.indexOf('ensure_tag #', smoke)
   const publish = release.indexOf('pnpm -r publish', smoke)
+  const postBuildValidation = release.indexOf('node scripts/release-validate.mjs --mode=publish', smoke)
   const finalTag = release.indexOf('\nensure_tag', publish)
+  assert.ok(clean >= 0 && clean < grammarBuild && grammarBuild < smoke,
+    'release artifacts must be cleaned before generation and smoke validation')
   assert.ok(smoke >= 0, 'release must run the shared packed-artifact smoke test')
   assert.ok(recoveryTag > smoke, 'interrupted-release tagging must follow smoke validation')
   assert.ok(publish > smoke, 'npm publishing must follow smoke validation')
+  assert.ok(postBuildValidation > smoke && postBuildValidation < publish,
+    'release identity and worktree cleanliness must be rechecked after preparation and before npm mutation')
   assert.ok(finalTag > publish, 'normal release tagging must follow npm publishing')
 })
 
@@ -288,7 +324,7 @@ test('the default website build excludes the optional solver runtime', () => {
 test('release automation validates identity before npm and matches the supported runtime', () => {
   const root = fileURLToPath(new URL('../../..', import.meta.url))
   const manifest = parse<Manifest>(join(root, 'package.json'))
-  assert.equal(manifest.engines?.node, '^22.18.0 || ^24.0.0 || ^26.0.0')
+  assert.equal(manifest.engines?.node, '^24.16.0 || ^26.1.0')
   assert.equal(manifest.scripts?.['release:validate'], 'node scripts/release-validate.mjs --mode=publish')
   assert.equal(manifest.scripts?.['release:validate:version-pr'],
     'node scripts/release-validate.mjs --mode=version-pr')
@@ -298,16 +334,15 @@ test('release automation validates identity before npm and matches the supported
   const registry = publishWorkflow.indexOf('registry-url: https://registry.npmjs.org')
   assert.ok(preflight >= 0 && preflight < registry, 'release identity must be checked before npm registry setup')
   assert.deepEqual([...publishWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
-    ['24.18.0', '24.18.0', '24.18.0'])
+    ['24.21.0', '24.21.0', '24.21.0'])
   assert.match(publishWorkflow, /vscode:\n    needs: \[preflight, release\]/)
   assert.match(publishWorkflow, /if: needs\.preflight\.outputs\.mode == 'publish'/)
 
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
-    ['24.18.0', '24.18.0', '24.18.0', '24.18.0'])
-  assert.match(ciWorkflow, /node: 22\.18\.0/)
-  assert.match(ciWorkflow, /node: 24\.18\.0/)
-  assert.match(ciWorkflow, /node: 26\.4\.0/)
+    ['24.21.0', '24.21.0', '24.21.0', '24.21.0'])
+  assert.match(ciWorkflow, /node: 24\.21\.0/)
+  assert.match(ciWorkflow, /node: 26\.8\.2/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/cave\/grammar-toolchain\/downloads/)
     assert.match(workflow, /grammar-toolchain-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}/)
@@ -375,7 +410,10 @@ test('the VS Code extension is packed, versioned, and published through a scoped
   assert.match(release, /^permissions:\n  contents: read$/m)
   assert.match(release, /environment: vscode-marketplace/)
   assert.match(release, /ref: refs\/tags\/v\$\{\{ inputs\.version \}\}/)
-  assert.match(release, /node scripts\/release-validate\.mjs --mode=publish/)
+  assert.match(release, /CAVE_RELEASE_TAG: v\$\{\{ inputs.version \}\}/)
+  assert.match(release, /CAVE_RELEASE_ROOT: \$\{\{ github.workspace \}\}/)
+  assert.match(release, /git show "\$\{GITHUB_SHA\}:scripts\/release-validate\.mjs"/)
+  assert.match(release, /node "\$RUNNER_TEMP\/cave-release-validate\.mjs" --mode=publish/)
   assert.match(release, /VSCE_PAT: \$\{\{ secrets\.VSCE_PAT \}\}/)
   assert.match(release, /vsce publish .*--skip-duplicate/)
 })
@@ -392,7 +430,7 @@ test('CI runs every recorded representative performance budget', () => {
   assert.equal(baseline.format, 'cave.performance-baseline')
   assert.equal(baseline.version, 1)
   assert.deepEqual(Object.keys(baseline.workloads).sort(), [
-    'boundedQuery', 'export', 'import', 'resolution', 'restrictedViewLarge',
+    'boundedQuery', 'export', 'highlightPaint', 'import', 'legacyMigration', 'resolution', 'restrictedViewLarge',
     'scopedViewLargeCold', 'scopedViewLargeWarm', 'scopedViewSmall', 'shape', 'transitiveQuery'
   ])
   for (const [name, budget] of Object.entries(baseline.workloads)) {
@@ -446,4 +484,11 @@ test('retired package names are private and built into documented CLI subpaths',
     assert.ok(subpath && cli.publishConfig?.exports?.[subpath], `${surface.replacement} must ship emitted code`)
     assert.equal(cli.devDependencies?.[name], 'workspace:*', `${name} must remain a workspace build boundary`)
   }
+})
+
+
+test('generated grammar Wasm is non-executable for version PR commits', () => {
+  const wasm = join(packagesDir, 'tree-sitter-cave', 'tree-sitter-cave.wasm')
+  assert.equal(statSync(wasm).mode & 0o111, 0,
+    'the grammar module is loaded as data; executable mode prevents the Changesets API commit')
 })

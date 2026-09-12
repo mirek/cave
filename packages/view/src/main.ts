@@ -4,10 +4,12 @@
  */
 
 import { parseArgs } from 'node:util'
+import type { Server } from 'node:http'
 import { Registry } from '@cavelang/canonical'
 import { Sensitivity, defaultDbPath, openAt } from '@cavelang/store'
 import { assemble } from '@cavelang/connect'
 import { defaultHost, defaultPort, serve } from './server.ts'
+import { errorMessage } from './error-message.ts'
 
 const usage = `cave serve — browse a CAVE store in the browser (spec §30)
 
@@ -33,7 +35,7 @@ and the spec §20 coverage/frontier dashboard, with full-text search
 within the selected sensitivity ceiling. Every request reads the live store, so a running
 loop's appends show on the next refresh.
 
-The surface is strictly read-only: only GET is answered and no
+The surface is strictly read-only: only GET/HEAD are answered and no
 endpoint writes — recording knowledge stays with cave add, the MCP
 tools and the kinetic layer (spec §24, §25, §29).
 
@@ -48,10 +50,22 @@ export type RunContext = {
   readonly signal?: AbortSignal
 }
 
-const waitForAbort = (signal?: AbortSignal): Promise<void> =>
-  signal?.aborted === true ? Promise.resolve() : new Promise(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+const waitForStop = (server: Server, signal: AbortSignal | undefined, errors: unknown[]) => {
+  let wake!: () => void
+  const wait = new Promise<void>(resolve => { wake = resolve })
+  const failed = (error: unknown): void => { errors.push(error); wake() }
+  server.on('error', failed)
+  signal?.addEventListener('abort', wake, { once: true })
+  if (signal?.aborted) wake()
+  return { wait, close: (): void => {
+    server.removeListener('error', failed)
+    signal?.removeEventListener('abort', wake)
+  } }
+}
 
 export const runServe = async (argv: readonly string[], context: RunContext = {}): Promise<number> => {
+  const signal = context.signal
+  if (signal?.aborted === true) return 0
   const stdout = context.stdout ?? process.stdout
   const stderr = context.stderr ?? process.stderr
   const { values, positionals } = parseArgs({
@@ -74,8 +88,12 @@ export const runServe = async (argv: readonly string[], context: RunContext = {}
     stderr.write(`cave serve: unexpected argument ${JSON.stringify(positionals[0])}\n`)
     return 1
   }
+  if (values.host !== undefined && values.host.trim() === '') {
+    stderr.write('cave serve: --host expects a non-empty hostname or address\n')
+    return 1
+  }
   const port = values.port === undefined ? defaultPort : Number(values.port)
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+  if (values.port?.trim() === '' || !Number.isInteger(port) || port < 0 || port > 65535) {
     stderr.write(`cave serve: --port expects 0..65535, got '${values.port}'\n`)
     return 1
   }
@@ -87,6 +105,8 @@ export const runServe = async (argv: readonly string[], context: RunContext = {}
   const dbPath = values.db ?? defaultDbPath()
   const store = openAt(dbPath, { intent: 'read', assemble, ...values['no-prelude'] === true ? { registry: Registry.empty } : {} })
   let handle: Awaited<ReturnType<typeof serve>> | undefined
+  const errors: unknown[] = []
+  let stop: ReturnType<typeof waitForStop> | undefined
   try {
     handle = await serve(store, {
       port,
@@ -94,15 +114,27 @@ export const runServe = async (argv: readonly string[], context: RunContext = {}
       maxSensitivity: maximum,
       ...values.host === undefined ? {} : { host: values.host }
     })
+    stop = waitForStop(handle.server, signal, errors)
     stdout.write(`serving ${dbPath} at ${handle.url} (sensitivity <= ${maximum}, read-only, ctrl-c to stop)\n`)
-    await waitForAbort(context.signal)
-    return 0
-  } finally {
-    if (handle?.server.listening === true) {
-      const closing = handle.close()
-      handle.server.closeAllConnections()
-      await closing
-    }
-    store.close()
+    await stop.wait
+  } catch (error) { errors.push(error) }
+  if (handle?.server.listening === true) {
+    let closing: Promise<void> | undefined
+    try {
+      closing = handle.close()
+      // Observe immediately, then retain its error in cleanup order below.
+      void closing.catch(() => {})
+    } catch (error) { errors.push(error) }
+    try { handle.server.closeAllConnections() } catch (error) { errors.push(error) }
+    try { await closing } catch (error) { errors.push(error) }
   }
+  try { store.close() } catch (error) { errors.push(error) }
+  stop?.close()
+  if (errors.length === 1) throw errors[0]
+  if (errors.length > 1) {
+    throw new AggregateError(errors,
+      `viewer failed: ${errors.map(errorMessage).join('; ')}`,
+      { cause: errors[0] })
+  }
+  return 0
 }

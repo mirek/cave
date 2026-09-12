@@ -56,6 +56,7 @@ type Classified = 'claim' | 'continuation' | 'qualifier'
 
 const classify = (tokens: readonly Token.t[], depth: number): Classified | { error: string } => {
   const head = tokens[0]!
+  if (head.kind === 'word' && head.text === '@claim') return 'claim'
   if (head.kind === 'word' && Verb.isQualifier(head.text)) {
     return depth > 0 ?
       'qualifier' :
@@ -118,13 +119,11 @@ const hasIndentedContent = (rawLines: readonly string[], at: number, depth: numb
  */
 const combineComment = (leading: readonly string[], trailing?: string): undefined | string => {
   const lines = [...leading, ...trailing === undefined ? [] : [trailing]]
-  while (lines[0] === '') {
-    lines.shift()
-  }
-  while (lines.length > 0 && lines[lines.length - 1] === '') {
-    lines.pop()
-  }
-  return lines.length === 0 ? undefined : lines.join('\n')
+  let first = 0
+  let end = lines.length
+  while (first < end && lines[first] === '') first += 1
+  while (end > first && lines[end - 1] === '') end -= 1
+  return first === end ? undefined : lines.slice(first, end).join('\n')
 }
 
 type CommentBlock = { readonly texts: string[], readonly raws: string[] }

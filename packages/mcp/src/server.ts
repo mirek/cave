@@ -7,7 +7,9 @@
  * `serveStdio`.
  */
 
-import type { Readable, Writable } from 'node:stream'
+import { Transform, type Readable, type Writable } from 'node:stream'
+import { errorMessage } from './error-message.ts'
+import { sourceValue } from './source.ts'
 import {
   CLIENT_INFO_META_KEY, LATEST_PROTOCOL_VERSION, ProtocolError,
   ProtocolErrorCode, Server, SUPPORTED_PROTOCOL_VERSIONS, type ServerContext
@@ -141,16 +143,29 @@ export type ToolCallResult = {
   readonly isError?: true
 }
 
+/** Capture only connection scope; source and hook configuration retain their own lifecycle. */
+const captureScope = (options: Scope): Scope => {
+  const readOnly = options.readOnly, permissions = options.permissions, tools = options.tools
+  return {
+    ...readOnly === undefined ? {} : { readOnly },
+    ...permissions === undefined ? {} : { permissions: Array.isArray(permissions) ? Array.from(permissions) : permissions },
+    ...tools === undefined ? {} : { tools: Array.isArray(tools) ? Array.from(tools) : tools }
+  }
+}
+
 /**
  * Pure CAVE tool surface beneath the MCP SDK. Action declarations are read on
  * every list/call, so actions added mid-session appear without reconnecting.
  */
-export const createToolSurface = (store: Store, options: ServerOptions = {}) => {
-  const served = scopedTools(options)
+export const createToolSurface = (store: Store, options: ServerOptions = {}) =>
+  toolSurface(store, options, captureScope(options))
+
+const toolSurface = (store: Store, options: ServerOptions, scope: Scope) => {
+  const served = scopedTools(scope)
   const servedByName = new Map(served.map(tool => [tool.name, tool]))
-  const actionsPossible = allowsActions(options)
+  const actionsPossible = allowsActions(scope)
   const actServed = (): Tool[] =>
-    actionsPossible ? scopedActionTools(store, options) : []
+    actionsPossible ? scopedActionTools(store, scope) : []
   const list = (): ListedTool[] => [...served, ...actServed()].map(tool => ({
     name: tool.name,
     description: tool.description,
@@ -169,14 +184,16 @@ export const createToolSurface = (store: Store, options: ServerOptions = {}) => 
       throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown tool: ${name}`)
     }
     try {
-      const stamp = options.source === false ? undefined : options.source ?? agentSource(clientName)
+      const source = options.source
+      const stamp = source === false ? undefined : sourceValue(source, 'source') ?? agentSource(clientName)
+      const hooks = options.hooks
       const text = tool.run(store, args, {
         ...stamp === undefined ? {} : { source: stamp },
-        ...options.hooks === undefined ? {} : { hooks: options.hooks }
+        ...hooks === undefined ? {} : { hooks }
       })
       return { content: [{ type: 'text', text }] }
     } catch (error) {
-      const text = error instanceof Error ? error.message : String(error)
+      const text = errorMessage(error)
       return { content: [{ type: 'text', text }], isError: true }
     }
   }
@@ -189,9 +206,10 @@ export const createToolSurface = (store: Store, options: ServerOptions = {}) => 
  * owned by `@modelcontextprotocol/server`.
  */
 export const createServer = (store: Store, options: ServerOptions = {}): Server => {
-  const served = scopedTools(options)
-  const actionsPossible = allowsActions(options)
-  const surface = createToolSurface(store, options)
+  const scope = captureScope(options)
+  const served = scopedTools(scope)
+  const actionsPossible = allowsActions(scope)
+  const surface = toolSurface(store, options, scope)
   const server = new Server(serverInfo, {
     capabilities: { tools: {} },
     instructions: instructionsFor(served, { actions: actionsPossible })
@@ -218,15 +236,65 @@ export const serve = (
   output: NodeJS.WritableStream,
   options: ServerOptions = {}
 ): Promise<void> => {
-  const transport = new StdioServerTransport(input as Readable, output as Writable)
-  const handle = serveStdio(() => createServer(store, options), { transport })
+  const signal = options.signal
+  if (signal?.aborted === true) return Promise.resolve()
+  const readable = input as Readable
+  const writable = output as Writable
+  if (readable.readableEnded || readable.closed || writable.writableFinished || writable.closed) return Promise.resolve()
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const validated = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      try {
+        decoder.decode(chunk, { stream: true })
+        callback(null, chunk)
+      } catch (cause) { callback(new TypeError('MCP input must contain valid UTF-8', { cause })) }
+    },
+    flush(callback) {
+      try { decoder.decode(); callback() }
+      catch (cause) { callback(new TypeError('MCP input must contain valid UTF-8', { cause })) }
+    }
+  })
+  const transport = new StdioServerTransport(validated, writable)
+  let shuttingDown = false
+  const shutdownErrors: unknown[] = []
+  const handle = serveStdio(() => createServer(store, options), {
+    transport,
+    // The SDK reports cleanup errors here while its close promise resolves.
+    // Ordinary protocol diagnostics retain the SDK's existing wire behavior.
+    onerror: error => { if (shuttingDown) shutdownErrors.push(error) }
+  })
   return new Promise((resolve, reject) => {
     let finished = false
+    let inputEnded = false
+    let pendingReplies = 0
+    const requests = new Map<unknown, number>()
+    let closing: Promise<void> | undefined
+    const closeHandle = (): Promise<void> => closing ??= (async () => {
+      shuttingDown = true
+      try { await handle.close() } catch (error) {
+        if (!shutdownErrors.includes(error)) shutdownErrors.push(error)
+      }
+      if (shutdownErrors.length === 1) throw shutdownErrors[0]
+      if (shutdownErrors.length > 1) {
+        throw new AggregateError(shutdownErrors,
+          `MCP shutdown failed: ${shutdownErrors.map(errorMessage).join('; ')}`,
+          { cause: shutdownErrors[0] })
+      }
+    })()
     const cleanup = (): void => {
-      input.removeListener('end', close)
-      input.removeListener('close', close)
+      validated.removeListener('end', endInput)
+      validated.removeListener('error', fail)
+      input.removeListener('close', closeInput)
       input.removeListener('error', fail)
-      options.signal?.removeEventListener('abort', close)
+      output.removeListener('error', fail)
+      output.removeListener('close', close)
+      output.removeListener('finish', close)
+      signal?.removeEventListener('abort', close)
+      readable.unpipe(validated)
+      // A transform error may already be queued when another event closes us.
+      validated.on('error', () => {})
+      validated.destroy()
+      if (input.listenerCount('data') === 0) readable.pause()
     }
     const done = (): void => {
       if (finished) return
@@ -238,15 +306,81 @@ export const serve = (
       if (finished) return
       finished = true
       cleanup()
-      reject(error)
+      void closeHandle().then(() => reject(error), closeError => {
+        if (closeError === error) { reject(error); return }
+        // The SDK may also report the triggering stream error during close.
+        const errors = [error, ...shutdownErrors.filter(value => value !== error)]
+        if (errors.length === 1) reject(error)
+        else reject(new AggregateError(errors,
+          `MCP stream/shutdown failed: ${errors.map(errorMessage).join('; ')}`,
+          { cause: error }))
+      })
     }
     const close = (): void => {
-      void handle.close().then(done, fail)
+      void closeHandle().then(done, fail)
     }
-    input.once('end', close)
-    input.once('close', close)
+    const endInput = (): void => {
+      inputEnded = true
+      if (pendingReplies === 0) close()
+    }
+    const closeInput = (): void => {
+      // Normal EOF must pass through the decoder's final validation first.
+      if (!readable.readableEnded) close()
+    }
+    // SDK close tears down immediately. Normal EOF must first finish replies
+    // to requests already accepted, including a pre-buffered opening exchange.
+    let transportFailure: Error | undefined
+    const reportTransportError = transport.onerror
+    transport.onerror = error => {
+      transportFailure = error
+      reportTransportError?.(error)
+    }
+    const transportClosed = transport.onclose
+    transport.onclose = () => {
+      const unexpected = !shuttingDown
+      const failure = transportFailure
+      if (unexpected) {
+        // handle.close() yields before closing the server. The passive SDK
+        // callback would mark it closed first and detach cleanup from our wait.
+        if (failure !== undefined) fail(failure)
+        else close()
+        return
+      }
+      transportClosed?.()
+    }
+    const receive = transport.onmessage!
+    transport.onmessage = message => {
+      transportFailure = undefined
+      if ('method' in message && 'id' in message) {
+        pendingReplies++
+        requests.set(message.id, (requests.get(message.id) ?? 0) + 1)
+      }
+      receive(message)
+    }
+    const send = transport.send.bind(transport)
+    transport.send = async message => {
+      try { await send(message) }
+      finally {
+        if (!('method' in message) && 'id' in message) {
+          const count = requests.get(message.id) ?? 0
+          if (count > 0) {
+            pendingReplies--
+            if (count === 1) requests.delete(message.id)
+            else requests.set(message.id, count - 1)
+          }
+        }
+        if (inputEnded && pendingReplies === 0) close()
+      }
+    }
+    validated.once('end', endInput)
+    validated.once('error', fail)
+    input.once('close', closeInput)
     input.once('error', fail)
-    options.signal?.addEventListener('abort', close, { once: true })
-    if (options.signal?.aborted === true) close()
+    output.once('error', fail)
+    output.once('close', close)
+    output.once('finish', close)
+    signal?.addEventListener('abort', close, { once: true })
+    if (signal?.aborted === true) close()
+    else readable.pipe(validated)
   })
 }

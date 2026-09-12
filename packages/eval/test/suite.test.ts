@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { Suite } from '@cavelang/eval'
@@ -109,4 +109,38 @@ test('a golden file is accepted as a single-case root; junk roots are problems',
     mkdirSync(join(dir, 'empty'))
     const empty = Suite.discover([join(dir, 'empty')], { cwd: dir })
     assert.match(empty.problems[0]!, /no \.golden\.cave cases found/)
+  }))
+
+
+test('fixture-shaped directories are problems without hiding valid sibling cases', () =>
+  withDir(dir => {
+    writeFileSync(join(dir, 'good.md'), 'source')
+    writeFileSync(join(dir, 'good.golden.cave'), 'a IS b')
+    for (const suffix of ['.golden.cave', '.queries.cave', '.loop.cave', '.instructions.md']) {
+      const stem = suffix.slice(1).replaceAll('.', '-')
+      writeFileSync(join(dir, `${stem}.md`), 'source')
+      if (suffix !== '.golden.cave') writeFileSync(join(dir, `${stem}.golden.cave`), 'a IS b')
+      mkdirSync(join(dir, `${stem}${suffix}`))
+    }
+    const suite = Suite.discover([dir], { cwd: dir })
+    assert.deepEqual(suite.cases.map(kase => kase.name), ['good'])
+    assert.equal(suite.problems.length, 4)
+    assert.ok(suite.problems.every(problem => problem.includes('must be a file')))
+  }))
+
+
+test('broken source symlinks do not abort discovery and valid source links still work', () =>
+  withDir(dir => {
+    writeFileSync(join(dir, 'notes.golden.cave'), 'a IS b')
+    symlinkSync(join(dir, 'missing-target'), join(dir, 'notes.md'))
+    const missing = Suite.discover([dir], { cwd: dir })
+    assert.equal(missing.cases.length, 0)
+    assert.equal(missing.problems.length, 1)
+    assert.match(missing.problems[0]!, /notes: no source file/)
+    writeFileSync(join(dir, 'actual-source'), 'source')
+    symlinkSync(join(dir, 'actual-source'), join(dir, 'notes.txt'))
+    const recovered = Suite.discover([dir], { cwd: dir })
+    assert.deepEqual(recovered.problems, [])
+    assert.equal(recovered.cases.length, 1)
+    assert.equal(recovered.cases[0]!.source, join(dir, 'notes.txt'))
   }))

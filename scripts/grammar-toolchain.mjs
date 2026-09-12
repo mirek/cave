@@ -9,6 +9,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync
 } from 'node:fs'
 import { homedir } from 'node:os'
@@ -28,6 +29,11 @@ const cache = resolve(process.env.CAVE_GRAMMAR_CACHE
   ?? join(homedir(), '.cache/cave/grammar-toolchain'))
 const downloads = join(cache, 'downloads')
 const offline = /^(1|true)$/i.test(process.env.CAVE_GRAMMAR_OFFLINE ?? '')
+const timeoutSeconds = Number(process.env.CAVE_GRAMMAR_DOWNLOAD_TIMEOUT_SECONDS ?? '300')
+const downloadTimeoutMs = Math.ceil(timeoutSeconds * 1000)
+if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0 || downloadTimeoutMs > 2_147_483_647) {
+  throw new TypeError('CAVE_GRAMMAR_DOWNLOAD_TIMEOUT_SECONDS must be positive and at most 2147483.647')
+}
 const recovery = 'pnpm grammar:prepare'
 
 const fail = message => {
@@ -65,7 +71,7 @@ const checkedArtifact = async (name, definition) => {
   console.error(`Downloading ${url}`)
   let response
   try {
-    response = await fetch(url)
+    response = await fetch(url, { signal: AbortSignal.timeout(downloadTimeoutMs) })
     if (!response.ok || !response.body) {
       fail(`Could not download ${url}: HTTP ${response.status} ${response.statusText}.`)
     }
@@ -102,44 +108,61 @@ const prepareWasiSdk = async () => {
   const directory = join(cache, 'tools/wasi-sdk', manifest.wasiSdk.version, platform)
   const marker = join(directory, '.cave-source-sha256')
   const version = join(directory, 'VERSION')
+  const matchesVersion = path => existsSync(path)
+    && readFileSync(path, 'utf8').split(/\r?\n/, 1)[0].trim() === manifest.wasiSdk.version
   if (existsSync(marker) && existsSync(version)
+      && statSync(marker).isFile() && statSync(version).isFile()
       && readFileSync(marker, 'utf8').trim() === artifact.sha256
-      && readFileSync(version, 'utf8').startsWith(manifest.wasiSdk.version)) {
+      && matchesVersion(version)) {
     return directory
   }
 
   const staging = `${directory}.${process.pid}.tmp`
   rmSync(staging, { force: true, recursive: true })
   mkdirSync(staging, { recursive: true })
-  console.error(`Extracting verified ${artifact.file}`)
-  const extraction = spawnSync('tar', ['-xzf', artifact.path, '-C', staging], {
-    encoding: 'utf8'
-  })
-  if (extraction.status !== 0) {
-    rmSync(staging, { force: true, recursive: true })
-    fail(`Could not extract ${artifact.file} with tar: ${extraction.stderr || extraction.error?.message || 'unknown error'}`)
-  }
-  const entries = readdirSync(staging, { withFileTypes: true }).filter(entry => entry.isDirectory())
-  if (entries.length !== 1) {
-    rmSync(staging, { force: true, recursive: true })
-    fail(`${artifact.file} did not contain exactly one SDK directory.`)
-  }
-  const extracted = join(staging, entries[0].name)
-  writeFileSync(join(extracted, '.cave-source-sha256'), `${artifact.sha256}\n`)
-  mkdirSync(dirname(directory), { recursive: true })
-  rmSync(directory, { force: true, recursive: true })
-  renameSync(extracted, directory)
-  rmSync(staging, { force: true, recursive: true })
-  if (!existsSync(version) || !readFileSync(version, 'utf8').startsWith(manifest.wasiSdk.version)) {
+  let failed = false, failure
+  try {
+    console.error(`Extracting verified ${artifact.file}`)
+    const extraction = spawnSync('tar', ['-xzf', artifact.path, '-C', staging], {
+      encoding: 'utf8'
+    })
+    if (extraction.status !== 0) {
+      fail(`Could not extract ${artifact.file} with tar: ${extraction.stderr || extraction.error?.message || 'unknown error'}`)
+    }
+    const entries = readdirSync(staging, { withFileTypes: true }).filter(entry => entry.isDirectory())
+    if (entries.length !== 1) {
+      fail(`${artifact.file} did not contain exactly one SDK directory.`)
+    }
+    const extracted = join(staging, entries[0].name)
+    if (!matchesVersion(join(extracted, 'VERSION'))) {
+      fail(`The extracted SDK does not report version ${manifest.wasiSdk.version}.`)
+    }
+    writeFileSync(join(extracted, '.cave-source-sha256'), `${artifact.sha256}\n`)
+    mkdirSync(dirname(directory), { recursive: true })
     rmSync(directory, { force: true, recursive: true })
-    fail(`The extracted SDK does not report version ${manifest.wasiSdk.version}.`)
+    renameSync(extracted, directory)
+  } catch (error) {
+    failed = true
+    failure = error
+    throw error
+  } finally {
+    try {
+      rmSync(staging, { force: true, recursive: true })
+    } catch (cleanupError) {
+      if (!failed) throw cleanupError
+      throw new AggregateError([failure, cleanupError], 'SDK preparation and staging cleanup failed', { cause: failure })
+    }
   }
   return directory
 }
 
 const prepare = async () => {
-  const [treeSitter, wasiSdk] = await Promise.all([prepareTreeSitter(), prepareWasiSdk()])
-  return { treeSitter, wasiSdk }
+  // Let both preparations finish cleanup before a failed setup exits.
+  const results = await Promise.allSettled([prepareTreeSitter(), prepareWasiSdk()])
+  const failures = results.filter(result => result.status === 'rejected').map(result => result.reason)
+  if (failures.length === 1) throw failures[0]
+  if (failures.length > 1) throw new AggregateError(failures, 'Could not prepare grammar toolchain', { cause: failures[0] })
+  return { treeSitter: results[0].value, wasiSdk: results[1].value }
 }
 
 const run = (executable, args, environment = {}) => {
@@ -166,6 +189,8 @@ if (['build', 'test', 'verify'].includes(command)) {
   run(treeSitter, ['build', '--wasm', '-o', 'tree-sitter-cave.wasm'], {
     TREE_SITTER_WASI_SDK_PATH: wasiSdk
   })
+  // This module is loaded as data; the version-PR API cannot commit executable files.
+  chmodSync(join(grammar, 'tree-sitter-cave.wasm'), 0o644)
 }
 if (command === 'test') run(treeSitter, ['test'])
 if (command === 'verify') {

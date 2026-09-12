@@ -13,6 +13,12 @@
 const hex = (n: number, digits: number): string =>
   n.toString(16).padStart(digits, '0')
 
+const validateTimestamp = (ms: number): void => {
+  if (!Number.isInteger(ms) || ms < 0 || ms > 0xffff_ffff_ffff) {
+    throw new Error(`Expected 48-bit millisecond timestamp, got ${ms}.`)
+  }
+}
+
 /**
  * Formats a UUIDv7 from parts — pure, for tests and deterministic imports.
  *
@@ -22,9 +28,7 @@ const hex = (n: number, digits: number): string =>
  * overwritten by the variant)
  */
 export const at = (ms: number, seq: number, rand: Uint8Array): string => {
-  if (!Number.isInteger(ms) || ms < 0 || ms > 0xffff_ffff_ffff) {
-    throw new Error(`Expected 48-bit millisecond timestamp, got ${ms}.`)
-  }
+  validateTimestamp(ms)
   if (!Number.isInteger(seq) || seq < 0 || seq > 0xfff) {
     throw new Error(`Expected 12-bit sequence, got ${seq}.`)
   }
@@ -51,22 +55,26 @@ let lastSeq = 0
  */
 export const next = (now: () => number = Date.now): string => {
   let ms = now()
+  validateTimestamp(ms)
+  let seq = 0
   if (ms <= lastMs) {
     ms = lastMs
-    lastSeq += 1
-    if (lastSeq > 0xfff) {
+    seq = lastSeq + 1
+    if (seq > 0xfff) {
       ms += 1
-      lastSeq = 0
+      seq = 0
     }
-  } else {
-    lastSeq = 0
   }
-  lastMs = ms
+  validateTimestamp(ms)
   const rand = new Uint8Array(8)
   // Web Crypto is available in supported Node.js releases and browsers,
   // keeping UUID generation portable without weakening randomness.
   globalThis.crypto.getRandomValues(rand)
-  return at(ms, lastSeq, rand)
+  const id = at(ms, seq, rand)
+  // Failed validation or randomness must not advance or poison the clock.
+  lastMs = ms
+  lastSeq = seq
+  return id
 }
 
 /**

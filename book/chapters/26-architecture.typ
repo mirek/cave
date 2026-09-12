@@ -53,11 +53,25 @@ agents) never enter the store.
     [Documentation and a playground running the kernel in the browser on an in-memory store.],
 )
 
+#note([Taking work out of the playground], [The in-memory database belongs to
+its browser tab. *Download claims* saves the current editor text as a `.cave`
+file, including unapplied edits. Keep the claims you want to save in the editor:
+appended claims absent from that text are not included in the download.
+*Copy result* saves the displayed output to the clipboard with its submitted
+query and valid-time context. If clipboard access fails, *Select result text*
+selects that output for manual copying.])
+
 Dependencies point inward, toward domain, language, and data. Higher
 packages compose lower functions; the lower layers never call the CLI, MCP,
 HTTP, or agent surfaces. The code favours small functions and immutable
 values over class hierarchies, with conventional error subclasses carrying
 typed failure details at API boundaries.
+
+Release preparation cleans and rebuilds outputs from its own version checkout.
+Tests and smoke precede publishing or tagging. Missing packages publish only
+for the current main version; older complete releases can recover tags.
+Registry errors halt publication, and absence requires an unambiguous npm
+`E404` code.
 
 Workspace boundaries and release boundaries differ on purpose. Libraries
 with independent consumers publish as their own npm packages. Rules,
@@ -92,9 +106,9 @@ A tree-sitter grammar lives beside the parser and is the source for every
 presentation of CAVE text: `cave highlight` and the colours `cave export`
 prints on a terminal, the website's editor, the VS Code extension's
 semantic tokens, and any tree-sitter-native editor pointed at the grammar.
-The grammar is not the parser, but the two are tested against each other,
-and the one highlight query drives every renderer, so syntax cannot drift
-between what the engine accepts and what an editor colours.
+The grammar and parser are tested against each other; one query drives every
+renderer. VS Code frees each document tree after use and its parser and query
+on disposal or failed activation.
 
 == The invariants
 

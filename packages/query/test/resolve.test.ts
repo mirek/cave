@@ -65,6 +65,27 @@ test('resolve composes with aliases — the group widens through the closure (sp
   store.close()
 })
 
+test('historical resolution retains alias groups and source precedence at one cutoff', () => {
+  const store = open()
+  try {
+    store.ingest('postgres HAS version: 14', { source: 'ingest/a' })
+    const separate = store.ingest('postgresql HAS version: 15', { source: 'cli' }).ids.at(-1)!
+    const merged = store.ingest('postgres ALIAS postgresql').ids.at(-1)!
+    const demoted = store.ingest('source/cli HAS precedence: 0').ids.at(-1)!
+    store.ingest('postgres ALIAS postgresql @ 0%')
+    const before = store.exportText({ tx: true, maxSensitivity: 'restricted' })
+    const versions = (asOf?: string): string[] => query(store, '?database HAS version: ?version', {
+      aliases: true, resolve: true, asOf
+    }).map(match => match.bindings['version']!).sort()
+    assert.deepEqual(versions(separate), ['14', '15'])
+    assert.deepEqual(versions(merged), ['15'])
+    assert.deepEqual(versions(demoted), ['14'])
+    assert.deepEqual(versions(), ['14', '15'])
+    assert.deepEqual(versions(merged), ['15'], 'a later current query does not replace historical policy or groups')
+    assert.equal(store.exportText({ tx: true, maxSensitivity: 'restricted' }), before)
+  } finally { store.close() }
+})
+
 test('transitive hops walk resolved edges only (spec §26.4)', () => {
   const store = open()
   store.ingest('a NEEDS b\nb NEEDS c', { source: 'ingest/x' })

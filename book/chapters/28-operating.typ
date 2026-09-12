@@ -69,21 +69,33 @@ $ cave add --db roastery.db roastery.cave
 added 33 claim(s), 0 edge(s)
 
 $ cave doctor --db roastery.db
-cave doctor <any>
-PASS Node <any>
-PASS SQLite <any>
+cave doctor <token>
+PASS Node <token> satisfies ^24.16.0 || ^26.1.0
+PASS SQLite <token> supports FTS5, JSON functions, foreign keys, and extension loading
 PASS Grammar WASM and highlight query are installed
 PASS pnpm is not required for this installed CLI
-PASS CAVE schema 1 is compatible (33 claim(s))
+PASS CAVE schema 2 is compatible (33 claim(s))
 PASS SQLite integrity and foreign-key checks passed
+PASS Stored payloads, provenance, flags, confidence and sigma levels are valid
+PASS Search entries match the stored claims
 PASS No optional hooks file was configured
 result: ready
 ```
+
+The CAVE, Node, and SQLite version tokens reflect the installed CLI and
+runtime and vary between releases and supported installations.
 
 Warnings such as a database that does not exist yet exit 0; an unsupported
 runtime, a broken grammar asset, a malformed hooks file, or a corrupt store
 exit 1. `--hooks <file>` validates a hook configuration without running it,
 and `--json` emits a versioned report.
+
+For a current SQLite store, the `store.search` check compares search entries
+with the stored claims. Missing, duplicate, orphaned, or stale entries fail
+this check even when SQLite's integrity check passes. Doctor reports the
+problem without repairing the index or printing claim contents. Text-store
+load failures likewise omit private paths and source details; use `cave parse`
+on the file locally for detailed syntax errors.
 
 == Signals, exit codes, and errors
 

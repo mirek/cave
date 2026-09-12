@@ -8,3 +8,7 @@ allowBuilds:
   esbuild: true
   keytar: false
   tree-sitter-cli: false
+
+patchedDependencies:
+  sql.js@1.14.2: patches/sql.js@1.14.2.patch
+  vite@8.3.0: patches/vite@8.3.0.patch

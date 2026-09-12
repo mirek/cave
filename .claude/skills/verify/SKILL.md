@@ -7,7 +7,7 @@ description: How to run and observe the cave CLI and MCP server end-to-end when 
 
 No build is needed for source-level verification: `pnpm install` links
 workspace packages and puts `cave` on the workspace path
-(`node_modules/.bin/cave` runs TypeScript directly via Node ≥ 22.18 type
+(`node_modules/.bin/cave` runs TypeScript directly via supported Node releases’ type
 stripping). Release and CI validation still run the emitting `pnpm build`
 described in `IMPLEMENTATION.md`. Everything here is driven
 through the real CLI against a scratch `--db`:
@@ -21,8 +21,8 @@ cave query --db k.db '?x IS service'
 cave export --db k.db          # canonical text incl. BECAUSE/VIA lineage
 ```
 
-Node's SQLite `ExperimentalWarning` on stderr is noise — filter it,
-don't chase it.
+Capture stderr when checking failures. Node's SQLite `ExperimentalWarning` can
+be ignored, but do not discard stderr wholesale: it also carries real errors.
 
 The MCP server is plain newline-delimited JSON-RPC on stdio, so it can
 be driven by piping lines — no client needed; it exits when stdin
@@ -31,23 +31,58 @@ closes:
 ```sh
 printf '%s\n' \
  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}' \
+ '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"cave_query","arguments":{"pattern":"?x IS service"}}}' \
- | cave mcp --db k.db 2>/dev/null
+ | cave mcp --db k.db 2>mcp.err
 ```
 
 The read surface (`cave serve`, spec §30) is verifiable headlessly:
 start it on `--port 0` in the background, scrape the printed URL from
-its log, then `curl` the page and the `/api/*` endpoints; the
-pre-installed Chromium (`--headless --screenshot=out.png <url>`)
-renders the page's client-side views for visual checks:
+its log, then `curl` the page and the `/api/*` endpoints. Bound startup waiting
+and retain the exact child PID so failures and interruptions clean up the owned
+server. Run this example in the scratch directory containing `k.db`:
 
 ```sh
-cave serve --db k.db --port 0 > serve.log 2>&1 &
-url=$(until grep -qo 'http://[^ ]*/' serve.log; do sleep 0.1; done; grep -o 'http://[^ ]*/' serve.log | head -1)
-curl -s "${url}api/overview"
-kill %1
+(
+  set -eu
+  verify_dir=$(mktemp -d)
+  verify_pid=
+  cleanup() {
+    if [ -n "$verify_pid" ]; then
+      kill "$verify_pid" 2>/dev/null || true
+      wait "$verify_pid" 2>/dev/null || true
+    fi
+    rm -rf "$verify_dir"
+  }
+  trap cleanup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  cave serve --db k.db --port 0 > "$verify_dir/serve.log" 2>&1 &
+  verify_pid=$!
+  verify_url=
+  verify_attempt=0
+  while [ "$verify_attempt" -lt 100 ]; do
+    if ! kill -0 "$verify_pid" 2>/dev/null; then
+      cat "$verify_dir/serve.log" >&2
+      exit 1
+    fi
+    verify_url=$(sed -nE 's@.*(http://[^ ]*/).*@\1@p' "$verify_dir/serve.log")
+    [ -z "$verify_url" ] || break
+    verify_attempt=$((verify_attempt + 1))
+    sleep 0.1
+  done
+  if [ -z "$verify_url" ]; then
+    cat "$verify_dir/serve.log" >&2
+    echo 'CAVE server did not become ready within the startup budget' >&2
+    exit 1
+  fi
+  curl --fail --silent --show-error --max-time 10 "${verify_url}api/overview"
+)
 ```
+
+For rendered UI checks, use the production Playwright workflows documented in
+`website/README.md`; HTTP responses alone do not verify browser interactions.
 
 Gotchas:
 

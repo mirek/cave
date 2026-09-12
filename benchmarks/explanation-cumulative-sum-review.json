@@ -1,0 +1,357 @@
+{
+  "description": "Cumulative full-report cost for independently constructed sums of 256 assigned positive fractions with distinct 101-digit denominators, near the default expression-node limit. Timings are measurements, not deadlines or a runtime budget.",
+  "additionalSources": {
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+    "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/explain.ts": "65b459648cffe5fab8cc37d83b5132905d125cc0826afb57afe58e8f82e32004",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1",
+    "packages/solver/src/canonical.ts": "dd52c036fcbc4a07b1410c7f8a50c7c7c61171a87da945c7989e8cdbcfa97536",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/adapter.ts": "0c78db45b625f2f97feb22f6a240674023bd35139286a4d73bbeffcba8a0b9a0",
+    "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e"
+  },
+  "runs": {
+    "24": {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per constraint count and budget; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 180000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxExplanationBits": 1000000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-cumulative-sum-bench.mjs": "98a75423d0eec338a6eba5632debf89d23f8e1939e37516e6a7d7f5c17738eaf",
+        "packages/solver/src/explain.ts": "65b459648cffe5fab8cc37d83b5132905d125cc0826afb57afe58e8f82e32004",
+        "packages/solver/src/adapter.ts": "0c78db45b625f2f97feb22f6a240674023bd35139286a4d73bbeffcba8a0b9a0",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "terms": 256,
+          "constraints": 1,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 259,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            11.950958,
+            5.904291000000001,
+            10.040750000000003,
+            4.398084000000011
+          ],
+          "medianMs": 5.904291000000001
+        },
+        {
+          "terms": 256,
+          "constraints": 1,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 259,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            93.958459,
+            84.232583,
+            84.571958,
+            86.17820900000004
+          ],
+          "medianMs": 84.571958
+        },
+        {
+          "terms": 256,
+          "constraints": 32,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 32,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8288,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            62.09062500000002,
+            48.576291999999995,
+            52.142082999999985,
+            44.483000000000004
+          ],
+          "medianMs": 48.576291999999995
+        },
+        {
+          "terms": 256,
+          "constraints": 32,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 32,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8288,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            2573.0190000000002,
+            2573.4295420000003,
+            2594.4126669999996,
+            2605.8658330000007
+          ],
+          "medianMs": 2594.4126669999996
+        },
+        {
+          "terms": 256,
+          "constraints": 384,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            556.512541,
+            496.1332920000001,
+            480.1685420000001,
+            475.9802080000002
+          ],
+          "medianMs": 480.1685420000001
+        },
+        {
+          "terms": 256,
+          "constraints": 384,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            31310.01725,
+            30937.849833,
+            30835.398833,
+            30905.30683300001
+          ],
+          "medianMs": 30905.30683300001
+        }
+      ]
+    },
+    "26": {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per constraint count and budget; four public calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 180000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxExplanationBits": 1000000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-cumulative-sum-bench.mjs": "98a75423d0eec338a6eba5632debf89d23f8e1939e37516e6a7d7f5c17738eaf",
+        "packages/solver/src/explain.ts": "65b459648cffe5fab8cc37d83b5132905d125cc0826afb57afe58e8f82e32004",
+        "packages/solver/src/adapter.ts": "0c78db45b625f2f97feb22f6a240674023bd35139286a4d73bbeffcba8a0b9a0",
+        "packages/solver/src/explanation-budget.ts": "3030a9958205a3fe23f8b5efcc0e3b7973cde8a8388d736678cc72d2758e2327",
+        "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+        "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+        "packages/solver/src/canonical-owned.ts": "6e8c18a918cfc0ce3acb274690be02f2a199c9bbe21a29647eb49caa24794c62",
+        "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc"
+      },
+      "results": [
+        {
+          "terms": 256,
+          "constraints": 1,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 259,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            11.891041000000001,
+            5.0662909999999926,
+            5.064624999999992,
+            4.422291000000001
+          ],
+          "medianMs": 5.064624999999992
+        },
+        {
+          "terms": 256,
+          "constraints": 1,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 259,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            91.88029199999998,
+            81.458416,
+            82.15008399999996,
+            80.792958
+          ],
+          "medianMs": 81.458416
+        },
+        {
+          "terms": 256,
+          "constraints": 32,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 32,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8288,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            59.56058399999999,
+            49.95554200000001,
+            53.980458999999996,
+            44.466875000000016
+          ],
+          "medianMs": 49.95554200000001
+        },
+        {
+          "terms": 256,
+          "constraints": 32,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 32,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8288,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            2602.7478340000002,
+            2531.1279999999997,
+            2474.533459,
+            2474.5695829999995
+          ],
+          "medianMs": 2474.5695829999995
+        },
+        {
+          "terms": 256,
+          "constraints": 384,
+          "maxExplanationBits": 1024,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            489.069375,
+            428.38583299999993,
+            438.665209,
+            421.40429199999994
+          ],
+          "medianMs": 428.38583299999993
+        },
+        {
+          "terms": 256,
+          "constraints": 384,
+          "maxExplanationBits": 1000000,
+          "stats": {
+            "variables": 256,
+            "constraints": 384,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 99456,
+            "expressionDepth": 3
+          },
+          "assignmentDenominatorDigits": 101,
+          "samplesMs": [
+            30072.253459,
+            30109.633625000002,
+            29911.129082999993,
+            30024.300541999997
+          ],
+          "medianMs": 30024.300541999997
+        }
+      ]
+    }
+  }
+}

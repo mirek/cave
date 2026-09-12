@@ -1,0 +1,693 @@
+{
+  "description": "Integer addition to a reduced shared product before/after avoiding redundant reduction, with numeric-budget controls. Sequential isolated trials; no general resource limit is established.",
+  "before": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "packages/solver/src/explain.ts": "608004735ac1a8882df571dfd8d0ad2e35f198adb839faef29c38d47c4809c54",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "operation": "add",
+          "depth": 8,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 11
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            20.764207999999996,
+            15.87445799999999,
+            13.298292000000004,
+            13.606375
+          ],
+          "medianMs": 13.606375
+        },
+        {
+          "operation": "add",
+          "depth": 10,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2051,
+            "expressionDepth": 13
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            158.36508300000003,
+            150.35454099999998,
+            151.62741600000004,
+            153.893417
+          ],
+          "medianMs": 151.62741600000004
+        },
+        {
+          "operation": "add",
+          "depth": 12,
+          "distinctExpressionNodes": 17,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8195,
+            "expressionDepth": 15
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            2290.761625,
+            2289.4538749999997,
+            2262.2346669999997,
+            2261.747792
+          ],
+          "medianMs": 2262.2346669999997
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "packages/solver/src/explain.ts": "608004735ac1a8882df571dfd8d0ad2e35f198adb839faef29c38d47c4809c54",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "operation": "add",
+          "depth": 8,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 11
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            22.407666000000006,
+            15.450958,
+            13.744416000000001,
+            15.471083000000007
+          ],
+          "medianMs": 15.450958
+        },
+        {
+          "operation": "add",
+          "depth": 10,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2051,
+            "expressionDepth": 13
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            154.428875,
+            148.54916699999998,
+            154.85325,
+            158.67212499999994
+          ],
+          "medianMs": 154.85325
+        },
+        {
+          "operation": "add",
+          "depth": 12,
+          "distinctExpressionNodes": 17,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8195,
+            "expressionDepth": 15
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            2203.9322500000003,
+            2176.364541,
+            2214.934459,
+            2142.4009579999993
+          ],
+          "medianMs": 2176.364541
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "operation": "add",
+          "depth": 8,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 11
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            4.8770410000000055,
+            2.539500000000004,
+            1.465834000000001,
+            1.839624999999998
+          ],
+          "medianMs": 1.839624999999998
+        },
+        {
+          "operation": "add",
+          "depth": 10,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2051,
+            "expressionDepth": 13
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            10.566958999999997,
+            6.439875000000001,
+            5.959875000000011,
+            5.336416999999997
+          ],
+          "medianMs": 5.959875000000011
+        },
+        {
+          "operation": "add",
+          "depth": 12,
+          "distinctExpressionNodes": 17,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8195,
+            "expressionDepth": 15
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            33.913208,
+            30.190292000000014,
+            26.185125,
+            24.649500000000018
+          ],
+          "medianMs": 26.185125
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "sequential fresh child per depth; four public calls, first discarded; fixture construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "limits": {
+        "timeoutMs": 10000,
+        "maxMemoryBytes": 536870912,
+        "maxVariables": 1000,
+        "maxConstraints": 5000,
+        "maxObjectives": 16,
+        "maxEnumValues": 1000,
+        "maxExpressionNodes": 100000,
+        "maxExpressionDepth": 128,
+        "maxNumericDigits": 100000,
+        "maxOutputBytes": 1000000
+      },
+      "sources": {
+        "scripts/solver-shared-product-bench.mjs": "f08a83ce41a985691213b438309845e113a2d9fbb287d6b862c47533cda2aafb",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/validate.ts": "d83e01cee408a717fc53a9af6ca0246c31426fa98449e7aee9f30eda972d3e5f",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411"
+      },
+      "results": [
+        {
+          "operation": "add",
+          "depth": 8,
+          "distinctExpressionNodes": 13,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 11
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 12801,
+          "samplesMs": [
+            4.518958000000012,
+            2.341333000000006,
+            1.3612499999999983,
+            1.4210000000000065
+          ],
+          "medianMs": 1.4210000000000065
+        },
+        {
+          "operation": "add",
+          "depth": 10,
+          "distinctExpressionNodes": 15,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 2051,
+            "expressionDepth": 13
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 51201,
+          "samplesMs": [
+            10.122416999999999,
+            6.7603750000000105,
+            5.340624999999989,
+            5.093333999999999
+          ],
+          "medianMs": 5.340624999999989
+        },
+        {
+          "operation": "add",
+          "depth": 12,
+          "distinctExpressionNodes": 17,
+          "stats": {
+            "variables": 1,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 8195,
+            "expressionDepth": 15
+          },
+          "assignmentDecimalDigits": 51,
+          "normalizedDenominatorDigits": 204801,
+          "samplesMs": [
+            32.953041999999996,
+            28.322374999999994,
+            27.06562500000001,
+            24.107249999999993
+          ],
+          "medianMs": 27.06562500000001
+        }
+      ]
+    }
+  ],
+  "control": [
+    {
+      "node": "v24.21.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "fresh child per case; four calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "numericLimit": 100000,
+      "overBudgetCount": 991,
+      "sources": {
+        "scripts/solver-numeric-budget-bench.mjs": "6e9031a2590abc75d1082f359cb3dd9aff475f48507c8b234aa044c9086e8036",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "operation": "linear",
+          "count": 128,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 12928,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            2.669583000000003,
+            1.4117499999999978,
+            1.3889580000000024,
+            1.2852500000000049
+          ],
+          "medianMs": 1.3889580000000024
+        },
+        {
+          "operation": "linear",
+          "count": 512,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 51712,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            7.192374999999998,
+            4.824040999999994,
+            3.8162910000000068,
+            3.6751250000000084
+          ],
+          "medianMs": 3.8162910000000068
+        },
+        {
+          "operation": "linear",
+          "count": 990,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 99990,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 993,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            10.126916999999992,
+            8.207290999999998,
+            6.770083,
+            6.487125000000006
+          ],
+          "medianMs": 6.770083
+        },
+        {
+          "operation": "explain",
+          "count": 128,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 12930,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            6.402500000000003,
+            3.324124999999995,
+            2.278082999999995,
+            2.2194999999999965
+          ],
+          "medianMs": 2.278082999999995
+        },
+        {
+          "operation": "explain",
+          "count": 512,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 51714,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            11.911457999999996,
+            8.665667,
+            7.107083000000003,
+            7.452665999999994
+          ],
+          "medianMs": 7.452665999999994
+        },
+        {
+          "operation": "explain",
+          "count": 990,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 99992,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 993,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            19.852000000000004,
+            15.866792000000004,
+            14.64845799999999,
+            15.072375000000022
+          ],
+          "medianMs": 15.072375000000022
+        }
+      ]
+    },
+    {
+      "node": "v26.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "timing": "fresh child per case; four calls, first discarded; construction and assertions outside timer",
+      "childAllowance": {
+        "timeoutMs": 30000,
+        "maxOldSpaceMb": 256
+      },
+      "numericLimit": 100000,
+      "overBudgetCount": 991,
+      "sources": {
+        "scripts/solver-numeric-budget-bench.mjs": "6e9031a2590abc75d1082f359cb3dd9aff475f48507c8b234aa044c9086e8036",
+        "packages/solver/src/linear.ts": "97cb5cdcb5d951aa5551708b14b34a29c7b4c3554945a34b708b0a99985cae69",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+        "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      },
+      "results": [
+        {
+          "operation": "linear",
+          "count": 128,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 12928,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            2.5650420000000054,
+            1.2571670000000097,
+            1.372124999999997,
+            1.460374999999999
+          ],
+          "medianMs": 1.372124999999997
+        },
+        {
+          "operation": "linear",
+          "count": 512,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 51712,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            5.8316250000000025,
+            4.222959000000003,
+            3.801291000000006,
+            3.5930409999999995
+          ],
+          "medianMs": 3.801291000000006
+        },
+        {
+          "operation": "linear",
+          "count": 990,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 99990,
+          "stats": {
+            "variables": 1,
+            "constraints": 0,
+            "objectives": 1,
+            "enumValues": 0,
+            "expressionNodes": 993,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            10.055916999999994,
+            7.875040999999996,
+            6.635834000000003,
+            6.195625000000007
+          ],
+          "medianMs": 6.635834000000003
+        },
+        {
+          "operation": "explain",
+          "count": 128,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 12930,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 131,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            4.941709000000003,
+            2.2813330000000036,
+            2.2577500000000015,
+            2.052915999999996
+          ],
+          "medianMs": 2.2577500000000015
+        },
+        {
+          "operation": "explain",
+          "count": 512,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 51714,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 515,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            11.024333000000013,
+            7.94187500000001,
+            6.83637499999999,
+            6.593332999999987
+          ],
+          "medianMs": 6.83637499999999
+        },
+        {
+          "operation": "explain",
+          "count": 990,
+          "denominatorDigits": 100,
+          "chargedNumericDigits": 99992,
+          "stats": {
+            "variables": 0,
+            "constraints": 1,
+            "objectives": 0,
+            "enumValues": 0,
+            "expressionNodes": 993,
+            "expressionDepth": 3
+          },
+          "samplesMs": [
+            18.604084,
+            14.494416000000001,
+            14.580542000000008,
+            13.322582999999995
+          ],
+          "medianMs": 14.494416000000001
+        }
+      ]
+    }
+  ]
+}

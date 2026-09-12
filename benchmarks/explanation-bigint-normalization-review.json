@@ -1,0 +1,282 @@
+{
+  "date": "2026-09-09",
+  "baseline": "explanation-intermediate-runtime-review.json",
+  "reports": [
+    {
+      "format": "cave.explanation-intermediate-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Maximum product length is 262081 digits; this is not a general resource-limit test.",
+      "measurements": [
+        {
+          "assignmentDigits": 64,
+          "operands": 1,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 64,
+          "medianMs": 0.31879199999997354,
+          "samplesMs": [
+            0.34950000000003456,
+            0.31879199999997354,
+            0.20316700000000765,
+            0.20237500000001774,
+            0.5737080000000105
+          ]
+        },
+        {
+          "assignmentDigits": 64,
+          "operands": 16,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 1009,
+          "medianMs": 0.3668749999999932,
+          "samplesMs": [
+            0.3668749999999932,
+            0.3220829999999637,
+            0.4468750000000341,
+            0.5630840000000035,
+            0.2743749999999636
+          ]
+        },
+        {
+          "assignmentDigits": 64,
+          "operands": 64,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 4033,
+          "medianMs": 0.6716250000000059,
+          "samplesMs": [
+            0.8052910000000111,
+            0.615709000000038,
+            0.7137500000000045,
+            0.6716250000000059,
+            0.5462499999999864
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 1,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 512,
+          "medianMs": 0.16300000000001091,
+          "samplesMs": [
+            0.1538330000000201,
+            0.14699999999999136,
+            0.16300000000001091,
+            0.25595799999996416,
+            0.1841670000000022
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 16,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 8177,
+          "medianMs": 0.34891599999997425,
+          "samplesMs": [
+            0.34695799999997234,
+            0.34891599999997425,
+            0.3502500000000168,
+            0.4538339999999721,
+            0.34870800000004465
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 64,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 32705,
+          "medianMs": 1.7148329999999987,
+          "samplesMs": [
+            1.8534999999999968,
+            1.8067499999999654,
+            1.7042500000000018,
+            1.7148329999999987,
+            1.6225839999999607
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 1,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 4096,
+          "medianMs": 0.8158750000000055,
+          "samplesMs": [
+            0.9509590000000117,
+            0.8324160000000234,
+            0.8158750000000055,
+            0.8109999999999786,
+            0.8118750000000432
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 16,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 65521,
+          "medianMs": 3.1887080000000196,
+          "samplesMs": [
+            3.2215830000000096,
+            3.1887080000000196,
+            3.124167,
+            3.189875000000029,
+            3.1120409999999765
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 64,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 262081,
+          "medianMs": 31.863916000000017,
+          "samplesMs": [
+            31.85337499999997,
+            31.817083000000025,
+            31.863916000000017,
+            32.017291,
+            31.942124999999976
+          ]
+        }
+      ]
+    },
+    {
+      "format": "cave.explanation-intermediate-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.8.1",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five timed Explain.report calls per case, using default limits. Construction and assertions excluded. No backend search. Values are powers of ten; exact product digit counts are derived algebraically. Timings include model validation, digesting, assignment capture and arithmetic evaluation. Maximum product length is 262081 digits; this is not a general resource-limit test.",
+      "measurements": [
+        {
+          "assignmentDigits": 64,
+          "operands": 1,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 64,
+          "medianMs": 0.3837090000000103,
+          "samplesMs": [
+            0.41366600000003473,
+            0.3837090000000103,
+            0.21708299999994551,
+            0.24020799999999554,
+            1.62662499999999
+          ]
+        },
+        {
+          "assignmentDigits": 64,
+          "operands": 16,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 1009,
+          "medianMs": 0.3905000000000314,
+          "samplesMs": [
+            0.44341600000001336,
+            0.3905000000000314,
+            0.3704579999999851,
+            0.4235830000000078,
+            0.23545799999999417
+          ]
+        },
+        {
+          "assignmentDigits": 64,
+          "operands": 64,
+          "modelNumericDigits": 129,
+          "exactProductDigits": 4033,
+          "medianMs": 0.5656250000000114,
+          "samplesMs": [
+            0.7067079999999919,
+            0.5498329999999783,
+            0.5724589999999807,
+            0.5656250000000114,
+            0.5147499999999923
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 1,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 512,
+          "medianMs": 0.15116699999998673,
+          "samplesMs": [
+            0.1537089999999921,
+            0.13587499999999864,
+            0.13704100000001063,
+            0.23025000000001228,
+            0.15116699999998673
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 16,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 8177,
+          "medianMs": 0.30762499999997317,
+          "samplesMs": [
+            0.327541999999994,
+            0.30762499999997317,
+            0.30670800000001464,
+            0.3801249999999641,
+            0.29958399999998164
+          ]
+        },
+        {
+          "assignmentDigits": 512,
+          "operands": 64,
+          "modelNumericDigits": 1025,
+          "exactProductDigits": 32705,
+          "medianMs": 1.5784590000000094,
+          "samplesMs": [
+            1.5784590000000094,
+            1.5814170000000445,
+            1.5497500000000173,
+            1.8435830000000237,
+            1.533042000000023
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 1,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 4096,
+          "medianMs": 0.8477080000000115,
+          "samplesMs": [
+            0.8892500000000041,
+            0.8297919999999976,
+            0.8509999999999991,
+            0.8477080000000115,
+            0.84537499999999
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 16,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 65521,
+          "medianMs": 3.212083000000007,
+          "samplesMs": [
+            3.184000000000026,
+            3.1512910000000147,
+            3.2473750000000337,
+            3.2367499999999723,
+            3.212083000000007
+          ]
+        },
+        {
+          "assignmentDigits": 4096,
+          "operands": 64,
+          "modelNumericDigits": 8193,
+          "exactProductDigits": 262081,
+          "medianMs": 31.531999999999982,
+          "samplesMs": [
+            31.218666999999982,
+            31.607290999999975,
+            31.531999999999982,
+            31.751957999999945,
+            31.204166999999984
+          ]
+        }
+      ]
+    }
+  ]
+}

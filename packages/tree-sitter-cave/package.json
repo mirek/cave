@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/tree-sitter-cave",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "description": "Tree-sitter grammar for CAVE — the canonical grammar artifact behind editor and terminal highlighting.",
   "keywords": [
     "cave",
@@ -20,7 +20,7 @@
     "directory": "packages/tree-sitter-cave"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     "./wasm": "./tree-sitter-cave.wasm",

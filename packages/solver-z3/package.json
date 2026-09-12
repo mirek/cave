@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/solver-z3",
-  "version": "0.35.0",
+  "version": "0.36.9",
   "type": "module",
   "description": "Optional Node.js Z3 WebAssembly adapter and allowlisted workflow fixture for CAVE formal reasoning.",
   "keywords": [
@@ -21,7 +21,7 @@
     "directory": "packages/solver-z3"
   },
   "engines": {
-    "node": "^22.18.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.16.0 || ^26.1.0"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -55,6 +55,7 @@
   },
   "scripts": {
     "benchmark": "node --disable-warning=ExperimentalWarning scripts/benchmark.ts",
+    "test:memory-stress": "node --expose-gc --disable-warning=ExperimentalWarning scripts/memory-stress.ts",
     "build": "tsc -b",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
     "typecheck": "tsc -b",

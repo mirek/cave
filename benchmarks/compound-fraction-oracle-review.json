@@ -1,0 +1,94 @@
+{
+  "format": "cave.compound-fraction-oracle-review",
+  "version": 1,
+  "baselineCommit": "1053897725255199060d9988ad1c823b93cce3b2",
+  "scope": "Independent exact-value, computed-divisor and fresh-budget recovery checks for mixed rational expression trees. No timing or exhaustive correctness claim.",
+  "runs": [
+    {
+      "format": "cave.explanation-tree-oracle",
+      "version": 3,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": 20260911,
+      "cases": 341,
+      "checks": 1162,
+      "indeterminate": 65,
+      "compound": {
+        "cases": 80,
+        "scaleDigits": [
+          350,
+          2000
+        ],
+        "families": [
+          "shared",
+          "coprime",
+          "unequal-scale",
+          "equal"
+        ],
+        "operations": [
+          "sum",
+          "scaled",
+          "quotient",
+          "cancelled",
+          "zero-divisor"
+        ],
+        "checks": 480
+      },
+      "fixtureSha256": "9905102f8d129ac96bf6467aed3dcc7e9a0ff99749f4873ad799fdea535fdbee",
+      "sources": {
+        "scripts/explanation-tree-oracle.mjs": "dea1e3a727f251a656bf5e26f5ead1a4631ec03a94aec2ffb3c846609fbe0bb6",
+        "packages/solver/src/explain.ts": "56c7591ddba14fea0100caf32837ad6c3e38683d1f5e26011ff8186c2fd5a294",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/exact.ts": "4f4ea1d8898fbef6e9b1fda49ddc452a0c4cacab0aa746f6042a75998298e617",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      }
+    },
+    {
+      "format": "cave.explanation-tree-oracle",
+      "version": 3,
+      "node": "v26.5.0",
+      "python": "3.14.5",
+      "seed": 20260911,
+      "cases": 341,
+      "checks": 1162,
+      "indeterminate": 65,
+      "compound": {
+        "cases": 80,
+        "scaleDigits": [
+          350,
+          2000
+        ],
+        "families": [
+          "shared",
+          "coprime",
+          "unequal-scale",
+          "equal"
+        ],
+        "operations": [
+          "sum",
+          "scaled",
+          "quotient",
+          "cancelled",
+          "zero-divisor"
+        ],
+        "checks": 480
+      },
+      "fixtureSha256": "9905102f8d129ac96bf6467aed3dcc7e9a0ff99749f4873ad799fdea535fdbee",
+      "sources": {
+        "scripts/explanation-tree-oracle.mjs": "dea1e3a727f251a656bf5e26f5ead1a4631ec03a94aec2ffb3c846609fbe0bb6",
+        "packages/solver/src/explain.ts": "56c7591ddba14fea0100caf32837ad6c3e38683d1f5e26011ff8186c2fd5a294",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "179d1fc7cd924ccb3eb49aab1e14dd6e1abbd9308b1175de2251305e73457794",
+        "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+        "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+        "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+        "packages/solver/src/exact.ts": "4f4ea1d8898fbef6e9b1fda49ddc452a0c4cacab0aa746f6042a75998298e617",
+        "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+      }
+    }
+  ]
+}

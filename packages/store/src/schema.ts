@@ -1,9 +1,10 @@
 /** Ordered, transactional storage schema migrations (spec §13). */
 
-import type { Capabilities, Database } from './adapter.ts'
+import type { Capabilities, Database, Row } from './adapter.ts'
 import * as Provenance from './provenance.ts'
+import { errorMessage } from './error-message.ts'
 
-export const currentVersion = 1
+export const currentVersion = 2
 
 const ddlBeforeFts = `
 CREATE TABLE IF NOT EXISTS cave_claim (
@@ -88,7 +89,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS cave_fts USING ${fullText}(
 `
 
 /** Default Node/FTS5 schema SQL retained for callers that inspect the DDL. */
-export const ddl = ddlBeforeFts + ftsDdl('fts5')
+const transactionIndexDdl = 'CREATE INDEX IF NOT EXISTS idx_cave_tx ON cave_claim (tx);'
+export const ddl = ddlBeforeFts + ftsDdl('fts5') + transactionIndexDdl
 
 const ddlFor = (capabilities: Capabilities): string =>
   ddlBeforeFts + ftsDdl(capabilities.fullText)
@@ -105,7 +107,8 @@ const migrations: readonly Migration[] = [
       db.exec(ddlFor(capabilities))
       Provenance.backfill(db)
     }
-  }
+  },
+  { version: 2, up: db => { db.exec(transactionIndexDdl) } }
 ]
 
 export const versionOf = (db: Database): number =>
@@ -116,10 +119,21 @@ const requiredTables = [
 ] as const
 
 const requiredIndexes = [
-  'idx_cave_claim_key_tx', 'idx_cave_subject', 'idx_cave_verb', 'idx_cave_object',
-  'idx_cave_attribute', 'idx_cave_conf', 'idx_cave_context', 'idx_cave_context_claim',
-  'idx_cave_provenance_lookup', 'idx_cave_tag_key', 'idx_cave_tag_claim',
-  'idx_cave_edge_parent', 'idx_cave_edge_child', 'idx_cave_edge_role'
+  ['idx_cave_claim_key_tx', 'cave_claim', ['claim_key', 'tx']],
+  ['idx_cave_subject', 'cave_claim', ['subject']],
+  ['idx_cave_verb', 'cave_claim', ['verb']],
+  ['idx_cave_object', 'cave_claim', ['object']],
+  ['idx_cave_attribute', 'cave_claim', ['attribute']],
+  ['idx_cave_conf', 'cave_claim', ['conf']],
+  ['idx_cave_context', 'cave_context', ['context']],
+  ['idx_cave_context_claim', 'cave_context', ['claim_id', 'context']],
+  ['idx_cave_provenance_lookup', 'cave_provenance', ['dimension', 'value', 'claim_id']],
+  ['idx_cave_tag_key', 'cave_tag', ['key', 'value']],
+  ['idx_cave_tag_claim', 'cave_tag', ['claim_id', 'key', 'value']],
+  ['idx_cave_edge_parent', 'cave_edge', ['parent_id']],
+  ['idx_cave_edge_child', 'cave_edge', ['child_id']],
+  ['idx_cave_edge_role', 'cave_edge', ['role']],
+  ['idx_cave_tx', 'cave_claim', ['tx']]
 ] as const
 
 const requiredColumns: Readonly<Record<string, readonly string[]>> = {
@@ -135,27 +149,111 @@ const requiredColumns: Readonly<Record<string, readonly string[]>> = {
   cave_fts: ['claim_id', 'subject', 'verb', 'object', 'attribute', 'value_text', 'comment', 'raw_line']
 }
 
+const requiredPrimaryKeys: Readonly<Record<string, readonly string[]>> = {
+  cave_claim: ['id'],
+  cave_provenance: ['claim_id', 'dimension', 'value']
+}
+
+const numericClaimColumns = new Set([
+  'negated', 'value_num', 'value_approx', 'delta_num', 'sigma_level', 'conf', 'importance'
+])
+const fractionalClaimColumns = new Set(['value_num', 'delta_num', 'sigma_level', 'conf'])
+
+// SQLite checks INT before CHAR/CLOB/TEXT: CHARINT is integer-affinity.
+const affinityFamily = (type: unknown): 'TEXT' | 'numeric' | 'BLOB' => {
+  const declared = String(type).toUpperCase()
+  if (declared.includes('INT')) return 'numeric'
+  if (/CHAR|CLOB|TEXT/.test(declared)) return 'TEXT'
+  if (declared === '' || declared.includes('BLOB')) return 'BLOB'
+  // INTEGER, REAL and NUMERIC all retain numeric comparison semantics.
+  return 'numeric'
+}
+
 export const validate = (db: Database, version: number, schema = 'main'): void => {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)) {
     throw new Error(`CAVE: invalid SQLite schema name ${JSON.stringify(schema)}`)
+  }
+  const indexes = requiredIndexes.filter(([name]) => version >= 2 || name !== 'idx_cave_tx')
+  const tables = new Map(db.prepare(`PRAGMA ${schema}.table_list`).all().map(row => [row.name, row]))
+  const indexLists = new Map<string, Row[]>()
+  const indexesOf = (table: string): Row[] => {
+    let rows = indexLists.get(table)
+    if (rows === undefined) {
+      rows = db.prepare(`PRAGMA ${schema}.index_list(${table})`).all()
+      indexLists.set(table, rows)
+    }
+    return rows
   }
   const objects = new Map(
     (db.prepare(`SELECT name, type FROM ${schema}.sqlite_schema WHERE name LIKE 'cave_%' OR name LIKE 'idx_cave_%'`)
       .all() as { name: string, type: string }[]).map(row => [row.name, row.type])
   )
   const problems = [
-    ...requiredTables.flatMap(name => objects.has(name) ? [] : [`missing table ${name}`]),
-    ...requiredIndexes.flatMap(name => objects.get(name) === 'index' ? [] : [`missing index ${name}`]),
+    ...requiredTables.flatMap(name => objects.get(name) === 'table' ? [] : [`missing table ${name}`]),
+    ...indexes
+      .flatMap(([name]) => objects.get(name) === 'index' ? [] : [`missing index ${name}`]),
     ...Object.entries(requiredColumns).flatMap(([table, required]) => {
       if (!objects.has(table)) {
         return []
       }
-      const columns = new Set(
-        (db.prepare(`PRAGMA ${schema}.table_info(${table})`).all() as { name: string }[]).map(row => row.name)
-      )
-      return required.flatMap(column => columns.has(column) ? [] : [`missing column ${table}.${column}`])
+      const info = db.prepare(`PRAGMA ${schema}.table_info(${table})`).all()
+      const columns = new Set(info.map(row => row.name))
+      const expectedKey = requiredPrimaryKeys[table]
+      const key = info.filter(row => Number(row.pk) > 0)
+        .sort((left, right) => Number(left.pk) - Number(right.pk)).map(row => row.name)
+      let binaryKey = true
+      if (expectedKey !== undefined) {
+        const primary = indexesOf(table).find(row => row.origin === 'pk')
+        const name = typeof primary?.name === 'string' ? primary.name : undefined
+        const indexed = name === undefined ? [] :
+          db.prepare(`PRAGMA ${schema}.index_xinfo("${name.replaceAll('"', '""')}")`).all()
+            .filter(row => Number(row.key) === 1)
+        binaryKey = indexed.length === expectedKey.length &&
+          indexed.every(row => String(row.coll).toUpperCase() === 'BINARY')
+      }
+      return [
+        ...required.flatMap(column => columns.has(column) ? [] : [`missing column ${table}.${column}`]),
+        ...info.flatMap(row => {
+          const column = String(row.name)
+          // FTS virtual columns have module-defined storage, not ordinary affinity.
+          if (table === 'cave_fts' || !required.includes(column)) return []
+          const strict = Number(tables.get(table)?.strict) === 1
+          const declared = String(row.type).toUpperCase()
+          if (strict && table === 'cave_claim' && fractionalClaimColumns.has(column) && declared !== 'REAL') {
+            return [`incompatible column ${table}.${column}: expected REAL in a STRICT table`]
+          }
+          const expected = table === 'cave_claim' && numericClaimColumns.has(column) ? 'numeric' : 'TEXT'
+          const affinity = strict && declared === 'ANY' ? 'BLOB' : affinityFamily(row.type)
+          return affinity === expected ? [] :
+            [`incompatible column ${table}.${column}: expected ${expected} affinity`]
+        }),
+        ...(expectedKey !== undefined && (!binaryKey || key.length !== expectedKey.length || key.some((name, index) => name !== expectedKey[index]))
+          ? [`incompatible table ${table}: expected primary key (${expectedKey.join(', ')}) with BINARY collation`] : [])
+      ]
     })
   ]
+  if (objects.get('cave_fts') === 'table') {
+    const searchTable = tables.get('cave_fts')
+    if (searchTable?.type !== 'virtual') {
+      problems.push('incompatible table cave_fts: expected a virtual table for full-text search')
+    } else {
+      const searchColumns = db.prepare(`PRAGMA ${schema}.table_xinfo(cave_fts)`).all()
+      if (!searchColumns.some(row => row.name === 'cave_fts' && Number(row.hidden) === 1)) {
+        problems.push('incompatible table cave_fts: missing the hidden full-text search column')
+      }
+    }
+  }
+  for (const [name, table, expected] of indexes) {
+    if (objects.get(name) !== 'index') continue
+    const columns = db.prepare(`PRAGMA ${schema}.index_xinfo(${name})`).all()
+      .filter(row => Number(row.key) === 1)
+    const index = indexesOf(table).find(row => row.name === name)
+    if (index === undefined || Number(index.unique) !== 0 || Number(index.partial) !== 0 ||
+        columns.length !== expected.length || columns.some((column, position) =>
+          column.name !== expected[position] || String(column.coll).toUpperCase() !== 'BINARY')) {
+      problems.push(`incompatible index ${name}: expected non-unique ${table}(${expected.map(column => `${column} COLLATE BINARY`).join(', ')}) without a partial predicate`)
+    }
+  }
   if (problems.length > 0) {
     throw new Error(`CAVE: schema version ${version} is incompatible: ${problems.join(', ')}`)
   }
@@ -214,11 +312,12 @@ export const init = (
     } catch (error) {
       try {
         db.exec('ROLLBACK')
-      } catch {
-        // SQLite may already have rolled back a failed statement.
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError],
+          `CAVE: schema migration ${version} -> ${migration.version} failed: ${errorMessage(error)}; rollback also failed: ${errorMessage(rollbackError)}`,
+          { cause: error })
       }
-      const detail = error instanceof Error ? error.message : String(error)
-      throw new Error(`CAVE: schema migration ${version} -> ${migration.version} failed: ${detail}`)
+      throw new Error(`CAVE: schema migration ${version} -> ${migration.version} failed: ${errorMessage(error)}`, { cause: error })
     }
   }
   validate(db, version)

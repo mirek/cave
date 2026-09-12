@@ -9,8 +9,10 @@
  * store named `k.cave` and a text file named `notes.txt` both work.
  */
 
-import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs'
+import { existsSync, openSync, readFileSync, readSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { withDescriptor } from './descriptor.ts'
+import { errorMessage } from './error-message.ts'
 import { nodeSqliteAdapter } from './node-adapter.ts'
 import { openWith } from './runtime.ts'
 import type { OpenOptions, Store } from './runtime.ts'
@@ -23,15 +25,17 @@ export type Kind = 'memory' | 'sqlite' | 'text' | 'missing'
 const sqliteHeader = 'SQLite format 3\u0000'
 
 /** @returns `true` when the file starts with the SQLite header — a store file rather than canonical text. */
-export const isStoreFile = (path: string): boolean => {
-  const fd = openSync(path, 'r')
-  try {
+export const isStoreFile = (path: string): boolean =>
+  withDescriptor(openSync(path, 'r'), 'store-file detection', fd => {
     const head = Buffer.alloc(16)
-    return readSync(fd, head, 0, 16, 0) === 16 && head.toString('latin1') === sqliteHeader
-  } finally {
-    closeSync(fd)
-  }
-}
+    let offset = 0
+    while (offset < head.length) {
+      const bytes = readSync(fd, head, offset, head.length - offset, offset)
+      if (bytes === 0) return false
+      offset += bytes
+    }
+    return head.toString('latin1') === sqliteHeader
+  })
 
 /** Classifies a store path by what is on disk. */
 export const kindOf = (path: string): Kind => {
@@ -113,7 +117,13 @@ export const textStoreReadOnlyMessage = (path: string): string =>
  * and a store silently missing rows is worse than an error.
  */
 export const openText = (path: string, options: Omit<OpenOptions, 'access'> & { readonly assemble?: Assemble } = {}): Store => {
-  const text = readFileSync(path, 'utf8')
+  const bytes = readFileSync(path)
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch (cause) {
+    throw new LocateError(`${path}: invalid UTF-8 text store`, { cause })
+  }
   // A fresh in-memory store is always created and initialized: an `access`
   // mode is meaningless here and must not reach the open.
   const store = openWith(nodeSqliteAdapter, ':memory:', { registry: options.registry })
@@ -125,7 +135,11 @@ export const openText = (path: string, options: Omit<OpenOptions, 'access'> & { 
     }
     options.assemble?.(store, resolve(path))
   } catch (error) {
-    store.close()
+    try { store.close() } catch (closeError) {
+      throw new AggregateError([error, closeError],
+        `CAVE text-store load failed: ${errorMessage(error)}; store cleanup also failed: ${errorMessage(closeError)}`,
+        { cause: error })
+    }
     throw error
   }
   return store
@@ -145,7 +159,12 @@ export const openText = (path: string, options: Omit<OpenOptions, 'access'> & { 
  *   never leaves an empty database behind.
  */
 export const openAt = (path: string, options: LocateOptions = {}): Store => {
-  const { intent = 'write', ...openOptions } = options
+  const { intent = 'write' } = options
+  if (intent !== 'read' && intent !== 'scratch' && intent !== 'write') {
+    throw new TypeError('store intent must be read, scratch or write')
+  }
+  const { registry, assemble } = options
+  const openOptions = { registry, assemble }
   switch (kindOf(path)) {
     case 'memory':
       return openWith(nodeSqliteAdapter, path, openOptions)

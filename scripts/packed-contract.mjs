@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import ts from 'typescript'
 import { packedModules } from './packed-exports.mjs'
+import { renderPackedModule } from './packed-api-render.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const app = resolve(process.argv[2] ?? '')
@@ -19,7 +20,21 @@ if (!existsSync(join(app, 'node_modules'))) {
 const imports = packedModules
   .map(({ specifier }, index) => `import * as api${index} from ${JSON.stringify(specifier)}`)
   .join('\n')
-const fixtureText = `${imports}\n\nvoid [${packedModules.map((_, index) => `api${index}`).join(', ')}]\n`
+const lifecycleCheck = `
+import { open as openOwnedStore } from '@cavelang/store'
+const ownedStore = openOwnedStore()
+let cleanupCount = 0
+const cleanup = () => { cleanupCount++ }
+const unsubscribeCleanup = ownedStore.onClose(cleanup)
+ownedStore.onClose(cleanup)
+unsubscribeCleanup()
+unsubscribeCleanup()
+ownedStore.onClose(cleanup)
+ownedStore.close()
+ownedStore.close()
+if (cleanupCount !== 2) throw new Error('packed store cleanup subscriptions must remain independent')
+`
+const fixtureText = `${imports}\n\nvoid [${packedModules.map((_, index) => `api${index}`).join(', ')}]\n${lifecycleCheck}`
 const fixture = join(app, 'packed-contract.mts')
 writeFileSync(fixture, fixtureText)
 
@@ -69,6 +84,7 @@ compile('Bundler', {
 
 const runtime = join(app, 'packed-runtime.mjs')
 writeFileSync(runtime, `
+${lifecycleCheck}
 const modules = ${JSON.stringify(packedModules, null, 2)}
 for (const entry of modules) {
   const api = await import(entry.specifier)
@@ -113,62 +129,6 @@ for (const source of cavelangSources) {
 }
 
 const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: true })
-const seenModules = new Set()
-
-function targetOf(symbol) {
-  return symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol
-}
-
-function declarationNode(declaration) {
-  if (ts.isVariableDeclaration(declaration)) return declaration.parent.parent
-  if (ts.isBindingElement(declaration)) return declaration.parent.parent.parent
-  return declaration
-}
-
-function symbolKind(symbol) {
-  const parts = []
-  if (symbol.flags & ts.SymbolFlags.Value) parts.push('value')
-  if (symbol.flags & ts.SymbolFlags.Type) parts.push('type')
-  if (symbol.flags & ts.SymbolFlags.Namespace) parts.push('namespace')
-  return parts.join(', ') || 'symbol'
-}
-
-function renderModule(moduleSymbol, heading, depth = 3) {
-  const target = targetOf(moduleSymbol)
-  const key = `${heading}:${target.id ?? target.name}`
-  if (seenModules.has(key)) return []
-  seenModules.add(key)
-
-  const lines = []
-  const exports = checker.getExportsOfModule(target).sort((a, b) => a.name.localeCompare(b.name))
-  for (const exported of exports) {
-    const symbol = targetOf(exported)
-    const declarations = (symbol.declarations ?? []).filter(declaration => {
-      const file = declaration.getSourceFile()
-      return file.isDeclarationFile && file.fileName.includes(`${sep}@cavelang${sep}`)
-    })
-    const sourceFileDeclaration = declarations.find(ts.isSourceFile)
-    lines.push(`${'#'.repeat(depth)} \`${exported.name}\``, '', `Kind: ${symbolKind(symbol)}.`, '')
-
-    if (sourceFileDeclaration && symbol.flags & ts.SymbolFlags.Module) {
-      lines.push(...renderModule(symbol, `${heading}.${exported.name}`, depth + 1))
-      continue
-    }
-
-    const rendered = [...new Set(declarations.map(declaration => {
-      const node = declarationNode(declaration)
-      return printer.printNode(ts.EmitHint.Unspecified, node, declaration.getSourceFile()).trim()
-    }).filter(Boolean))]
-    if (rendered.length === 0) {
-      const location = symbol.valueDeclaration ?? declarations[0] ?? fixtureSource
-      const type = checker.getTypeOfSymbolAtLocation(symbol, location)
-      rendered.push(`${exported.name}: ${checker.typeToString(type, location, ts.TypeFormatFlags.NoTruncation)}`)
-    }
-    for (const text of rendered) lines.push('```ts', text, '```', '')
-  }
-  return lines
-}
-
 const report = [
   '# Packed public API',
   '',
@@ -180,7 +140,8 @@ const report = [
 ]
 
 for (const { specifier } of packedModules) {
-  report.push(`## \`${specifier}\``, '', ...renderModule(sourceBySpecifier.get(specifier), specifier))
+  report.push(`## \`${specifier}\``, '')
+  for (const line of renderPackedModule(checker, fixtureSource, sourceBySpecifier.get(specifier), specifier)) report.push(line)
 }
 
 report.push('## Declaration closure', '')

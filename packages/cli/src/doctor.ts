@@ -1,12 +1,15 @@
 /** Read-only installation, runtime, and store diagnostics for `cave doctor`. */
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { readHooks } from './hooks-config.ts'
 import { createRequire } from 'node:module'
 import { dirname, join, parse } from 'node:path'
 import { parseArgs } from 'node:util'
-import { Version } from '@cavelang/core'
+import type { StatementSync } from 'node:sqlite'
+import { Key, Uuidv7, Version } from '@cavelang/core'
+import { emitClaim } from '@cavelang/canonical'
 import { directCommand, runProcessSync } from '@cavelang/loop'
-import { LocateError, Schema, defaultDbPath, kindOf, openText } from '@cavelang/store'
+import { Row, Schema, defaultDbPath, kindOf, openText } from '@cavelang/store'
 import { assemble } from '@cavelang/connect'
 import { nodeSqliteAdapter } from '@cavelang/store/adapter/node'
 import type { SqliteDatabase } from '@cavelang/store/adapter'
@@ -53,8 +56,8 @@ export type DoctorOutput = {
   readonly err: string
 }
 
-const requiredNode = '22.18.0'
-const supportedNodeRange = '^22.18.0 || ^24.0.0 || ^26.0.0'
+const requiredNode = '24.16.0'
+const supportedNodeRange = '^24.16.0 || ^26.1.0'
 
 const versionParts = (value: string): readonly [number, number, number] | undefined => {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(value)
@@ -84,8 +87,8 @@ const stableVersion = /^\d+\.\d+\.\d+$/
 export const isSupportedNodeVersion = (value: string): boolean => {
   if (!stableVersion.test(value)) return false
   const major = versionParts(value)?.[0]
-  if (major === 22) return atLeast(value, requiredNode)
-  return major === 24 || major === 26
+  if (major === 24) return atLeast(value, requiredNode)
+  return major === 26 && atLeast(value, '26.1.0')
 }
 
 const check = (
@@ -99,30 +102,35 @@ const nodeCheck = (): DoctorCheck =>
   isSupportedNodeVersion(process.versions.node) ?
     check('runtime.node', 'pass', `Node ${process.versions.node} satisfies ${supportedNodeRange}`) :
     check('runtime.node', 'fail', `Node ${process.versions.node} is unsupported`,
-      `Install Node ${requiredNode}+, Node 24, or Node 26 and rerun cave doctor.`)
+      `Install Node 24.16.0+ in the 24.x line or Node 26.1.0+ in the 26.x line and rerun cave doctor.`)
 
-const sqliteCheck = (): DoctorCheck => {
+const sqliteCheck = (): readonly DoctorCheck[] => {
   let db: SqliteDatabase | undefined
-  try {
-    db = nodeSqliteAdapter.open(':memory:')
-    db.exec('PRAGMA foreign_keys = ON')
-    const sqlite = db.prepare('SELECT sqlite_version() AS version').get()?.['version']
-    const json = db.prepare(`SELECT json_valid('{}') AS available`).get()?.['available']
-    const foreignKeys = db.prepare('PRAGMA foreign_keys').get()?.['foreign_keys']
-    db.exec('CREATE VIRTUAL TABLE doctor_fts USING fts5(value)')
-    db.exec('DROP TABLE doctor_fts')
-    if (typeof sqlite !== 'string' || json !== 1 || foreignKeys !== 1 ||
-        nodeSqliteAdapter.capabilities.loadExtension === undefined) {
-      throw new Error('capability unavailable')
+  const result = (() => {
+    try {
+      db = nodeSqliteAdapter.open(':memory:')
+      db.exec('PRAGMA foreign_keys = ON')
+      const sqlite = db.prepare('SELECT sqlite_version() AS version').get()?.['version']
+      const json = db.prepare(`SELECT json_valid('{}') AS available`).get()?.['available']
+      const foreignKeys = db.prepare('PRAGMA foreign_keys').get()?.['foreign_keys']
+      db.exec('CREATE VIRTUAL TABLE doctor_fts USING fts5(value)')
+      db.exec('DROP TABLE doctor_fts')
+      if (typeof sqlite !== 'string' || json !== 1 || foreignKeys !== 1 ||
+          nodeSqliteAdapter.capabilities.loadExtension === undefined) {
+        throw new Error('capability unavailable')
+      }
+      return check('runtime.sqlite', 'pass',
+        `SQLite ${sqlite} supports FTS5, JSON functions, foreign keys, and extension loading`)
+    } catch {
+      return check('runtime.sqlite', 'fail', 'The Node SQLite runtime lacks a required capability',
+        `Use an official Node ${requiredNode}+ build with SQLite FTS5 and JSON support.`)
     }
-    return check('runtime.sqlite', 'pass',
-      `SQLite ${sqlite} supports FTS5, JSON functions, foreign keys, and extension loading`)
-  } catch {
-    return check('runtime.sqlite', 'fail', 'The Node SQLite runtime lacks a required capability',
-      `Use an official Node ${requiredNode}+ build with SQLite FTS5 and JSON support.`)
-  } finally {
-    db?.close()
+  })()
+  try { db?.close() } catch {
+    return [result, check('runtime.sqlite.cleanup', 'fail', 'The SQLite capability probe could not be closed cleanly',
+      'Retry diagnosis in a new process.')]
   }
+  return [result]
 }
 
 const grammarCheck = (): DoctorCheck => {
@@ -203,10 +211,23 @@ const pnpmCheck = (): DoctorCheck => {
 
 type DatabaseConfiguration = DoctorReport['configuration']['database']
 
-const inspectDatabase = (path: string, source: DatabaseConfiguration['source']): {
+type DatabaseInspection = {
   readonly configuration: DatabaseConfiguration
   readonly checks: readonly DoctorCheck[]
-} => {
+}
+
+const finishDatabaseInspection = (result: DatabaseInspection, close: () => void): DatabaseInspection => {
+  try { close() } catch {
+    return {
+      ...result,
+      checks: [...result.checks, check('store.cleanup', 'fail', 'The database connection could not be closed cleanly',
+        'Retry diagnosis in a new process; cave doctor made no repairs.')]
+    }
+  }
+  return result
+}
+
+const inspectDatabase = (path: string, source: DatabaseConfiguration['source']): DatabaseInspection => {
   const memory = path === ':memory:'
   const exists = memory || existsSync(path)
   const base: DatabaseConfiguration = { source, kind: memory ? 'memory' : 'file', exists }
@@ -221,99 +242,163 @@ const inspectDatabase = (path: string, source: DatabaseConfiguration['source']):
     // A CAVE text file is a read-only store assembled in memory (spec
     // §13.7, §23.4): replay it, sources included, and count what it holds.
     const configuration: DatabaseConfiguration = { ...base, kind: 'text' }
-    try {
-      const store = openText(path, { assemble })
+    let store: ReturnType<typeof openText> | undefined
+    const result: DatabaseInspection = (() => {
       try {
+        store = openText(path, { assemble })
         const claims = store.currentBeliefs().filter(row => row.conf > 0).length
         return {
           configuration: { ...configuration, claims },
           checks: [check('store.database', 'pass',
             `CAVE text store assembled in memory (${claims} current claim(s)); text stores are read-only`)]
         }
-      } finally {
-        store.close()
+      } catch {
+        return {
+          configuration,
+          checks: [check('store.database', 'fail',
+            'The CAVE text store or one of its declared sources could not be loaded',
+            'Fix the file (cave parse) or the source it declares; a text store is read-only.')]
+        }
       }
-    } catch (error) {
-      return {
-        configuration,
-        checks: [check('store.database', 'fail',
-          `The CAVE text store does not load: ${error instanceof LocateError ? error.message.split('\n')[0] : error instanceof Error ? error.message : String(error)}`,
-          'Fix the file (cave parse) or the source it declares; a text store is read-only.')]
-      }
-    }
+    })()
+    return finishDatabaseInspection(result, () => store?.close())
   }
 
   let db: SqliteDatabase | undefined
   let observed = base
-  try {
-    db = nodeSqliteAdapter.open(path, { readOnly: true })
-    const version = db.prepare('PRAGMA user_version').get()?.['user_version']
-    if (typeof version !== 'number') throw new Error('invalid version')
-    const caveObjects = db.prepare(
-      `SELECT count(*) AS count FROM sqlite_schema WHERE name LIKE 'cave_%' OR name LIKE 'idx_cave_%'`
-    ).get()?.['count']
-    const configuration = { ...base, schemaVersion: version }
-    observed = configuration
+  const result = (() => {
+    try {
+      db = nodeSqliteAdapter.open(path, { readOnly: true })
+      // Keep schema, integrity, row and search diagnostics on one read snapshot.
+      // Closing the owned connection releases this read-only transaction.
+      db.exec('BEGIN')
+      const version = db.prepare('PRAGMA user_version').get()?.['user_version']
+      if (typeof version !== 'number') throw new Error('invalid version')
+      const caveObjects = db.prepare(
+        `SELECT count(*) AS count FROM sqlite_schema WHERE name LIKE 'cave!_%' ESCAPE '!' OR name LIKE 'idx!_cave!_%' ESCAPE '!'`
+      ).get()?.['count']
+      const configuration = { ...base, schemaVersion: version }
+      observed = configuration
 
-    if (version > Schema.currentVersion) {
-      return {
-        configuration,
-        checks: [check('store.database', 'fail',
-          `Database schema ${version} is newer than supported schema ${Schema.currentVersion}`,
-          'Upgrade CAVE before opening this database.')]
+      if (version > Schema.currentVersion) {
+        return {
+          configuration,
+          checks: [check('store.database', 'fail',
+            `Database schema ${version} is newer than supported schema ${Schema.currentVersion}`,
+            'Upgrade CAVE before opening this database.')]
+        }
       }
-    }
-    if (version === 0 && caveObjects === 0) {
-      return {
-        configuration,
-        checks: [check('store.database', 'warn', 'The database is readable but is not initialized as a CAVE store',
-          'Run cave add to initialize it; cave doctor made no changes.')]
+      if (version === 0 && caveObjects === 0) {
+        return {
+          configuration,
+          checks: [check('store.database', 'warn', 'The database is readable but is not initialized as a CAVE store',
+            'Run cave add to initialize it; cave doctor made no changes.')]
+        }
       }
-    }
-    if (version < Schema.currentVersion) {
-      return {
-        configuration,
-        checks: [check('store.database', 'warn',
-          `Database schema ${version} needs migration to schema ${Schema.currentVersion}`,
-          'Close every user and copy the database file as a rollback point, then open it with a writing command such as cave add to migrate it; reads never migrate.')]
+      if (version < Schema.currentVersion) {
+        return {
+          configuration,
+          checks: [check('store.database', 'warn',
+            `Database schema ${version} needs migration to schema ${Schema.currentVersion}`,
+            'Close every user and copy the database file as a rollback point, then open it with a writing command such as cave add to migrate it; reads never migrate.')]
+        }
       }
-    }
 
-    Schema.validate(db, version)
-    const integrity = db.prepare('PRAGMA integrity_check').all()
-    if (integrity.length !== 1 || integrity[0]?.['integrity_check'] !== 'ok') {
+      Schema.validate(db, version)
+      const integrity = db.prepare('PRAGMA integrity_check').all()
+      if (integrity.length !== 1 || integrity[0]?.['integrity_check'] !== 'ok') {
+        return {
+          configuration,
+          checks: [check('store.integrity', 'fail', 'SQLite integrity checking failed',
+            'Restore a verified backup or recover the database with SQLite tooling.')]
+        }
+      }
+      const foreignKeys = db.prepare('PRAGMA foreign_key_check').all()
+      if (foreignKeys.length > 0) {
+        return {
+          configuration,
+          checks: [check('store.integrity', 'fail', 'The store contains broken foreign-key references',
+            'Restore a verified backup or repair the affected database rows.')]
+        }
+      }
+      const claims = db.prepare('SELECT count(*) AS count FROM cave_claim').get()?.['count']
+      if (typeof claims !== 'number') throw new Error('invalid count')
+      let invalidRows = db.prepare(`SELECT EXISTS (
+        SELECT 1 FROM cave_claim WHERE negated NOT IN (0, 1) OR importance NOT IN (0, 1)
+          OR value_approx NOT IN (0, 1)
+          OR (object IS NOT NULL AND (attribute IS NOT NULL OR value_text IS NOT NULL))
+          OR (attribute IS NOT NULL AND value_text IS NULL)
+          OR typeof(conf) NOT IN ('integer', 'real') OR conf NOT BETWEEN 0 AND 1
+          OR (sigma_level IS NOT NULL AND (typeof(sigma_level) NOT IN ('integer', 'real')
+            OR NOT (sigma_level > 0 AND sigma_level <= ?)))
+      ) OR EXISTS (
+        SELECT 1 FROM cave_provenance WHERE typeof(value) <> 'text' OR value = ''
+      ) OR EXISTS (
+        SELECT 1 FROM cave_edge WHERE role IS NULL OR role NOT IN ('WHEN', 'VIA', 'BECAUSE', 'QUALIFIES')
+      ) AS invalid`).get(Number.MAX_VALUE)?.['invalid']
+      if (typeof invalidRows !== 'number') throw new Error('invalid row check')
+      if (invalidRows === 0) {
+        // Stream stored history without collecting rows; projections must agree with
+        // authored values even when a SQL filter would otherwise hide the row.
+        // This connection is owned by nodeSqliteAdapter, which returns native statements.
+        const rows = db.prepare('SELECT * FROM cave_claim') as StatementSync
+        const contexts = db.prepare('SELECT context FROM cave_context WHERE claim_id = ?')
+        const tags = db.prepare('SELECT key, value FROM cave_tag WHERE claim_id = ?')
+        for (const row of rows.iterate()) {
+          if (typeof row.id !== 'string' || !Uuidv7.is(row.id) || row.tx !== row.id) {
+            invalidRows = 1
+            break
+          }
+          try {
+            const claim = Row.toClaim(row as unknown as Row.t,
+              contexts.all(row.id).map(entry => entry.context as string),
+              tags.all(row.id) as { key: string, value: null | string }[])
+            emitClaim(claim)
+            if (Key.of(claim) !== row.claim_key) {
+              invalidRows = 1
+              break
+            }
+          } catch {
+            invalidRows = 1
+            break
+          }
+        }
+      }
+      // SQLite's integrity_check cannot tell whether the separate FTS content
+      // still represents the claims. Compare one snapshot, including counts so
+      // duplicate entries cannot disappear under EXCEPT's set semantics.
+      const searchColumns = 'subject, verb, object, attribute, value_text, comment, raw_line'
+      const searchMismatch = db.prepare(`SELECT
+        (SELECT count(*) FROM cave_claim) <> (SELECT count(*) FROM cave_fts)
+        OR EXISTS (
+          SELECT id, ${searchColumns} FROM cave_claim
+          EXCEPT SELECT claim_id, ${searchColumns} FROM cave_fts
+        ) AS mismatch`).get()?.['mismatch']
+      if (typeof searchMismatch !== 'number') throw new Error('invalid search check')
       return {
-        configuration,
-        checks: [check('store.integrity', 'fail', 'SQLite integrity checking failed',
-          'Restore a verified backup or recover the database with SQLite tooling.')]
+        configuration: { ...configuration, claims },
+        checks: [
+          check('store.database', 'pass', `CAVE schema ${version} is compatible (${claims} claim(s))`),
+          check('store.integrity', 'pass', 'SQLite integrity and foreign-key checks passed'),
+          invalidRows === 0 ?
+            check('store.rows', 'pass', 'Stored payloads, provenance, flags, confidence and sigma levels are valid') :
+            check('store.rows', 'fail', 'Stored claims contain invalid transaction identities, claim keys, terms, tags, edge roles, payload columns, provenance values, boolean flags, confidence, sigma levels, authored values or numeric caches',
+              'Restore a verified backup or repair the affected stored rows before exporting; cave doctor made no changes.'),
+          searchMismatch === 0 ?
+            check('store.search', 'pass', 'Search entries match the stored claims') :
+            check('store.search', 'fail', 'Search entries are missing, duplicated, orphaned, or stale',
+              'Restore a verified backup or rebuild the search index from the stored claims with SQLite tooling; cave doctor made no changes.')
+        ]
+      }
+    } catch {
+      return {
+        configuration: observed,
+        checks: [check('store.database', 'fail', 'The configured database is unreadable or has an incompatible schema',
+          'Check file permissions, restore a verified backup, or pass --db for another store.')]
       }
     }
-    const foreignKeys = db.prepare('PRAGMA foreign_key_check').all()
-    if (foreignKeys.length > 0) {
-      return {
-        configuration,
-        checks: [check('store.integrity', 'fail', 'The store contains broken foreign-key references',
-          'Restore a verified backup or repair the affected database rows.')]
-      }
-    }
-    const claims = db.prepare('SELECT count(*) AS count FROM cave_claim').get()?.['count']
-    if (typeof claims !== 'number') throw new Error('invalid count')
-    return {
-      configuration: { ...configuration, claims },
-      checks: [
-        check('store.database', 'pass', `CAVE schema ${version} is compatible (${claims} claim(s))`),
-        check('store.integrity', 'pass', 'SQLite integrity and foreign-key checks passed')
-      ]
-    }
-  } catch {
-    return {
-      configuration: observed,
-      checks: [check('store.database', 'fail', 'The configured database is unreadable or has an incompatible schema',
-        'Check file permissions, restore a verified backup, or pass --db for another store.')]
-    }
-  } finally {
-    db?.close()
-  }
+  })()
+  return finishDatabaseInspection(result, () => db?.close())
 }
 
 type HooksConfiguration = DoctorReport['configuration']['hooks']
@@ -333,16 +418,11 @@ const inspectHooks = (path: string | undefined): {
     return {
       configuration,
       check: check('config.hooks', 'fail', 'The configured hooks file does not exist',
-        'Create a JSON object of hook names to shell command strings, or omit --hooks.')
+        'Create a UTF-8 JSON object with nonblank hook names and Unicode shell command strings, or omit --hooks.')
     }
   }
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('invalid')
-    const entries = Object.entries(parsed)
-    if (entries.some(([name, command]) => name.trim() === '' || typeof command !== 'string')) {
-      throw new Error('invalid')
-    }
+    const entries = Object.entries(readHooks(path))
     return {
       configuration: { ...configuration, entries: entries.length },
       check: check('config.hooks', 'pass', `Hooks configuration is valid (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`)
@@ -351,20 +431,21 @@ const inspectHooks = (path: string | undefined): {
     return {
       configuration,
       check: check('config.hooks', 'fail', 'The configured hooks file is unreadable or malformed',
-        'Use a JSON object whose values are shell command strings.')
+        'Use valid UTF-8 JSON with nonblank hook names and string commands; names and commands must have no unpaired Unicode surrogates.')
     }
   }
 }
 
 export const diagnose = (options: { readonly db?: string, readonly hooks?: string } = {}): DoctorReport => {
-  const databasePath = options.db ?? defaultDbPath()
-  const databaseSource: DatabaseConfiguration['source'] = options.db !== undefined ? 'flag' :
+  const configuredDb = options.db, configuredHooks = options.hooks
+  const databasePath = configuredDb ?? defaultDbPath()
+  const databaseSource: DatabaseConfiguration['source'] = configuredDb !== undefined ? 'flag' :
     process.env['CAVE_DB'] !== undefined ? 'environment' : 'default'
   const database = inspectDatabase(databasePath, databaseSource)
-  const hooks = inspectHooks(options.hooks)
+  const hooks = inspectHooks(configuredHooks)
   const checks = [
     nodeCheck(),
-    sqliteCheck(),
+    ...sqliteCheck(),
     grammarCheck(),
     pnpmCheck(),
     ...database.checks,

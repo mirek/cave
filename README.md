@@ -15,13 +15,18 @@ confidence, a comment — is optional. Claims are only ever appended, never
 edited, so the store remembers how a belief changed; queries can walk chains
 of claims, read relations backwards, filter by confidence, and answer as of an
 earlier date. Rules derive new claims from old ones, LLM agents and structured
-files can write claims for you, and reports cite the exact claim behind every
-sentence.
+files can write claims for you, and reports attach claim citations to embedded
+query results.
 
 This README is a tutorial. It builds one example a step at a time — first a
 monorepo, then a market watchlist — adding one idea per step, and every
 command's output is from an actual run. The reference material lives in the
 [package docs](#where-next) and the [specification](#the-specification).
+
+For entity names that collide with line syntax, `@claim` makes a full claim
+explicit: `@claim WHEN EXISTS` is about the entity `WHEN`. The exporter adds
+this marker where needed to preserve claim identity; ordinary claims keep
+their existing spelling.
 
 ## Install
 
@@ -38,8 +43,8 @@ returns to. To update later:
 pnpm up --latest -g @cavelang/cli
 ```
 
-The supported Node.js lines are 22, 24, and 26: 22.18.0 is the exact minimum,
-24.18.0 Active LTS is the recommended production runtime, and 26.4.0 Current is
+The supported Node.js lines are 24 and 26: 24.16.0 and 26.1.0 are their exact minimums,
+24.21.0 Active LTS is the recommended production runtime, and 26.8.2 Current is
 also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
 Server 2022. A CAVE store is one local file; `--db` is optional everywhere
 and defaults to `$CAVE_DB`, or `cave.db` in the current directory. A CAVE
@@ -62,7 +67,8 @@ A claim is three tokens: a subject, an UPPERCASE verb, and an object.
 web USES ui
 ```
 
-Names are lowercase; `/` scopes them (`web/src/app.ts`, `team/platform`). The
+Use lowercase concept names and preserve proper-name casing (`PostgreSQL`,
+`React`). `/` scopes names (`web/src/app.ts`, `team/platform`). The
 verb `USES` is one of a small standard set (`IS`, `HAS`, `USES`, `NEEDS`,
 `CONTAINS`, `CAUSE`, `FIX`, …); you will define your own in step 6.
 `cave parse` lints without storing anything:
@@ -421,7 +427,7 @@ violations (1):
   api-client missing attribute owner (api-client IS library; library EXPECTS owner)
 review candidates (1, conf 0.3-0.7):
   core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
-coverage: 58 row(s), 55 fact(s) — 52 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
+coverage: 59 row(s), 56 fact(s) — 53 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
 
 $ echo 'api-client HAS owner: team/platform' | cave add --db repo.db
 added 1 claim(s), 0 edge(s)
@@ -430,7 +436,7 @@ $ cave check --db repo.db
 shape: 2 expectation(s), 5 instance(s), 5/5 satisfied
 review candidates (1, conf 0.3-0.7):
   core HAS maintainer: bob @src:standup @ 60% ; "I think bob took over core"
-coverage: 59 row(s), 56 fact(s) — 53 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
+coverage: 60 row(s), 57 fact(s) — 54 current, 3 retracted, 0 negated; avg conf 98%, 0 low (< 0.3); 24 entities, 5 typed
 ```
 
 (`cave add --check` refuses an append that would introduce a new violation.)
@@ -455,7 +461,7 @@ repeats a fragment per match — [`brief.md`](examples/monorepo/brief.md):
 ```
 ````
 
-Every rendered fact gets a footnote with the claim behind it:
+Embedded query results receive footnotes identifying their supporting claims:
 
 ```
 $ cave report --db repo.db brief.md
@@ -736,6 +742,14 @@ automation/review-bad-news: fired 1 solution(s) ; overweight name under pressure
 settled: 1 firing(s) over 2 pass(es); derived +1 appended, 0 updated, 0 retracted
 ```
 
+Run the cycle again without adding new claims: the same news is not replayed,
+and the review request is not appended again.
+
+```
+$ cave automate --db market.db --once
+settled: 0 firing(s) over 1 pass(es); derived +0 appended, 0 updated, 0 retracted
+```
+
 The result explains itself all the way down — the review request, the
 pressure and the stance it depends on, the rule and the sentence behind the
 pressure, the action that recorded the stance:
@@ -822,22 +836,76 @@ as belief stood on an earlier day.
   skipped; source in [`book/`](book)) and a
   browser playground that runs the real parser, store and query engine
   entirely in the browser, on an in-memory store.
+  Download claims saves the current editor text as a `.cave` file; Copy result
+  copies displayed output together with its submitted query and valid-time context.
 
 ## Development
+
+The root `.nvmrc` selects the recommended Node version used by CI. If you use
+[nvm](https://github.com/nvm-sh/nvm#nvmrc), run `nvm install` from the repository
+root to install and select it, or `nvm use` if it is already installed. With
+another version manager, select the version recorded in `.nvmrc` before bootstrap.
+Bootstrap checks the supported Node range before probing or installing package
+managers, and points to `.nvmrc` if the active runtime is unsupported.
+It resolves the declared pnpm version through pnpm, Corepack, or npm in that
+order; on Windows these commands use the command interpreter so `.cmd`
+launchers work. Dependency installation retains its exit status.
+If the final version probe fails, bootstrap reports its error output and exit
+status without proceeding to dependency installation.
+The runtime CI matrix checks native launchers with isolated local shims before
+installing dependencies, including working directories containing spaces.
+
+The [performance trial index](benchmarks/README.md) maps benchmark scripts to
+their workloads, commands and package references.
 
 ```sh
 make bootstrap         # install with the exact pnpm version declared by the repo
 pnpm clean             # remove generated output from every workspace
-pnpm test              # all packages, bottom-up
 pnpm build             # typecheck + emit (`pnpm typecheck` is an alias)
+pnpm build:verify      # confirm every root project is up to date, without emitting
+pnpm test              # all packages, bottom-up
 pnpm bench:performance # deterministic representative regression budgets
+pnpm bench:automation  # rule → automation → action scaling and quiet-cycle checks
 pnpm exec cave demo    # cave-loop multi-hop recovery demo (§18)
 ```
 
+The CLI build checks literal runtime imports and module lookups in its published
+module trees against runtime dependencies, including `import.meta.resolve`,
+`require.resolve` (including literal bracket-form `resolve` members), dynamic
+imports and ordinary imports/re-exports. Grouping parentheses around calls or
+literal targets do not bypass these checks. Development-only
+lookup targets fail this check. Unknown `node:` built-in names also fail instead
+of bypassing validation as generic URLs. Computed specifiers and exported subpath availability
+still require installed-package verification; `bash scripts/smoke.sh` exercises
+those distributed paths, including generated MCP commands.
+
 The performance gate covers canonical-text import/export, contested-belief
 resolution, large shape checks, bounded query pages, seeded transitive queries,
+ANSI rendering of 20,000 ranges over 5,000 Unicode claim lines,
+legacy migration of a claim carrying 40,000 source contexts,
 and small/5,000-row sensitivity-scoped views, comparing timings with the
 recorded [`performance-baseline.json`](benchmarks/performance-baseline.json).
+Its JSON report records the actual Node/SQLite versions and platform/architecture
+separately from the baseline runtime label. Each measurement records its baseline
+runtime, using a workload-specific label when it differs from the original
+baseline. Highlight timing includes source-preservation and keyword-style checks;
+it measures rendering supplied ranges, excluding grammar initialization/parsing.
+Legacy migration timing includes schema advancement, provenance backfill and
+source-count/boundary checks, excluding fixture ingestion and disk I/O.
+View timings cover the number of
+calls shown in each measurement's evidence; they are not all per-call latencies.
+These fixed in-memory fixtures detect representative regressions, not disk-backed
+production throughput or larger automation workloads.
+The gate rejects missing or malformed baseline metadata and budgets before
+running workloads. Budgets must be finite and positive, with thresholds between
+the baseline and 25 times that value. Every recorded workload must be measured
+exactly once; missing, duplicate or unrecorded measurements fail the gate.
+The separate automation benchmark reports 100/500/1,000-event in-memory runs,
+verifying exact derived/action results and a subsequent settle with no firings
+or appended rows. It has no timing threshold and excludes external hook or
+agent latency.
+Add `--shapes` to exercise active exactly-one owner requirements on every
+handled entity, with the action writing both its handled state and owner.
 
 Implementation lives in a pnpm TypeScript monorepo — see
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for the package map and toolchain,

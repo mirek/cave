@@ -25,6 +25,23 @@ type Surfaces = {
 
 const root = new URL('../../../', import.meta.url)
 
+test('package README imports use published replacements for internal workspaces', () => {
+  const surfaces = json<Surfaces>(new URL('package-surfaces.json', root))
+  const replacements = { ...surfaces.internal, ...surfaces.tooling }
+  const packages = new URL('packages/', root)
+  for (const directory of readdirSync(packages, { withFileTypes: true })) {
+    if (!directory.isDirectory()) continue
+    const path = new URL(`${directory.name}/README.md`, packages)
+    if (!existsSync(path)) continue
+    for (const match of read(path).matchAll(/\bfrom\s+['"](@cavelang\/[^'"]+)['"]/g)) {
+      const name = match[1]!
+      const replacement = replacements[name]?.replacement
+      assert.equal(replacement, undefined,
+        `${directory.name}/README.md imports retired ${name}; use ${replacement}`)
+    }
+  }
+})
+
 const section = (markdown: string, heading: string): string => {
   const start = markdown.indexOf(`## ${heading}`)
   assert.notEqual(start, -1, `missing ${heading} section`)
@@ -34,15 +51,27 @@ const section = (markdown: string, heading: string): string => {
 
 const referenceRows = (markdown: string, heading: string): Map<string, string> => {
   const rows = new Map<string, string>()
+  let inTable = false
   for (const line of section(markdown, heading).split('\n')) {
+    if (/^\|(?:\s*:?-+:?\s*\|)+\s*$/.test(line)) inTable = true
+    else if (!line.startsWith('|')) inTable = false
     const match = /^\| `([^`]+)` \|/.exec(line)
     if (match === null) continue
     const name = match[1]!.split(/[ \[]/, 1)[0]!
+    assert.ok(inTable, `${heading} row ${name} is outside a Markdown table`)
     assert.equal(rows.has(name), false, `duplicate ${heading} row for ${name}`)
     rows.set(name, line)
   }
   return rows
 }
+
+test('command reference validation rejects rows detached from their table', () => {
+  const readme = read(new URL('../README.md', import.meta.url))
+  const help = readme.split('\n').find(line => line.startsWith('| `help [command]`'))!
+  assert.ok(help)
+  const detached = readme.replace(help, `\nAn explanatory paragraph interrupts the table.\n\n${help}`)
+  assert.throws(() => referenceRows(detached, 'Commands'), /help.*outside a Markdown table/)
+})
 
 test('the CLI reference follows the shipped command registry', () => {
   const readme = read(new URL('../README.md', import.meta.url))
@@ -102,7 +131,7 @@ test('command references state read-only and hook security boundaries', () => {
   const cli = read(new URL('../README.md', import.meta.url))
   const mcp = read(new URL('../../mcp/README.md', import.meta.url))
 
-  assert.match(cli, /Strictly read-only \(GET only\), localhost by default/)
+  assert.match(cli, /Strictly read-only \(GET\/HEAD only\), localhost by default/)
   assert.match(cli, /`--read-only` keeps only read\/evaluate/)
   assert.match(cli, /`--hooks` supplies reviewed out-of-band commands/)
   assert.match(mcp, /executable commands are\s+never read from claims/)

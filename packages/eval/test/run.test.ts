@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { fixtureCount, run } from '@cavelang/eval'
+import { dirname, join } from 'node:path'
+import { fixtureCount, render, run } from '@cavelang/eval'
 
 const goldenText = [
   'PARENT-OF IS verb',
@@ -29,6 +29,174 @@ const withSuite = (body: (dir: string) => Promise<void>): Promise<void> => {
   writeFileSync(join(dir, 'family.queries.cave'), queriesText)
   return body(dir).finally(() => rmSync(dir, { recursive: true, force: true }))
 }
+
+test('evaluation text retains large completed-run diagnostic lists', () =>
+  withSuite(async dir => {
+    const size = 130_000
+    const result = await run({ suites: [dir], mode: 'stdout', agent: async () =>
+      goldenText + '\n' + Array.from({ length: size }, () => 'broken').join('\n') })
+    assert.equal(fixtureCount(result), 0)
+    assert.equal(result.okRuns, 1)
+    const runResult = result.cases[0]!.runs[0]!
+    assert.equal(runResult.problems.length, size)
+    const text = render(result)
+    assert.deepEqual(text.split('\n').filter(line => line.startsWith('    problem: ')),
+      runResult.problems.map(problem => `    problem: ${problem}`))
+  }))
+
+test('large invalid golden fixtures retain diagnostics and skip agent execution', () =>
+  withSuite(async dir => {
+    const size = 130_000
+    writeFileSync(join(dir, 'family.golden.cave'), Array.from({ length: size }, () => 'broken').join('\n'))
+    let calls = 0
+    const options = { suites: [dir], mode: 'stdout' as const, agent: async () => { calls++; return goldenText } }
+    const result = await run(options)
+    assert.equal(calls, 0)
+    assert.equal(result.cases.length, 1)
+    assert.equal(result.cases[0]!.runs.length, 0)
+    assert.equal(fixtureCount(result), size + 1)
+    const problems = result.cases[0]!.fixture
+    for (let i = 0; i < size; i++) assert.ok(problems[i]!.includes(`line ${i + 1}:`))
+    assert.equal(problems.at(-1), 'golden has no claims')
+    const text = render(result)
+    const renderedProblems = text.split('\n').filter(line => line.startsWith('  '))
+    assert.deepEqual(renderedProblems, problems.map(problem => `  ${problem}`))
+    writeFileSync(join(dir, 'family.golden.cave'), goldenText)
+    assert.equal(fixtureCount(await run(options)), 0)
+    assert.equal(calls, 1)
+  }))
+
+test('repeated evaluation runs retain the originally selected agent', () =>
+  withSuite(async dir => {
+    let originalCalls = 0
+    let replacementCalls = 0
+    const options = {
+      suites: [dir], mode: 'stdout' as const, runs: 2,
+      agent: async () => {
+        originalCalls++
+        await Promise.resolve()
+        options.agent = async () => { replacementCalls++; return 'unrelated IS fact' }
+        return goldenText
+      }
+    }
+    const report = await run(options)
+    assert.equal(report.okRuns, 2)
+    assert.equal(originalCalls, 2)
+    assert.equal(replacementCalls, 0)
+    assert.equal(report.mean?.f1, 1)
+  }))
+
+test('malformed fixture bytes reject evaluation before agent work', () =>
+  withSuite(async dir => {
+    let calls = 0
+    const agent = async () => { calls++; return goldenText }
+    for (const [name, content] of [
+      ['family.golden.cave', goldenText],
+      ['family.queries.cave', queriesText]
+    ] as const) {
+      const path = join(dir, name)
+      writeFileSync(path, Buffer.concat([Buffer.from(content + '\n; '), Buffer.from([0xff])]))
+      await assert.rejects(run({ suites: [dir], mode: 'stdout', agent }), error => {
+        assert.ok(error instanceof TypeError)
+        assert.ok(error.message.includes(path))
+        assert.match(error.message, /invalid UTF-8 evaluation fixture/)
+        return true
+      })
+      assert.equal(calls, 0)
+      writeFileSync(path, content + '\n; �café 😀')
+    }
+    const report = await run({ suites: [dir], mode: 'stdout', agent })
+    assert.equal(report.okRuns, 1)
+    assert.equal(report.mean?.f1, 1)
+    assert.equal(calls, 1)
+  }))
+
+test('a changed path source remains a failed evaluation even after direct agent writes', () =>
+  withSuite(async dir => {
+    const report = await run({
+      suites: [dir], mode: 'mcp', embed: false,
+      agent: async (_prompt, _files, context) => {
+        context.store.ingest(goldenText)
+        writeFileSync(join(dir, 'family.md'), 'replacement source')
+        return 'done'
+      }
+    })
+    assert.equal(report.okRuns, 0)
+    assert.equal(report.failedRuns, 1)
+    assert.match(report.cases[0]!.runs[0]!.note ?? '', /source changed/)
+  }))
+
+test('evaluation cancellation propagates instead of becoming scores or later runs', () =>
+  withSuite(async dir => {
+    for (const phase of ['agent', 'judge'] as const) {
+      const controller = new AbortController()
+      const reason = new Error(`stop ${phase}`)
+      let agents = 0
+      let judges = 0
+      let db = ''
+      await assert.rejects(run({
+        suites: [dir], mode: 'stdout', runs: 3, signal: controller.signal,
+        agent: async (_prompt, _files, context) => {
+          agents++
+          db = context.db
+          if (phase === 'agent') controller.abort(reason)
+          return 'other IS value'
+        },
+        judge: async () => {
+          judges++
+          controller.abort(reason)
+          return '[]'
+        }
+      }), error => error === reason)
+      assert.equal(agents, 1)
+      assert.equal(judges, phase === 'agent' ? 0 : 1)
+      assert.equal(existsSync(db), false, 'cancelled throwaway database is removed')
+    }
+  }))
+
+test('evaluation rejects invalid modes before discovering suites', async () => {
+  for (const mode of ['', 'stdotu', null, true]) {
+    await assert.rejects(run({ suites: ['missing-suite'], mode: mode as never }), /mode must be mcp or stdout/)
+  }
+})
+
+test('evaluation rejects invalid timeouts before discovering suites', async () => {
+  for (const timeoutSeconds of [0, -1, NaN, Infinity, 0.0001, 1.0001, 2147483.648]) {
+    await assert.rejects(run({ suites: ['missing-suite'], timeoutSeconds }), /timeoutSeconds must resolve to whole milliseconds/)
+  }
+  for (const timeoutSeconds of [0.001, 1.001, 2147483.647]) {
+    assert.deepEqual((await run({ suites: [], timeoutSeconds })).cases, [])
+  }
+})
+
+test('evaluation rejects invalid run counts before suite or agent work', async () => {
+  for (const runs of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(run({
+      suites: ['missing-suite'], runs,
+      agent: async () => { assert.fail('must not call agent') }
+    }), /runs must be a positive safe integer/)
+  }
+  const empty = await run({ suites: [], runs: Number.MAX_SAFE_INTEGER })
+  assert.equal(empty.runs, Number.MAX_SAFE_INTEGER)
+  assert.deepEqual(empty.cases, [])
+})
+
+test('invalid scoring tolerance fails before agent work', () =>
+  withSuite(async dir => {
+    for (const tolerance of [NaN, Infinity, -1, 1.1]) {
+      let called = false
+      await assert.rejects(run({
+        suites: [dir], tolerance,
+        agent: async () => { called = true; return goldenText }
+      }), /tolerance must be a finite number in \[0, 1\]/)
+      assert.equal(called, false)
+    }
+  }))
+
+test('pre-cancelled evaluation rejects before discovering suites', async () => {
+  const reason = new Error('already stopped')
+  await assert.rejects(run({ suites: ['missing-suite'], signal: AbortSignal.abort(reason) }), error => error === reason)
+})
 
 test('a perfect stdout extraction scores F1 1 and passes every query', () =>
   withSuite(async dir => {
@@ -209,7 +377,7 @@ test('fixtures that fail self-check are skipped before any agent run', async () 
     writeFileSync(join(dir, 'broken.golden.cave'), 'a IS b')
     // The golden cannot answer this query — the expectation measures the
     // fixture, not the agent.
-    writeFileSync(join(dir, 'broken.queries.cave'), 'ghost IS ?x\n  ?x = real')
+    writeFileSync(join(dir, 'broken.queries.cave'), 'ghost IS ?x\n  ?x = real\nghost IS ?x\na IS ?x\n  none')
     writeFileSync(join(dir, 'empty.md'), 'source')
     writeFileSync(join(dir, 'empty.golden.cave'), '; nothing here')
     let calls = 0
@@ -223,15 +391,54 @@ test('fixtures that fail self-check are skipped before any agent run', async () 
     })
     assert.equal(calls, 0, 'no agent money is spent on broken fixtures')
     assert.equal(report.cases.length, 2)
-    assert.match(report.cases[0]!.fixture[0]!, /golden does not satisfy 'ghost IS \?x'/)
+    assert.deepEqual(report.cases[0]!.fixture, [
+      "queries line 1: the golden does not satisfy 'ghost IS ?x' (missing ?x = real)",
+      "queries line 3: the golden does not satisfy 'ghost IS ?x' (no matches)",
+      "queries line 4: the golden does not satisfy 'a IS ?x' (unexpected ?x = b)"
+    ])
     assert.match(report.cases[1]!.fixture[0]!, /golden has no claims/)
     assert.deepEqual(report.fixture, [], 'per-case problems stay on their case')
-    assert.equal(fixtureCount(report), 2)
+    assert.equal(fixtureCount(report), 4)
     assert.equal(report.mean, undefined)
+    writeFileSync(join(dir, 'broken.queries.cave'), 'a IS ?x\n  ?x = b')
+    writeFileSync(join(dir, 'empty.golden.cave'), 'a IS b')
+    const corrected = await run({ suites: [dir], mode: 'stdout', agent: async () => {
+      calls++
+      return 'a IS b'
+    } })
+    assert.equal(calls, 2)
+    assert.equal(fixtureCount(corrected), 0)
+    assert.equal(corrected.okRuns, 2)
+    assert.equal(corrected.mean?.f1, 1)
+    assert.equal(corrected.mean?.queryRate, 1)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('evaluation retention remains consistent when the caller changes keep during an agent run', () =>
+  withSuite(async dir => {
+    for (const keep of [true, false]) {
+      let database = ''
+      const options = {
+        suites: [dir], mode: 'stdout' as const, keep,
+        agent: async (_prompt: string, _files: unknown, context: { db: string }) => {
+          database = context.db
+          options.keep = !keep
+          return goldenText
+        }
+      }
+      try {
+        const report = await run(options)
+        assert.equal(report.okRuns, 1)
+        assert.equal(existsSync(database), keep)
+        assert.equal(report.root, keep ? dirname(database) : undefined)
+        assert.equal(report.cases[0]!.runs[0]!.db, keep ? database : undefined)
+      } finally {
+        if (database) rmSync(dirname(database), { recursive: true, force: true })
+      }
+    }
+  }))
 
 test('keep retains the per-run databases and reports their directory', () =>
   withSuite(async dir => {
@@ -294,4 +501,66 @@ test('stdout-mode lint problems are reported while valid lines still score', () 
     assert.equal(only!.ok, true)
     assert.equal(only!.problems.length, 1)
     assert.equal(only!.f1, 1)
+  }))
+
+test('judge arrays embedded in strings or unrelated object fields cannot improve scores', () =>
+  withSuite(async dir => {
+    for (const reply of ['"[[1,1],[2,2]]"', '{"rejected":[[1,1],[2,2]]}']) {
+      const report = await run({ suites: [dir], mode: 'stdout',
+        agent: async () => goldenText.replace(/maria/g, 'grandma-maria'), judge: async () => reply })
+      const only = report.cases[0]!.runs[0]!
+      assert.equal(only.ok, true)
+      assert.equal(only.judged, 0)
+      assert.equal(only.judgedF1, only.f1)
+      assert.equal(only.misses.length, 2)
+      assert.equal(only.extras.length, 2)
+    }
+  }))
+
+
+test('query binding fixture errors stop agent work and corrected literal bindings score', () =>
+  withSuite(async dir => {
+    const claim = 'api HAS note: "literal ?note = text; data"'
+    writeFileSync(join(dir, 'family.golden.cave'), claim)
+    const queryPath = join(dir, 'family.queries.cave')
+    writeFileSync(queryPath, '?__proto__ HAS note: ?note\n  ?__proto__ = ghost ?__proto__ = api ?note = "literal ?note = text; data"')
+    let calls = 0
+    const agent = async () => { calls++; return claim }
+    const broken = await run({ suites: [dir], mode: 'stdout', agent })
+    assert.equal(calls, 0)
+    assert.equal(broken.okRuns, 0)
+    assert.equal(broken.cases[0]!.runs.length, 0)
+    assert.equal(fixtureCount(broken), 1)
+    assert.match(broken.cases[0]!.fixture[0]!, /queries line 2: expected/)
+    assert.equal(broken.mean, undefined)
+
+    writeFileSync(queryPath, '?__proto__ HAS note: ?note\n  ?__proto__ = api ?note = "literal ?note = text; data"')
+    const corrected = await run({ suites: [dir], mode: 'stdout', agent })
+    assert.equal(calls, 1)
+    assert.equal(fixtureCount(corrected), 0)
+    assert.equal(corrected.okRuns, 1)
+    assert.equal(corrected.failedRuns, 0)
+    assert.equal(corrected.mean?.f1, 1)
+    assert.equal(corrected.mean?.queryRate, 1)
+    assert.equal(corrected.cases[0]!.runs[0]!.queriesPassed, 1)
+  }))
+
+
+test('invalid explicit instructions never fall back or invoke an agent', () =>
+  withSuite(async dir => {
+    writeFileSync(join(dir, 'instructions.md'), 'fallback instructions')
+    let calls = 0
+    const agent = async () => { calls++; return goldenText }
+    for (const instructions of [join(dir, 'missing.md'), dir]) {
+      const report = await run({ suites: [dir], mode: 'stdout', instructions, agent })
+      assert.equal(calls, 0)
+      assert.equal(report.cases.length, 0)
+      assert.equal(report.fixture.length, 1)
+      assert.ok(report.fixture[0]!.includes(instructions))
+      assert.match(report.fixture[0]!, /instructions must name an existing file/)
+    }
+    const recovered = await run({ suites: [dir], mode: 'stdout', instructions: join(dir, 'instructions.md'), agent })
+    assert.equal(calls, 1)
+    assert.equal(recovered.okRuns, 1)
+    assert.equal(recovered.mean?.f1, 1)
   }))

@@ -1,0 +1,579 @@
+{
+  "description": "Independent arithmetic oracle and GCD resource checkpoint on supported Node patch versions",
+  "execution": "Sequential, with no concurrent test or benchmark workload",
+  "scope": "Fixed-seed correctness and specified workload costs; not exhaustive arithmetic proof or universal resource bounds",
+  "sources": {
+    "packages/solver/src/adapter.ts": "d58ffd7e6e35f6214d336763f98d8ba7e4b68c0fd7a24c3bdc100706fe6e0ae9",
+    "packages/solver/src/balanced-reduce.ts": "2f6aab636ffb2ad2b5c6c7cffa8f30c3af969c837ab14790c77545eff72f2e07",
+    "packages/solver/src/canonical-owned.ts": "946895c0f1da9e922a49e0c6606dea226b3d572f23cab5cfb182f0aa37a12999",
+    "packages/solver/src/canonical.ts": "bbfc630b889cc911d8acd6382e2c4f770303a382d8bb01ac67e87e81721b36a7",
+    "packages/solver/src/capability.ts": "f6a2e9bfe6e62c897c866dd635762d695012a437f001a9a674d6044e72890906",
+    "packages/solver/src/clone.ts": "12b028104d07e9408a721a2dd8901925c643ad3d25c2699334a8eaa64195efcc",
+    "packages/solver/src/constant-sign.ts": "3aeeed83ce2f8fe79c589a1d9db23ca491f7c3483b9acc742651e1bb04626d2b",
+    "packages/solver/src/context.ts": "88e9a02d47a444e2af2d4905ffdf128235dff7b02b559509b9bcce9e0aa11f83",
+    "packages/solver/src/evaluate-expression.ts": "8719b60ce3bbb5d5c58a213d2925bca90451d89358f5660f138e9346277e5fff",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/explain.ts": "0acd48c852ec1fba1aef076f34003f3dd44a123ee27f0c8433842f78c56513e4",
+    "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+    "packages/solver/src/expression-key.ts": "7547a8d57db860fb54379a51bb19ec678d14c1dac64fcfaff584904e74bc413e",
+    "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+    "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66",
+    "packages/solver/src/index.ts": "f27b5af57f03c3a7adceb00f23bb0bb0d83a66489b2ae01e78ddf4b00249daea",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8",
+    "packages/solver/src/linear.ts": "9dc9ea9ba6bd91a8a483e1fe1e56d48657f4319adffee194418922c08db98488",
+    "packages/solver/src/model.ts": "b69b2996b4f631844451718fd4dfb144bb635ff1caf3418e98750bb659cea80d",
+    "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58",
+    "packages/solver/src/options.ts": "f96a5d208ddecd29ecb1b849e032a2879eda20bc2ad7cef0e4947a3cfff8a00e",
+    "packages/solver/src/result.ts": "415d0a00d3cab35f73f5214f2d177e5f1e12a0f7c158a01769991b4f95d2c24f",
+    "packages/solver/src/solve.ts": "f7e98aacb95917c88668c2274c2aab8b0dd969652e7ad283aac0a070e0de3b63",
+    "packages/solver/src/validate.ts": "d12cdcfb5b1c94692e8b6b2e711124ca448a0c99612774275df20636f488189f",
+    "packages/solver/src/workflow.ts": "289cc7a17cc3c8b6488c9fe17d40e47f000c2c5326d6ab4dde386521beee50b1",
+    "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+    "scripts/exact-gcd-bench.mjs": "c2ecb3056256d6aca602117dceda04cfe25145595eb14bda5b1a5dfd609aedeb",
+    "scripts/exact-gcd-strategies-bench.mjs": "d11bc637f2430a6446657f8a701edf01bf4583991f27cd201bc13f287ed88c5d"
+  },
+  "runs": [
+    {
+      "oracle": {
+        "format": "cave.exact-oracle-check",
+        "version": 4,
+        "node": "v26.8.1",
+        "python": "3.14.5",
+        "seed": "0xCAFE2026",
+        "cases": 600,
+        "checks": 3600,
+        "explanationChecks": 3744,
+        "linearChecks": 1872,
+        "budgetChecks": 7200,
+        "sources": {
+          "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+          "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+          "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58"
+        }
+      },
+      "fibonacci": {
+        "format": "cave.exact-gcd-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v26.8.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurements": [
+          {
+            "index": 5000,
+            "operation": "normalize",
+            "numericDigits": 2090,
+            "numeratorDigits": 1045,
+            "denominatorDigits": 1045,
+            "medianMs": 2.1812920000000133,
+            "samplesMs": [
+              1.9110410000000115,
+              2.1812920000000133,
+              2.9907910000000015
+            ],
+            "rssBytes": 108920832,
+            "status": "complete"
+          },
+          {
+            "index": 5000,
+            "operation": "validate",
+            "numericDigits": 2090,
+            "numeratorDigits": 1045,
+            "denominatorDigits": 1045,
+            "medianMs": 1.7034589999999952,
+            "samplesMs": [
+              1.4102079999999972,
+              1.7034589999999952,
+              3.1038330000000087
+            ],
+            "rssBytes": 106463232,
+            "status": "complete"
+          },
+          {
+            "index": 25000,
+            "operation": "normalize",
+            "numericDigits": 10450,
+            "numeratorDigits": 5225,
+            "denominatorDigits": 5225,
+            "medianMs": 9.312624999999997,
+            "samplesMs": [
+              8.129084000000006,
+              9.312624999999997,
+              10.334500000000006
+            ],
+            "rssBytes": 108986368,
+            "status": "complete"
+          },
+          {
+            "index": 25000,
+            "operation": "validate",
+            "numericDigits": 10450,
+            "numeratorDigits": 5225,
+            "denominatorDigits": 5225,
+            "medianMs": 7.476292000000001,
+            "samplesMs": [
+              4.56795799999999,
+              7.476292000000001,
+              9.587915999999993
+            ],
+            "rssBytes": 107462656,
+            "status": "complete"
+          },
+          {
+            "index": 50000,
+            "operation": "normalize",
+            "numericDigits": 20900,
+            "numeratorDigits": 10450,
+            "denominatorDigits": 10450,
+            "medianMs": 13.33766700000001,
+            "samplesMs": [
+              11.439416999999992,
+              13.33766700000001,
+              14.517958000000007
+            ],
+            "rssBytes": 108085248,
+            "status": "complete"
+          },
+          {
+            "index": 50000,
+            "operation": "validate",
+            "numericDigits": 20900,
+            "numeratorDigits": 10450,
+            "denominatorDigits": 10450,
+            "medianMs": 14.902166000000008,
+            "samplesMs": [
+              12.428207999999998,
+              14.902166000000008,
+              16.210667
+            ],
+            "rssBytes": 108199936,
+            "status": "complete"
+          },
+          {
+            "index": 200000,
+            "operation": "normalize",
+            "numericDigits": 83596,
+            "numeratorDigits": 41798,
+            "denominatorDigits": 41798,
+            "medianMs": 118.86525000000002,
+            "samplesMs": [
+              113.23191600000001,
+              118.86525000000002,
+              121.56299999999999
+            ],
+            "rssBytes": 121716736,
+            "status": "complete"
+          },
+          {
+            "index": 200000,
+            "operation": "validate",
+            "numericDigits": 83596,
+            "numeratorDigits": 41798,
+            "denominatorDigits": 41798,
+            "medianMs": 113.249708,
+            "samplesMs": [
+              111.26595900000001,
+              113.249708,
+              115.87625
+            ],
+            "rssBytes": 121700352,
+            "status": "complete"
+          }
+        ]
+      },
+      "strategies": {
+        "format": "cave.exact-gcd-strategies",
+        "version": 1,
+        "node": "v26.8.1",
+        "measurements": [
+          {
+            "bits": 32,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 0.09679200000002197,
+            "batchedMedianMs": 0.03508300000001441
+          },
+          {
+            "bits": 32,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 0.30833300000000463,
+            "batchedMedianMs": 0.20083299999998871
+          },
+          {
+            "bits": 32,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.011750000000006366,
+            "batchedMedianMs": 0.012249999999994543
+          },
+          {
+            "bits": 32,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.011500000000012278,
+            "batchedMedianMs": 0.00970799999998917
+          },
+          {
+            "bits": 128,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 0.5643749999999841,
+            "batchedMedianMs": 0.3815420000000245
+          },
+          {
+            "bits": 128,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 0.7057499999999663,
+            "batchedMedianMs": 0.7400410000000193
+          },
+          {
+            "bits": 128,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.008290999999985615,
+            "batchedMedianMs": 0.012375000000020009
+          },
+          {
+            "bits": 128,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.009500000000002728,
+            "batchedMedianMs": 0.009375000000034106
+          },
+          {
+            "bits": 1024,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 6.152750000000026,
+            "batchedMedianMs": 6.386916999999983
+          },
+          {
+            "bits": 1024,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 6.713999999999999,
+            "batchedMedianMs": 7.196583000000032
+          },
+          {
+            "bits": 1024,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.008500000000026375,
+            "batchedMedianMs": 0.0037500000000818545
+          },
+          {
+            "bits": 1024,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.011416999999937616,
+            "batchedMedianMs": 0.004332999999974163
+          },
+          {
+            "bits": 8192,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 411.69216700000015,
+            "batchedMedianMs": 81.59995799999979
+          },
+          {
+            "bits": 8192,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 429.5750420000004,
+            "batchedMedianMs": 82.95195799999965
+          },
+          {
+            "bits": 8192,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.0017079999997804407,
+            "batchedMedianMs": 0.0025420000001759036
+          },
+          {
+            "bits": 8192,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.020709000000351807,
+            "batchedMedianMs": 0.013834000001224922
+          }
+        ]
+      }
+    },
+    {
+      "oracle": {
+        "format": "cave.exact-oracle-check",
+        "version": 4,
+        "node": "v24.21.0",
+        "python": "3.14.5",
+        "seed": "0xCAFE2026",
+        "cases": 600,
+        "checks": 3600,
+        "explanationChecks": 3744,
+        "linearChecks": 1872,
+        "budgetChecks": 7200,
+        "sources": {
+          "scripts/exact-oracle-check.mjs": "c70d4f0928c3ac2188050fe062b1718529da33ec1b7aa015d5a5987810b2857b",
+          "packages/solver/src/explanation-budget.ts": "0c2c686671fe4bb19fb607bb5a2451cb64cd10656854bd3c0195b965e343aa65",
+          "packages/solver/src/numeric-size.ts": "1d77914b5fb9f553eb1ddc0e8f005dbfbdd911f89105c7f6c8b023b3bd9fad58"
+        }
+      },
+      "fibonacci": {
+        "format": "cave.exact-gcd-benchmark",
+        "version": 1,
+        "runtime": {
+          "node": "v24.21.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "childTimeoutMs": 10000,
+        "childOldSpaceMb": 128,
+        "measurements": [
+          {
+            "index": 5000,
+            "operation": "normalize",
+            "numericDigits": 2090,
+            "numeratorDigits": 1045,
+            "denominatorDigits": 1045,
+            "medianMs": 2.1062080000000094,
+            "samplesMs": [
+              1.3259580000000142,
+              2.1062080000000094,
+              3.1367079999999987
+            ],
+            "rssBytes": 105496576,
+            "status": "complete"
+          },
+          {
+            "index": 5000,
+            "operation": "validate",
+            "numericDigits": 2090,
+            "numeratorDigits": 1045,
+            "denominatorDigits": 1045,
+            "medianMs": 2.1852499999999964,
+            "samplesMs": [
+              1.9739999999999895,
+              2.1852499999999964,
+              3.7263749999999902
+            ],
+            "rssBytes": 102400000,
+            "status": "complete"
+          },
+          {
+            "index": 25000,
+            "operation": "normalize",
+            "numericDigits": 10450,
+            "numeratorDigits": 5225,
+            "denominatorDigits": 5225,
+            "medianMs": 8.285916,
+            "samplesMs": [
+              4.712832999999989,
+              8.285916,
+              8.712833000000003
+            ],
+            "rssBytes": 102825984,
+            "status": "complete"
+          },
+          {
+            "index": 25000,
+            "operation": "validate",
+            "numericDigits": 10450,
+            "numeratorDigits": 5225,
+            "denominatorDigits": 5225,
+            "medianMs": 7.847707999999997,
+            "samplesMs": [
+              4.673084000000003,
+              7.847707999999997,
+              9.343542
+            ],
+            "rssBytes": 102547456,
+            "status": "complete"
+          },
+          {
+            "index": 50000,
+            "operation": "normalize",
+            "numericDigits": 20900,
+            "numeratorDigits": 10450,
+            "denominatorDigits": 10450,
+            "medianMs": 15.252875000000003,
+            "samplesMs": [
+              11.909458999999998,
+              15.252875000000003,
+              15.891290999999995
+            ],
+            "rssBytes": 103350272,
+            "status": "complete"
+          },
+          {
+            "index": 50000,
+            "operation": "validate",
+            "numericDigits": 20900,
+            "numeratorDigits": 10450,
+            "denominatorDigits": 10450,
+            "medianMs": 14.672583000000003,
+            "samplesMs": [
+              12.685792000000006,
+              14.672583000000003,
+              17.811166999999998
+            ],
+            "rssBytes": 102629376,
+            "status": "complete"
+          },
+          {
+            "index": 200000,
+            "operation": "normalize",
+            "numericDigits": 83596,
+            "numeratorDigits": 41798,
+            "denominatorDigits": 41798,
+            "medianMs": 117.34979099999998,
+            "samplesMs": [
+              116.97412499999996,
+              117.34979099999998,
+              118.46595800000001
+            ],
+            "rssBytes": 116588544,
+            "status": "complete"
+          },
+          {
+            "index": 200000,
+            "operation": "validate",
+            "numericDigits": 83596,
+            "numeratorDigits": 41798,
+            "denominatorDigits": 41798,
+            "medianMs": 119.2645,
+            "samplesMs": [
+              118.552542,
+              119.2645,
+              120.23225000000002
+            ],
+            "rssBytes": 116490240,
+            "status": "complete"
+          }
+        ]
+      },
+      "strategies": {
+        "format": "cave.exact-gcd-strategies",
+        "version": 1,
+        "node": "v24.21.0",
+        "measurements": [
+          {
+            "bits": 32,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 0.06808399999999892,
+            "batchedMedianMs": 0.04112499999999386
+          },
+          {
+            "bits": 32,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 0.2950840000000028,
+            "batchedMedianMs": 0.19712499999999977
+          },
+          {
+            "bits": 32,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.015084000000001652,
+            "batchedMedianMs": 0.01624999999998522
+          },
+          {
+            "bits": 32,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.015332999999998265,
+            "batchedMedianMs": 0.013042000000012877
+          },
+          {
+            "bits": 128,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 0.5679590000000019,
+            "batchedMedianMs": 0.3829159999999945
+          },
+          {
+            "bits": 128,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 0.7097909999999956,
+            "batchedMedianMs": 0.7334999999999923
+          },
+          {
+            "bits": 128,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.01133399999997664,
+            "batchedMedianMs": 0.01587499999999409
+          },
+          {
+            "bits": 128,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.013166999999981499,
+            "batchedMedianMs": 0.013208999999989146
+          },
+          {
+            "bits": 1024,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 6.1054169999999885,
+            "batchedMedianMs": 6.565708000000029
+          },
+          {
+            "bits": 1024,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 6.98112500000002,
+            "batchedMedianMs": 7.035750000000007
+          },
+          {
+            "bits": 1024,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.011875000000031832,
+            "batchedMedianMs": 0.005291999999997188
+          },
+          {
+            "bits": 1024,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.014166999999986274,
+            "batchedMedianMs": 0.0049159999999801585
+          },
+          {
+            "bits": 8192,
+            "kind": "coprime",
+            "pairs": 100,
+            "euclidMedianMs": 417.15704200000005,
+            "batchedMedianMs": 87.80058399999962
+          },
+          {
+            "bits": 8192,
+            "kind": "shared",
+            "pairs": 100,
+            "euclidMedianMs": 436.451959,
+            "batchedMedianMs": 89.84058299999924
+          },
+          {
+            "bits": 8192,
+            "kind": "unit",
+            "pairs": 100,
+            "euclidMedianMs": 0.0025420000001759036,
+            "batchedMedianMs": 0.0040829999998095445
+          },
+          {
+            "bits": 8192,
+            "kind": "equal",
+            "pairs": 100,
+            "euclidMedianMs": 0.021292000001267297,
+            "batchedMedianMs": 0.014584000000468222
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -13,6 +13,7 @@
  */
 
 import { Claim, Key, Value } from '@cavelang/core'
+import { canonicalizeText } from '@cavelang/canonical'
 import { parseDocument } from '@cavelang/parser'
 import { Rule } from '@cavelang/rules'
 import { Row, type Store } from '@cavelang/store'
@@ -41,25 +42,36 @@ export const bookkeepingKey = (subject: string, attribute: string): string =>
  * §25.1's resolution rule).
  */
 const currentAttribute = (store: Store, subject: string, attribute: string): undefined | Row.t => {
-  let winner: undefined | Row.t
-  for (const row of store.currentBeliefs()) {
-    if (row.subject === subject && row.verb === 'HAS' && row.attribute === attribute &&
-        (winner === undefined || winner.tx < row.tx)) {
-      winner = row
-    }
-  }
-  return winner
+  // The newest row across all series is also current in its own series.
+  // Disabled rows still win: filtering them would revive older declarations.
+  return store.db.prepare(`SELECT * FROM cave_claim
+    WHERE subject = ? AND verb = 'HAS' AND attribute = ?
+    ORDER BY tx DESC LIMIT 1`).get(subject, attribute) as unknown as undefined | Row.t
 }
 
 const enabled = (row: undefined | Row.t): row is Row.t =>
   row !== undefined && row.conf > 0 && row.negated === 0 && row.value_text !== null
 
+/** Decode enabled declaration text without leaking parser-internal type errors. */
+const storedText = (row: Row.t): string => {
+  if (typeof row.value_text !== 'string') {
+    throw new TypeError(`stored automation field ${JSON.stringify(row.attribute)} value_text must be text (claim ${JSON.stringify(row.id)})`)
+  }
+  return Row.parseValue(row.value_text).raw
+}
+
+/** Current declaration series, including disabled rows needed for winner selection. */
+const declarationRows = (store: Store, subject?: string): Row.t[] =>
+  store.db.prepare(`SELECT c.* FROM cave_claim c
+    WHERE c.verb = 'HAS' AND c.attribute = ?${subject === undefined ? '' : ' AND c.subject = ?'}
+      AND c.tx = (SELECT MAX(latest.tx) FROM cave_claim latest WHERE latest.claim_key = c.claim_key)
+    ORDER BY c.tx`).all(Automation.automationAttribute, ...subject === undefined ? [] : [subject]) as unknown as Row.t[]
+
 /** Current positive automation declaration rows, newest series winner per subject. */
 const currentAutomationRows = (store: Store): Row.t[] => {
   const bySubject = new Map<string, Row.t>()
-  for (const row of store.currentBeliefs()) {
-    if (row.verb !== 'HAS' || row.attribute !== Automation.automationAttribute ||
-        Automation.automationName(row.subject) === undefined) {
+  for (const row of declarationRows(store)) {
+    if (Automation.automationName(row.subject) === undefined) {
       continue
     }
     const seen = bySubject.get(row.subject)
@@ -91,7 +103,7 @@ export const loadAutomations = (store: Store): { loaded: Loaded[], problems: Loa
   const loaded: Loaded[] = []
   const problems: LoadProblem[] = []
   for (const row of currentAutomationRows(store)) {
-    const parsed = Automation.parse(row.subject, Row.parseValue(row.value_text!).raw)
+    const parsed = Automation.parse(row.subject, storedText(row))
     if (!parsed.ok) {
       problems.push({ subject: row.subject, problems: parsed.problems })
       continue
@@ -118,7 +130,7 @@ export type ListedAutomation = {
 /** Current positive automations of a store, in declaration order. */
 export const listAutomations = (store: Store): ListedAutomation[] =>
   currentAutomationRows(store).map(row => {
-    const text = Row.parseValue(row.value_text!).raw
+    const text = storedText(row)
     const parsed = Automation.parse(row.subject, text)
     return {
       subject: row.subject,
@@ -191,6 +203,13 @@ export const declareAutomations = (store: Store, text: string): Declaration => {
   const problems: { line: number, message: string }[] = []
   const automations: Automation.t[] = []
   const preludeLines: string[] = []
+  const preludeSourceLines: number[] = []
+  const addPrelude = (lines: readonly string[], at: number): void => {
+    lines.forEach((line, index) => {
+      preludeLines.push(line)
+      preludeSourceLines.push(at + index)
+    })
+  }
   const declarations: { declaration: DeclarationLine, at: number }[] = []
 
   // Top-level blocks: a structural unindented line plus what follows it —
@@ -201,7 +220,7 @@ export const declareAutomations = (store: Store, text: string): Declaration => {
     if (isStructural(line) && indentOf(line) === 0) {
       blocks.push({ lines: [line], at: index + 1 })
     } else if (blocks.length === 0) {
-      preludeLines.push(line)
+      addPrelude([line], index + 1)
     } else {
       blocks[blocks.length - 1]!.lines.push(line)
     }
@@ -209,7 +228,7 @@ export const declareAutomations = (store: Store, text: string): Declaration => {
   for (const block of blocks) {
     const declaration = asDeclaration(block.lines[0]!)
     if (declaration === undefined) {
-      preludeLines.push(...block.lines)
+      addPrelude(block.lines, block.at)
       continue
     }
     if (block.lines.slice(1).some(isStructural)) {
@@ -217,18 +236,26 @@ export const declareAutomations = (store: Store, text: string): Declaration => {
       continue
     }
     declarations.push({ declaration, at: block.at })
-    preludeLines.push(...block.lines.slice(1))
+    addPrelude(block.lines.slice(1), block.at + 1)
   }
 
   return store.transaction(() => {
+    store.registry()
     let prelude = 0
     const preludeText = preludeLines.join('\n')
     if (preludeText.trim() !== '') {
+      // Validate even cached input: older versions cached failed preludes too.
+      const canonical = canonicalizeText(preludeText, store.registry())
+      if (canonical.problems.length > 0) {
+        for (const problem of canonical.problems) problems.push({
+          ...problem, line: preludeSourceLines[problem.line - 1] ?? problem.line
+        })
+        return { declared: 0, unchanged: 0, prelude: 0, automations, problems }
+      }
       const digest = Rule.digestOf(preludeText)
       const known = store.currentBelief(bookkeepingKey(preludeSubject, preludeDigestAttribute))
       if (known === undefined || known.conf <= 0 || known.value_text !== digest) {
-        const result = store.ingest(preludeText, { source: 'cave-automate' })
-        problems.push(...result.problems)
+        const result = store.insertResult(canonical, { source: 'cave-automate' })
         prelude = result.ids.length
         store.ingest(`${preludeSubject} HAS ${preludeDigestAttribute}: ${digest} @${provenanceContext}`)
       }
@@ -239,7 +266,7 @@ export const declareAutomations = (store: Store, text: string): Declaration => {
     for (const { declaration, at } of declarations) {
       const parsed = Automation.parse(declaration.subject, declaration.body)
       if (!parsed.ok) {
-        problems.push(...parsed.problems.map(message => ({ line: at, message })))
+        for (const message of parsed.problems) problems.push({ line: at, message })
         continue
       }
       const automation = parsed.automation
@@ -278,13 +305,11 @@ export type Retraction =
  */
 export const retractAutomation = (store: Store, ref: string): Retraction => {
   const subject = Automation.automationSubject(ref)
-  const rows = store.currentBeliefs().filter(row =>
-    row.subject === subject && row.verb === 'HAS' && row.attribute === Automation.automationAttribute &&
-    row.negated === 0 && row.conf > 0)
-  if (rows.length === 0) {
-    return { ok: false, error: `no current automation matches ${JSON.stringify(ref)}` }
-  }
   return store.transaction(() => {
+    const rows = declarationRows(store, subject).filter(row => row.negated === 0 && row.conf > 0)
+    if (rows.length === 0) {
+      return { ok: false, error: `no current automation matches ${JSON.stringify(ref)}` }
+    }
     for (const row of rows) {
       store.insertResult({
         claims: [{ claim: { ...store.toClaim(row), conf: 0, raw: '', comment: 'retracted: cave automate --retract' }, line: 0 }],

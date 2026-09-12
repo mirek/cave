@@ -1,6 +1,184 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
 import { open, Resolve } from '@cavelang/store'
+import { SourceSpan } from '@cavelang/core'
+
+test('ranked results retain finite precedence beyond the safe integer range', () => {
+  const store = open()
+  try {
+    store.ingest('server IS compromised @ 60% @src:custom\nserver IS NOT compromised @ 90% @src:archive')
+    for (const precedence of [1e16, -1e16]) {
+      for (const size of [1, 17]) {
+        const entries = [{ prefix: 'custom', precedence },
+          ...Array.from({ length: size - 1 }, (_, i) => ({ prefix: `unused/${i}`, precedence: 0 }))]
+        const rows = store.db.prepare(Resolve.rankedSql(entries, 'SELECT * FROM cave_claim')).all() as unknown as Resolve.Ranked[]
+        assert.equal(rows.find(row => row.negated === 0)!.res_class, precedence)
+        assert.equal(rows.find(row => row.res_rank === 1)!.negated, precedence > 0 ? 0 : 1)
+      }
+      store.ingest(`source/custom HAS precedence: ${precedence}`)
+      assert.equal(store.resolutionPolicy().find(entry => entry.prefix === 'custom')!.precedence, precedence)
+      const group = store.contested().find(group => group.rows.some(row => row.subject === 'server'))!
+      assert.equal(group.rows.find(row => row.negated === 0)!.res_class, precedence)
+      assert.equal(group.rows[0]!.negated, precedence > 0 ? 0 : 1)
+    }
+  } finally { store.close() }
+})
+
+test('large materialized policies preserve ranking and complete prefixes', () => {
+  const store = open()
+  try {
+    const prefix = "é'archive\0tail"
+    store.ingest(`server IS compromised @ 60% @${SourceSpan.context(prefix + '/child')}\nserver IS NOT compromised @ 90% @src:archive`)
+    for (const size of [16, 17, 33_000]) {
+      const entries: Resolve.Entry[] = Array.from({ length: size - 2 }, (_, i) => ({ prefix: `unused/${i}`, precedence: 1 }))
+      entries.unshift({ prefix: '', precedence: 2 })
+      entries.push({ prefix, precedence: 7, reliability: 0.5 })
+      const rows = store.db.prepare(Resolve.rankedSql(entries, 'SELECT * FROM cave_claim')).all() as unknown as Resolve.Ranked[]
+      const winner = rows.find(row => row.res_rank === 1)!
+      assert.equal(winner.negated, 0, String(size))
+      assert.equal(winner.res_class, 7)
+      assert.equal(winner.res_conf, 0.3)
+      const other = rows.find(row => row.negated === 1)!
+      assert.equal(other.res_class, 2)
+      assert.equal(other.res_conf, 0.9)
+    }
+  } finally { store.close() }
+})
+
+test('complete actor stamps participate only when authored sources do not suppress them', () => {
+  const actor = 'cli/é\0suffix'
+  for (const authored of [false, true]) {
+    const store = open()
+    try {
+      const added = store.ingest(`server IS compromised @ 60%${authored ? ' @src:archive' : ''}`, { source: actor })
+      assert.deepEqual(added.problems, [])
+      const row = store.currentBeliefs().find(row => row.subject === 'server')!
+      assert.deepEqual(store.provenanceOf(row).actors, [actor])
+      const contexts = store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(row.id)
+        .map(value => value.context)
+      assert.equal(contexts.includes(`src:${actor}`), !authored)
+      store.ingest('server IS NOT compromised @ 90%', { source: 'agent' })
+      const ranked = store.contested()[0]!.rows
+      assert.equal(ranked.find(candidate => candidate.negated === 0)!.res_class, authored ? 2 : 4)
+      assert.equal(store.resolvedBeliefs().find(candidate => candidate.subject === 'server')!.negated, authored ? 1 : 0)
+    } finally { store.close() }
+  }
+})
+
+test('alias resolution preserves complete NUL-bearing subjects and objects', () => {
+  for (const position of ['subject', 'object'] as const) {
+    const store = open()
+    try {
+      const first = 'é\0first', second = 'é\0second'
+      const fact = (name: string, confidence: number) => position === 'subject'
+        ? `${name} USES target @ ${confidence}%`
+        : `owner USES ${name} @ ${confidence}%`
+      assert.deepEqual(store.ingest(`${fact(first, 60)}\n${fact(second, 70)}`).problems, [])
+      const selected = () => store.resolvedBeliefs({ aliases: true }).filter(row => row.verb === 'USES')
+      assert.equal(selected().length, 2, `${position}: unrelated names must not collapse`)
+      store.ingest(`${first} ALIAS nickname\n${fact('nickname', 90)}`)
+      assert.equal(store.resolvedBeliefs().filter(row => row.verb === 'USES').length, 3)
+      const resolved = selected()
+      assert.equal(resolved.length, 2, `${position}: only actual aliases collapse`)
+      assert.deepEqual(resolved.map(row => position === 'subject' ? row.subject : row.object).sort(), ['nickname', second].sort())
+      const contested = store.contested({ aliases: true }).filter(group => group.rows.some(row => row.verb === 'USES'))
+      assert.equal(contested.length, 1)
+      assert.equal(contested[0]!.rows.length, 2)
+    } finally { store.close() }
+  }
+})
+
+test('policy declarations preserve complete source prefixes containing NUL', () => {
+  const store = open()
+  try {
+    const first = 'archive\0first', second = 'archive\0second'
+    assert.deepEqual(store.ingest(`source/${first} HAS precedence: 9\nsource/${first} HAS reliability: 0.2\nsource/${second} HAS precedence: 6`).problems, [])
+    const policy = store.resolutionPolicy()
+    assert.equal(policy.find(entry => entry.prefix === first)?.precedence, 9)
+    assert.equal(policy.find(entry => entry.prefix === first)?.reliability, 0.2)
+    assert.equal(policy.find(entry => entry.prefix === second)?.precedence, 6)
+    assert.equal(policy.find(entry => entry.prefix === 'archive'), undefined)
+    store.ingest(`server IS compromised @ 80% @${SourceSpan.context(first + '/deep')}\nserver IS NOT compromised @ 90% @${SourceSpan.context(second)}`)
+    const winner = store.resolvedBeliefs().find(row => row.subject === 'server')!
+    assert.equal(winner.negated, 0)
+    const ranked = store.contested().find(group => group.rows.some(row => row.subject === 'server'))!
+    assert.equal(ranked.rows[0]!.res_class, 9)
+    assert.ok(Math.abs(ranked.rows[0]!.res_conf - 0.16) < 1e-15)
+  } finally { store.close() }
+})
+
+test('explicit policy SQL preserves NUL prefixes and whole-segment specificity', () => {
+  const store = open()
+  try {
+    const prefix = "é'archive\0tail"
+    store.ingest(`exact IS service @${SourceSpan.context(prefix)}\nchild IS service @${SourceSpan.context(prefix + '/nested')}\nsibling IS service @${SourceSpan.context(prefix + 'suffix')}`)
+    const policy = [{ prefix: '', precedence: 2 }, { prefix, precedence: 7 }, { prefix: `${prefix}/nested`, precedence: 9 }]
+    const rows = store.db.prepare(Resolve.rankedSql(policy, 'SELECT * FROM cave_claim')).all() as unknown as Resolve.Ranked[]
+    assert.deepEqual(Object.fromEntries(rows.map(row => [row.subject, row.res_class])), { exact: 7, child: 9, sibling: 2 })
+  } finally { store.close() }
+})
+
+test('NUL-bearing declaration sources cannot impersonate a builtin source tier', () => {
+  const store = open()
+  try {
+    store.ingest('source/archive HAS precedence: 9 @ 90% @src:cli\0suffix')
+    store.ingest('source/archive HAS precedence: 3 @ 10% @src:agent')
+    assert.equal(store.resolutionPolicy().find(entry => entry.prefix === 'archive')?.precedence, 3)
+  } finally { store.close() }
+})
+
+test('policy declarations retain maximum precedence across large source lists', () => {
+  const store = open()
+  const sources = Array.from({ length: 130_000 }, (_, i) => `@src:rule/import-${i}`)
+  sources.push('@src:cli')
+  try {
+    store.ingest(`source/ingest HAS precedence: 2 @ 10% ${sources.join(' ')}`)
+    store.ingest('source/ingest HAS precedence: 9 @src:agent')
+    const before = store.db.prepare('SELECT COUNT(*) AS n FROM cave_context').get()
+    const policy = store.resolutionPolicy()
+    assert.equal(policy.find(entry => entry.prefix === 'ingest')?.precedence, 2)
+    assert.deepEqual(store.resolutionPolicy(), policy)
+    assert.deepEqual(store.db.prepare('SELECT COUNT(*) AS n FROM cave_context').get(), before)
+  } finally { store.close() }
+})
+
+test('empty explicit policies rank by confidence and recency with neutral source weights', () => {
+  const store = open()
+  try {
+    store.ingest('server IS compromised @ 80% @src:scanner\nserver IS NOT compromised @ 60% @src:cli')
+    const current = 'SELECT * FROM cave_claim'
+    const ranked = store.db.prepare(Resolve.rankedSql([], current)).all() as unknown as Resolve.Ranked[]
+    assert.equal(ranked.length, 2)
+    assert.ok(ranked.every(row => row.res_class === 0 && row.res_conf === row.conf))
+    const winner = store.db.prepare(Resolve.resolvedSql([], current)).all()
+    assert.equal(winner.length, 1)
+    assert.equal(winner[0]!.negated, 0)
+    assert.equal(winner[0]!.conf, 0.8)
+    store.ingest('server IS NOT compromised @ 80% @src:review')
+    const tied = store.db.prepare(Resolve.resolvedSql([], current)).all()
+    assert.equal(tied.length, 1)
+    assert.equal(tied[0]!.negated, 1, 'recency breaks equal-confidence ties')
+  } finally {
+    store.close()
+  }
+})
+
+test('partial policies apply neutral precedence to each unmatched source before aggregation', () => {
+  const store = open()
+  try {
+    store.ingest('server IS compromised @ 80% @src:rule/derived @src:archive\nserver IS NOT compromised @ 60% @src:review')
+    const entries = [{ prefix: 'rule', precedence: -1 }]
+    const current = 'SELECT * FROM cave_claim'
+    const ranked = store.db.prepare(Resolve.rankedSql(entries, current)).all() as unknown as Resolve.Ranked[]
+    const positive = ranked.find(row => row.negated === 0)!
+    assert.equal(positive.res_class, 0, 'the unmatched archive outranks the negative rule class')
+    assert.equal(positive.res_rank, 1)
+    const winner = store.db.prepare(Resolve.resolvedSql(entries, current)).all()
+    assert.equal(winner[0]!.negated, 0)
+  } finally {
+    store.close()
+  }
+})
 
 test('human correction outranks a machine ingest re-run (spec §26.2)', () => {
   const store = open()

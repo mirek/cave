@@ -1,5 +1,65 @@
 # cave-language
 
+## 0.36.9
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.9 release identity.
+
+## 0.36.8
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.8 release identity.
+
+## 0.36.7
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.7 release identity.
+
+## 0.36.6
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.6 release identity.
+
+## 0.36.5
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.5 release identity.
+
+## 0.36.4
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.4 release identity.
+
+## 0.36.3
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.3 release identity.
+
+## 0.36.2
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.2 release identity.
+
+## 0.36.1
+
+### Patch Changes
+
+- Align the VS Code extension with the CAVE 0.36.1 release identity.
+
+## 0.36.0
+
+### Minor Changes
+
+- Align the VS Code extension with the CAVE 0.36.0 release identity.
+
 ## 0.35.0
 
 ### Minor Changes

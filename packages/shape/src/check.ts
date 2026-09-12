@@ -8,17 +8,15 @@
  * written — enforcement is the opt-in gate in `gate.ts` (§20.3).
  */
 
+import { readSnapshot } from './snapshot.ts'
 import { Uuidv7, Verb } from '@cavelang/core'
 import { Registry } from '@cavelang/canonical'
+import { QuerySql } from '@cavelang/store'
 import type { Row, Store } from '@cavelang/store'
+import { aliasRoot } from './alias-root.ts'
+import { constraintProblem, type ConstraintTag } from './constraints.ts'
 
-const currentSql = `
-SELECT c.* FROM cave_claim c
-JOIN (
-  SELECT claim_key, MAX(tx) AS max_tx
-  FROM cave_claim GROUP BY claim_key
-) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx
-`
+const currentSql = QuerySql.current()
 
 /** One in-band shape declaration — `type EXPECTS name` (spec §20.1). */
 export type Expectation = {
@@ -103,9 +101,9 @@ export type Report = {
 }
 
 export type Options = {
-  /** Staleness horizon in days (spec §20.2), default {@link defaultStaleDays}. */
+  /** Finite non-negative horizon in days (spec §20.2), default {@link defaultStaleDays}. */
   readonly staleDays?: number
-  /** Clock, injectable for tests. */
+  /** Clock returning a finite millisecond timestamp, injectable for tests. */
   readonly now?: () => number
 }
 
@@ -118,40 +116,73 @@ const isEntityName = (name: string): boolean =>
 const all = (store: Store, sql: string, ...params: (string | number)[]): Row.t[] =>
   store.db.prepare(sql).all(...params) as unknown as Row.t[]
 
-type ShapeState = {
-  /** Every current belief, materialized once in transaction order. */
-  readonly rows: readonly Row.t[]
-  readonly tags: ReadonlyMap<string, ReadonlyMap<string, null | string>>
+type ShapeState = DeclarationState & {
+  /** SQL has already excluded negations/retractions; only index fields cross into JS. */
+  readonly rows: readonly Pick<Row.t, 'subject' | 'verb' | 'object' | 'attribute' | 'value_unit'>[]
+}
+
+type DeclarationState = {
+  readonly declarations: readonly Row.t[]
+  readonly tags: ReadonlyMap<string, readonly ConstraintTag[]>
   readonly excludedDeclarations: ReadonlySet<string>
 }
 
 /**
- * One evaluation snapshot. Query count is constant: current beliefs, tags,
- * and declaration-excluding qualifier edges, independent of shape size.
+ * One evaluation snapshot. Query count is constant: narrow current facts, full
+ * declaration rows, tags and qualifier edges, independent of shape size.
  */
-const shapeState = (store: Store): ShapeState => {
-  const rows = all(store, `SELECT c.* FROM (${currentSql}) c ORDER BY c.tx`)
-  const currentIds = new Set(rows.map(row => row.id))
-  const tags = new Map<string, Map<string, null | string>>()
-  const tagRows = store.db.prepare(
-    "SELECT claim_id, key, value FROM cave_tag WHERE key IN ('unit', 'cardinality') ORDER BY rowid"
-  ).all() as { claim_id: string, key: string, value: null | string }[]
-  for (const tag of tagRows) {
-    if (!currentIds.has(tag.claim_id)) continue
-    const byKey = tags.get(tag.claim_id) ?? new Map<string, null | string>()
-    if (!byKey.has(tag.key)) byKey.set(tag.key, tag.value)
-    tags.set(tag.claim_id, byKey)
+const shapeState = (store: Store, registry: () => Registry.t, declarations: DeclarationState, declared: readonly Expectation[]): ShapeState => {
+  const verbs = new Set(['IS', 'EXTENDS'])
+  const attributes = new Set<string>()
+  for (const expectation of declared) {
+    if (expectation.kind === 'attribute') attributes.add(expectation.name)
+    else verbs.add(Registry.primaryOf(registry(), expectation.name).primary)
   }
-  const excludedDeclarations = new Set((store.db.prepare(`
-    SELECT DISTINCT child_id FROM cave_edge WHERE role IN ('WHEN', 'VIA', 'BECAUSE')
-  `).all() as { child_id: string }[]).map(row => row.child_id))
-  return { rows, tags, excludedDeclarations }
+  // Check each candidate against its complete history so a disabled latest
+  // version cannot revive an older value from the same claim key.
+  const rows = store.db.prepare(`SELECT c.subject, c.verb, c.object, c.attribute, c.value_unit
+    FROM cave_claim c
+    WHERE (c.verb IN (SELECT value FROM json_each(?))
+      OR (c.verb = 'HAS' AND c.attribute IN (SELECT value FROM json_each(?))))
+      AND c.conf > 0 AND c.negated = 0
+      AND c.tx = (SELECT MAX(latest.tx) FROM cave_claim latest WHERE latest.claim_key = c.claim_key)
+    ORDER BY c.tx`)
+    .all(JSON.stringify([...verbs]), JSON.stringify([...attributes])) as unknown as ShapeState['rows']
+  return { rows, ...declarations }
 }
 
-const tagValue = (state: ShapeState, row: Row.t, key: string): undefined | string =>
-  state.tags.get(row.id)?.get(key) ?? undefined
+/** Declarations and their constraint/qualifier metadata, without ordinary facts. */
+const declarationState = (store: Store): DeclarationState => {
+  return readSnapshot(store, 'cave_shape_declarations', () => readDeclarationState(store))
+}
 
-const expectationOf = (state: ShapeState, row: Row.t): undefined | Expectation => {
+const readDeclarationState = (store: Store): DeclarationState => {
+  // Verb is part of claim identity, so filtering it before latest-row grouping
+  // retains complete current EXPECTS series, including disabled declarations.
+  const declarations = all(store, `${QuerySql.current("(SELECT * FROM cave_claim WHERE verb = 'EXPECTS')")} ORDER BY c.tx`)
+  const declarationIds = JSON.stringify(declarations.map(row => row.id))
+  const tags = new Map<string, ConstraintTag[]>()
+  const tagRows = store.db.prepare(
+    `SELECT claim_id, key, value FROM cave_tag
+      WHERE claim_id IN (SELECT value FROM json_each(?))
+        AND key IN ('unit', 'cardinality') ORDER BY rowid`
+  ).all(declarationIds) as { claim_id: string, key: string, value: null | string }[]
+  for (const tag of tagRows) {
+    const entries = tags.get(tag.claim_id) ?? []
+    entries.push(tag)
+    tags.set(tag.claim_id, entries)
+  }
+  const excludedDeclarations = new Set((store.db.prepare(`
+    SELECT DISTINCT child_id FROM cave_edge
+    WHERE child_id IN (SELECT value FROM json_each(?)) AND role IN ('WHEN', 'VIA', 'BECAUSE')
+  `).all(declarationIds) as { child_id: string }[]).map(row => row.child_id))
+  return { declarations, tags, excludedDeclarations }
+}
+
+const tagValue = (state: DeclarationState, row: Row.t, key: string): undefined | string =>
+  state.tags.get(row.id)?.find(tag => tag.key === key)?.value ?? undefined
+
+const expectationOf = (state: DeclarationState, row: Row.t): undefined | Expectation => {
   if (!isEntityName(row.subject) || row.object === null || row.object.startsWith('"') || row.object.startsWith('`')) {
     return undefined
   }
@@ -167,8 +198,8 @@ const expectationOf = (state: ShapeState, row: Row.t): undefined | Expectation =
   }
 }
 
-const expectationsOf = (state: ShapeState): Expectation[] =>
-  state.rows.flatMap(row => {
+const expectationsOf = (state: DeclarationState): Expectation[] =>
+  state.declarations.flatMap(row => {
     if (row.verb !== 'EXPECTS' || row.negated !== 0 || row.conf <= 0 || row.object === null ||
         state.excludedDeclarations.has(row.id)) return []
     const expectation = expectationOf(state, row)
@@ -179,10 +210,29 @@ const expectationsOf = (state: ShapeState): Expectation[] =>
  * Current positive `EXPECTS` declarations (spec §20.1), oldest first.
  * Qualifier condition rows never declare, mirroring the registry's
  * treatment of in-band declarations; verb-token and literal subjects are
- * not types.
+ * not types. Internal reader for generators that collect validation problems.
  */
+export const declarationSnapshot = (store: Store): {
+  readonly expectations: readonly Expectation[]
+  readonly tags: DeclarationState['tags']
+} => {
+  const state = declarationState(store)
+  return { expectations: expectationsOf(state), tags: state.tags }
+}
+
+const checkedExpectations = (state: DeclarationState): Expectation[] => {
+  const declared = expectationsOf(state)
+  const problems = declared.flatMap(expectation => {
+    const problem = constraintProblem(expectation, state.tags.get(expectation.row.id) ?? [])
+    return problem === undefined ? [] : [problem]
+  })
+  if (problems.length > 0) throw new TypeError(`invalid shape declaration: ${problems.join('; ')}`)
+  return declared
+}
+
+/** Current shape declarations, rejecting malformed constraint tags. */
 export const expectations = (store: Store): Expectation[] =>
-  expectationsOf(shapeState(store))
+  checkedExpectations(declarationState(store))
 
 /**
  * Instances of a type (spec §20.1): entities with a current positive `IS`
@@ -198,9 +248,11 @@ const targetIndexes = (state: ShapeState): TargetIndexes => {
   const children = new Map<string, string[]>()
   const typings: { entity: string, via: string }[] = []
   for (const row of state.rows) {
-    if (row.negated !== 0 || row.conf <= 0 || row.object === null) continue
+    if (row.object === null) continue
     if (row.verb === 'EXTENDS') {
-      children.set(row.object, [...children.get(row.object) ?? [], row.subject])
+      const descendants = children.get(row.object) ?? []
+      descendants.push(row.subject)
+      children.set(row.object, descendants)
     } else if (row.verb === 'IS' && isEntityName(row.subject)) {
       typings.push({ entity: row.subject, via: row.object })
     }
@@ -211,7 +263,8 @@ const targetIndexes = (state: ShapeState): TargetIndexes => {
 const instancesOf = (targets: TargetIndexes, type: string): Map<string, string> => {
   const types = new Set([type])
   let frontier = [type]
-  for (let depth = 0; depth < 32 && frontier.length > 0; depth += 1) {
+  // Visit each reachable type once; cycles terminate without truncating inheritance.
+  while (frontier.length > 0) {
     const next: string[] = []
     for (const parent of frontier) {
       for (const child of targets.children.get(parent) ?? []) {
@@ -254,25 +307,35 @@ type ObservedIndexes = {
   readonly reverse: SlotIndex
 }
 
-const observedIndexes = (state: ShapeState): ObservedIndexes => {
+const observedIndexes = (registry: () => Registry.t, state: ShapeState, declared: readonly Expectation[]): ObservedIndexes => {
   const attributes: SlotIndex = new Map()
   const forward: SlotIndex = new Map()
   const reverse: SlotIndex = new Map()
+  const attributeNames = new Set<string>()
+  const forwardVerbs = new Set<string>()
+  const reverseVerbs = new Set<string>()
+  for (const expectation of declared) {
+    if (expectation.kind === 'attribute') attributeNames.add(expectation.name)
+    else {
+      const { primary, isInverse } = Registry.primaryOf(registry(), expectation.name)
+      if (isInverse) reverseVerbs.add(primary)
+      else forwardVerbs.add(primary)
+    }
+  }
   for (const row of state.rows) {
-    if (row.negated !== 0 || row.conf <= 0) continue
-    if (row.verb === 'HAS' && row.attribute !== null) {
+    if (row.verb === 'HAS' && row.attribute !== null && attributeNames.has(row.attribute)) {
       addObserved(attributes, row.attribute, row.subject, row.value_unit)
     }
     if (row.object !== null) {
-      addObserved(forward, row.verb, row.subject)
-      addObserved(reverse, row.verb, row.object)
+      if (forwardVerbs.has(row.verb)) addObserved(forward, row.verb, row.subject)
+      if (reverseVerbs.has(row.verb)) addObserved(reverse, row.verb, row.object)
     }
   }
   return { attributes, forward, reverse }
 }
 
 const observed = (
-  store: Store,
+  registry: () => Registry.t,
   indexes: ObservedIndexes,
   entity: string,
   expectation: Expectation
@@ -282,7 +345,7 @@ const observed = (
     actual = indexes.attributes.get(expectation.name)?.get(entity)
   } else {
     // An inverse expectation reads the object side of its stored primary.
-    const { primary, isInverse } = Registry.primaryOf(store.registry(), expectation.name)
+    const { primary, isInverse } = Registry.primaryOf(registry(), expectation.name)
     actual = (isInverse ? indexes.reverse : indexes.forward).get(primary)?.get(entity)
   }
   if (actual === undefined) return { count: 0, units: [] }
@@ -309,13 +372,33 @@ export type Evaluation = {
 
 /** Evaluates every declared expectation against its instances (spec §20.2). */
 export const evaluate = (store: Store): Evaluation => {
-  const state = shapeState(store)
-  const declared = expectationsOf(state)
-  const indexes = observedIndexes(state)
+  return readSnapshot(store, 'cave_shape_evaluation', () => evaluateSnapshot(store))
+}
+
+const evaluateSnapshot = (store: Store): Evaluation => {
+  // No declaration can be current if none exists in history. Check on every
+  // evaluation: an action may introduce EXPECTS between its before/after gate.
+  // Historical declarations still require current-version and qualifier checks.
+  if (store.db.prepare("SELECT 1 FROM cave_claim WHERE verb = 'EXPECTS' LIMIT 1").get() === undefined) {
+    return { expectations: [], violations: [], instances: 0, checks: 0 }
+  }
+  const declarations = declarationState(store)
+  const declared = checkedExpectations(declarations)
+  if (declared.length === 0) {
+    return { expectations: [], violations: [], instances: 0, checks: 0 }
+  }
+  // Attribute-only shapes never need vocabulary; relation checks share one
+  // version-aware registry resolved inside this read snapshot on first use.
+  let vocabulary: Registry.t | undefined
+  const registry = (): Registry.t => vocabulary ??= store.registry()
+  const state = shapeState(store, registry, declarations, declared)
+  const indexes = observedIndexes(registry, state, declared)
   const targets = targetIndexes(state)
   const byType = new Map<string, Expectation[]>()
   for (const expectation of declared) {
-    byType.set(expectation.type, [...byType.get(expectation.type) ?? [], expectation])
+    const group = byType.get(expectation.type) ?? []
+    group.push(expectation)
+    byType.set(expectation.type, group)
   }
   const violations: Violation[] = []
   const targeted = new Set<string>()
@@ -325,7 +408,7 @@ export const evaluate = (store: Store): Evaluation => {
       targeted.add(entity)
       for (const expectation of typeExpectations) {
         checks += 1
-        const actual = observed(store, indexes, entity, expectation)
+        const actual = observed(registry, indexes, entity, expectation)
         if (!satisfies(expectation, actual)) {
           violations.push({
             entity,
@@ -356,45 +439,62 @@ const aliasGroups = (store: Store): string[][] => {
     WHERE c.verb = 'ALIAS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
   `).all() as { a: string, b: string }[]
   const parent = new Map<string, string>()
-  const find = (name: string): string => {
-    const up = parent.get(name)
-    if (up === undefined || up === name) {
-      return name
-    }
-    const root = find(up)
-    parent.set(name, root)
-    return root
-  }
+  const find = (name: string): string => aliasRoot(parent, name)
   for (const { a, b } of edges) {
     parent.set(find(a), find(b))
   }
   const groups = new Map<string, string[]>()
   for (const name of new Set(edges.flatMap(({ a, b }) => [a, b]))) {
     const root = find(name)
-    groups.set(root, [...groups.get(root) ?? [], name])
+    const group = groups.get(root) ?? []
+    group.push(name)
+    groups.set(root, group)
   }
   return [...groups.values()].filter(group => group.length >= 2).map(group => group.sort())
 }
 
 /**
- * Scope signature of a row: its non-`src:` contexts, sorted. Series scoped
+ * Scope signatures: non-`src:` contexts, sorted. Series scoped
  * to different contexts (`@prod` vs `@staging`) describe different facts
  * and never disagree; actor provenance stamps (spec §9.5) are provenance,
  * not scope, so they don't separate.
  */
-const scopeOf = (store: Store, row: Row.t): string =>
-  (store.db.prepare('SELECT context FROM cave_context WHERE claim_id = ?').all(row.id) as { context: string }[])
-    .map(({ context }) => context)
-    .filter(context => !context.startsWith('src:'))
-    .sort()
-    .join(' ')
+const scopesOf = (store: Store, rows: readonly Row.t[]): Map<string, string[]> => {
+  const scopes = new Map<string, string[]>()
+  if (rows.length === 0) return scopes
+  // One JSON parameter avoids both per-row reads and SQLite's variable limit.
+  const contexts = store.db.prepare(`SELECT claim_id, context FROM cave_context
+    WHERE claim_id IN (SELECT value FROM json_each(?))`)
+    .all(JSON.stringify(rows.map(row => row.id))) as { claim_id: string, context: string }[]
+  for (const { claim_id, context } of contexts) {
+    if (context.startsWith('src:')) continue
+    const scope = scopes.get(claim_id) ?? []
+    scope.push(context)
+    scopes.set(claim_id, scope)
+  }
+  for (const scope of scopes.values()) scope.sort()
+  return scopes
+}
 
 /** Whether two rows from different alias names actually conflict. */
 const hasCrossNamePair = (
   rows: readonly Row.t[],
-  differs: (left: Row.t, right: Row.t) => boolean
-): boolean => rows.some((left, at) =>
-  rows.slice(at + 1).some(right => left.subject !== right.subject && differs(left, right)))
+  valueOf: (row: Row.t) => string | number | null
+): boolean => {
+  const first = rows[0]
+  if (first === undefined) return false
+  const value = valueOf(first)
+  let differentName = false
+  let differentValue = false
+  for (const row of rows) {
+    differentName ||= row.subject !== first.subject
+    differentValue ||= valueOf(row) !== value
+    // With two names and two equality classes, some cross-name pair differs,
+    // even when the first differing values occur under the same name.
+    if (differentName && differentValue) return true
+  }
+  return false
+}
 
 /**
  * Cross-series conflicts inside alias groups (spec §20.2) — the checking
@@ -403,31 +503,41 @@ const hasCrossNamePair = (
  */
 const findDisagreements = (store: Store): Disagreement[] => {
   const disagreements: Disagreement[] = []
-  for (const group of aliasGroups(store)) {
-    const rows = all(store, `
-      SELECT c.* FROM (${currentSql}) c
-      WHERE c.subject IN (${group.map(() => '?').join(', ')}) AND c.verb <> 'ALIAS' AND c.conf > 0
-      ORDER BY c.tx
-    `, ...group)
+  const groups = aliasGroups(store)
+  if (groups.length === 0) return disagreements
+  const groupOf = new Map(groups.flatMap((group, index) => group.map(name => [name, index] as const)))
+  const groupedRows: Row.t[][] = groups.map(() => [])
+  // One ordered read avoids a bind parameter for every alias-group member.
+  for (const row of all(store, `
+    SELECT c.* FROM (${currentSql}) c
+    WHERE c.verb <> 'ALIAS' AND c.conf > 0 ORDER BY c.tx
+  `)) {
+    const index = groupOf.get(row.subject)
+    if (index !== undefined) groupedRows[index]!.push(row)
+  }
+  const scopes = scopesOf(store, groupedRows.flat())
+  for (const rows of groupedRows) {
     const buckets = new Map<string, Row.t[]>()
     for (const row of rows) {
       const slot = row.attribute !== null ? `attr:${row.attribute}` : row.object !== null ? `obj:${row.object}` : ''
       if (slot === '') {
         continue
       }
-      const key = `${row.verb} ${slot} ${scopeOf(store, row)}`
-      buckets.set(key, [...buckets.get(key) ?? [], row])
+      const key = JSON.stringify([row.verb, slot, scopes.get(row.id) ?? []])
+      const bucket = buckets.get(key) ?? []
+      bucket.push(row)
+      buckets.set(key, bucket)
     }
     for (const bucket of buckets.values()) {
       const first = bucket[0]!
       if (first.attribute !== null) {
         const positives = bucket.filter(row => row.negated === 0)
         const subjects = [...new Set(positives.map(row => row.subject))].sort()
-        if (hasCrossNamePair(positives, (left, right) => left.value_text !== right.value_text)) {
+        if (hasCrossNamePair(positives, row => row.value_text)) {
           disagreements.push({ kind: 'value', about: `${first.verb} ${first.attribute}`, entities: subjects, rows: positives })
         }
       } else {
-        if (hasCrossNamePair(bucket, (left, right) => left.negated !== right.negated)) {
+        if (hasCrossNamePair(bucket, row => row.negated)) {
           disagreements.push({
             kind: 'polarity',
             about: `${first.verb} ${first.object}`,
@@ -445,27 +555,31 @@ const count = (store: Store, sql: string): number =>
   (store.db.prepare(sql).get() as { n: number }).n
 
 const coverage = (store: Store, evaluation: Evaluation): Coverage => {
-  const average = (store.db.prepare(`SELECT AVG(conf) AS avg FROM (${currentSql}) c WHERE c.conf > 0`)
-    .get() as { avg: null | number }).avg
-  const names = (store.db.prepare(`
-    SELECT c.subject AS name FROM (${currentSql}) c WHERE c.conf > 0
-    UNION
-    SELECT c.object AS name FROM (${currentSql}) c WHERE c.conf > 0 AND c.object IS NOT NULL
-  `).all() as { name: string }[]).map(row => row.name).filter(isEntityName)
-  const typed = (store.db.prepare(`
-    SELECT DISTINCT c.subject AS name FROM (${currentSql}) c
-    WHERE c.verb = 'IS' AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-  `).all() as { name: string }[]).map(row => row.name).filter(isEntityName)
+  const totals = store.db.prepare(`SELECT
+    COUNT(*) AS facts,
+    COUNT(CASE WHEN c.conf > 0 AND c.negated = 0 THEN 1 END) AS current,
+    COUNT(CASE WHEN c.conf = 0 THEN 1 END) AS retracted,
+    COUNT(CASE WHEN c.conf > 0 AND c.negated = 1 THEN 1 END) AS negated,
+    COUNT(CASE WHEN c.conf > 0 AND c.conf < 0.3 THEN 1 END) AS lowConfidence,
+    AVG(CASE WHEN c.conf > 0 THEN c.conf END) AS averageConfidence
+    FROM (${currentSql}) c`).get() as Pick<Coverage, 'facts' | 'current' | 'retracted' | 'negated' | 'lowConfidence' | 'averageConfidence'>
+  const names = new Set<string>()
+  const typed = new Set<string>()
+  const entityRows = store.db.prepare(`
+    SELECT c.subject, c.object, c.verb, c.negated FROM (${currentSql}) c WHERE c.conf > 0
+  `).all() as Pick<Row.t, 'subject' | 'object' | 'verb' | 'negated'>[]
+  for (const row of entityRows) {
+    if (isEntityName(row.subject)) {
+      names.add(row.subject)
+      if (row.verb === 'IS' && row.negated === 0 && row.object !== null) typed.add(row.subject)
+    }
+    if (row.object !== null && isEntityName(row.object)) names.add(row.object)
+  }
   return {
     rows: count(store, 'SELECT COUNT(*) AS n FROM cave_claim'),
-    facts: count(store, 'SELECT COUNT(DISTINCT claim_key) AS n FROM cave_claim'),
-    current: count(store, `SELECT COUNT(*) AS n FROM (${currentSql}) c WHERE c.conf > 0 AND c.negated = 0`),
-    retracted: count(store, `SELECT COUNT(*) AS n FROM (${currentSql}) c WHERE c.conf = 0`),
-    negated: count(store, `SELECT COUNT(*) AS n FROM (${currentSql}) c WHERE c.conf > 0 AND c.negated = 1`),
-    averageConfidence: average,
-    lowConfidence: count(store, `SELECT COUNT(*) AS n FROM (${currentSql}) c WHERE c.conf > 0 AND c.conf < 0.3`),
-    entities: new Set(names).size,
-    typedEntities: typed.length,
+    ...totals,
+    entities: names.size,
+    typedEntities: typed.size,
     expectations: evaluation.expectations.length,
     instances: evaluation.instances,
     checks: evaluation.checks,
@@ -479,16 +593,27 @@ const coverage = (store: Store, evaluation: Evaluation): Coverage => {
  * and coverage. Violations are the failing section; the rest is advisory.
  */
 export const check = (store: Store, options: Options = {}): Report => {
-  const evaluation = evaluate(store)
-  return {
-    expectations: evaluation.expectations,
-    violations: evaluation.violations,
-    stale: staleRows(store, options.staleDays ?? defaultStaleDays, (options.now ?? Date.now)()),
-    review: all(store, `
-      SELECT c.* FROM (${currentSql}) c
-      WHERE c.conf >= 0.3 AND c.conf <= 0.7 ORDER BY c.conf, c.tx
-    `),
-    disagreements: findDisagreements(store),
-    coverage: coverage(store, evaluation)
+  const staleDays = options.staleDays ?? defaultStaleDays
+  if (!Number.isFinite(staleDays) || staleDays < 0) {
+    throw new TypeError('staleDays must be finite and non-negative')
   }
+  const nowMs = (options.now ?? Date.now)()
+  if (!Number.isFinite(nowMs)) throw new TypeError('now must return a finite timestamp')
+  // A savepoint starts a deferred read transaction or nests within the caller's
+  // transaction. Keep every report section on the same snapshot without taking
+  // a write reservation, including on read-only connections.
+  return readSnapshot(store, 'cave_health_read', () => {
+    const evaluation = evaluate(store)
+    return {
+      expectations: evaluation.expectations,
+      violations: evaluation.violations,
+      stale: staleRows(store, staleDays, nowMs),
+      review: all(store, `
+        SELECT c.* FROM (${currentSql}) c
+        WHERE c.conf >= 0.3 AND c.conf <= 0.7 ORDER BY c.conf, c.tx
+      `),
+      disagreements: findDisagreements(store),
+      coverage: coverage(store, evaluation)
+    }
+  })
 }

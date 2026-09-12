@@ -27,6 +27,9 @@
  * nothing and are excluded from means; they surface in `failed` instead.
  */
 
+import { errorMessage } from './error-message.ts'
+import { cleanup, throwIfCancelled } from './cleanup.ts'
+
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -40,6 +43,7 @@ import * as Score from './score.ts'
 import * as Queries from './queries.ts'
 import * as Loop from './loop.ts'
 import { judgePrompt, parsePairs } from './judge.ts'
+import { validateRuns, validateTimeoutSeconds, validateTolerance } from './options.ts'
 
 /**
  * Extraction agent: a shell template (the `cave ingest` contract —
@@ -158,8 +162,14 @@ export type Report = {
   readonly root?: string
 }
 
-const readText = (path: string): string =>
-  readFileSync(path, 'utf8')
+const readText = (path: string): string => {
+  const bytes = readFileSync(path)
+  try {
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch (cause) {
+    throw new TypeError(`${path}: invalid UTF-8 evaluation fixture`, { cause })
+  }
+}
 
 const mean = (values: readonly number[]): number =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
@@ -202,12 +212,12 @@ const loopFixtureOf = (
   const problems: string[] = []
   const knowledge = readText(kase.source)
   const parsed = canonicalizeText(knowledge, registry)
-  problems.push(...parsed.problems.map(problem => `knowledge line ${problem.line}: ${problem.message}`))
+  for (const problem of parsed.problems) problems.push(`knowledge line ${problem.line}: ${problem.message}`)
   if (parsed.claims.length === 0) {
     problems.push('knowledge has no claims')
   }
   const { spec, problems: specProblems } = Loop.parseSpec(readText(kase.loop), registry)
-  problems.push(...specProblems)
+  for (const problem of specProblems) problems.push(problem)
   if (problems.length === 0) {
     const graph = memoryStoreOfText(knowledge, registry)
     for (const seed of spec.seeds) {
@@ -217,7 +227,7 @@ const loopFixtureOf = (
     }
     const known = Score.factsOf(parsed.claims.map(entry => entry.claim))
     const unreachable = Score.compare(facts, known)
-    problems.push(...unreachable.misses.map(fact => `golden claim not in the knowledge: ${Score.lineOf(fact)}`))
+    for (const fact of unreachable.misses) problems.push(`golden claim not in the knowledge: ${Score.lineOf(fact)}`)
   }
   return { problems, loop: { spec, knowledge } }
 }
@@ -231,41 +241,45 @@ const fixtureOf = (
   const problems: string[] = []
   const goldenText = readText(kase.golden)
   const { facts, problems: goldenProblems } = Score.goldenFacts(goldenText, registry)
-  problems.push(...goldenProblems)
+  for (const problem of goldenProblems) problems.push(problem)
   if (facts.length === 0) {
     problems.push('golden has no claims')
   }
   let loop: undefined | { spec: Loop.Spec, knowledge: string }
   if (kase.loop !== undefined) {
     const checked = loopFixtureOf({ ...kase, loop: kase.loop }, facts, registry)
-    problems.push(...checked.problems)
+    for (const problem of checked.problems) problems.push(problem)
     loop = checked.loop
   }
   let queries: readonly Queries.Query[] = []
   if (kase.queries !== undefined) {
     const parsed = Queries.parseQueries(readText(kase.queries))
-    problems.push(...parsed.problems)
+    for (const problem of parsed.problems) problems.push(problem)
     queries = parsed.queries
   }
   if (problems.length === 0 && queries.length > 0) {
     // The golden itself must satisfy the queries — otherwise the
     // expectations measure the fixture, not the agent.
     const scratch = open(':memory:', { registry })
+    const failures: unknown[] = []
     try {
       scratch.ingest(goldenText)
       for (const q of queries) {
         const outcome = Queries.checkQuery(scratch, q, { aliases })
         if (!outcome.pass) {
-          const detail = outcome.error ??
+          const detail = outcome.error ?? (q.expect.kind === 'some' ? 'no matches' :
             [
               ...outcome.missing.map(solution => `missing ${Queries.formatSolution(solution)}`),
               ...outcome.unexpected.map(record => `unexpected ${Queries.formatSolution(record)}`)
-            ].join(', ')
+            ].join(', '))
           problems.push(`queries line ${q.line}: the golden does not satisfy '${q.pattern.split('\n')[0]}' (${detail})`)
         }
       }
+    } catch (error) {
+      failures.push(error)
+      throw error
     } finally {
-      scratch.close()
+      cleanup(failures, () => scratch.close())
     }
   }
   return { problems, facts, queries, ...loop === undefined ? {} : { loop } }
@@ -278,6 +292,7 @@ const runJudge = async (
   cwd: string,
   signal?: AbortSignal
 ): Promise<{ pairs: [number, number][], error?: string }> => {
+  signal?.throwIfAborted()
   if (comparison.misses.length === 0 || comparison.extras.length === 0) {
     return { pairs: [] }
   }
@@ -286,11 +301,14 @@ const runJudge = async (
   if (typeof judge === 'function') {
     try {
       output = await judge(prompt)
+      signal?.throwIfAborted()
     } catch (error) {
-      return { pairs: [], error: error instanceof Error ? error.message : String(error) }
+      throwIfCancelled(signal, error)
+      return { pairs: [], error: errorMessage(error) }
     }
   } else {
     const promptDir = mkdtempSync(join(tmpdir(), 'cave-judge-'))
+    const failures: unknown[] = []
     try {
       const promptFile = join(promptDir, 'judge.md')
       writeFileSync(promptFile, prompt)
@@ -298,12 +316,16 @@ const runJudge = async (
         judge, prompt, { 'prompt-file': promptFile }, timeoutSeconds, cwd,
         { ...signal === undefined ? {} : { signal } }
       )
+      signal?.throwIfAborted()
       if (result.code !== 0) {
         return { pairs: [], error: result.error ?? `judge exited with ${result.code}` }
       }
       output = result.stdout
+    } catch (error) {
+      failures.push(error)
+      throw error
     } finally {
-      rmSync(promptDir, { recursive: true, force: true })
+      cleanup(failures, () => rmSync(promptDir, { recursive: true, force: true }))
     }
   }
   return { pairs: parsePairs(output, comparison.misses.length, comparison.extras.length) }
@@ -311,10 +333,33 @@ const runJudge = async (
 
 /** Runs the full eval. */
 export const run = async (options: Options): Promise<Report> => {
+  const signal = options.signal
+  signal?.throwIfAborted()
+  options = {
+    signal,
+    suites: [...options.suites],
+    agent: options.agent,
+    judge: options.judge,
+    runs: options.runs,
+    mode: options.mode,
+    embed: options.embed,
+    instructions: options.instructions,
+    tolerance: options.tolerance,
+    aliases: options.aliases,
+    timeoutSeconds: options.timeoutSeconds,
+    noPrelude: options.noPrelude,
+    keep: options.keep,
+    cwd: options.cwd
+  }
+  validateTolerance(options.tolerance)
   const cwd = options.cwd ?? process.cwd()
   const runs = options.runs ?? 1
-  const mode = options.mode ?? 'mcp'
+  validateRuns(runs)
+  const mode = options.mode === undefined ? 'mcp' : options.mode
+  if (mode !== 'mcp' && mode !== 'stdout') throw new TypeError('mode must be mcp or stdout')
+  const keep = options.keep === true
   const timeoutSeconds = options.timeoutSeconds ?? 600
+  validateTimeoutSeconds(timeoutSeconds)
   const registry = options.noPrelude === true ? Registry.empty : standardRegistry
   const suite = Suite.discover(options.suites, {
     cwd,
@@ -322,8 +367,10 @@ export const run = async (options: Options): Promise<Report> => {
   })
   const root = mkdtempSync(join(tmpdir(), 'cave-eval-'))
   const cases: CaseReport[] = []
+  const failures: unknown[] = []
   try {
     for (const [caseIndex, kase] of suite.cases.entries()) {
+      options.signal?.throwIfAborted()
       const kind = kase.loop === undefined ? 'extraction' : 'loop'
       const fixture = fixtureOf(kase, registry, options.aliases === true)
       if (fixture.problems.length > 0) {
@@ -340,10 +387,12 @@ export const run = async (options: Options): Promise<Report> => {
       }
       const caseRuns: RunReport[] = []
       for (let runNo = 1; runNo <= runs; runNo += 1) {
-        const runOptions = { ...options, mode, timeoutSeconds, cwd }
+        options.signal?.throwIfAborted()
+        const runOptions = { ...options, mode, timeoutSeconds, cwd, keep }
         caseRuns.push(fixture.loop === undefined ?
           await runOnce(kase, fixture, caseIndex, runNo, root, registry, runOptions) :
           await runLoopOnce(kase, fixture.loop, fixture, caseIndex, runNo, root, registry, runOptions))
+        options.signal?.throwIfAborted()
       }
       const caseMean = meanOf(caseRuns, options.judge !== undefined)
       cases.push({
@@ -357,9 +406,12 @@ export const run = async (options: Options): Promise<Report> => {
         ...caseMean === undefined ? {} : { mean: caseMean }
       })
     }
+  } catch (error) {
+    failures.push(error)
+    throw error
   } finally {
-    if (options.keep !== true) {
-      rmSync(root, { recursive: true, force: true })
+    if (!keep) {
+      cleanup(failures, () => rmSync(root, { recursive: true, force: true }))
     }
   }
   const allRuns = cases.flatMap(kase => kase.runs)
@@ -371,7 +423,7 @@ export const run = async (options: Options): Promise<Report> => {
     failedRuns: allRuns.filter(run => !run.ok).length,
     fixture: suite.problems,
     ...overall === undefined ? {} : { mean: overall },
-    ...options.keep === true ? { root } : {}
+    ...keep ? { root } : {}
   }
 }
 
@@ -410,6 +462,7 @@ const scoreRun = async (
   head: { note?: string, problems: readonly string[] },
   options: Options & { timeoutSeconds: number }
 ): Promise<RunReport> => {
+  options.signal?.throwIfAborted()
   const produced = Score.producedFacts(store)
   const comparison = Score.compare(fixture.facts, produced, {
     ...options.tolerance === undefined ? {} : { tolerance: options.tolerance }
@@ -468,6 +521,7 @@ const runOnce = async (
 ): Promise<RunReport> => {
   const db = join(root, `case-${caseIndex + 1}-run-${runNo}.db`)
   const store = open(db, { registry })
+  const failures: unknown[] = []
   try {
     const evalAgent = options.agent
     const agent: undefined | Ingest.Agent = typeof evalAgent === 'function' ?
@@ -494,18 +548,24 @@ const runOnce = async (
       ...kase.instructions === undefined ? {} : { instructions: kase.instructions }
     })
     const batch = report.batches[0]
-    const scoreablePartial = batch !== undefined && batch.added > 0 && batch.problems.length > 0
+    const scoreablePartial = batch?.partial === true
     if (batch === undefined || (!batch.ok && !scoreablePartial)) {
-      return failedRun(fixture.facts.length, batch?.note ?? 'agent produced no batch')
+      return failedRun(fixture.facts.length, batch?.note ?? (batch?.problems.length ? batch.problems.join('; ') : 'agent produced no batch'))
     }
     return await scoreRun(store, db, kase, fixture, {
       ...batch.note === undefined ? {} : { note: batch.note },
       problems: batch.problems
     }, options)
   } catch (error) {
-    return failedRun(fixture.facts.length, error instanceof Error ? error.message : String(error))
+    try { throwIfCancelled(options.signal, error) }
+    catch (abortError) {
+      failures.push(abortError)
+      throw abortError
+    }
+    failures.push(error)
+    return failedRun(fixture.facts.length, errorMessage(error))
   } finally {
-    store.close()
+    cleanup(failures, () => store.close())
   }
 }
 
@@ -528,10 +588,16 @@ const runLoopOnce = async (
 ): Promise<RunReport> => {
   const db = join(root, `case-${caseIndex + 1}-run-${runNo}.db`)
   const store = open(db, { registry })
+  const failures: unknown[] = []
   try {
     const evalAgent = options.agent
     const agent: undefined | string | Loop.Complete = typeof evalAgent === 'function' ?
-      prompt => evalAgent(prompt, [], { db, store }) :
+      async prompt => {
+        options.signal?.throwIfAborted()
+        const result = await evalAgent(prompt, [], { db, store })
+        options.signal?.throwIfAborted()
+        return result
+      } :
       evalAgent
     const reconstruction = await Loop.runSpec(loop.knowledge, loop.spec, registry, {
       ...agent === undefined ? {} : { agent },
@@ -539,14 +605,21 @@ const runLoopOnce = async (
       cwd: dirname(kase.source),
       ...options.signal === undefined ? {} : { signal: options.signal }
     })
+    options.signal?.throwIfAborted()
     const ingested = store.ingest(reconstruction.claims.map(claim => emitClaim(claim)).join('\n'))
     return await scoreRun(store, db, kase, fixture, {
       note: Loop.traceNote(reconstruction),
       problems: ingested.problems.map(problem => `line ${problem.line}: ${problem.message}`)
     }, options)
   } catch (error) {
-    return failedRun(fixture.facts.length, error instanceof Error ? error.message : String(error))
+    try { throwIfCancelled(options.signal, error) }
+    catch (abortError) {
+      failures.push(abortError)
+      throw abortError
+    }
+    failures.push(error)
+    return failedRun(fixture.facts.length, errorMessage(error))
   } finally {
-    store.close()
+    cleanup(failures, () => store.close())
   }
 }

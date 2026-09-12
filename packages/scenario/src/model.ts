@@ -104,6 +104,8 @@ export type InputRecord = {
   readonly schema: typeof schema
   readonly scenarioId: string
   readonly modelDigest: string
+  /** Digest of the complete authored scenario definition, including binding queries and policies. */
+  readonly definitionDigest: string
   readonly digest: string
   readonly snapshot: FrozenSnapshot
   readonly overlay: {

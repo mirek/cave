@@ -1,0 +1,68 @@
+{
+  "description": "Independent Python Fraction verification of current explanation arithmetic shortcuts. Correctness checks only; mixed trees and wider exact/linear/explanation inputs on both supported Node majors.",
+  "mixedTrees": [
+    {
+      "format": "cave.explanation-tree-oracle",
+      "version": 1,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": 20260911,
+      "cases": 256,
+      "checks": 512,
+      "indeterminate": 64,
+      "fixtureSha256": "815c80b44750f99ebe8c7d9bc28b362ce23965400bf3fd3d68b1098ea9884b07",
+      "sources": {
+        "scripts/explanation-tree-oracle.mjs": "6dca55e24773af665bc1e967f1375d99877f6064513a54b85759fb7225210724",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+      }
+    },
+    {
+      "format": "cave.explanation-tree-oracle",
+      "version": 1,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": 20260911,
+      "cases": 256,
+      "checks": 512,
+      "indeterminate": 64,
+      "fixtureSha256": "815c80b44750f99ebe8c7d9bc28b362ce23965400bf3fd3d68b1098ea9884b07",
+      "sources": {
+        "scripts/explanation-tree-oracle.mjs": "6dca55e24773af665bc1e967f1375d99877f6064513a54b85759fb7225210724",
+        "packages/solver/src/explain.ts": "8eb4f0a48087e72cd3cf476fd638dca4757f188ee5e3cd8d5248c62e5fd893f9",
+        "packages/solver/src/fraction-product.ts": "732864c497eb224a1643a00ab7c9344d5433ab55d88a77c4064b896e1e9681d5",
+        "packages/solver/src/fraction-sum.ts": "d430ab8f2c04e12ea44b490b8d8386fafc63c755c5d2dc9f8d193a5dfc602e66"
+      }
+    }
+  ],
+  "wideArithmetic": [
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v24.21.0",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    },
+    {
+      "format": "cave.exact-oracle-check",
+      "version": 3,
+      "node": "v26.8.1",
+      "python": "3.14.5",
+      "seed": "0xCAFE2026",
+      "cases": 600,
+      "checks": 3600,
+      "explanationChecks": 3744,
+      "linearChecks": 1872
+    }
+  ],
+  "additionalSources": {
+    "scripts/exact-oracle-check.mjs": "31fa26193a3ba1c3a2d1c7fee65c881afa5f76eecae2837c7cb9ef316292855a",
+    "packages/solver/src/exact.ts": "a4336ff12c9712ea746353dde84b0ac4ebefdcfc4f944c04d3ef4a4b2f312411",
+    "packages/solver/src/integer-gcd.ts": "1b6c956e9e41998030359d3221a0b7ad592ce7df91026022e4dcdd9ace3aceb8"
+  }
+}
