@@ -1,5 +1,13 @@
 # @cavelang/store
 
+## 0.36.7
+
+### Patch Changes
+
+- 500f5bb: Validate authored claim text column types before decoding, rejecting binary values with field diagnostics across native and browser SQLite, exports and claim views.
+- @cavelang/canonical@0.36.7
+  - @cavelang/core@0.36.7
+
 ## 0.36.6
 
 ### Patch Changes

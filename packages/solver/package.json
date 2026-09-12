@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/solver",
-  "version": "0.36.6",
+  "version": "0.36.7",
   "type": "module",
   "description": "Solver-neutral models, bounded verification workflows, validation, and result contracts for CAVE formal reasoning.",
   "keywords": [
