@@ -7,6 +7,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never', outputFolder: 'playwright-report' }]] : 'line',
   use: {
+    channel: 'chromium',
     baseURL: 'http://127.0.0.1:4173/cave/',
     trace: 'retain-on-failure',
   },

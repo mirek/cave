@@ -268,7 +268,7 @@ test('the stable CI check and release script both require packed-artifact smoke 
   assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - browser\n      - smoke/)
 
   const pages = readFileSync(fileURLToPath(new URL('../../../.github/workflows/pages.yml', import.meta.url)), 'utf8')
-  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
+  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps --no-shell chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
 
   const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
   const clean = release.indexOf('pnpm clean')
