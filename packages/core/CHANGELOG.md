@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.36.6
+
+### Patch Changes
+
+- 662e98a: Separate the system review's release baseline from historical verification counts and remove stale open-migration status.
+
 ## 0.36.5
 
 No changes in this release.
