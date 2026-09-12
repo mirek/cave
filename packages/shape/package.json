@@ -1,9 +1,9 @@
 {
   "name": "@cavelang/shape",
-  "version": "0.35.0",
+  "version": "0.36.8",
   "private": true,
   "type": "module",
-  "description": "CAVE shape expectations, knowledge health and alias discovery (spec \u00a720, \u00a727) \u2014 EXPECTS presence, exact-one cardinality and unit constraints checked against the EXTENDS taxonomy, actionable violations, write gating, and suggested ALIAS claims.",
+  "description": "CAVE shape expectations, knowledge health and alias discovery (spec §20, §27) — EXPECTS presence, exact-one cardinality and unit constraints checked against the EXTENDS taxonomy, actionable violations, write gating, and suggested ALIAS claims.",
   "license": "CC0-1.0",
   "author": "Mirek Rusin (https://github.com/mirek)",
   "repository": {

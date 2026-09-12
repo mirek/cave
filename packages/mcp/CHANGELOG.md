@@ -1,5 +1,65 @@
 # @cavelang/mcp
 
+## 0.36.8
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.8 release identity.
+
+## 0.36.7
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.7 release identity.
+
+## 0.36.6
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.6 release identity.
+
+## 0.36.5
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.5 release identity.
+
+## 0.36.4
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.4 release identity.
+
+## 0.36.3
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.3 release identity.
+
+## 0.36.2
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.2 release identity.
+
+## 0.36.1
+
+### Patch Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.36.1 release identity.
+
+## 0.36.0
+
+### Patch Changes
+
+- b3f5de7: Detect historical rows and lineage added below a pagination cutoff, rejecting
+  stale cursors and changes during page construction with a restart instruction.
+  Preserve continuation across wholly future appends. Version opaque cursors to
+  include a bounded append revision; keep the public page envelope unchanged.
+- b3f5de7: Preserve MCP operation and cleanup failures when thrown values cannot be
+  formatted. Use a stable diagnostic fallback without replacing original errors,
+  and cover source-token rejection through the CLI before database startup.
+
 ## 0.29.0
 
 ### Minor Changes

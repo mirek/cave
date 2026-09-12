@@ -36,7 +36,10 @@ semantic parser's responsibility.
 tree-sitter CLI and WASI SDK archives listed in
 `scripts/grammar-toolchain.json`, verifies their SHA-256 digests, and caches
 them under `~/.cache/cave/grammar-toolchain`. Package installation itself
-does not run a binary downloader.
+does not run a binary downloader. After compilation, the Wasm module is
+normalized to file mode `0644`: it is loaded as data, not executed by the OS.
+Keeping both the generated output and tracked artifact non-executable also
+allows the Changesets version-PR action to commit it through the GitHub API.
 
 The package test command also regenerates the native sources and WASM before
 running the grammar corpus. Run workspace test matrices one Node version at a

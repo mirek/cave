@@ -27,10 +27,17 @@ test('package engines name the exact minimum Node runtime', () => {
 
 test('CI names exact runtimes and supported operating systems', () => {
   const ci = read('.github/workflows/ci.yml')
-  for (const expected of ['24.16.0', '24.21.0', '26.1.0', '26.8.1', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
+  for (const expected of ['24.21.0', '26.8.2', 'ubuntu-24.04', 'macos-15', 'windows-2022']) {
     assert.ok(ci.includes(expected), `CI omits supported runtime target ${expected}`)
   }
+  assert.doesNotMatch(ci, /node: (?:24\.16\.0|26\.1\.0|26\.8\.1)\b/, 'CI uses only the selected releases')
   const runtime = ci.slice(ci.indexOf('\n  runtime:\n'))
+  const runtimeJob = runtime.slice(0, runtime.indexOf('\n    steps:'))
+  const jobMinutes = Number(/timeout-minutes: (\d+)/.exec(runtimeJob)?.[1])
+  const stressMinutes = Number(/name: Verify Z3 cleanup under forced garbage collection\s+timeout-minutes: (\d+)/.exec(runtime)?.[1])
+  assert.ok(stressMinutes >= 20, 'stress step must leave at least six minutes beyond the 14-minute cumulative solve budgets for compilation and cleanup')
+  assert.ok(Number.isFinite(jobMinutes) && Number.isFinite(stressMinutes) && jobMinutes >= stressMinutes + 15,
+    'runtime job must reserve at least 15 minutes around the complete stress-step budget for setup and other suites')
   const bootstrap = runtime.indexOf('node --test packages/mcp/test/bootstrap-native.test.ts')
   assert.ok(bootstrap >= 0 && bootstrap < runtime.indexOf('pnpm install --frozen-lockfile'),
     'the runtime matrix must exercise native bootstrap before installing dependencies')
@@ -82,7 +89,7 @@ test('every workflow job has an explicit timeout and Node workflows use the reco
 test('runtime documentation agrees with the tested support policy', () => {
   for (const path of ['README.md', 'ARCHITECTURE.md', 'IMPLEMENTATION.md', 'packages/cli/README.md']) {
     const document = read(path).replace(/\s+/g, ' ')
-    for (const expected of ['24.16.0', '24.21.0', '26.1.0', '26.8.1', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
+    for (const expected of ['24.16.0', '24.21.0', '26.1.0', '26.8.2', 'Ubuntu 24.04', 'macOS 15', 'Windows Server 2022']) {
       assert.ok(document.includes(expected), `${path} omits ${expected}`)
     }
   }

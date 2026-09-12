@@ -44,7 +44,7 @@ pnpm up --latest -g @cavelang/cli
 ```
 
 The supported Node.js lines are 24 and 26: 24.16.0 and 26.1.0 are their exact minimums,
-24.21.0 Active LTS is the recommended production runtime, and 26.8.1 Current is
+24.21.0 Active LTS is the recommended production runtime, and 26.8.2 Current is
 also tested. The supported CI platforms are Ubuntu 24.04, macOS 15, and Windows
 Server 2022. A CAVE store is one local file; `--db` is optional everywhere
 and defaults to `$CAVE_DB`, or `cave.db` in the current directory. A CAVE

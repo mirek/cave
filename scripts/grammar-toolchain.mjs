@@ -189,6 +189,8 @@ if (['build', 'test', 'verify'].includes(command)) {
   run(treeSitter, ['build', '--wasm', '-o', 'tree-sitter-cave.wasm'], {
     TREE_SITTER_WASI_SDK_PATH: wasiSdk
   })
+  // This module is loaded as data; the version-PR API cannot commit executable files.
+  chmodSync(join(grammar, 'tree-sitter-cave.wasm'), 0o644)
 }
 if (command === 'test') run(treeSitter, ['test'])
 if (command === 'verify') {

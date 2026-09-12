@@ -46,12 +46,15 @@ const escapeHtml = (text: string): string =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 
 const json = (res: ServerResponse, status: number, body: unknown): void => {
+  // Serialization can fail; keep headers untouched so the request boundary
+  // can still send its ordinary JSON error response.
+  const encoded = JSON.stringify(body)
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'x-content-type-options': 'nosniff',
     'cache-control': 'no-store'
   })
-  res.end(JSON.stringify(body))
+  res.end(encoded)
 }
 
 const requiredParameters = new Map([

@@ -13,6 +13,7 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { gt as after } from 'semver'
 
 const root = resolve(process.env.CAVE_RELEASE_ROOT ?? join(import.meta.dirname, '..'))
 
@@ -29,6 +30,10 @@ const releaseType = (previous, next) => {
 // @cavelang/core is in the fixed group, so it always carries the current
 // lockstep version after `changeset version` has run.
 const version = read(join(root, 'packages/core/package.json')).version
+// Changesets leaves the private root untouched, so it identifies the last
+// lockstep release even after individual private packages have been bumped.
+const rootManifestPath = join(root, 'package.json')
+const rootManifest = read(rootManifestPath)
 
 // The action reads a changelog entry for every version-changed workspace,
 // including private packages advanced only by this synchronizer.
@@ -40,6 +45,17 @@ const alignChangelog = (directory, name, previousVersion, description) => {
     : title
   const heading = `## ${version}`
   if (changelog.split('\n').includes(heading)) return
+  // A private patch/minor bump below the fixed-group release is provisional,
+  // not published history. Attribute its actual notes to the lockstep version.
+  const firstVersion = /^## .+$/m.exec(changelog)
+  if (after(previousVersion, rootManifest.version) && after(version, previousVersion) &&
+      firstVersion?.[0] === `## ${previousVersion}`) {
+    const start = firstVersion.index
+    writeFileSync(changelogPath, changelog.slice(0, start) + heading +
+      changelog.slice(start + firstVersion[0].length) + '\n')
+    console.log(`${changelogPath}: ${previousVersion} -> ${version}`)
+    return
+  }
   const firstBreak = changelog.indexOf('\n')
   const header = firstBreak < 0 ? changelog : changelog.slice(0, firstBreak)
   const history = firstBreak < 0 ? '' : changelog.slice(firstBreak).trim()
@@ -61,8 +77,6 @@ for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })
   }
 }
 
-const rootManifestPath = join(root, 'package.json')
-const rootManifest = read(rootManifestPath)
 if (rootManifest.version !== version) {
   rootManifest.version = version
   write(rootManifestPath, rootManifest)

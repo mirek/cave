@@ -65,6 +65,7 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
   const id = store.ingest('broken IS service #sensitivity:restricted').ids[0]!
   store.ingest('healthy IS service #sensitivity:public')
   const key = store.currentBeliefs().find(row => row.id === id)!.claim_key
+  const originalLine = store.currentBeliefs().find(row => row.id === id)!.raw_line
   const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
   const publicHandle = await serve(store, { port: 0, maxSensitivity: 'public' })
   try {
@@ -78,7 +79,8 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
     for (const [field, value] of [
       ['negated', -1], ['importance', 'false'], ['value_approx', -1], ['value_text', '42'],
       ['value_num', 42], ['value_unit', 'private-value-unit'], ['value_approx', 1],
-      ['delta_num', 2], ['delta_unit', 'private-delta-unit']
+      ['delta_num', 2], ['delta_unit', 'private-delta-unit'],
+      ['raw_line', new Uint8Array()], ['comment', new TextEncoder().encode('private-comment')]
     ] as const) {
       store.db.prepare(`UPDATE cave_claim SET ${field} = ? WHERE id = ?`).run(value, id)
       const before = JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all())
@@ -90,8 +92,8 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
           const body = await response.text()
           if (method === 'HEAD') assert.equal(body, '')
           else {
-            assert.match(JSON.parse(body).error, /stored claim.*(payload|negated|importance|value_approx|value_num|value_unit|delta_num|delta_unit)/)
-            assert.doesNotMatch(body, /private-value-unit|private-delta-unit/)
+            assert.match(JSON.parse(body).error, /stored claim.*(payload|negated|importance|value_approx|value_num|value_unit|delta_num|delta_unit|raw_line|comment)/)
+            assert.doesNotMatch(body, /private-value-unit|private-delta-unit|private-comment/)
           }
         }
       }
@@ -103,8 +105,58 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
       }
       assert.equal(JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all()), before)
       store.db.prepare('UPDATE cave_claim SET negated = 0, importance = 0, value_approx = 0, value_text = NULL, value_num = NULL, value_unit = NULL, delta_num = NULL, delta_unit = NULL WHERE id = ?').run(id)
+      store.db.prepare('UPDATE cave_claim SET raw_line = ?, comment = NULL WHERE id = ?').run(originalLine, id)
       const recovered = await fetch(`${handle.url}api/entity?name=broken`)
       assert.equal(recovered.status, 200)
+    }
+  } finally { await publicHandle.close(); await handle.close(); store.close() }
+})
+
+test('HTTP rejects binary tag columns without writes and recovers after repair', async () => {
+  const store = open()
+  const id = store.ingest('broken IS service #label:private-tag #sensitivity:restricted').ids[0]!
+  store.ingest('healthy IS service #sensitivity:public')
+  const key = store.currentBeliefs().find(row => row.id === id)!.claim_key
+  const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
+  const publicHandle = await serve(store, { port: 0, maxSensitivity: 'public' })
+  const paths = ['overview', 'entity?name=broken', `history?key=${encodeURIComponent(key)}`,
+    `lineage?id=${id}`, 'search?q=broken']
+  const tag = store.db.prepare('SELECT rowid FROM cave_tag WHERE claim_id = ? AND key = ?').get(id, 'label')!
+  const tagId = tag.rowid
+  assert.ok(typeof tagId === 'number')
+  try {
+    const before = await Promise.all(paths.map(async path => (await fetch(`${handle.url}api/${path}`)).text()))
+    const publicBefore = await (await fetch(`${publicHandle.url}api/overview`)).text()
+    for (const field of ['key', 'value'] as const) {
+      for (const value of [new Uint8Array(), new TextEncoder().encode('private-tag')]) {
+        store.db.prepare(`UPDATE cave_tag SET ${field} = ? WHERE rowid = ?`).run(value, tagId)
+        const snapshot = store.db.prepare('SELECT * FROM cave_tag ORDER BY rowid').all()
+        for (const path of paths) {
+          for (const method of ['GET', 'HEAD']) {
+            const response = await fetch(`${handle.url}api/${path}`, { method })
+            assert.equal(response.status, 500, `${field}: ${path}`)
+            assert.equal(response.headers.get('cache-control'), 'no-store')
+            const body = await response.text()
+            if (method === 'HEAD') assert.equal(body, '')
+            else {
+              assert.match(JSON.parse(body).error, /stored tag (key|value) must be/)
+              assert.ok(body.includes(id))
+              assert.doesNotMatch(body, /private-tag/)
+            }
+          }
+        }
+        assert.equal((await fetch(`${handle.url}api/search?q=healthy`)).status, 200)
+        const publicResponse = await fetch(`${publicHandle.url}api/overview`)
+        assert.equal(publicResponse.status, 200)
+        assert.equal(await publicResponse.text(), publicBefore)
+        assert.deepEqual(store.db.prepare('SELECT * FROM cave_tag ORDER BY rowid').all(), snapshot)
+        store.db.prepare('UPDATE cave_tag SET key = ?, value = ? WHERE rowid = ?').run('label', 'private-tag', tagId)
+        for (const [index, path] of paths.entries()) {
+          const response = await fetch(`${handle.url}api/${path}`)
+          assert.equal(response.status, 200)
+          assert.equal(await response.text(), before[index])
+        }
+      }
     }
   } finally { await publicHandle.close(); await handle.close(); store.close() }
 })
@@ -139,6 +191,51 @@ test('HTTP contains unprintable store failures and serves subsequent requests', 
       t.mock.restoreAll()
       assert.equal((await fetch(`${handle.url}api/overview`)).status, 200)
     }
+  } finally {
+    t.mock.restoreAll()
+    await handle.close()
+    store.close()
+  }
+})
+
+test('HTTP contains response serialization failures and recovers after adapter repair', async t => {
+  const store = fixture()
+  const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
+  const listener = handle.server.listeners('request')[0]!
+  let escaped: unknown
+  handle.server.removeAllListeners('request')
+  handle.server.on('request', (req, res) => {
+    try { listener(req, res) } catch (error) {
+      escaped = error
+      res.destroy()
+    }
+  })
+  try {
+    const url = `${handle.url}api/overview`
+    const before = await (await fetch(url)).text()
+    const prepare = store.db.prepare.bind(store.db)
+    t.mock.method(store.db, 'prepare', (sql: string) => {
+      const statement = prepare(sql)
+      // BigInt is a SQLite adapter value, but cannot be serialized as JSON.
+      return sql === 'SELECT COUNT(*) AS n FROM cave_claim'
+        ? { ...statement, get: () => ({ n: 1n }) }
+        : statement
+    })
+    for (const method of ['GET', 'HEAD']) {
+      const response = await fetch(url, { method }).catch(() => undefined)
+      assert.equal(escaped, undefined, 'serialization must not escape the HTTP handler')
+      assert.ok(response, 'the client receives an HTTP response')
+      assert.equal(response.status, 500)
+      assert.equal(response.headers.get('cache-control'), 'no-store')
+      assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8')
+      const body = await response.text()
+      if (method === 'HEAD') assert.equal(body, '')
+      else assert.match(JSON.parse(body).error, /BigInt/i)
+    }
+    t.mock.restoreAll()
+    const repaired = await fetch(url)
+    assert.equal(repaired.status, 200)
+    assert.equal(await repaired.text(), before)
   } finally {
     t.mock.restoreAll()
     await handle.close()

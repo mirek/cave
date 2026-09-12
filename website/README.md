@@ -180,8 +180,12 @@ Escape clears a focused documentation filter without changing the article or
 moving focus. The input exposes this shortcut to assistive technology and
 ignores Escape during IME composition or when Control, Meta, Alt or Shift is
 held, leaving modified shortcuts unconsumed.
-Down Arrow moves focus from the filter to the first matching page without
-navigating. Enter then opens that focused link, and Tab continues through the
+Down Arrow moves focus to the first matching page and reveals it below the
+sticky header without navigating. If native keyboard scrolling is still active,
+a bounded frame check keeps that link visible until scrolling settles (three
+stable frames, at most 120 frames). Focus loss, a new
+keyboard/pointer/wheel/touch interaction, another focus action or component
+unmount cancels the pending correction. Enter then opens that focused link, and Tab continues through the
 remaining links normally. Visible help and the input's accessible shortcut list
 describe this browsing action. With no matches, during IME composition, or with
 modifiers, Down Arrow keeps its normal input behavior.
@@ -542,9 +546,20 @@ streaming terminate only that response. File streams close when clients disconne
 and a failed request does not terminate the server. Fault-injection tests cover
 metadata failure, stream-open failure and failure after a partial response.
 
-The Playwright configuration runs these checks in its version-matched Chromium
-build. After updating the lockfile, install that browser with
-`pnpm --dir website exec playwright install chromium`; the
+Repeated documentation navigation has a separate browser test for each route
+alias and viewport. On failure, `native-navigation-input` records the last 64
+input events, their capture/bubble phases, cancellation state, targets, link
+bounds and scroll position alongside the normal Playwright trace. The listeners
+observe events without cancelling them. This helps distinguish a missed native
+middle-click from application cancellation or movement during input.
+An intermittent hosted missing-tab failure was not reproduced in 20 local runs
+of the original six-scenario test or 12 additional CPU-throttled scenarios;
+the added evidence does not establish a root-cause fix or justify retries.
+
+The Playwright configuration uses `channel: 'chromium'` to run the full browser
+in headless mode. Native middle-click/new-tab assertions remain enabled.
+After updating the lockfile, install that version-matched browser with
+`pnpm --dir website exec playwright install --no-shell chromium`; the
 [dependency guide](../DEPENDENCY-MAINTENANCE.md#playwright-browser-test-updates)
 records the current compatibility review. Responsive widths,
 touch and accessibility media emulation exercise that engine; the suite does not

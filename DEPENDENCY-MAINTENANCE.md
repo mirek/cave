@@ -101,10 +101,30 @@ no remote, and the source/workspace installation was removed after the check.
 This trial covered versioning and synchronization, not grammar regeneration
 or the lockfile-refresh stage of the full version script.
 
-These trials verify the source-level publication and version-summary paths,
-not the action's bundled entrypoint, GitHub runner orchestration, hosted version
-PR or external publication. Remaining verification is tracked in
-[the release task](todo/changesets-v3-migration.md).
+These trials verify the source-level publication and version-summary paths.
+Hosted evidence now also covers the bundled entrypoint and external publication.
+
+### Hosted migration verification
+
+The CLI 3.0.2/action 2.1.1 workflow generated [release PR #223](https://github.com/mirek/cave/pull/223),
+consuming 2,033 changesets and aligning 24 package/extension manifests at 0.36.0.
+The PR passed CI and Codex review before merging at
+`b09cbf06d10f7dd1be8abedc29f3336208d4cc61` on September 12, 2026.
+[Publish run 34695314713, attempt 1](https://github.com/mirek/cave/actions/runs/34695314713/attempts/1)
+passed preflight, published all 12 public npm packages at 0.36.0, pushed the
+single `v0.36.0` tag at that commit, and published the VS Code extension.
+The independent `pnpm release:audit` installed the declared package set with
+lifecycle scripts disabled and verified 86 registry signatures and 27 available
+attestations. This verifies registry provenance, not byte equality with a local
+rebuild. See [release behavior](IMPLEMENTATION.md#toolchain) for the operational
+contract and retry procedure.
+
+[Attempt 2 of the same run](https://github.com/mirek/cave/actions/runs/34695314713/attempts/2)
+then verified fully published recovery at the same commit. After a clean build,
+tests and packed smoke checks, it reported `v0.36.0 is fully published` and
+`tag v0.36.0 already exists on origin`, with no new npm publications. The
+Marketplace job also skipped its already-published version. All three jobs
+passed and the remote tag still pointed to the original release commit.
 
 ## Dependency advisories
 
@@ -231,8 +251,20 @@ newer, covering both supported CAVE majors. The
 remove Ubuntu 20.04 support; the browser CI job already uses Ubuntu 24.04.
 This release's Chromium build is 153.0.8010.12 (revision 1243). Install the
 browser matching the lockfile through `pnpm --dir website exec playwright
-install chromium`; a previously installed browser is not version evidence.
+install --no-shell chromium`; a previously installed browser is not version evidence.
 For local review, `--no-remove` preserves other Playwright installations' browsers.
+
+The suite selects `channel: 'chromium'`, using the full browser's headless mode.
+[Playwright documents this mode](https://playwright.dev/docs/browsers#chromium-new-headless-mode)
+as sharing normal browser behavior more closely than the separate headless shell.
+CI installs that browser with `--no-shell`. This follows intermittent hosted
+middle-click failures in both documentation navigation and article section links,
+where the click completed but no new page event arrived. The symptom also appears
+in [upstream issue #42142](https://github.com/microsoft/playwright/issues/42142),
+including a plain-HTML reproduction; a passing local run did not rule it out.
+The mode change retains native clicks, destination assertions, failure traces,
+and the input timeline. It does not add retries or replace the click with a
+programmatic page opening. Future browser updates must still pass the full suite.
 
 The existing single-worker Chromium suite needs no migration to the new test
 locks, frame locators or trace snapshot APIs. All 144 production-browser tests

@@ -335,6 +335,12 @@ reviewed public API check; source tests do not prove installed resolution.
   extension and grammar metadata, leaving the ignored website unchanged. It
   adds alignment changelog entries for workspaces it advances so the action
   can summarize every changed package, preserving existing release entries.
+  When Changesets gives a workspace a provisional version between the old
+  root version and the new fixed-group version, the synchronizer retitles its
+  leading changelog entry to the actual lockstep release. Its detailed notes
+  stay intact; entries at or below the old root version remain history.
+  These comparisons use semver precedence, including prerelease identifiers
+  and ignoring build metadata.
   Each alignment changelog is written before its manifest version advances.
   A changelog failure therefore leaves that workspace eligible for a retry,
   with the original release severity; successful earlier workspace writes may
@@ -342,8 +348,9 @@ reviewed public API check; source tests do not prove installed resolution.
   directly, since the preceding Changesets stage may already have consumed its
   input files. This is retryable ordering, not a transaction across all files.
   An isolated test runs the installed CLI against CAVE's workspace manifests
-  and verifies both stages and the empty second run. Hosted workflow and
-  actual publication verification remain in the migration task.
+  and verifies both stages and the empty second run. The migrated workflow's
+  hosted 0.36.0 release evidence is recorded in
+  [Dependency maintenance](DEPENDENCY-MAINTENANCE.md#hosted-migration-verification).
   To preview pending changes without consuming them, run
   `pnpm exec changeset status --output /tmp/cave-release-plan.json` from the
   repository root. This reports Changesets' raw plan: private workspaces may
@@ -361,10 +368,10 @@ reviewed public API check; source tests do not prove installed resolution.
   exports and bypassing their required CLI release severity.
 - **Runtime support is explicit.** The supported Node.js lines are 24 and 26, starting at
   24.16.0 and 26.1.0 respectively; 24.21.0 Active LTS is recommended, and
-  26.8.1 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
+  26.8.2 Current is also tested. Ubuntu 24.04, macOS 15, and Windows Server 2022
   are the CI representatives for the supported Linux, macOS, and Windows
   families. The full suite stays on the recommended Linux runtime; a focused
-  matrix covers the minimum, Node 26, and platform-specific process,
+  matrix covers the selected Node 24 and 26 releases and platform-specific process,
   filesystem, native grammar, SQLite, solver/adapter and forced-GC cleanup, and
   consolidated-package behavior.
   Packed shell-agent adapter checks exercise strict reply decoding, malformed

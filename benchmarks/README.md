@@ -23,6 +23,9 @@ measure performance or add a Python dependency to the solver runtime.
 The [conditional tree audit](conditional-expression-tree-review.json) extends the
 tree generator with nested conditionals and explicit skipped/selected invalid
 branches: 261 trees and 522 outcome checks per supported Node major.
+The [compound fraction audit](compound-fraction-oracle-review.json) extends that
+driver to 341 trees and 1,162 checks per major, adding large denominator
+compositions, constant-divisor classification and fresh-budget retry checks.
 The wide arithmetic oracle also compares explanation size estimates with Python
 integer bit lengths; [recorded bounds checks](explanation-budget-bounds-review.json)
 cover signed values, zeros, cancellation and unreduced fraction inputs.
@@ -178,6 +181,7 @@ by its repository-relative path. Open its package reference for interpretation.
 | [projection statement reuse](../scripts/view-projection-bench.mjs) | Five-process before/after comparison with unchanged validation and provenance; [raw samples](view-projection-statements-review.json) | [Details](../packages/view/README.md) |
 | [view-projection](../scripts/view-projection-bench.mjs) | Cold, cached and provenance-invalidated entity views with identity validation; [raw samples](view-projection-fidelity-review.json) | [Details](../packages/view/README.md) |
 | [view-search](../scripts/view-search-bench.mjs) | Complete search view construction with numeric/text values and metadata | [Details](../packages/view/README.md) |
+| [view-lineage](../scripts/view-lineage-bench.mjs) | Wide lineage graphs with shared evidence and distinct metadata; [before/after samples](view-lineage-statements-review.json) | [Details](../packages/view/README.md) |
 | [current-search](../scripts/current-search-bench.mjs) | Historical and current-only search with revision-heavy histories and unrelated keys | [Details](../packages/store/README.md#current-search-trial) |
 
 ## Interpreting results

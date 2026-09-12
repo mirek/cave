@@ -91,6 +91,19 @@ test('long recorded outputs retain placeholder and ellipsis matching', () => {
   assert.equal(matches('a\n…\nb\nc', 'a\nb\nx'), false)
 })
 
+test('the recorded doctor session accepts release versions without hiding diagnostic drift', () => {
+  const chapter = readFileSync(new URL('../../../book/chapters/28-operating.typ', import.meta.url), 'utf8')
+  const recorded = chapter.split('$ cave doctor --db roastery.db\n')[1]?.split('```')[0]?.trimEnd()
+  assert.ok(recorded, 'the operating chapter includes the doctor session')
+  for (const version of ['0.35.0', '0.36.0', '1.0.0']) {
+    const actual = recorded.replace(/^cave doctor .*$/m, `cave doctor ${version}`)
+      .replace('PASS Node <token>', 'PASS Node 24.21.0')
+      .replace('PASS SQLite <token>', 'PASS SQLite 3.53.4')
+    assert.ok(matches(recorded, actual), `the example must survive release ${version}`)
+    assert.ok(!matches(recorded, actual.replace('result: ready', 'result: failed')))
+  }
+})
+
 test('recorded output matches line by line, with placeholders standing for real values', () => {
   assert.ok(matches('added 1 claim(s)\nok', 'added 1 claim(s)\nok\n'))
   assert.ok(!matches('foo\nbar', 'foobar'), 'line breaks are significant')

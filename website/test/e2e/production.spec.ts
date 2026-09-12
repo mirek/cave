@@ -864,30 +864,68 @@ test('repeated article section links restore focus and retain native new-tab beh
   } finally { await tab.close() }
 })
 
-test('repeated documentation navigation restores the article heading', async ({ page, context }) => {
+test.describe('repeated documentation navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const events: unknown[] = []
+      Object.assign(window, { caveNativeNavigationEvents: events })
+      for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'auxclick', 'keydown', 'keyup', 'focusin']) {
+        for (const capture of [true, false]) document.addEventListener(type, event => {
+          const target = event.target instanceof Element ? event.target : undefined
+          const link = target?.closest('a')
+          const bounds = link?.getBoundingClientRect()
+          events.push({
+            type, phase: capture ? 'capture' : 'bubble', time: performance.now(),
+            target: target?.tagName, href: link?.getAttribute('href'),
+            defaultPrevented: event.defaultPrevented,
+            button: event instanceof MouseEvent ? event.button : undefined,
+            point: event instanceof MouseEvent ? [event.clientX, event.clientY] : undefined,
+            key: event instanceof KeyboardEvent ? event.key : undefined,
+            scroll: [window.scrollX, window.scrollY],
+            bounds: bounds && { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+          })
+          if (events.length > 64) events.shift()
+        }, capture)
+      }
+    })
+  })
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus) return
+    const evidence = await page.evaluate(() => ({
+      url: location.href, viewport: [innerWidth, innerHeight],
+      events: (window as unknown as { caveNativeNavigationEvents?: unknown[] }).caveNativeNavigationEvents
+    })).catch(error => ({ unavailable: String(error) }))
+    await testInfo.attach('native-navigation-input', {
+      body: JSON.stringify(evidence, null, 2), contentType: 'application/json'
+    })
+  })
+
   for (const width of [1280, 390]) for (const entry of ['docs/overview', 'docs', 'docs/']) {
-    await page.setViewportSize({ width, height: 900 })
-    await page.goto('./#/home')
-    await page.goto(`./#/${entry}`)
-    const heading = page.locator('.docs-article h1')
-    const link = page.getByRole('navigation', { name: 'Documentation', exact: true }).locator('[aria-current="page"]')
-    await expect(heading).toBeFocused()
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-    await expect(heading).not.toBeInViewport()
-    await link.click()
-    await expect(page).toHaveURL(/#\/docs\/overview$/)
-    await expect(heading).toBeFocused()
-    await expect(heading).toBeInViewport()
-    await link.focus()
-    await link.press('Enter')
-    await expect(heading).toBeFocused()
-    const opened = context.waitForEvent('page')
-    await link.click({ button: 'middle' })
-    const tab = await opened
-    try {
-      await expect(tab).toHaveURL(/#\/docs\/overview$/)
-      await expect(tab.locator('.docs-article h1')).toBeVisible()
-    } finally { await tab.close() }
+    test(`restores the article heading and opens a native tab from ${entry} at ${width}px`, async ({ page, context }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('./#/home')
+      await page.goto(`./#/${entry}`)
+      const heading = page.locator('.docs-article h1')
+      const link = page.getByRole('navigation', { name: 'Documentation', exact: true }).locator('[aria-current="page"]')
+      await expect(heading).toBeFocused()
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+      await expect(heading).not.toBeInViewport()
+      await link.click()
+      await expect(page).toHaveURL(/#\/docs\/overview$/)
+      await expect(heading).toBeFocused()
+      await expect(heading).toBeInViewport()
+      await link.focus()
+      await link.press('Enter')
+      await expect(heading).toBeFocused()
+      const opened = context.waitForEvent('page')
+      await link.click({ button: 'middle' })
+      const tab = await opened
+      try {
+        await expect(tab).toHaveURL(/#\/docs\/overview$/)
+        await expect(tab.locator('.docs-article h1')).toBeVisible()
+      } finally { await tab.close() }
+    })
   }
 })
 
@@ -1227,7 +1265,21 @@ for (const width of [320, 390, 1280]) {
     }
     await filter.press('ArrowDown')
     await expect(links.first()).toBeFocused()
-    await expect(links.first()).toBeInViewport()
+    try {
+      await expect(links.first()).toBeInViewport()
+    } catch (error) {
+      await testInfo.attach('focused-match-position', {
+        contentType: 'application/json',
+        body: JSON.stringify(await links.first().evaluate(element => ({
+          bounds: element.getBoundingClientRect().toJSON(),
+          scroll: { x: window.scrollX, y: window.scrollY },
+          sidebar: element.closest('aside')?.getBoundingClientRect().toJSON(),
+          nav: element.closest('nav')?.getBoundingClientRect().toJSON(),
+          focused: document.activeElement === element,
+        }))),
+      })
+      throw error
+    }
     await expect(page).toHaveURL(/#\/docs\/overview$/)
     await page.screenshot({ path: testInfo.outputPath('browse-doc-matches.png') })
     const target = await links.first().getAttribute('href')
@@ -1235,6 +1287,66 @@ for (const width of [320, 390, 1280]) {
     await expect.poll(() => page.evaluate(() => window.location.hash)).toBe(target)
     await expect(page.locator('.docs-article h1')).toBeFocused()
     await expect(filter).toHaveValue('solver')
+  })
+
+  for (const delayedScroll of [false, true]) test(`Down Arrow reveals a documentation match during smooth page scrolling at ${width}px (delayed=${delayedScroll})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    const filter = page.getByRole('textbox', { name: 'Filter documentation', exact: true })
+    await filter.fill('solver')
+    await page.evaluate(async delayedScroll => {
+      // A preceding browser keyboard shortcut can leave a smooth scroll active.
+      if (!delayedScroll) window.scrollTo({ top: 1000, behavior: 'smooth' })
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      if (delayedScroll) window.scrollTo({ top: 1000, behavior: 'smooth' })
+      // Observe the final position, not the initial frame before scrolling runs.
+      for (let frame = 0; frame < 60; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    }, delayedScroll)
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+    await expect(page).toHaveURL(/#\/docs\/overview$/)
+  })
+
+  test(`documentation focus survives continued native-style scroll frames at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    await page.getByRole('textbox', { name: 'Filter documentation', exact: true }).fill('solver')
+    await page.evaluate(async () => {
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      // Model the observed compositor behavior: further movement despite instant
+      // scroll calls, with an early scrollend that does not finish the sequence.
+      for (let frame = 0; frame < 20; frame++) {
+        window.scrollBy({ top: 40, behavior: 'instant' })
+        if (frame === 2) document.dispatchEvent(new Event('scrollend'))
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      }
+      for (let frame = 0; frame < 6; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+  })
+
+  for (const cancelBy of ['focus', 'wheel'] as const) test(`pending documentation reveal respects ${cancelBy} at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    await page.getByRole('textbox', { name: 'Filter documentation', exact: true }).fill('solver')
+    const result = await page.evaluate(async cancelBy => {
+      const filter = document.getElementById('documentation-filter')!
+      filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      const first = document.querySelector<HTMLElement>('.docs-sidebar nav a')!
+      if (cancelBy === 'focus') filter.focus({ preventScroll: true })
+      else first.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 100 }))
+      window.scrollTo({ top: 1000, behavior: 'instant' })
+      document.dispatchEvent(new Event('scrollend'))
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      return { top: scrollY, focused: document.activeElement === (cancelBy === 'focus' ? filter : first) }
+    }, cancelBy)
+    expect(result).toEqual({ top: 1000, focused: true })
   })
 
   test(`Enter opens a unique documentation match and ignores ambiguous or composing input at ${width}px`, async ({ page }, testInfo) => {

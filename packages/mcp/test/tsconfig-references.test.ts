@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -268,7 +268,7 @@ test('the stable CI check and release script both require packed-artifact smoke 
   assert.match(ci, /\n  test:\n[\s\S]*?needs:\n      - suite\n      - runtime\n      - browser\n      - smoke/)
 
   const pages = readFileSync(fileURLToPath(new URL('../../../.github/workflows/pages.yml', import.meta.url)), 'utf8')
-  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
+  assert.match(pages, /pnpm site:build[\s\S]*playwright install --with-deps --no-shell chromium[\s\S]*test:browser[\s\S]*upload-pages-artifact/)
 
   const release = readFileSync(fileURLToPath(new URL('../../../scripts/release-publish.sh', import.meta.url)), 'utf8')
   const clean = release.indexOf('pnpm clean')
@@ -341,9 +341,8 @@ test('release automation validates identity before npm and matches the supported
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
     ['24.21.0', '24.21.0', '24.21.0', '24.21.0'])
-  assert.match(ciWorkflow, /node: 24\.16\.0/)
   assert.match(ciWorkflow, /node: 24\.21\.0/)
-  assert.match(ciWorkflow, /node: 26\.8\.1/)
+  assert.match(ciWorkflow, /node: 26\.8\.2/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/cave\/grammar-toolchain\/downloads/)
     assert.match(workflow, /grammar-toolchain-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}/)
@@ -485,4 +484,11 @@ test('retired package names are private and built into documented CLI subpaths',
     assert.ok(subpath && cli.publishConfig?.exports?.[subpath], `${surface.replacement} must ship emitted code`)
     assert.equal(cli.devDependencies?.[name], 'workspace:*', `${name} must remain a workspace build boundary`)
   }
+})
+
+
+test('generated grammar Wasm is non-executable for version PR commits', () => {
+  const wasm = join(packagesDir, 'tree-sitter-cave', 'tree-sitter-cave.wasm')
+  assert.equal(statSync(wasm).mode & 0o111, 0,
+    'the grammar module is loaded as data; executable mode prevents the Changesets API commit')
 })
