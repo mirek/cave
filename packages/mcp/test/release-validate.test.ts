@@ -188,7 +188,7 @@ test('version synchronization attributes provisional private notes to the lockst
   for (const [previous, provisional, next] of [
     ['0.35.0', '0.35.1', '0.36.0'],
     ['1.9.0', '1.10.0', '2.0.0']
-  ]) {
+  ] as const) {
     const root = mkdtempSync(join(tmpdir(), 'cave-private-notes-'))
     try {
       writeVersions(root, previous)
