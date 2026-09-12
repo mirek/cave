@@ -341,9 +341,8 @@ test('release automation validates identity before npm and matches the supported
   const ciWorkflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
   assert.deepEqual([...ciWorkflow.matchAll(/node-version: ([\d.]+)/g)].map(match => match[1]),
     ['24.21.0', '24.21.0', '24.21.0', '24.21.0'])
-  assert.match(ciWorkflow, /node: 24\.16\.0/)
   assert.match(ciWorkflow, /node: 24\.21\.0/)
-  assert.match(ciWorkflow, /node: 26\.8\.1/)
+  assert.match(ciWorkflow, /node: 26\.8\.2/)
   for (const workflow of [publishWorkflow, ciWorkflow]) {
     assert.match(workflow, /path: ~\/\.cache\/cave\/grammar-toolchain\/downloads/)
     assert.match(workflow, /grammar-toolchain-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}/)
