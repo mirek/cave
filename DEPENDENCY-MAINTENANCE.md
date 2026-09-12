@@ -37,8 +37,8 @@ serializing CI jobs that already have separate runners and caches.
 
 ## Changesets release toolchain
 
-CLI 3.0.2 and action 2.1.1 are a coupled migration: action v2 requires CLI v3.
-The local checkout implements that pairing. The 3.0.2 patch updates the
+The checkout pairs CLI 3.0.2 with action 2.1.2; action v2 requires CLI v3.
+The original coupled migration used action 2.1.1. The 3.0.2 patch updates the
 prerelease-exit review message and internal dependencies; its
 [upstream changelog](https://raw.githubusercontent.com/changesets/changesets/main/packages/cli/CHANGELOG.md)
 describes the changes. The patch retains the same supported engine ranges.
@@ -46,15 +46,15 @@ Earlier migration rehearsals used 3.0.1 and retain their historical scope. The o
 Dependabot proposals (#187 and #189) were closed while compatibility was
 reviewed; their temporary major ignores have now been removed.
 
-The action is pinned to `8488615a623b1b9c987934bb89eae8af6a946ac1`.
-Its [input definitions](https://github.com/changesets/action/blob/8488615a623b1b9c987934bb89eae8af6a946ac1/action.yml)
+The action is pinned to `ae32849d5ba541f9ae29e40e22a623bc13562f51`.
+Its [input definitions](https://github.com/changesets/action/blob/ae32849d5ba541f9ae29e40e22a623bc13562f51/action.yml)
 use `version-script`, `publish-script`, `commit-message`, `pr-title` and
 `create-github-releases`. Keep both `create-github-releases` and `push-git-tags`
 false: CAVE's release script owns its single `v<version>` tag. The default token
 input supplies the workflow token; custom tokens belong in `github-token`.
 Version commits use the action's GitHub API path by default.
 
-The [publish implementation](https://github.com/changesets/action/blob/8488615a623b1b9c987934bb89eae8af6a946ac1/src/run.ts)
+The [publish implementation](https://github.com/changesets/action/blob/ae32849d5ba541f9ae29e40e22a623bc13562f51/src/run.ts)
 reads newline-delimited objects from `CHANGESETS_OUTPUT` with `type: "git-tag"`,
 string `tag`, and string `packageName`, then resolves names against workspace
 versions. No events means `published: false`; missing output warns and falls
@@ -63,6 +63,23 @@ variable alone is insufficient. `scripts/release-output.mjs` reports verified
 publications after registry and tag checks and creates empty output for a fully
 published recovery. See [release behavior](IMPLEMENTATION.md#toolchain) for
 failure ordering, version synchronization, and local fixture coverage.
+
+Action 2.1.2 prepares the local `changeset-release/<branch>` branch and resets
+it to the triggering commit before version generation, including in API push
+mode. CAVE runs this in a fresh Actions checkout after frozen installation;
+version generation still starts from the triggering main revision. A local
+trial against the pinned source exercised both a new release branch and a stale
+remote-tracking release branch. Both ended clean at the triggering commit with
+its tracked contents. The fixtures used local Git repositories and no network
+operations. The upstream source suite also passed all 29 tests with CLI 3.0.2
+on Node 26.5.0; its temporary dependencies were installed with scripts disabled.
+These source checks do not replace hosted release-generation verification.
+
+The patch also consolidates failure logging and handles CLI tag-push errors.
+CAVE keeps action-level tag pushing disabled, so its own publisher's tag and
+publication failure ordering remains authoritative. The action inputs and
+publication-event interface are unchanged from 2.1.1. Earlier integration
+trials below retain their original version scope.
 
 When reviewing future updates, retain these CLI v3 boundaries:
 
@@ -81,17 +98,17 @@ When reviewing future updates, retain these CLI v3 boundaries:
 - Action v2 does not configure `.npmrc` from `NPM_TOKEN`; CAVE uses npm trusted
   publishing through the existing workflow identity.
 
-A local source-level integration trial also imported `runPublish` from that
-exact action commit and executed CAVE's `release-output.mjs` in temporary pnpm
-workspaces. Full and partial output produced the expected package names and
+A local source-level integration trial imported `runPublish` from action 2.1.1
+(`8488615a623b1b9c987934bb89eae8af6a946ac1`) and executed CAVE's
+`release-output.mjs` in temporary pnpm workspaces. Full and partial output produced the expected package names and
 versions; an empty recovery returned `published: false`; a failing script
 retained exit code 1 and the expected missing-output warning. GitHub API access,
 network fetches during execution, and tag pushes were guarded to fail the trial
 if attempted. The action's source dependencies were installed temporarily with
 lifecycle scripts disabled, and the entire workspace was removed afterward.
 
-A second trial imported the pinned `runVersion` source and ran the installed
-CLI's version command followed by CAVE's synchronizer against copied workspace
+A second trial imported the same action 2.1.1 `runVersion` source and ran the
+installed CLI's version command followed by CAVE's synchronizer against copied workspace
 manifests and changelogs. Local doubles captured branch preparation, change
 pushing and PR creation. The generated summary contained the public core,
 private act/automate packages and extension at the fixture version, retained

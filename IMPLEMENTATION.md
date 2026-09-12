@@ -325,9 +325,9 @@ reviewed public API check; source tests do not prove installed resolution.
   no new package publication is reported. Publication, verification and tag-push
   failures stop before reporting. Without the environment variable the helper
   does nothing. It never publishes or creates tags itself. Changesets action
-  2.1.1 consumes this interface with both GitHub release creation and action-level
+  2.1.2 consumes this interface with both GitHub release creation and action-level
   tag pushing disabled; `ensure_tag` owns the single lockstep tag.
-- **Changesets CLI 3.0.2 and action 2.1.1 move together.** The workflow uses
+- **Changesets CLI 3.0.2 and action 2.1.2 move together.** The workflow uses
   the v2 script inputs and default token input. `version-packages` intentionally
   fails when no changesets remain; the action selects versioning only while
   changesets are pending. Private-package opt-in does not version the root.
