@@ -183,7 +183,9 @@ held, leaving modified shortcuts unconsumed.
 Down Arrow stops any pending smooth page scroll and moves focus from the filter
 to the first matching page, revealing it immediately below the sticky header without
 navigating. A next-frame correction catches deferred browser scrolling only
-while that link remains connected and focused. Enter then opens that focused link, and Tab continues through the
+while that link remains connected and focused. While a documentation sidebar
+control is focused, page scrolling is immediate so native keyboard scrolling
+does not leave an animation running after focus moves. Enter then opens that focused link, and Tab continues through the
 remaining links normally. Visible help and the input's accessible shortcut list
 describe this browsing action. With no matches, during IME composition, or with
 modifiers, Down Arrow keeps its normal input behavior.
