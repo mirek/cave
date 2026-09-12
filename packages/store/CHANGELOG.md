@@ -1,5 +1,12 @@
 # @cavelang/store
 
+## 0.36.5
+
+### Patch Changes
+
+- @cavelang/canonical@0.36.5
+  - @cavelang/core@0.36.5
+
 ## 0.36.4
 
 ### Patch Changes

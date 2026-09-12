@@ -1,5 +1,9 @@
 # @cavelang/core
 
+## 0.36.5
+
+No changes in this release.
+
 ## 0.36.4
 
 No changes in this release.
