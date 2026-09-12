@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/parser",
-  "version": "0.36.2",
+  "version": "0.36.3",
   "type": "module",
   "description": "CAVE text to AST parser built on @prelude/parser combinators.",
   "keywords": [
