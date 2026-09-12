@@ -526,7 +526,8 @@ checkpoint as an active defect or completion proof.
   The exact VS Code declaration baseline remains intentionally pinned to 1.100.0.
 - Review grammar/highlighting/editor behavior, package boundaries, packed
   artifacts, dependency maintenance, CI, and release automation. The Changesets
-  migration remains separately tracked with its external completion criteria.
+  migration is complete; its publication and recovery evidence lives in
+  [the dependency guide](../DEPENDENCY-MAINTENANCE.md#hosted-migration-verification).
 - Check examples, reference documentation, specification projections, and book
   sessions against the behavior actually exercised; update affected generated
   artifacts when their source changes.
@@ -867,9 +868,9 @@ or treating green checks as closure of an unreviewed boundary.
 | User requirement | Current finding | What still prevents whole-goal completion |
 | --- | --- | --- |
 | Go through the complete system | The full runtime, browser and installed-package checkpoints establish integration of the reviewed changes. Package-specific evidence records source inspection, failure cases and recovery. | Kernel/resource and lifecycle scope above still contains unfinished reviews, including validation resource costs, remaining formatting, intermediate arithmetic, native deadlines and remaining command/provenance paths. Capture ownership/recovery and its measured workloads are dispositioned below; this does not close unrelated resource work. |
-| Fix issues found | The known fixes are implemented, documented and covered by focused or integrated checks. The current full runs include connector startup fixes and all 70 Z3 owning tests per major. | An empty bug index does not prove the remaining review cannot reveal more defects. Later source changes must be matched to appropriate verification rather than attributed to older full runs. |
-| Improve the website | The current production build includes search, navigation, responsive behavior and guide improvements; the full 145-test Chromium checkpoint covers 477 links across 32 pages, including the current arithmetic and action guides. | This proves the tested local build. It does not establish hosted deployment or untested browser/assistive-technology behavior. No additional browser-engine or deployment requirement is inferred from this limitation. |
-| Improve documentation | Owning guides explain changed semantics, failures, recovery and measured resource boundaries. Book examples pass in full CLI runs; current guide links and headings pass production checks. | Documentation for future findings remains part of those changes. Historical measurements keep their original source scope and must not be silently relabeled as current. |
+| Fix issues found | The known fixes are implemented, documented and covered by focused or integrated checks. The recorded full runs include connector startup fixes and all 70 Z3 owning tests per major. | An empty bug index does not prove the remaining review cannot reveal more defects. Later source changes must be matched to appropriate verification rather than attributed to older full runs. |
+| Improve the website | The recorded production build includes search, navigation, responsive behavior and guide improvements; the full 145-test Chromium checkpoint covers 477 links across 32 pages, including the current arithmetic and action guides. | This proves the tested local build. It does not establish hosted deployment or untested browser/assistive-technology behavior. No additional browser-engine or deployment requirement is inferred from this limitation. |
+| Improve documentation | Owning guides explain changed semantics, failures, recovery and measured resource boundaries. Book examples pass in full CLI runs; the recorded guide links and headings pass production checks. | Documentation for future findings remains part of those changes. Historical measurements keep their original source scope and must not be silently relabeled as current. |
 | Propose and implement system enhancements | Implemented examples include per-call fusion alias-component reuse, bounded diagnostic accounting and shared lifecycle error handling. Rationale and workload-specific measurements are retained in guides and benchmark records. | These implemented enhancements satisfy concrete parts of the objective; they do not replace unfinished system review or imply universal performance/resource guarantees. |
 | Verify the tracked release migration | The migrated workflow generated and merged release PR #223, published all 12 npm packages and the extension at 0.36.0, and passed fully published recovery at the same commit. [Exact run, tag and registry audit evidence](../DEPENDENCY-MAINTENANCE.md#hosted-migration-verification) is retained in the live guide. | This migration task is complete. Its hosted evidence does not close unrelated runtime, resource or workflow review. |
 
@@ -892,6 +893,38 @@ values against existing preflight, rather than add a universal limit merely
 because one is absent.
 
 ## Verification map
+
+This map records a **0.36.5 release baseline**, verified at
+`a1f74d2b9f92025e3449c2af7b80aa4a31fbee59` on 2026-09-12. It is not an
+automatically updated statement about later commits. Follow the linked runs and
+compare changed paths before reusing this evidence. Test counts in earlier
+scope notes and disposition tables belong to their recorded checkpoints; they
+are not rolling totals for the repository. The
+[preceding verification map](#verification-map-checkpoint-before-the-0365-release-baseline)
+is retained below as a point-in-time record.
+
+| Requested outcome | Recorded evidence | What this establishes and what remains |
+|---|---|---|
+| Review runtime behavior and fix issues | [PR #231](https://github.com/mirek/cave/pull/231) contains JSON serialization failures inside the HTTP request boundary; [PR #233](https://github.com/mirek/cave/pull/233) rejects binary tag columns before claim JSON projection. The [view guide](../packages/view/README.md) explains diagnostics, sensitivity isolation and same-server repair. | These concrete fixes have regression and CI evidence. They do not close the kernel/resource, command/provenance or lifecycle scope above. |
+| Improve the website | [PR #228](https://github.com/mirek/cave/pull/228) records native-navigation failure evidence; [PR #230](https://github.com/mirek/cave/pull/230) selects full Chromium for browser testing. The browser job in [release CI](https://github.com/mirek/cave/actions/runs/34709586669) passed. | This covers the tested production build and navigation assertions, not every browser or assistive technology. Earlier 145-test/477-link measurements remain their original checkpoints, not a current inventory. |
+| Improve live documentation | The view guide documents the HTTP fixes and lineage statement reuse. [DOCUMENTATION.md](../DOCUMENTATION.md) maps affected source changes to required guide, website and book updates. | Owning documentation accompanies each change. Future findings still require their own documentation review; historical measurements are not relabeled as current. |
+| Propose and implement system enhancements | [PR #235](https://github.com/mirek/cave/pull/235) reuses four metadata statements within a lineage request. [Recorded samples](../benchmarks/view-lineage-statements-review.json) compare Node 24.21.0 and local Node 26.5.0 with equal normalized result hashes. | The measured 1,000-branch case improves from 54.65/56.88 ms to 45.75/45.29 ms. This is finite in-memory workload evidence, not a universal latency or resource guarantee. Other implemented enhancements retain their owning evidence below. |
+| Verify integration and distributed artifacts | All jobs in [release CI](https://github.com/mirek/cave/actions/runs/34709586669) passed at release head `36a29902a0d522ef06513433bc4746fe94c1b27d`, including suite, browser, smoke, extension, macOS/Windows Node 24.21.0 and Linux Node 26.8.2. [Release PR #236](https://github.com/mirek/cave/pull/236) has a completed clean Codex review. | These checks cover that release tree and the jobs' actual assertions. The local Node 26.5.0 benchmark is separate from hosted Node 26.8.2 CI. Older full-workspace counts are not evidence for later source changes. |
+| Verify release automation | [Publish run 34710065619](https://github.com/mirek/cave/actions/runs/34710065619) passed preflight, release and Marketplace jobs at the baseline commit, with 12 npm publication records. Tag `v0.36.5` points to that commit. An independent `pnpm release:audit` verified 86 registry signatures and 27 available attestations. | This verifies publication and the stated registry audit, not byte equality with a local rebuild. The earlier Changesets migration and recovery are complete, with [exact evidence](../DEPENDENCY-MAINTENANCE.md#hosted-migration-verification). Broader workflow review remains in scope. |
+
+For the next pass, select an unfinished boundary from Remaining review scope,
+inspect its current implementation and owning tests, and carry each evidenced
+issue through its own PR, green CI, completed Codex review, merge and main sync.
+Record evidence with a commit, run or named workload; do not replace a historical
+count with a newer count unless the same verification scope was actually run.
+The original objective remains open until its full completion audit passes.
+
+## Evidence from review passes
+
+### Verification map checkpoint before the 0.36.5 release baseline
+
+The following map is preserved from the preceding review checkpoint. Its uses
+of “current” and “latest” refer to that checkpoint, not to later source or releases.
 
 The current full workspace checkpoint passes 3,286 tests and 38 grammar parses
 on both Node majors. It includes declaration own-slot rejection, depth-path
@@ -961,9 +994,6 @@ The detailed passes below retain the individual findings and measurements.
 | Verify distributed artifacts and editor behavior | The [current installed checkpoint](#installed-z3-enum-code-mappings-refresh-across-domain-changes) passes all 12 public-package smoke checks, NodeNext/Bundler imports and the reviewed API snapshot after bounded diagnostic previews, indexed declaration/operand traversal, indexed provenance validation and repair, indexed enum membership with custom-iterator rejection, inherited-operand rejection, safe sort diagnostics, objective-direction validation, safe validation diagnostic formatting, normalization/zero-check callable-rational rejection, owned explanation-report assembly, stored rule and automation-text diagnostics, automation preparation cancellation and combined-error preservation, batch premise-text reuse and preparation, fixed-control-escape rendering, action metadata diagnostics, portable-copy allocation reduction, shared expression-root reuse, connector fatal-watch shutdown, startup serialization and the combined Z3 lifecycle fixes, including outer solver/optimizer release and deadline diagnostic preservation. The [current toolchain artifact checkpoint](#updated-browser-toolchain-passes-clean-build-and-artifact-checks) validates the 12-file VSIX. The earlier Tree-sitter/editor checkpoint exercised the extracted VSIX in a real editor host. | VSIX verification predates the solver-only fold, which is outside the extension bundle. Local package/editor checks do not establish npm or Marketplace publication. |
 | Verify release automation | Release PR #223 and both attempts of Publish run 34695314713 verify the pinned CLI v3/action v2 path through versioning, publication and fully published recovery. The 0.36.0 tag remains at the release commit; registry signatures and available attestations passed an independent audit. | The migration verification is complete; [the live guide](../DEPENDENCY-MAINTENANCE.md#hosted-migration-verification) records exact evidence and limits. Broader workflow review remains part of the system scope. |
 
-
-
-## Evidence from review passes
 
 ### Declared queries replay fresh declarations and bound concurrent retries
 
