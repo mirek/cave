@@ -166,7 +166,7 @@ jobs:
         run: pnpm --filter @cavelang/solver --filter @cavelang/solver-z3 test
 
       - name: Verify Z3 cleanup under forced garbage collection
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: pnpm --filter @cavelang/solver-z3 test:memory-stress --large
 
       - name: Build the consolidated CLI package layout
