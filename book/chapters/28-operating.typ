@@ -69,7 +69,7 @@ $ cave add --db roastery.db roastery.cave
 added 33 claim(s), 0 edge(s)
 
 $ cave doctor --db roastery.db
-cave doctor 0.35.0
+cave doctor <token>
 PASS Node <token> satisfies ^24.16.0 || ^26.1.0
 PASS SQLite <token> supports FTS5, JSON functions, foreign keys, and extension loading
 PASS Grammar WASM and highlight query are installed
@@ -82,8 +82,8 @@ PASS No optional hooks file was configured
 result: ready
 ```
 
-The Node and SQLite version tokens reflect the installed runtime and vary
-between supported installations.
+The CAVE, Node, and SQLite version tokens reflect the installed CLI and
+runtime and vary between releases and supported installations.
 
 Warnings such as a database that does not exist yet exit 0; an unsupported
 runtime, a broken grammar asset, a malformed hooks file, or a corrupt store

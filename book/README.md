@@ -90,9 +90,10 @@ The conventions the runner reads from `chapters/*.typ`:
 - A raw block that itself contains triple-backtick fences (a Markdown report
   template) uses a four-backtick fence.
 
-The `cave doctor` session uses `<token>` for the installed Node and SQLite
-versions, which differ between supported runtimes. Keep the surrounding check
-messages and supported engine range exact.
+The `cave doctor` session uses `<token>` for the installed CAVE, Node, and
+SQLite versions, which differ between releases and supported runtimes. Restore
+all three version placeholders after refreshing this session. Keep the
+surrounding check messages and supported engine range exact.
 
 When the CLI's output changes, run `--update`, review the diff, and restore
 any placeholders the update replaced with concrete values (the updater keeps
