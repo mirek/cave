@@ -1,5 +1,12 @@
 # @cavelang/core
 
+## 0.36.2
+
+### Patch Changes
+
+- 9207b82: Run website tests in full Chromium headless mode for native new-tab coverage, following intermittent failures in the separate headless shell.
+- 9e9d967: Identify each browser navigation scenario separately and attach a bounded native-input timeline when it fails, improving diagnosis of intermittent new-tab failures.
+
 ## 0.36.1
 
 ### Patch Changes
