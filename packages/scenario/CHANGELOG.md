@@ -1,5 +1,16 @@
 # @cavelang/scenario
 
+## 0.36.7
+
+### Patch Changes
+
+- Updated dependencies [500f5bb]
+  - @cavelang/store@0.36.7
+  - @cavelang/query@0.36.7
+  - @cavelang/canonical@0.36.7
+  - @cavelang/core@0.36.7
+  - @cavelang/solver@0.36.7
+
 ## 0.36.6
 
 ### Patch Changes

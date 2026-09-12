@@ -1,5 +1,11 @@
 # @cavelang/parser
 
+## 0.36.7
+
+### Patch Changes
+
+- @cavelang/core@0.36.7
+
 ## 0.36.6
 
 ### Patch Changes

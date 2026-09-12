@@ -1,5 +1,18 @@
 # @cavelang/cli
 
+## 0.36.7
+
+### Patch Changes
+
+- Updated dependencies [500f5bb]
+  - @cavelang/store@0.36.7
+  - @cavelang/query@0.36.7
+  - @cavelang/canonical@0.36.7
+  - @cavelang/core@0.36.7
+  - @cavelang/fusion@0.36.7
+  - @cavelang/highlight@0.36.7
+  - @cavelang/parser@0.36.7
+
 ## 0.36.6
 
 ### Patch Changes
