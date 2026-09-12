@@ -125,7 +125,8 @@ jobs:
             os: ubuntu-24.04
             node: 26.8.2
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Allow the 15-minute stress step plus setup, native suites, and CLI tests.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

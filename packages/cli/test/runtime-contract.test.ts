@@ -32,6 +32,11 @@ test('CI names exact runtimes and supported operating systems', () => {
   }
   assert.doesNotMatch(ci, /node: (?:24\.16\.0|26\.1\.0|26\.8\.1)\b/, 'CI uses only the selected releases')
   const runtime = ci.slice(ci.indexOf('\n  runtime:\n'))
+  const runtimeJob = runtime.slice(0, runtime.indexOf('\n    steps:'))
+  const jobMinutes = Number(/timeout-minutes: (\d+)/.exec(runtimeJob)?.[1])
+  const stressMinutes = Number(/name: Verify Z3 cleanup under forced garbage collection\s+timeout-minutes: (\d+)/.exec(runtime)?.[1])
+  assert.ok(Number.isFinite(jobMinutes) && Number.isFinite(stressMinutes) && jobMinutes >= stressMinutes + 15,
+    'runtime job must reserve at least 15 minutes around the complete stress-step budget for setup and other suites')
   const bootstrap = runtime.indexOf('node --test packages/mcp/test/bootstrap-native.test.ts')
   assert.ok(bootstrap >= 0 && bootstrap < runtime.indexOf('pnpm install --frozen-lockfile'),
     'the runtime matrix must exercise native bootstrap before installing dependencies')
