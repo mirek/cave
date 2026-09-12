@@ -41,8 +41,6 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-/* Native keyboard scrolling must settle before focus leaves the documentation filter. */
-html:has(.docs-sidebar :focus) { scroll-behavior: auto; }
 body {
   margin: 0;
   min-width: 320px;

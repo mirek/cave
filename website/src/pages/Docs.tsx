@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { docBySlug, docs } from '../content.ts'
 import { Markdown } from '../components/Markdown.tsx'
 import { Input } from '../components/ui/input.tsx'
@@ -13,6 +13,8 @@ const searchable = (text: string): string =>
   text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ')
 
 export const Docs = ({ slug, fragment, position, filter, setFilter, includeContents, setIncludeContents }: { includeContents: boolean, setIncludeContents: (value: boolean) => void, slug: string, fragment: string, position?: ReadingPosition, filter: string, setFilter: (value: string) => void }) => {
+  const pendingReveal = useRef<AbortController | null>(null)
+  useEffect(() => () => pendingReveal.current?.abort(), [])
   const [contents, setContents] = useState<{ slug: string | undefined, titleId: string | undefined, entries: readonly { id: string, label: string }[] }>({ slug: undefined, titleId: undefined, entries: [] })
   const normalizedFilter = searchable(filter).trim()
   let selectedSection: string | undefined
@@ -107,16 +109,22 @@ export const Docs = ({ slug, fragment, position, filter, setFilter, includeConte
                 event.preventDefault()
                 const first = document.querySelector<HTMLAnchorElement>('.docs-sidebar nav a')
                 if (first !== null) {
+                  pendingReveal.current?.abort()
+                  const controller = new AbortController()
+                  pendingReveal.current = controller
+                  const cancel = () => controller.abort()
                   first.focus({ preventScroll: true })
-                  const reveal = () => {
-                    // Cancel browser-keyboard scrolling even when the link is already visible.
-                    window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: 'instant' })
-                    revealBelowHeader(first)
+                  // Chromium native keyboard scrolling can outlive instant scroll calls.
+                  // Correct its final position only while this focus action still owns it.
+                  document.addEventListener('scrollend', () => {
+                    cancel()
+                    if (first.isConnected && document.activeElement === first) revealBelowHeader(first)
+                  }, { once: true, signal: controller.signal })
+                  first.addEventListener('blur', cancel, { once: true, signal: controller.signal })
+                  for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart']) {
+                    window.addEventListener(type, cancel, { capture: true, passive: true, signal: controller.signal })
                   }
-                  reveal()
-                  requestAnimationFrame(() => {
-                    if (first.isConnected && document.activeElement === first) reveal()
-                  })
+                  revealBelowHeader(first)
                 }
               }
             }} />
