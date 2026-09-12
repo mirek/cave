@@ -180,7 +180,8 @@ Escape clears a focused documentation filter without changing the article or
 moving focus. The input exposes this shortcut to assistive technology and
 ignores Escape during IME composition or when Control, Meta, Alt or Shift is
 held, leaving modified shortcuts unconsumed.
-Down Arrow moves focus from the filter to the first matching page without
+Down Arrow stops any pending smooth page scroll and moves focus from the filter
+to the first matching page, revealing it immediately without
 navigating. Enter then opens that focused link, and Tab continues through the
 remaining links normally. Visible help and the input's accessible shortcut list
 describe this browsing action. With no matches, during IME composition, or with

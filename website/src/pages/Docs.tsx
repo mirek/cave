@@ -104,7 +104,13 @@ export const Docs = ({ slug, fragment, position, filter, setFilter, includeConte
               if (event.key === 'ArrowDown' && !event.nativeEvent.isComposing &&
                   !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && visible.length > 0) {
                 event.preventDefault()
-                document.querySelector<HTMLAnchorElement>('.docs-sidebar nav a')?.focus()
+                const first = document.querySelector<HTMLAnchorElement>('.docs-sidebar nav a')
+                if (first !== null) {
+                  first.focus({ preventScroll: true })
+                  // Cancel a pending browser-keyboard scroll even if the link is already visible.
+                  window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: 'instant' })
+                  first.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' })
+                }
               }
             }} />
           </label>

@@ -1237,6 +1237,26 @@ for (const width of [320, 390, 1280]) {
     await expect(filter).toHaveValue('solver')
   })
 
+  test(`Down Arrow reveals a documentation match during smooth page scrolling at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    const filter = page.getByRole('textbox', { name: 'Filter documentation', exact: true })
+    await filter.fill('solver')
+    await page.evaluate(async () => {
+      // A preceding browser keyboard shortcut can leave a smooth scroll active.
+      window.scrollTo({ top: 1000, behavior: 'smooth' })
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      // Observe the final position, not the initial frame before scrolling runs.
+      for (let frame = 0; frame < 60; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+    await expect(page).toHaveURL(/#\/docs\/overview$/)
+  })
+
   test(`Enter opens a unique documentation match and ignores ambiguous or composing input at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./#/docs/overview')
