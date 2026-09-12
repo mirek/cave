@@ -348,8 +348,9 @@ reviewed public API check; source tests do not prove installed resolution.
   directly, since the preceding Changesets stage may already have consumed its
   input files. This is retryable ordering, not a transaction across all files.
   An isolated test runs the installed CLI against CAVE's workspace manifests
-  and verifies both stages and the empty second run. Hosted workflow and
-  actual publication verification remain in the migration task.
+  and verifies both stages and the empty second run. The migrated workflow's
+  hosted 0.36.0 release evidence is recorded in
+  [Dependency maintenance](DEPENDENCY-MAINTENANCE.md#hosted-migration-verification).
   To preview pending changes without consuming them, run
   `pnpm exec changeset status --output /tmp/cave-release-plan.json` from the
   repository root. This reports Changesets' raw plan: private workspaces may

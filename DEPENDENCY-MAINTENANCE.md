@@ -101,10 +101,30 @@ no remote, and the source/workspace installation was removed after the check.
 This trial covered versioning and synchronization, not grammar regeneration
 or the lockfile-refresh stage of the full version script.
 
-These trials verify the source-level publication and version-summary paths,
-not the action's bundled entrypoint, GitHub runner orchestration, hosted version
-PR or external publication. Remaining verification is tracked in
-[the release task](todo/changesets-v3-migration.md).
+These trials verify the source-level publication and version-summary paths.
+Hosted evidence now also covers the bundled entrypoint and external publication.
+
+### Hosted migration verification
+
+The CLI 3.0.2/action 2.1.1 workflow generated [release PR #223](https://github.com/mirek/cave/pull/223),
+consuming 2,033 changesets and aligning 24 package/extension manifests at 0.36.0.
+The PR passed CI and Codex review before merging at
+`b09cbf06d10f7dd1be8abedc29f3336208d4cc61` on September 12, 2026.
+[Publish run 34695314713, attempt 1](https://github.com/mirek/cave/actions/runs/34695314713/attempts/1)
+passed preflight, published all 12 public npm packages at 0.36.0, pushed the
+single `v0.36.0` tag at that commit, and published the VS Code extension.
+The independent `pnpm release:audit` installed the declared package set with
+lifecycle scripts disabled and verified 86 registry signatures and 27 available
+attestations. This verifies registry provenance, not byte equality with a local
+rebuild. See [release behavior](IMPLEMENTATION.md#toolchain) for the operational
+contract and retry procedure.
+
+[Attempt 2 of the same run](https://github.com/mirek/cave/actions/runs/34695314713/attempts/2)
+then verified fully published recovery at the same commit. After a clean build,
+tests and packed smoke checks, it reported `v0.36.0 is fully published` and
+`tag v0.36.0 already exists on origin`, with no new npm publications. The
+Marketplace job also skipped its already-published version. All three jobs
+passed and the remote tag still pointed to the original release commit.
 
 ## Dependency advisories
 
