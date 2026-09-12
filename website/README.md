@@ -182,7 +182,8 @@ ignores Escape during IME composition or when Control, Meta, Alt or Shift is
 held, leaving modified shortcuts unconsumed.
 Down Arrow moves focus to the first matching page and reveals it below the
 sticky header without navigating. If native keyboard scrolling is still active,
-a correction on scroll completion keeps that link visible. Focus loss, a new
+a bounded frame check keeps that link visible until scrolling settles (three
+stable frames, at most 120 frames). Focus loss, a new
 keyboard/pointer/wheel/touch interaction, another focus action or component
 unmount cancels the pending correction. Enter then opens that focused link, and Tab continues through the
 remaining links normally. Visible help and the input's accessible shortcut list

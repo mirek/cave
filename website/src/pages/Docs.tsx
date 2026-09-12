@@ -114,17 +114,29 @@ export const Docs = ({ slug, fragment, position, filter, setFilter, includeConte
                   pendingReveal.current = controller
                   const cancel = () => controller.abort()
                   first.focus({ preventScroll: true })
-                  // Chromium native keyboard scrolling can outlive instant scroll calls.
-                  // Correct its final position only while this focus action still owns it.
-                  document.addEventListener('scrollend', () => {
-                    cancel()
-                    if (first.isConnected && document.activeElement === first) revealBelowHeader(first)
-                  }, { once: true, signal: controller.signal })
+                  // Native keyboard animation can continue after instant scrolling and
+                  // scrollend notifications. Watch a bounded settling window instead.
+                  let frame = 0, frames = 0, stable = 0, previousTop = window.scrollY
+                  const settle = () => {
+                    if (controller.signal.aborted || !first.isConnected || document.activeElement !== first) { cancel(); return }
+                    const top = window.scrollY
+                    const bounds = first.getBoundingClientRect()
+                    const headerBottom = document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0
+                    const outside = bounds.top < headerBottom + 12 || bounds.bottom > window.innerHeight
+                    if (outside) revealBelowHeader(first)
+                    stable = !outside && top === previousTop ? stable + 1 : 0
+                    previousTop = window.scrollY
+                    if (++frames >= 120 || stable >= 3) cancel()
+                    else frame = requestAnimationFrame(settle)
+                  }
+                  controller.signal.addEventListener('abort', () => cancelAnimationFrame(frame), { once: true })
                   first.addEventListener('blur', cancel, { once: true, signal: controller.signal })
                   for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart']) {
                     window.addEventListener(type, cancel, { capture: true, passive: true, signal: controller.signal })
                   }
                   revealBelowHeader(first)
+                  previousTop = window.scrollY
+                  frame = requestAnimationFrame(settle)
                 }
               }
             }} />

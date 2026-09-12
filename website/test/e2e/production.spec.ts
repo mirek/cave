@@ -1272,6 +1272,27 @@ for (const width of [320, 390, 1280]) {
     await expect(page).toHaveURL(/#\/docs\/overview$/)
   })
 
+  test(`documentation focus survives continued native-style scroll frames at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./#/docs/overview')
+    await page.getByRole('textbox', { name: 'Filter documentation', exact: true }).fill('solver')
+    await page.evaluate(async () => {
+      document.getElementById('documentation-filter')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      // Model the observed compositor behavior: further movement despite instant
+      // scroll calls, with an early scrollend that does not finish the sequence.
+      for (let frame = 0; frame < 20; frame++) {
+        window.scrollBy({ top: 40, behavior: 'instant' })
+        if (frame === 2) document.dispatchEvent(new Event('scrollend'))
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      }
+      for (let frame = 0; frame < 6; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    const first = page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link').first()
+    await expect(first).toBeFocused()
+    await expect(first).toBeInViewport()
+  })
+
   for (const cancelBy of ['focus', 'wheel'] as const) test(`pending documentation reveal respects ${cancelBy} at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./#/docs/overview')
