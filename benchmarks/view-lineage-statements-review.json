@@ -1,0 +1,169 @@
+{
+  "format": "cave.view-lineage-statements-review",
+  "version": 1,
+  "baselineCommit": "e6b3e361cd26df4da84a058073172b3785510e04",
+  "change": "Reuse the four metadata statements within each lineage call; retain the per-row projection cache and all validation.",
+  "limitations": "Sequential before/after runs, one process per runtime and revision; finite in-memory wide graphs. Timings do not establish universal speedups or HTTP/browser latency. Generated transaction identity and timestamps are normalized only for cross-run hashing.",
+  "runs": {
+    "beforeNode24": {
+      "format": "cave.view-lineage-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five complete lineage reads per case, restricted ceiling on in-memory SQLite. Wide root branches each cite one shared premise; every row has a distinct context and tag. Seeding, assertions and hashes excluded from timing. Hashes replace generated IDs with subjects and omit transaction timestamps. Excludes HTTP and browser rendering.",
+      "measurements": [
+        {
+          "branches": 100,
+          "uniqueRows": 102,
+          "edges": 200,
+          "samplesMs": [
+            5.85454100000004,
+            7.498290999999995,
+            5.002957999999978,
+            5.355124999999987,
+            6.688874999999996
+          ],
+          "medianMs": 5.85454100000004,
+          "normalizedSha256": "5ba52e6954daa4ef673a207335af7acee1eb5410f8a99b71bb66c21752ef1b34"
+        },
+        {
+          "branches": 1000,
+          "uniqueRows": 1002,
+          "edges": 2000,
+          "samplesMs": [
+            52.042332999999985,
+            62.54720899999995,
+            60.34187499999996,
+            48.70345800000007,
+            54.64729199999999
+          ],
+          "medianMs": 54.64729199999999,
+          "normalizedSha256": "846452815a0c02a32a825eb081e4320f81c72ab3f4c899c2221eafe4421a25b6"
+        }
+      ]
+    },
+    "beforeNode26": {
+      "format": "cave.view-lineage-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.5.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five complete lineage reads per case, restricted ceiling on in-memory SQLite. Wide root branches each cite one shared premise; every row has a distinct context and tag. Seeding, assertions and hashes excluded from timing. Hashes replace generated IDs with subjects and omit transaction timestamps. Excludes HTTP and browser rendering.",
+      "measurements": [
+        {
+          "branches": 100,
+          "uniqueRows": 102,
+          "edges": 200,
+          "samplesMs": [
+            6.2415000000000305,
+            6.204874999999959,
+            7.7447500000000105,
+            5.1174159999999915,
+            5.126000000000033
+          ],
+          "medianMs": 6.204874999999959,
+          "normalizedSha256": "5ba52e6954daa4ef673a207335af7acee1eb5410f8a99b71bb66c21752ef1b34"
+        },
+        {
+          "branches": 1000,
+          "uniqueRows": 1002,
+          "edges": 2000,
+          "samplesMs": [
+            51.98687499999994,
+            64.59808299999997,
+            59.16904099999999,
+            56.87916700000005,
+            47.399291999999946
+          ],
+          "medianMs": 56.87916700000005,
+          "normalizedSha256": "846452815a0c02a32a825eb081e4320f81c72ab3f4c899c2221eafe4421a25b6"
+        }
+      ]
+    },
+    "afterNode24": {
+      "format": "cave.view-lineage-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five complete lineage reads per case, restricted ceiling on in-memory SQLite. Wide root branches each cite one shared premise; every row has a distinct context and tag. Seeding, assertions and hashes excluded from timing. Hashes replace generated IDs with subjects and omit transaction timestamps. Excludes HTTP and browser rendering.",
+      "measurements": [
+        {
+          "branches": 100,
+          "uniqueRows": 102,
+          "edges": 200,
+          "samplesMs": [
+            4.65025,
+            6.220249999999993,
+            4.078499999999991,
+            4.030375000000021,
+            5.462040999999999
+          ],
+          "medianMs": 4.65025,
+          "normalizedSha256": "5ba52e6954daa4ef673a207335af7acee1eb5410f8a99b71bb66c21752ef1b34"
+        },
+        {
+          "branches": 1000,
+          "uniqueRows": 1002,
+          "edges": 2000,
+          "samplesMs": [
+            40.45595800000001,
+            48.63787500000001,
+            48.65587499999998,
+            45.74958299999997,
+            40.34749999999997
+          ],
+          "medianMs": 45.74958299999997,
+          "normalizedSha256": "846452815a0c02a32a825eb081e4320f81c72ab3f4c899c2221eafe4421a25b6"
+        }
+      ]
+    },
+    "afterNode26": {
+      "format": "cave.view-lineage-benchmark",
+      "version": 1,
+      "runtime": {
+        "node": "v26.5.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "method": "One warmup and five complete lineage reads per case, restricted ceiling on in-memory SQLite. Wide root branches each cite one shared premise; every row has a distinct context and tag. Seeding, assertions and hashes excluded from timing. Hashes replace generated IDs with subjects and omit transaction timestamps. Excludes HTTP and browser rendering.",
+      "measurements": [
+        {
+          "branches": 100,
+          "uniqueRows": 102,
+          "edges": 200,
+          "samplesMs": [
+            6.07529199999999,
+            4.475999999999999,
+            4.436958000000004,
+            5.779457999999977,
+            4.162375000000054
+          ],
+          "medianMs": 4.475999999999999,
+          "normalizedSha256": "5ba52e6954daa4ef673a207335af7acee1eb5410f8a99b71bb66c21752ef1b34"
+        },
+        {
+          "branches": 1000,
+          "uniqueRows": 1002,
+          "edges": 2000,
+          "samplesMs": [
+            42.164333,
+            55.54725000000002,
+            43.37175000000002,
+            45.29291599999999,
+            45.96100000000001
+          ],
+          "medianMs": 45.29291599999999,
+          "normalizedSha256": "846452815a0c02a32a825eb081e4320f81c72ab3f4c899c2221eafe4421a25b6"
+        }
+      ]
+    }
+  }
+}

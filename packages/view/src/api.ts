@@ -376,11 +376,12 @@ export const lineage = (store: Store, id: string, options: Pick<Options, 'maxSen
   if (root === undefined) {
     return undefined
   }
+  const mapView = viewMapper(store)
   const projected = new Map<string, ClaimView>()
   const project = (row: Row.t): ClaimView => {
     const existing = projected.get(row.id)
     if (existing !== undefined) return existing
-    const view = toView(store, row)
+    const view = mapView(row)
     projected.set(row.id, view)
     return view
   }

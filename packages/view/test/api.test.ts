@@ -336,10 +336,21 @@ test('lineage projects shared evidence rows once while retaining repeated branch
       { parentId: ids[2]!, role: 'BECAUSE', childId: ids[3]! }
     ])
     const prepare = store.db.prepare.bind(store.db)
-    let projections = 0
+    let metadataStatements = 0
+    let metadataReads = 0
     t.mock.method(store.db, 'prepare', (sql: string) => {
-      if (sql.startsWith('SELECT context FROM cave_context')) projections++
-      return prepare(sql)
+      if (sql.startsWith('SELECT context FROM cave_context') ||
+          sql.startsWith('SELECT key, value FROM cave_tag') ||
+          sql.startsWith('SELECT COUNT(*) AS n FROM cave_edge')) metadataStatements++
+      const statement = prepare(sql)
+      if (sql.startsWith('SELECT context FROM cave_context')) {
+        const all = statement.all.bind(statement)
+        t.mock.method(statement, 'all', (...params: Parameters<typeof all>) => {
+          metadataReads++
+          return all(...params)
+        })
+      }
+      return statement
     })
     const tree = lineage(store, ids[0]!, { maxSensitivity: 'restricted' })!
     assert.equal(tree.cites.length, 2)
@@ -350,7 +361,15 @@ test('lineage projects shared evidence rows once while retaining repeated branch
     assert.equal(repeat.repeat, true)
     assert.deepEqual(repeat.row, first.row)
     assert.deepEqual(repeat.children, [])
-    assert.equal(projections, 4)
+    assert.equal(metadataStatements, 4)
+    assert.equal(metadataReads, 4)
+    // A later request must read fresh metadata rather than retain captured rows.
+    store.db.prepare('INSERT INTO cave_tag (claim_id, key, value) VALUES (?, ?, ?)').run(ids[3]!, 'label', 'updated')
+    const updated = lineage(store, ids[0]!, { maxSensitivity: 'restricted' })!
+    assert.deepEqual(updated.cites[0]!.children[0]!.row.tags, [{ key: 'label', value: 'updated' }])
+    assert.deepEqual(first.row.tags, [])
+    assert.equal(metadataStatements, 8)
+    assert.equal(metadataReads, 8)
   } finally { store.close() }
 })
 
