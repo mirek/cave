@@ -1,5 +1,12 @@
 # @cavelang/fusion
 
+## 0.36.1
+
+### Patch Changes
+
+- Updated dependencies [7a3cad1]
+  - @cavelang/core@0.36.1
+
 ## 0.36.0
 
 ### Patch Changes

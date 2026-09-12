@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.36.1
+
+### Patch Changes
+
+- 7a3cad1: Record hosted Changesets v3/action v2 release and recovery verification and retire the completed migration task.
+
 ## 0.36.0
 
 ### Minor Changes

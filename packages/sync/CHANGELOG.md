@@ -1,5 +1,11 @@
 # @cavelang/sync
 
+## 0.36.1
+
+### Patch Changes
+
+- Align the @cavelang/sync workspace with the CAVE 0.36.1 release identity.
+
 ## 0.36.0
 
 ### Minor Changes
