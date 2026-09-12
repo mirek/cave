@@ -18,4 +18,3 @@ export const captureSettleOptions = (options: SettleOptions): SettleOptions => {
     hookMaxStderrBytes: options.hookMaxStderrBytes
   }
 }
-

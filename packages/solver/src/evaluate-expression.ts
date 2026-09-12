@@ -19,4 +19,3 @@ export const evaluate = <T>(expression: Expression, steps: (value: Expression) =
     }
   }
 }
-
