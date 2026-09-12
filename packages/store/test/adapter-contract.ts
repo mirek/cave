@@ -566,6 +566,45 @@ export const sqliteAdapterContract = (
     })
   }
 
+  test(`${adapter.name}: binary claim text columns reject conversion and export with repair recovery`, () => {
+    const store = openWith(adapter)
+    try {
+      const id = store.ingest('private-subject HAS amount: 42 #sensitivity:restricted').ids[0]!
+      store.ingest('visible IS retained #sensitivity:public')
+      const original = store.currentBeliefs().find(row => row.id === id)!
+      const originalClaim = store.toClaim(original)
+      const originalExports = [false, true].flatMap(current => [false, true].map(tx =>
+        store.exportText({ current, tx, maxSensitivity: 'restricted' })))
+      const publicText = store.exportText({ maxSensitivity: 'public' })
+      for (const field of ['raw_line', 'comment', 'verb', 'subject', 'object', 'attribute', 'value_text', 'delta_text'] as const) {
+        for (const invalid of [new Uint8Array(), new TextEncoder().encode('private-corrupt-text')]) {
+          store.db.prepare(`UPDATE cave_claim SET ${field} = ? WHERE id = ?`).run(invalid, id)
+          const before = JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all())
+          const broken = store.currentBeliefs().find(row => row.id === id)!
+          assert.throws(() => store.toClaim(broken), {
+            name: 'TypeError', message: new RegExp(`stored claim ${field} must be a string`)
+          })
+          for (const current of [false, true]) for (const tx of [false, true]) {
+            assert.throws(() => store.exportText({ current, tx, maxSensitivity: 'restricted' }), error => {
+              assert.ok(error instanceof Error)
+              assert.ok(error.message.includes(id))
+              assert.match(error.message, new RegExp(`stored claim ${field} must be a string`))
+              assert.doesNotMatch(error.message, /private-subject|private-corrupt-text/)
+              assert.ok(error.cause instanceof TypeError)
+              return true
+            })
+          }
+          assert.equal(store.exportText({ maxSensitivity: 'public' }), publicText)
+          assert.equal(JSON.stringify(store.db.prepare('SELECT * FROM cave_claim ORDER BY tx').all()), before)
+          store.db.prepare(`UPDATE cave_claim SET ${field} = ? WHERE id = ?`).run(original[field], id)
+          assert.deepEqual(store.toClaim(store.currentBeliefs().find(row => row.id === id)!), originalClaim)
+          assert.deepEqual([false, true].flatMap(current => [false, true].map(tx =>
+            store.exportText({ current, tx, maxSensitivity: 'restricted' }))), originalExports)
+        }
+      }
+    } finally { store.close() }
+  })
+
   test(`${adapter.name}: historical boolean flags reject non-binary values without coercion`, () => {
     const store = openWith(adapter)
     try {

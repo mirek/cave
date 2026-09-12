@@ -894,6 +894,16 @@ Other values are diagnosed during claim conversion instead of being coerced
 into a negation or importance marker, or silently ignoring an invalid
 approximation flag. Native and browser SQLite share this check.
 
+Authored text columns are checked before parsing or claim construction:
+`subject`, `verb` and `raw_line` must be strings; `object`, `attribute`,
+`value_text`, `delta_text` and `comment` must be strings or SQL NULL. SQLite's
+TEXT affinity still permits blobs, so it cannot enforce this decoded contract.
+Binary values, including empty blobs in raw lines or comments, fail with the
+column name without echoing the value. Export adds the claim ID and original
+cause; current/full and plain/annotated exports leave storage unchanged and
+recover after repair. Excluded higher-sensitivity rows remain excluded before
+conversion. These are type checks, not new restrictions on valid string content.
+
 Claim-specific export failures retain the affected claim ID and the original
 thrown value in `Error.cause`, even if an adapter throws a value whose message
 cannot be read or converted to text. Such diagnostics use

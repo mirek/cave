@@ -459,6 +459,11 @@ before shaping their JSON, including search results. Conflicting payloads and
 invalid negation/importance/approximation flags therefore fail instead of being silently
 coerced or partially displayed. A scoped search over unaffected rows can still
 succeed, and repairing malformed rows permits the failed views to load again.
+The shared decoder also requires authored text columns to contain strings (or
+SQL NULL where optional). Binary raw lines and comments therefore return a
+field-specific HTTP 500 instead of appearing as objects in claim JSON. GET and
+HEAD recover on the same server after repair; excluded restricted rows do not
+break lower-sensitivity views.
 Tag keys must be strings and tag values must be strings or SQL NULL (a flat tag).
 SQLite binary values in either column fail with a row-specific diagnostic that
 does not echo the corrupted value, rather than becoming objects in claim JSON.
