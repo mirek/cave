@@ -41,6 +41,7 @@
     "@cavelang/cli": "workspace:*",
     "@changesets/cli": "3.0.2",
     "@types/node": "^22.20.2",
+    "semver": "7.8.5",
     "typescript": "^5.8.0"
   }
 }
