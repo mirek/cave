@@ -82,7 +82,7 @@ and `.changeset/config.json` when choosing the owner.
 CI rejects PRs that add no changeset. A change without a changeset is an
 incomplete change.
 
-The release toolchain pairs Changesets CLI 3.0.2 with action 2.1.1. Run
+The release toolchain pairs Changesets CLI 3.0.2 with action 2.1.2. Run
 `pnpm run version-packages` only with pending changesets: an empty run fails
 before synchronization or grammar generation. The synchronizer adds changelog
 entries for any workspace versions it aligns after Changesets, since the
