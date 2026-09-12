@@ -1227,7 +1227,21 @@ for (const width of [320, 390, 1280]) {
     }
     await filter.press('ArrowDown')
     await expect(links.first()).toBeFocused()
-    await expect(links.first()).toBeInViewport()
+    try {
+      await expect(links.first()).toBeInViewport()
+    } catch (error) {
+      await testInfo.attach('focused-match-position', {
+        contentType: 'application/json',
+        body: JSON.stringify(await links.first().evaluate(element => ({
+          bounds: element.getBoundingClientRect().toJSON(),
+          scroll: { x: window.scrollX, y: window.scrollY },
+          sidebar: element.closest('aside')?.getBoundingClientRect().toJSON(),
+          nav: element.closest('nav')?.getBoundingClientRect().toJSON(),
+          focused: document.activeElement === element,
+        }))),
+      })
+      throw error
+    }
     await expect(page).toHaveURL(/#\/docs\/overview$/)
     await page.screenshot({ path: testInfo.outputPath('browse-doc-matches.png') })
     const target = await links.first().getAttribute('href')

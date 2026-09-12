@@ -181,7 +181,7 @@ moving focus. The input exposes this shortcut to assistive technology and
 ignores Escape during IME composition or when Control, Meta, Alt or Shift is
 held, leaving modified shortcuts unconsumed.
 Down Arrow stops any pending smooth page scroll and moves focus from the filter
-to the first matching page, revealing it immediately without
+to the first matching page, revealing it immediately below the sticky header without
 navigating. A next-frame correction catches deferred browser scrolling only
 while that link remains connected and focused. Enter then opens that focused link, and Tab continues through the
 remaining links normally. Visible help and the input's accessible shortcut list

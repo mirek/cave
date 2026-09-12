@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input.tsx'
 import { caveVersion } from '../version.ts'
 import type { ReadingPosition } from '../lib/use-route.ts'
 import { docEditHref, scrollToDocFragment } from '../lib/doc-links.ts'
+import { revealBelowHeader } from '../lib/reveal-focused-block.ts'
 
 const groups = ['Learn', 'Reference', 'Integrations', 'Project'] as const
 
@@ -110,7 +111,7 @@ export const Docs = ({ slug, fragment, position, filter, setFilter, includeConte
                   const reveal = () => {
                     // Cancel browser-keyboard scrolling even when the link is already visible.
                     window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: 'instant' })
-                    first.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' })
+                    revealBelowHeader(first)
                   }
                   reveal()
                   requestAnimationFrame(() => {
