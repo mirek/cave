@@ -98,7 +98,17 @@ const viewMapper = (store: Store, maximum?: Sensitivity.Level): ((row: Row.t) =>
     }
     const tags = (tagsQuery.all(row.id) as
       { key: string, value: null | string }[])
-      .map(tag => tag.value === null ? { key: tag.key } : { key: tag.key, value: tag.value })
+      .map(tag => {
+        // SQLite TEXT affinity still permits blobs. Keep the JSON contract
+        // explicit instead of returning binary objects as tag strings.
+        if (typeof tag.key !== 'string') {
+          throw new Error(`CAVE view failed for claim ${row.id}: stored tag key must be a string`)
+        }
+        if (tag.value !== null && typeof tag.value !== 'string') {
+          throw new Error(`CAVE view failed for claim ${row.id}: stored tag value must be a string or null`)
+        }
+        return tag.value === null ? { key: tag.key } : { key: tag.key, value: tag.value }
+      })
     const cites = (citesQuery.get(row.id) as { n: number }).n
     const citedBy = (citedByQuery.get(row.id) as { n: number }).n
     return {

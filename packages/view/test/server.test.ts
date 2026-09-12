@@ -109,6 +109,55 @@ test('HTTP rejects malformed stored payloads, flags and numeric caches and recov
   } finally { await publicHandle.close(); await handle.close(); store.close() }
 })
 
+test('HTTP rejects binary tag columns without writes and recovers after repair', async () => {
+  const store = open()
+  const id = store.ingest('broken IS service #label:private-tag #sensitivity:restricted').ids[0]!
+  store.ingest('healthy IS service #sensitivity:public')
+  const key = store.currentBeliefs().find(row => row.id === id)!.claim_key
+  const handle = await serve(store, { port: 0, maxSensitivity: 'restricted' })
+  const publicHandle = await serve(store, { port: 0, maxSensitivity: 'public' })
+  const paths = ['overview', 'entity?name=broken', `history?key=${encodeURIComponent(key)}`,
+    `lineage?id=${id}`, 'search?q=broken']
+  const tag = store.db.prepare('SELECT rowid FROM cave_tag WHERE claim_id = ? AND key = ?').get(id, 'label')!
+  const tagId = tag.rowid
+  assert.ok(typeof tagId === 'number')
+  try {
+    const before = await Promise.all(paths.map(async path => (await fetch(`${handle.url}api/${path}`)).text()))
+    const publicBefore = await (await fetch(`${publicHandle.url}api/overview`)).text()
+    for (const field of ['key', 'value'] as const) {
+      for (const value of [new Uint8Array(), new TextEncoder().encode('private-tag')]) {
+        store.db.prepare(`UPDATE cave_tag SET ${field} = ? WHERE rowid = ?`).run(value, tagId)
+        const snapshot = store.db.prepare('SELECT * FROM cave_tag ORDER BY rowid').all()
+        for (const path of paths) {
+          for (const method of ['GET', 'HEAD']) {
+            const response = await fetch(`${handle.url}api/${path}`, { method })
+            assert.equal(response.status, 500, `${field}: ${path}`)
+            assert.equal(response.headers.get('cache-control'), 'no-store')
+            const body = await response.text()
+            if (method === 'HEAD') assert.equal(body, '')
+            else {
+              assert.match(JSON.parse(body).error, /stored tag (key|value) must be/)
+              assert.ok(body.includes(id))
+              assert.doesNotMatch(body, /private-tag/)
+            }
+          }
+        }
+        assert.equal((await fetch(`${handle.url}api/search?q=healthy`)).status, 200)
+        const publicResponse = await fetch(`${publicHandle.url}api/overview`)
+        assert.equal(publicResponse.status, 200)
+        assert.equal(await publicResponse.text(), publicBefore)
+        assert.deepEqual(store.db.prepare('SELECT * FROM cave_tag ORDER BY rowid').all(), snapshot)
+        store.db.prepare('UPDATE cave_tag SET key = ?, value = ? WHERE rowid = ?').run('label', 'private-tag', tagId)
+        for (const [index, path] of paths.entries()) {
+          const response = await fetch(`${handle.url}api/${path}`)
+          assert.equal(response.status, 200)
+          assert.equal(await response.text(), before[index])
+        }
+      }
+    }
+  } finally { await publicHandle.close(); await handle.close(); store.close() }
+})
+
 test('HTTP contains unprintable store failures and serves subsequent requests', async t => {
   const store = fixture()
   const handle = await serve(store, { port: 0 })

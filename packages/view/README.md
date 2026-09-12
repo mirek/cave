@@ -440,6 +440,13 @@ before shaping their JSON, including search results. Conflicting payloads and
 invalid negation/importance/approximation flags therefore fail instead of being silently
 coerced or partially displayed. A scoped search over unaffected rows can still
 succeed, and repairing malformed rows permits the failed views to load again.
+Tag keys must be strings and tag values must be strings or SQL NULL (a flat tag).
+SQLite binary values in either column fail with a row-specific diagnostic that
+does not echo the corrupted value, rather than becoming objects in claim JSON.
+These checks cover direct restricted reads and search as well as projected
+views; tags on excluded claims do not prevent a lower-sensitivity view from
+loading. Failed reads leave storage unchanged, and repairing the tag restores
+GET and HEAD requests on the same server.
 Cached value/delta numbers, units and approximation must also agree with authored
 text. Mismatches fail with a field diagnostic that omits the corrupted value;
 GET and HEAD checks cover entity, history, lineage and search recovery after repair.
