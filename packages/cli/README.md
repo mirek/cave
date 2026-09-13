@@ -427,4 +427,8 @@ as usual, including for text stores.
 The CLI binary suppresses Node runtime warnings by default, including SQLite's
 experimental warning. Set `CAVE_DEBUG=1` to restore warnings and diagnostic
 stack traces. Command errors still go to stderr with a nonzero exit status.
+The binary removes only Node's default warning printer; warning subscribers
+installed by preload scripts remain active, including callbacks named
+`onWarning`. It recognizes the supported runtimes' printer by its name and
+internal formatting call, leaving listeners untouched if that identity changes.
 Importing the CLI library does not alter the host process's warning listeners.

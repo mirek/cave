@@ -517,3 +517,26 @@ test('binary: version prints only the version without warning flags', () => {
   assert.match(result.stdout, /^\d+\.\d+\.\d+\n$/)
   assert.equal(result.stderr, '')
 })
+
+for (const disableWarnings of [false, true]) test(`binary: quiet warnings still reach preload subscribers (Node printer disabled: ${disableWarnings})`, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-warning-listener-'))
+  try {
+    const preload = join(dir, 'preload.cjs')
+    writeFileSync(preload, `
+      process.prependListener('warning', function onWarning(warning) {
+        if (warning.message === 'preload probe') process.stdout.write('telemetry received\\n')
+      })
+      process.on('warning', function onWarning(warning) {
+        if (warning.message === 'preload probe') process.stdout.write('subscriber received\\n')
+      })
+    `)
+    const result = spawnSync(process.execPath, [...(disableWarnings ? ['--no-warnings'] : []), '--require', preload, '--input-type=module', '-e',
+      `process.argv = [process.execPath, ${JSON.stringify(main)}, 'version']; await import(${JSON.stringify(new URL('../src/main.ts', import.meta.url).href)}); process.emitWarning('preload probe')`], {
+      encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '', CAVE_DEBUG: '0' }
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stderr, '')
+    assert.match(result.stdout, /telemetry received\n/)
+    assert.match(result.stdout, /subscriber received\n/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
