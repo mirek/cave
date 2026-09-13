@@ -23,7 +23,7 @@ rationale into the relevant live document or changelog.
 | Package API | implementation exports, package-manifest `exports`, and `package-surfaces.json` | `packages/*/README.md`, `PACKAGE_SURFACES.md`, root overview, and website navigation; registry projections are checked in tests |
 | CLI and MCP surfaces | `packages/cli/src/commands.ts`, `packages/mcp/src/tools.ts`, and their help output | CLI/MCP READMEs, root README, book field guide; `packages/cli/test/documentation.test.ts` validates the package reference tables |
 | Project version | root `package.json` and release automation | website and book must read it dynamically; the import paths are checked in tests and must not become copied literals |
-| Work status | implementation and merged changes | `TODO.md`, `todo/**/*.md`, `BUGS.md`, `bugs/**/*.md`; deliberate exclusions belong in `PROJECT-BOUNDARIES.md` |
+| Work status | implementation and merged changes | `TODO.md`, `todo/*.md`; deliberate exclusions belong in `PROJECT-BOUNDARIES.md` |
 
 If two documents disagree, fix the lower-authority projection rather than
 preserving both descriptions. Normative skills still change deliberately: an
@@ -52,7 +52,7 @@ in the repository.
 | Website | `website/README.md`, `website/src/content.ts`, `website/src/pages/Home.tsx`, `website/src/App.tsx` | Site instructions and user-facing documentation/navigation copy. Most docs pages import repository Markdown directly. |
 | Editor | `editors/vscode/README.md` | VS Code extension usage and development. |
 | Examples | `examples/**/*.md` | Runnable fixture explanations, the full family-history tour, and agent/extraction instructions; tutorial outputs in the root README must match the fixtures. |
-| Backlog and defects | `TODO.md`, `todo/**/*.md`, `BUGS.md`, `bugs/**/*.md` | Active work and known bugs. Completed or rejected TODOs and fixed bugs are removed; lasting rejection rationale moves to project boundaries. |
+| Backlog and defects | `TODO.md`, `todo/*.md` | Active work classified by frontmatter `type` (for example, `bug`, `feat`, or `review`). Completed or rejected TODOs and fixed bugs are removed; lasting rejection rationale moves to project boundaries. |
 | Project/legal | `Authors.md`, `License.md`, `editors/vscode/License.md`, `packages/*/License.md` | Authorship and license records. |
 | Release metadata | `.changeset/README.md`, `.changeset/*.md` | Changeset instructions and immutable pending release notes. |
 
@@ -104,7 +104,7 @@ or headings; Markdown stays the source of truth for both GitHub and the site.
 | Website or playground behavior | website README and user-facing source copy; imported Markdown remains authoritative |
 | Book content | Typst source, recorded session output (`node scripts/book-examples.mjs --update`), fixtures, checked-in PDF, book README when the build or test contract changes |
 | A TODO becomes implemented | delete its backlog file and index entry; preserve lasting rationale in the relevant live document or changelog |
-| A bug becomes fixed | delete its bug file and `BUGS.md` index entry; keep the regression test as the durable record |
+| A bug becomes fixed | delete its `type: bug` task file and `TODO.md` index entry; keep the regression test as the durable record |
 | A version is released | version automation only; derived website/book displays update automatically |
 
 ## Pull request freshness check
