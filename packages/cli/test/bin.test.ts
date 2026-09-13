@@ -499,10 +499,11 @@ test('binary: lint failure sets exit code', () => {
 test('binary: Node warnings are quiet by default and visible with CAVE_DEBUG', () => {
   for (const debug of ['0', '1']) {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e',
-      `await import(${JSON.stringify(main)}); process.emitWarning('runtime warning probe', 'ExperimentalWarning')`, 'version'], {
+      `process.argv = [process.execPath, ${JSON.stringify(main)}, 'version']; await import(${JSON.stringify(new URL('../src/main.ts', import.meta.url).href)}); process.emitWarning('runtime warning probe', 'ExperimentalWarning')`], {
       encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '', CAVE_DEBUG: debug }
     })
     assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /^\d+\.\d+\.\d+\n$/)
     if (debug === '0') assert.equal(result.stderr, '')
     else assert.match(result.stderr, /runtime warning probe/)
   }
