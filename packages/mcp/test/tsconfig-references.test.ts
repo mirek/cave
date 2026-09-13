@@ -194,7 +194,7 @@ test('all third-party workflow actions use reviewable immutable revisions', () =
     const uses = source.split('\n').filter(line => /^\s*-?\s*uses:/.test(line))
     assert.ok(uses.length > 0, `${name} contains no action references`)
     for (const line of uses) {
-      assert.match(line, /^\s*-?\s*uses:\s+[^\s@]+@[0-9a-f]{40}\s+#\s+v\d+\s*$/, `${name}: ${line.trim()}`)
+      assert.match(line, /^\s*-?\s*uses:\s+[^\s@]+@[0-9a-f]{40}\s+#\s+v\d+(?:\.\d+){0,2}\s*$/, `${name}: ${line.trim()}`)
     }
   }
 })

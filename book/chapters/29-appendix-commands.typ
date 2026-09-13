@@ -18,7 +18,7 @@ a missing database. This table is the map; the chapters are the territory.
   [`cave highlight`], [Print CAVE text with ANSI colours from the tree-sitter grammar.], [26],
   [`cave add`], [Append authored claims; `--strict`, `--check` (shape gate), `--no-src`.], [2, 13],
   [`cave import`], [Replay exported text without provenance stamping.], [7, 8],
-  [`cave query`], [Run a CAVE-Q pattern; `--all`, `--aliases`, `--as-of`, `--at`, `--resolve`, `--sources`, `--limit`, `--cursor`, `--json`.], [9],
+  [`cave query`], [Run a CAVE-Q pattern; `--all`, `--aliases`, `--as-of`, `--at`, `--resolve`, `--sources`, `--limit`, `--cursor`, `--json`, `--jsonl`.], [9],
   [`cave search`], [FTS5 full-text search over claims and comments; `--raw`, `--limit`, `--json`.], [9],
   [`cave resolve`], [List contested facts with ranked candidates; `--policy` shows the effective policy.], [11],
   [`cave derive`], [Declare and fire rules; `--dry-run`, `--full`, `--list`, `--retract`.], [17],
@@ -46,8 +46,18 @@ a missing database. This table is the map; the chapters are the territory.
 
 Two environment variables matter: `CAVE_DB` sets the default store and
 `CAVE_HOOKS` the default hook configuration. `CAVE_DEBUG=1` keeps stack
-traces on unexpected errors. `NO_COLOR` disables the colours `cave export`
+traces on unexpected errors and restores Node runtime warnings, which the binary
+suppresses by default. `NO_COLOR` disables the colours `cave export`
 prints on a terminal.
 
 The optional `cave-solver-workflow` binary from the Z3 adapter package runs
 the allowlisted architecture fixture (Chapter 27).
+
+For shell pipelines, `cave query --jsonl` prints one JSON bindings object per
+match, with variable names as keys and no comments or claim metadata. Pipe it
+to `jq -r '.repo'` to extract a variable named `?repo`. No matches produce no
+output; a fully bound match prints `{}`. The normal page limit applies, with
+`next: <token>` on stderr; pass the token to `--cursor` for the next page.
+Cursor continuation requires a persistent SQLite store; reopening a text store
+invalidates its snapshot. `--sources` returns the whole overlay, including for
+text stores. Choose either `--json` (the versioned page envelope) or `--jsonl`.

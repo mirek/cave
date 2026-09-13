@@ -18,7 +18,7 @@ export const commandRegistry = [
   { name: 'highlight', importantOptions: [] },
   { name: 'add', importantOptions: ['--strict', '--check', '--no-prelude', '--no-src'] },
   { name: 'import', importantOptions: ['--strict', '--no-prelude'] },
-  { name: 'query', importantOptions: ['--json', '--limit', '--cursor', '--all', '--aliases', '--as-of', '--at', '--resolve', '--sources', '--no-prelude'] },
+  { name: 'query', importantOptions: ['--json', '--jsonl', '--limit', '--cursor', '--all', '--aliases', '--as-of', '--at', '--resolve', '--sources', '--no-prelude'] },
   { name: 'search', importantOptions: ['--raw', '--limit', '--json', '--no-prelude'] },
   { name: 'resolve', importantOptions: ['--aliases', '--policy', '--json', '--no-prelude'] },
   { name: 'derive', importantOptions: ['--dry-run', '--full', '--aliases', '--min-conf', '--max-passes', '--list', '--retract', '--json', '--no-prelude'] },

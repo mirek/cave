@@ -119,7 +119,7 @@ Usage:
   cave highlight [file...]                 print CAVE text with ANSI syntax colors
   cave add [--db <path>] [file...]         ingest into a store [--strict] [--check] [--no-prelude] [--no-src]
   cave import [--db <path>] [file...]      restore/merge from CAVE text (add without @src: stamping)
-  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json]
+  cave query [--db <path>] <pattern>       run a bounded CAVE-Q page [--limit <n>] [--cursor <token>] [--json | --jsonl]
   cave search [--db <path>] <terms..>      full-text search over claims and comments (FTS5) [--raw] [--limit <n>] [--json]
   cave resolve [--db <path>]               contested facts + winners (spec §26) [--aliases] [--policy] [--json]
   cave derive [--db <path>] [rules.cave..] declare + fire rules (spec §24) [--dry-run] [--full] [--list] [--retract <rule>]
@@ -256,11 +256,13 @@ Examples:
   query: `cave query — run a CAVE-Q pattern against a store
 
 Usage:
-  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--sources] [--no-prelude]
+  cave query [--db <path>] <pattern> [WHERE <filter>] [--limit <n>] [--cursor <token>] [--json | --jsonl] [--all] [--aliases] [--as-of <t>] [--at <t>] [--resolve] [--sources] [--no-prelude]
 
 Options:
   ${dbHelp}
   --json         emit a versioned cave.query-page/v1 JSON object
+  --jsonl        emit one bindings object per match; next cursor goes to stderr
+                 (exclusive with --json; no matches produce no output)
   --limit <n>    matches per page (default ${defaultQueryLimit}, maximum 1000)
   --cursor <t>   continue the same frozen query snapshot
   --all          match all beliefs, not just current ones
@@ -1016,6 +1018,7 @@ export const addCommand = ingestCommand('add')
 export const importCommand = ingestCommand('import')
 
 const queryOptions = {
+  jsonl: { type: 'boolean' },
   db: { type: 'string' },
   json: { type: 'boolean' },
   all: { type: 'boolean' },
@@ -1030,6 +1033,7 @@ const queryOptions = {
 } as const
 
 type QueryValues = {
+  jsonl?: boolean
   db?: string
   json?: boolean
   all?: boolean
@@ -1047,6 +1051,9 @@ const parseQuery = (argv: readonly string[]): { values: QueryValues, pattern: st
   const { values, positionals } = parseArgs({ args: [...argv], options: queryOptions, allowPositionals: true })
   if (positionals.length === 0) {
     return { failure: fail('cave query: a pattern is required (spec §12.1)\n') }
+  }
+  if (values.json === true && values.jsonl === true) {
+    return { failure: fail('cave query: --json and --jsonl are mutually exclusive\n') }
   }
   if (values.sources === true && values.cursor !== undefined) {
     return { failure: fail('cave query: --cursor does not apply to --sources — the overlay exists for one invocation and is answered whole\n') }
@@ -1151,6 +1158,13 @@ const renderQueryPage = (
 ): Output => {
   {
     const result = page()
+    if (values.jsonl === true) {
+      return {
+        code: 0,
+        out: result.matches.map(match => `${JSON.stringify(match.bindings)}\n`).join(''),
+        err: result.next === undefined ? '' : `next: ${result.next}\n`
+      }
+    }
     if (values.json === true) {
       return ok(`${JSON.stringify(result, undefined, 2)}\n`)
     }

@@ -16,6 +16,9 @@ groups. Each update to those dependencies or foundational actions gets its own
 pull request so generated artifacts, platform behavior, and release authority
 can be reviewed independently. Action updates must remain pinned to a complete
 commit SHA with a readable version comment; do not replace pins with tags.
+Version comments may use major, minor, or patch labels (for example `# v6`
+or `# v6.1.0`), so Dependabot can record an exact release without failing
+the immutable-revision check. The full 40-character SHA remains required.
 The report's `mdast-util-*` and `micromark*` dependencies are included in these
 parser exclusions: their syntax boundaries determine which template constructs
 execute queries. Review their updates against the report's literal-region,

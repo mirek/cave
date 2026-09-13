@@ -2994,3 +2994,40 @@ test('doctor diagnoses unsupported edge roles and permits repair without disclos
     }
   })
 })
+
+test('query JSONL emits only bindings, with empty results and cursor continuation', () => {
+  withDir(dir => {
+    const db = join(dir, 'repos.db')
+    const file = join(dir, 'repos.cave')
+    writeFileSync(file, 'foo IS repo ; first description\nbar IS repo ; second description\n')
+    assert.equal(addCommand([file, '--db', db]).code, 0)
+    const args = ['--db', db, '?repo IS repo', '--jsonl']
+    const result = queryCommand(args)
+    assert.equal(result.code, 0, result.err)
+    assert.deepEqual(result.out.trim().split('\n').map(line => JSON.parse(line)), [{ repo: 'foo' }, { repo: 'bar' }])
+    assert.equal(result.err, '')
+    assert.equal(queryCommand(['--db', db, '?repo IS missing', '--jsonl']).out, '')
+    assert.equal(queryCommand(['--db', db, 'foo IS repo', '--jsonl']).out, '{}\n')
+    assert.equal(queryCommand([...args, '--json']).code, 1)
+    const first = queryCommand([...args, '--limit', '1'])
+    assert.equal(first.out, '{"repo":"foo"}\n')
+    assert.match(first.err, /^next: /)
+    const second = queryCommand([...args, '--limit', '1', '--cursor', first.err.trim().slice(6)])
+    assert.equal(second.code, 0, second.err)
+    assert.equal(second.out, '{"repo":"bar"}\n')
+    assert.equal(second.err, '')
+    const prototype = queryCommand(['--db', db, '?__proto__ IS repo', '--jsonl'])
+    assert.equal(JSON.parse(prototype.out.split('\n')[0]!)['__proto__'], 'foo')
+  })
+})
+
+test('query JSONL supports source overlays', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cave-jsonl-sources-'))
+  try {
+    const db = join(dir, 'repos.cave')
+    writeFileSync(db, 'foo IS repo ; description\n')
+    const result = await querySourcesCommand(['--db', db, '?repo IS repo', '--sources', '--jsonl'])
+    assert.equal(result.code, 0, result.err)
+    assert.equal(result.out, '{"repo":"foo"}\n')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
