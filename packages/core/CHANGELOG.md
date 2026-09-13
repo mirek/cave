@@ -1,5 +1,12 @@
 # @cavelang/core
 
+## 0.37.0
+
+### Patch Changes
+
+- 025fd1f: Update the pinned Pages deployment action to 5.0.1 with capped status-poll backoff and jitter.
+- ac866ae: Accept exact release labels in workflow action comments while retaining full immutable SHA pins.
+
 ## 0.36.10
 
 ### Patch Changes

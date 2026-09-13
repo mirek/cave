@@ -1,5 +1,9 @@
 # @cavelang/tree-sitter-cave
 
+## 0.37.0
+
+No changes in this release.
+
 ## 0.36.10
 
 No changes in this release.
