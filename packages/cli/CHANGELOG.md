@@ -1,5 +1,23 @@
 # @cavelang/cli
 
+## 0.37.0
+
+### Minor Changes
+
+- ac866ae: Add bindings-only query JSONL output for shell pipelines and suppress Node runtime warnings in the CLI unless CAVE_DEBUG=1.
+
+### Patch Changes
+
+- Updated dependencies [025fd1f]
+- Updated dependencies [ac866ae]
+  - @cavelang/core@0.37.0
+  - @cavelang/canonical@0.37.0
+  - @cavelang/fusion@0.37.0
+  - @cavelang/parser@0.37.0
+  - @cavelang/query@0.37.0
+  - @cavelang/store@0.37.0
+  - @cavelang/highlight@0.37.0
+
 ## 0.36.10
 
 ### Patch Changes
