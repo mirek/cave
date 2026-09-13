@@ -615,3 +615,11 @@ inside their own surfaces. Avoid hiding page overflow: that would conceal
 unreachable content instead of fixing its layout.
 
 `.github/workflows/pages.yml` publishes `website/dist` to GitHub Pages on changes to the site, packages, or documentation.
+
+Deployment uses `actions/deploy-pages` 5.0.1, pinned to a full commit SHA.
+Its default status-poll delay starts at five seconds, grows by 1.5 after each
+successful non-terminal response, and caps at thirty seconds before ±20% jitter.
+Request-error backoff is added separately. A pending deployment therefore does
+not necessarily produce a log line every five seconds. The deploy job retains
+its ten-minute timeout; the production browser suite must pass before the site
+artifact can be deployed.
