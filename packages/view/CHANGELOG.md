@@ -1,5 +1,11 @@
 # @cavelang/view
 
+## 0.36.10
+
+### Patch Changes
+
+- Align the @cavelang/view workspace with the CAVE 0.36.10 release identity.
+
 ## 0.36.9
 
 ### Patch Changes
