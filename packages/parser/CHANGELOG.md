@@ -1,5 +1,12 @@
 # @cavelang/parser
 
+## 0.36.10
+
+### Patch Changes
+
+- Updated dependencies [6fd3daa]
+  - @cavelang/core@0.36.10
+
 ## 0.36.9
 
 ### Patch Changes

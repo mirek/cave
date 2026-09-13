@@ -1,5 +1,9 @@
 # @cavelang/solver
 
+## 0.36.10
+
+No changes in this release.
+
 ## 0.36.9
 
 No changes in this release.

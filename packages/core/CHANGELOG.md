@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.36.10
+
+### Patch Changes
+
+- 6fd3daa: Unify backlog tracking in todo/*.md with typed frontmatter and a shared TODO index.
+
 ## 0.36.9
 
 ### Patch Changes
