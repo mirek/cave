@@ -912,9 +912,9 @@ Implementation lives in a pnpm TypeScript monorepo — see
 [ARCHITECTURE.md](ARCHITECTURE.md) for runtime flows and invariants, and
 [PACKAGE_SURFACES.md](PACKAGE_SURFACES.md) for the supported npm entry points
 and migration from former implementation-package names. The roadmap is
-complete; [TODO.md](TODO.md) is the queue,
+complete; [TODO.md](TODO.md) is the queue for bugs, features, and other work;
 [PROJECT-BOUNDARIES.md](PROJECT-BOUNDARIES.md) records deliberately excluded
-extensions, and [BUGS.md](BUGS.md) indexes suspected defects.
+extensions.
 
 ## The specification
 
