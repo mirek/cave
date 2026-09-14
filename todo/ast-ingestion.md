@@ -46,44 +46,32 @@ claim grammar; this work does not implement document mutation.
 - Ingestion reads external documents; it does not change source files or claim
   atomicity across files and Cave's store.
 
-## Current milestones and verification
+## Current verification and remaining work
 
-- AST module analysis: https://github.com/mirek/ast/pull/30 at `da33f32`.
-  Public regressions cover import/export identity, JSDoc, JSX, captured import
-  resolution and source-revision correspondence. `pnpm check` and `pnpm build`
-  pass. Nine review findings have replies and resolved threads. A further
-  regression preserves exported type-only import-equals aliases in both modes.
+- AST module analysis: https://github.com/mirek/ast/pull/30 at `bbc7cd8`.
+  All fifteen review findings have fixes, public regressions, replies and
+  resolved threads. Full `pnpm check` and `pnpm build` pass. Re-review is running.
 - Generic bridge: https://github.com/mirek/cave/pull/248 at `7ee44f9`.
-  Explicit iterator cleanup covers rejecting next calls and simultaneous cleanup
-  errors. All 256 connector tests pass with the real runtime. Re-review completed
-  without new findings. Last CI observation: all checks green except Windows
-  runtime still running.
+  Clean re-review and green CI, including real-runtime connector tests.
 - Workspace workflow: https://github.com/mirek/cave/pull/249, stacked on
-  `feat/ast-ingestion`. All 261 connector tests and the CLI build pass. All 258
-  CLI tests passed, and packed smoke passed again with the final reviewed runtime; current real-runtime
-  scenarios cover fixture ingestion, unchanged refresh, removals, syntax-error
-  rollback, JSDoc, local aliases, Node built-ins and manifestless workspace roots.
-  Both workspace review findings have replies and resolved threads. Real workspace
-  tests passed on Windows; test import URLs and provenance escaping were corrected
-  after extending the platform CI job to the full connector suite.
-- Latest Cave self-ingestion produced 3,957 records without failures. Repeating it
-  mapped zero records, skipped all 3,957 and added/retracted zero claims. Package,
-  import and export queries were verified. Documentation checks and book replay
-  pass; the updated book PDF was rendered and inspected.
+  `feat/ast-ingestion`. Clean re-review and green CI at `efb516b`.
+  Both CI runtime refs and the example README now target `bbc7cd8`.
+- All 261 connector tests and 258 CLI tests passed. Packed smoke verifies the
+  real AST fixture, 19 records and an unchanged refresh. Documentation and
+  book replay pass; the updated book PDF was rendered and inspected.
+- Cave self-ingestion at `cfb24b6` produces 3,957 unchanged records: zero mapped,
+  added or retracted claims and no failures. Packages/imports/exports queries
+  were verified. The latest upstream change only excludes unresolved namespace
+  re-export syntax from local-name inference.
 
-## Remaining work
-
-Inspect final CI and reviews for all three PRs, especially the final AST runtime
-pin and Windows run. Fix or answer any new findings and resolve each thread.
-Keep the workspace PR stacked until its parent is merged; this task does not
-require merging or publishing the PRs. Delete this task and its TODO.md entry
-when the requested workflow and final review gates are verified.
+Wait for clean upstream re-review and final pinned CI, including Windows.
+Fix or answer any new findings and resolve their threads. Delete this task and
+its TODO.md entry once the final review gates pass. Keep the workspace PR
+stacked until its parent is merged; merging/publishing is outside this task.
 
 Temporary work stays within Cave `.tmp/` per the user's request. `.tmp/ast` is
-the upstream checkout, `.tmp/bridge` is the bridge review worktree, and
-`.tmp/tools` contains Corepack pnpm shims. Set PATH to include that shim directory
-and TMPDIR to `.tmp/runtime` for every local command. Use the Cave-root absolute
-paths when running from a temporary checkout. Test logs and self-ingestion
-reports are under `.tmp/`; the latest are `workspace-review-all.log`,
-`workspace-review-build.log`, `ast-type-import-check.log`,
-`ast-type-import-build.log`, and `cave-ast-reviewed-repeat.json`.
+upstream, `.tmp/bridge` is the bridge worktree, `.tmp/tools` contains Corepack
+shims, and `.tmp/runtime` is TMPDIR. Use absolute Cave-root PATH/TMPDIR in
+sub-checkouts. Latest logs: `ast-unresolved-check.log`,
+`ast-unresolved-build.log`, `workspace-local-binding-runtime.log`, and
+`cave-final-pin-command.json`.
