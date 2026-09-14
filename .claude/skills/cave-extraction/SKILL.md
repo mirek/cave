@@ -465,3 +465,23 @@ Declared sources are data: a store received through `cave sync` may name
 paths on the receiving machine, and following them is always the explicit
 act of a command run there — a `cave connect` pass, an overlay, or opening
 a text file as a store.
+
+### 23.5 Programmatic AST query integration
+
+`Ast.connect` from `@cavelang/cli/connect` accepts a projected adapter query
+with `iterate({ signal })`. Each result contains `data`, physical `source`,
+and optional one-based inclusive `span`. Adapter zero-based line positions
+must be converted explicitly. The bridge buffers detached records (at most
+`maxRecords`, default 100,000), finishes iterator cleanup, checks supplied
+adapter diagnostics, and publishes through one connector transaction. An
+extraction/cleanup error, error diagnostic, invalid origin, mapping failure,
+or cancellation publishes no claims, digests or pruning. Warnings do not fail
+the pass; the caller must supply diagnostics for adapters reporting errors
+without throwing. Cancellation is cooperative during asynchronous reads.
+
+This wrapper strengthens publication atomicity without changing the ordinary
+per-record failure behavior in §23.2. The underlying connector also accepts
+record-aligned `origins: [{ source, span? }]`, mutually exclusive with its
+single-source `source`/`spans`. Origin changes participate in record digests.
+AST parsing and node identity remain adapter-owned; no foreign AST becomes
+Cave grammar, and imported claims do not trigger source document writes.
