@@ -60,7 +60,7 @@ claim grammar; this work does not implement document mutation.
   runtime still running.
 - Workspace workflow: https://github.com/mirek/cave/pull/249, stacked on
   `feat/ast-ingestion`. All 261 connector tests and the CLI build pass. All 258
-  CLI tests and packed smoke passed before the review fixes; current real-runtime
+  CLI tests passed, and packed smoke passed again with the final reviewed runtime; current real-runtime
   scenarios cover fixture ingestion, unchanged refresh, removals, syntax-error
   rollback, JSDoc, local aliases, Node built-ins and manifestless workspace roots.
   Both workspace review findings have replies and resolved threads. Real workspace

@@ -1139,5 +1139,7 @@ never shell input. Real-runtime connector tests run on Linux, macOS and Windows.
 Setting `CAVE_AST_MODULE` to an absolute built entry module when running
 `make smoke` also exercises fixture ingestion and an unchanged refresh through
 the packed CLI. Temporary work is ignored under `.tmp/`; setting TMPDIR there
-keeps test artifacts within the checkout. The book doctor example allows the
+keeps test artifacts within the checkout. Packed smoke passes an explicit
+TMPDIR-based template to mktemp, including on macOS where a bare mktemp call
+can choose the system temporary directory. The book doctor example allows the
 successful pnpm message to vary with the enclosing workspace.

@@ -10,7 +10,7 @@ set -euo pipefail
 # CLI output into EPIPE/SIGPIPE failures under pipefail; redirect grep instead.
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/cave-smoke.XXXXXX")"
 children=()
 cleanup() {
   status=$?
