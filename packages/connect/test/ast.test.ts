@@ -9,6 +9,31 @@ import { join } from 'node:path'
 
 const mapping = Template.parse('?id HAS name: ?name').mapping!
 
+test('a rejecting custom iterator is closed and cleanup failures retain both causes', async () => {
+  for (const failCleanup of [false, true]) {
+    const store = open()
+    const extraction = new Error('next failed')
+    const cleanup = new Error('return failed')
+    let closed = 0
+    const source: Ast.Query = { iterate: () => ({ [Symbol.asyncIterator]: () => ({
+      next: async () => { throw extraction },
+      return: async () => { closed++; if (failCleanup) throw cleanup; return { done: true, value: undefined } }
+    }) }) }
+    try {
+      const before = store.exportText({ tx: true })
+      await assert.rejects(Ast.connect(store, mapping, source, { name: 'cleanup' }), error => {
+        if (failCleanup) {
+          assert.ok(error instanceof AggregateError)
+          assert.deepEqual(error.errors, [extraction, cleanup])
+        } else assert.equal(error, extraction)
+        return true
+      })
+      assert.equal(closed, 1)
+      assert.equal(store.exportText({ tx: true }), before)
+    } finally { store.close() }
+  }
+})
+
 test('real mirek/ast JSON traversal feeds the connector', { skip: !process.env['CAVE_AST_MODULE'] }, async () => {
   const { createJsonAdapter, select } = await import(process.env['CAVE_AST_MODULE']!)
   const directory = await mkdtemp(join(tmpdir(), 'cave-ast-query-'))

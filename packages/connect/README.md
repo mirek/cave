@@ -119,6 +119,10 @@ before either operation can treat the batch as empty. Empty batches and
 field-less object records remain valid. This captures the advertised array
 entries, not a deep snapshot of record fields.
 
+AST projections are explicitly closed when extraction fails, including when a
+custom iterator's `next()` rejects. If cleanup also fails, the rejected
+`AggregateError` retains both causes; neither failure publishes claims.
+
 ## Mapping templates (§23.1)
 
 The `origins` programmatic option accepts a dense, record-aligned array of
