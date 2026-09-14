@@ -48,21 +48,21 @@ claim grammar; this work does not implement document mutation.
 
 ## Current verification and remaining work
 
-- AST module analysis: https://github.com/mirek/ast/pull/30 at `bda94b2`.
-  All sixteen review findings have fixes, public regressions, replies and
+- AST module analysis: https://github.com/mirek/ast/pull/30 at `d64b9bb`.
+  All seventeen review findings have fixes, public regressions, replies and
   resolved threads. Full `pnpm check` and `pnpm build` pass. Re-review is running.
 - Generic bridge: https://github.com/mirek/cave/pull/248 at `7ee44f9`.
   Clean re-review and green CI, including real-runtime connector tests.
 - Workspace workflow: https://github.com/mirek/cave/pull/249, stacked on
   `feat/ast-ingestion`. Clean re-review and green CI at `efb516b`.
-  Both CI runtime refs and the example README now target `bda94b2`.
+  Both CI runtime refs and the example README now target `d64b9bb`.
 - All 261 connector tests and 258 CLI tests passed. Packed smoke verifies the
   real AST fixture, 19 records and an unchanged refresh. Documentation and
   book replay pass; the updated book PDF was rendered and inspected.
 - Cave self-ingestion at `cfb24b6` produces 3,957 unchanged records: zero mapped,
   added or retracted claims and no failures. Packages/imports/exports queries
-  were verified. The latest upstream change only preserves source names for
-  unresolved export aliases.
+  were verified. The latest upstream change only classifies internal import-equals
+  aliases using the cached checker in syntax-only mode.
 
 Wait for clean upstream re-review and final pinned CI, including Windows.
 Fix or answer any new findings and resolve their threads. Delete this task and
@@ -72,6 +72,6 @@ stacked until its parent is merged; merging/publishing is outside this task.
 Temporary work stays within Cave `.tmp/` per the user's request. `.tmp/ast` is
 upstream, `.tmp/bridge` is the bridge worktree, `.tmp/tools` contains Corepack
 shims, and `.tmp/runtime` is TMPDIR. Use absolute Cave-root PATH/TMPDIR in
-sub-checkouts. Latest logs: `ast-unresolved-alias-check.log`,
-`ast-unresolved-alias-build.log`, `workspace-local-binding-runtime.log`, and
+sub-checkouts. Latest logs: `ast-internal-alias-check.log`,
+`ast-internal-alias-build.log`, `workspace-local-binding-runtime.log`, and
 `cave-final-pin-command.json`.

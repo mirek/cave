@@ -13,11 +13,15 @@ the tested upstream revision (includes the module inventory in AST PR #30):
 
 ```sh
 git clone https://github.com/mirek/ast.git .tmp/ast
-git -C .tmp/ast checkout bda94b213824daef419bc29562e3ce6bd12a73eb
-pnpm --dir .tmp/ast install --frozen-lockfile
-pnpm --dir .tmp/ast --filter @mirek/ast build
+git -C .tmp/ast checkout d64b9bb4241429e628871d3d3cf85a2fbe0b41dd
+(
+  cd .tmp/ast
+  pnpm install --frozen-lockfile
+  pnpm --filter @mirek/ast build
+)
 ```
 
+Run pnpm from the AST checkout so Corepack selects AST's declared version.
 If the runtime is already built in a sibling checkout, use
 `../ast/packages/core/dist/index.js` instead. `--runtime` resolves relative to
 the invocation directory. Without that option, Cave looks for the installed
