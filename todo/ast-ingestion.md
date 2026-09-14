@@ -59,13 +59,14 @@ all CI checks pass. The current `feat/ast-pnpm-workspace` branch adds the
 workspace CLI, fixture, real-runtime CI on all supported platforms, documentary
 comments, package/file/import/export queries and refreshed documentation/book.
 All 258 connector tests pass with the pinned runtime. Packed CLI smoke passes with actual fixture ingestion and a zero-change repeat.
-Self-ingestion produces 3,956 records without failures; its final repeat is running. A full CLI run exposed the book doctor
+Self-ingestion produces 3,956 records without failures; its final repeat maps zero records, skips all 3,956 and changes no claims. A full CLI run exposed the book doctor
 example's assumption that TMPDIR is outside a workspace; its documented pnpm
 placeholder now permits either successful context and still rejects FAIL.
 Both focused book regressions pass after that adjustment and disabling Node
 compile caching inside the cleanup test. The complete chapter replay also passes.
 
-Open the workspace milestone PR against `feat/ast-ingestion` (parent unmerged).
+Workspace milestone: https://github.com/mirek/cave/pull/249, targeting
+`feat/ast-ingestion` (parent unmerged). CI and reviews are running.
 Inspect final checks and all review threads before declaring the work finished.
 The upstream milestone checkout is `.tmp/ast` on `feat/typescript-module-analysis`;
 `.tmp/tools` contains pnpm shims. Both live under the Cave workspace and are
