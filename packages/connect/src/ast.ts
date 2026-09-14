@@ -45,15 +45,26 @@ export const connect = async (store: Store, mapping: Mapping, query: Query, opti
   const records: { [key: string]: unknown }[] = []
   const origins: { source: string, span?: LineSpan }[] = []
   const comments: (string | undefined)[] = []
-  for await (const record of query.iterate({ signal })) {
-    signal?.throwIfAborted()
-    if (records.length >= maxRecords) throw new RangeError(`AST query exceeds maxRecords (${maxRecords})`)
-    if (!record || typeof record !== 'object') throw new TypeError('AST query must yield projected records')
-    const data = record.data
-    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new TypeError('AST record data must be an object')
-    records.push(structuredClone(data))
-    origins.push(structuredClone({ source: record.source, span: record.span }))
-    comments.push(record.comment)
+  const iterator = query.iterate({ signal })[Symbol.asyncIterator]()
+  try {
+    while (true) {
+      const step = await iterator.next()
+      if (step.done) break
+      const record = step.value
+      signal?.throwIfAborted()
+      if (records.length >= maxRecords) throw new RangeError(`AST query exceeds maxRecords (${maxRecords})`)
+      if (!record || typeof record !== 'object') throw new TypeError('AST query must yield projected records')
+      const data = record.data
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new TypeError('AST record data must be an object')
+      records.push(structuredClone(data))
+      origins.push(structuredClone({ source: record.source, span: record.span }))
+      comments.push(record.comment)
+    }
+  } catch (error) {
+    // Unlike for-await, close even when next() itself rejects.
+    try { await iterator.return?.() }
+    catch (cleanupError) { throw new AggregateError([error, cleanupError], 'AST extraction and iterator cleanup failed', { cause: error }) }
+    throw error
   }
   signal?.throwIfAborted()
   const errors = diagnostics?.().filter(item => item.severity === 'error') ?? []
