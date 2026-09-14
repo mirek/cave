@@ -10,6 +10,7 @@ captured from actual runs.
 | --- | --- | --- |
 | Learn claims, graph queries and confidence | [Monorepo tutorial](../README.md#tutorial-i--a-monorepo-one-claim-at-a-time) | The CAVE CLI; no LLM agent |
 | Turn CSV or JSON into maintained claims | [Structured data](../packages/connect/README.md) and the monorepo CSV fixture | A source file and mapping template; no LLM agent |
+| Ingest packages, source imports and documented exports | [pnpm monorepo](pnpm-monorepo/README.md) | pnpm and the separately built mirek/ast runtime; no LLM |
 | Extract claims from documents and react to changes | [Market tutorial](../README.md#tutorial-ii--a-market-watchlist) | The CLI and a configured agent for the ingestion steps |
 | Explore competing explanations for an incident | [Incident walkthrough](#incident) | The CAVE CLI; no LLM agent |
 | Measure extraction or reconstruction quality | [Extraction eval](#eval) or [reconstruction eval](#loop-eval) | The CLI; deterministic examples are included, with an agent for model comparisons |

@@ -37,6 +37,7 @@ export const commandRegistry = [
   { name: 'ingest', importantOptions: ['--agent', '--stdout', '--lenient', '--plan', '--dry-run', '--json', '--no-prelude'], delegated: true },
   { name: 'eval', importantOptions: ['--agent', '--judge', '--runs', '--stdout', '--min', '--json', '--no-prelude'], delegated: true },
   { name: 'connect', importantOptions: ['--map', '--key', '--watch', '--prune', '--query', '--dry-run', '--list', '--no-prelude'], delegated: true },
+  { name: 'ast', importantOptions: ['--runtime', '--name', '--exclude', '--max-records', '--force', '--dry-run', '--json'], delegated: true },
   { name: 'reconstruct', importantOptions: ['--query', '--agent', '--steps', '--claims', '--timeout', '--trace', '--no-prelude'] },
   { name: 'doctor', importantOptions: ['--hooks', '--json'] },
   { name: 'demo', importantOptions: [] },

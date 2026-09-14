@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": { "@demo/lib": ["packages/lib/src/index.ts"] }
+  },
+  "include": ["packages/*/src/**/*.ts"]
+}

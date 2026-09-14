@@ -42,6 +42,7 @@
     "prepack": "pnpm run build"
   },
   "devDependencies": {
+    "@cavelang/loop": "workspace:*",
     "@cavelang/canonical": "workspace:*",
     "@cavelang/core": "workspace:*",
     "@cavelang/parser": "workspace:*",

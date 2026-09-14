@@ -37,6 +37,7 @@ a missing database. This table is the map; the chapters are the territory.
   [`cave ingest`], [Model-driven ingestion of files and URLs; `--agent`, `--stdout`, `--instructions`, `--lenient`.], [15],
   [`cave eval`], [Golden-fixture extraction and reconstruction evals; `--agent`, `--runs`, `--judge`, `--min`.], [16],
   [`cave connect`], [Deterministic structured ingestion; `--map`, `--key`, `--prune`, `--watch`, `--query`; no source runs the declared ones, `--list` shows them.], [14],
+  [`cave ast`], [pnpm workspace inventory through mirek/ast; #box[`--runtime`], #box[`--name`], #box[`--exclude`], #box[`--max-records`], #box[`--dry-run`], #box[`--json`].], [14],
   [`cave reconstruct`], [Best-first reconstruction from seed cues; `--trace`, `--steps`, `--agent`.], [20],
   [`cave doctor`], [Runtime, installation, configuration, and store diagnostics.], [28],
   [`cave demo`], [Narrate the reconstruction demo on an in-memory store.], [20],

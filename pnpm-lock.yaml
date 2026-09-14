@@ -206,6 +206,9 @@ importers:
       '@cavelang/core':
         specifier: workspace:*
         version: link:../core
+      '@cavelang/loop':
+        specifier: workspace:*
+        version: link:../loop
       '@cavelang/parser':
         specifier: workspace:*
         version: link:../parser

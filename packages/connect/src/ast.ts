@@ -11,6 +11,8 @@ export type Record = {
   readonly source: string
   /** Cave spans are one-based and inclusive; convert adapter positions explicitly. */
   readonly span?: LineSpan
+  /** Exact documentary text attached to the first mapped claim (e.g. JSDoc). */
+  readonly comment?: string
 }
 
 /** Structural subset of @mirek/ast Query; no compiler dependency in Cave. */
@@ -20,7 +22,7 @@ export type Query = {
 
 export type Diagnostic = { readonly severity: string, readonly message: string }
 
-export type Options = Omit<ConnectOptions, 'source' | 'spans' | 'origins'> & {
+export type Options = Omit<ConnectOptions, 'source' | 'spans' | 'origins' | 'comments'> & {
   readonly signal?: AbortSignal
   /** Maximum buffered records, default 100,000. Exceeding it rejects the whole pass. */
   readonly maxRecords?: number
@@ -42,6 +44,7 @@ export const connect = async (store: Store, mapping: Mapping, query: Query, opti
   const capturedOptions = { ...connectOptions }
   const records: { [key: string]: unknown }[] = []
   const origins: { source: string, span?: LineSpan }[] = []
+  const comments: (string | undefined)[] = []
   const iterator = query.iterate({ signal })[Symbol.asyncIterator]()
   try {
     while (true) {
@@ -55,6 +58,7 @@ export const connect = async (store: Store, mapping: Mapping, query: Query, opti
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new TypeError('AST record data must be an object')
       records.push(structuredClone(data))
       origins.push(structuredClone({ source: record.source, span: record.span }))
+      comments.push(record.comment)
     }
   } catch (error) {
     // Unlike for-await, close even when next() itself rejects.
@@ -67,7 +71,7 @@ export const connect = async (store: Store, mapping: Mapping, query: Query, opti
   if (errors.length) throw new Error(`AST extraction failed: ${errors.map(item => item.message).join('; ')}`)
   signal?.throwIfAborted()
   return store.transaction(() => {
-    const report = connectRecords(store, capturedMapping, records, { ...capturedOptions, origins })
+    const report = connectRecords(store, capturedMapping, records, { ...capturedOptions, origins, comments })
     if (report.failures.length) throw new Error(`AST mapping failed: ${report.failures.flatMap(item => item.problems).join('; ')}`)
     signal?.throwIfAborted()
     return report

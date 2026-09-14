@@ -1,0 +1,5 @@
+{
+  "name": "@demo/workspace",
+  "private": true,
+  "type": "module"
+}

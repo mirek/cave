@@ -139,6 +139,7 @@ Usage:
   cave ingest [--db <path>] <globs/urls..> LLM-driven ingestion of files and web pages
   cave eval <suite..> --agent '<command>'  golden-fixture extraction/query/reconstruction evals
   cave connect <source> --map <file>       deterministic structured ingestion (CSV/JSON/SQLite/URL, spec §23)
+  cave ast <root>                         ingest pnpm packages, source imports and exports through mirek/ast
   cave reconstruct [--db <path>] <seed..>  reconstruct memory from seed cues (spec §18) [--agent] [--query] [--trace]
   cave doctor [--db <path>]                diagnose runtime, installation, and store health [--hooks <file>] [--json]
   cave demo                                run the cave-loop reconstruction demo

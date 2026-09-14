@@ -1121,3 +1121,25 @@ per-record failure behavior; its new `origins` metadata supports physical
 sources that differ between records. See the connector README for limits and
 an executable projection example. CLI workspace discovery remains separate
 from this generic adapter/query boundary.
+
+`AstWorkspace` adds pnpm membership discovery through the shared bounded
+process boundary (`pnpm list --recursive --depth -1 --json`), then uses AST JSON
+selectors for manifests and its filesystem and TypeScript adapters for source
+inventory. `runAst` exposes this through the common CLI dispatcher. Default
+runtime lookup uses the workspace's @mirek/ast package; `--runtime` loads an
+explicit built file. TypeScript/compiler dependencies stay outside Cave's
+published runtime. Fresh adapter instances per pass prevent stale refreshes.
+JSDoc uses the record-comment boundary, preserving arbitrary punctuation and
+line breaks. Connector record keys hash logical identities before the legacy
+key sanitizer; queryable entities retain readable namespaced paths.
+
+Workspace discovery launches the constant pnpm command through `cmd.exe` on
+Windows to support batch-file shims; the workspace path is only a process cwd,
+never shell input. Real-runtime connector tests run on Linux, macOS and Windows.
+Setting `CAVE_AST_MODULE` to an absolute built entry module when running
+`make smoke` also exercises fixture ingestion and an unchanged refresh through
+the packed CLI. Temporary work is ignored under `.tmp/`; setting TMPDIR there
+keeps test artifacts within the checkout. Packed smoke passes an explicit
+TMPDIR-based template to mktemp, including on macOS where a bare mktemp call
+can choose the system temporary directory. The book doctor example allows the
+successful pnpm message to vary with the enclosing workspace.

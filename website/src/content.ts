@@ -60,7 +60,7 @@ export const docs: readonly Doc[] = [
   { slug: 'solver', label: 'Solver model', group: 'Reference', markdown: solver, source: 'packages/solver/README.md' },
   { slug: 'solver-z3', label: 'Z3 adapter', group: 'Reference', markdown: solverZ3, source: 'packages/solver-z3/README.md' },
   { slug: 'ingest', label: 'LLM ingestion', group: 'Integrations', markdown: ingest, source: 'packages/ingest/README.md' },
-  { slug: 'connect', label: 'Structured data', group: 'Integrations', markdown: connect, source: 'packages/connect/README.md' },
+  { slug: 'connect', label: 'Structured data & ASTs', group: 'Integrations', markdown: connect, source: 'packages/connect/README.md' },
   { slug: 'mcp', label: 'MCP server', group: 'Integrations', markdown: mcp, source: 'packages/mcp/README.md' },
   { slug: 'sync', label: 'Store sync', group: 'Integrations', markdown: sync, source: 'packages/sync/README.md' },
   { slug: 'view', label: 'Read surface & reports', group: 'Integrations', markdown: view, source: 'packages/view/README.md' },
