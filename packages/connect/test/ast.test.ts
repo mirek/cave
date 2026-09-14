@@ -6,6 +6,7 @@ import { Ast, Template } from '../src/index.ts'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const mapping = Template.parse('?id HAS name: ?name').mapping!
 
@@ -35,7 +36,7 @@ test('a rejecting custom iterator is closed and cleanup failures retain both cau
 })
 
 test('real mirek/ast JSON traversal feeds the connector', { skip: !process.env['CAVE_AST_MODULE'] }, async () => {
-  const { createJsonAdapter, select } = await import(process.env['CAVE_AST_MODULE']!)
+  const { createJsonAdapter, select } = await import(pathToFileURL(process.env['CAVE_AST_MODULE']!).href)
   const directory = await mkdtemp(join(tmpdir(), 'cave-ast-query-'))
   const store = open()
   try {
