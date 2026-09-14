@@ -457,9 +457,11 @@ test('the CLI attaches loaded record spans to persisted claims (spec §9.8)', as
     const result = await captured([source, '--map', map, '--key', 'id', '--db', db])
     assert.equal(result.code, 0, result.err)
     const store = open(db)
-    const row = store.byContext('src:connect/people-list/alice')[0]!
-    assert.ok(store.toClaim(row).contexts.includes(`src:${source.replaceAll(' ', '%20')}#L2`))
-    store.close()
+    try {
+      const row = store.byContext('src:connect/people-list/alice')[0]!
+      const escaped = source.replaceAll('\\', '%5C').replaceAll(' ', '%20')
+      assert.ok(store.toClaim(row).contexts.includes(`src:${escaped}#L2`))
+    } finally { store.close() }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
