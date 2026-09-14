@@ -13,7 +13,7 @@ the tested upstream revision (includes the module inventory in AST PR #30):
 
 ```sh
 git clone https://github.com/mirek/ast.git .tmp/ast
-git -C .tmp/ast checkout 77cc1d896ea39e0356912b254ce82ba571df6e30
+git -C .tmp/ast checkout c0059c75bdcbf191bfba1ee761db1e327611e594
 (
   cd .tmp/ast
   pnpm install --frozen-lockfile
