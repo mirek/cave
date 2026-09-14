@@ -726,3 +726,9 @@ participate in record digests. JSDoc uses this boundary on the `EXPORTS` claim;
 `declaration-source` preserves its originating file when an alias re-exports
 another module's declaration. Missing comments clear earlier comments on a
 changed record in the ordinary connector lifecycle.
+
+Workspace roots without a package manifest are supported: member manifests still
+produce packages and sources outside those members belong to the workspace.
+Compiler-resolved local aliases relate to their target workspace package, while
+Node built-ins (including legacy names such as `fs/promises`) do not create npm
+package targets.

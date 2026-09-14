@@ -73,3 +73,34 @@ test('workspace CLI resolves a project-installed runtime and previews without op
     await assert.rejects(runAst([root, '--max-records', '0'], { stdout: stream }), /positive safe integer/)
   } finally { stream.destroy(); await rm(root, { recursive: true, force: true }) }
 })
+
+test('workspace imports distinguish local aliases and Node builtins from npm packages', { skip: !runtime }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cave-pnpm-alias-'))
+  await cp(fileURLToPath(new URL('../../../examples/pnpm-monorepo/', import.meta.url)), root, { recursive: true })
+  const store = open()
+  try {
+    const configPath = join(root, 'tsconfig.json')
+    const config = JSON.parse(await readFile(configPath, 'utf8'))
+    config.compilerOptions.paths['utils/*'] = ['packages/lib/src/*.ts']
+    await writeFile(configPath, JSON.stringify(config))
+    await writeFile(join(root, 'packages/app/src/alias.ts'), 'import { greet } from "utils/index"; import "fs"; import "fs/promises"; export { greet };\n')
+    await AstWorkspace.connect(store, { root, runtime, name: 'alias' })
+    assert.equal(query(store, '?file USES npm/utils').length, 0)
+    assert.equal(query(store, '?file USES npm/fs').length, 0)
+    assert.equal(query(store, 'repo/alias/file/packages/app/src/alias.ts IMPORTS repo/alias/file/packages/lib/src/index.ts').length, 1)
+  } finally { store.close(); await rm(root, { recursive: true, force: true }) }
+})
+
+test('a workspace root without package.json retains member packages and workspace-owned sources', { skip: !runtime }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cave-pnpm-root-'))
+  await cp(fileURLToPath(new URL('../../../examples/pnpm-monorepo/', import.meta.url)), root, { recursive: true })
+  const store = open()
+  try {
+    await rm(join(root, 'package.json'))
+    await writeFile(join(root, 'config.ts'), 'export const workspace = true;\n')
+    await AstWorkspace.connect(store, { root, runtime, name: 'rootless' })
+    assert.equal(query(store, '?p IS workspace-package').length, 2)
+    assert.equal(query(store, '?f IS source-file').length, 4)
+    assert.equal(query(store, 'repo/rootless CONTAINS repo/rootless/file/config.ts').length, 1)
+  } finally { store.close(); await rm(root, { recursive: true, force: true }) }
+})

@@ -1,6 +1,7 @@
 /** pnpm package discovery plus adapter-owned JSON and TypeScript extraction. */
 import { createHash } from 'node:crypto'
 import { access, realpath } from 'node:fs/promises'
+import { isBuiltin } from 'node:module'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { directCommand, runProcess } from '@cavelang/loop'
@@ -113,7 +114,9 @@ const packagePaths = async (root: string, signal?: AbortSignal): Promise<string[
   if (result.code !== 0) throw new Error(`pnpm workspace discovery failed (exit ${result.code}): ${result.stderr.trim()}`)
   const rows: unknown = JSON.parse(result.stdout)
   if (!Array.isArray(rows)) throw new TypeError('pnpm list must return an array')
-  const paths = new Set<string>([root])
+  const paths = new Set<string>()
+  try { await access(join(root, 'package.json')); paths.add(root) }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   for (const row of rows) {
     if (!row || typeof row.path !== 'string') throw new TypeError('pnpm list returned a package without a path')
     const path = await realpath(row.path)
@@ -206,8 +209,7 @@ export const extract = async (options: Options): Promise<{ query: Ast.Query, nam
       if (!origin) throw new Error('AST source file has no physical origin')
       const path = fileURLToPath(origin.uri)
       if (!inside(root, path)) throw new Error('AST source file is outside the workspace')
-      const owner = ownership.find(([dir]) => inside(dir, path))?.[1]
-      if (!owner) throw new Error('AST source file has no owning package')
+      const owner = ownership.find(([dir]) => inside(dir, path))?.[1] ?? { id: prefix }
       const project = await projectFor(path, root)
       let ts = projects.get(project ?? '')
       if (!ts) {
@@ -228,7 +230,9 @@ export const extract = async (options: Options): Promise<{ query: Ast.Query, nam
         const target = imported.resolvedUri?.startsWith('file:') ? fileURLToPath(imported.resolvedUri) : undefined
         const localTarget = target && inside(root, target) && !slash(relative(root, target)).split('/').includes('node_modules') ? fileId(target) : undefined
         const packageName = barePackage(imported.specifier)
-        const targetPackage = packageName ? byName.get(packageName) ?? `npm/${encoded(packageName)}` : undefined
+        const targetPackage = packageName && !isBuiltin(imported.specifier) ?
+          localTarget ? ownership.find(([dir]) => inside(dir, target!))?.[1].id :
+            byName.get(packageName) ?? `npm/${encoded(packageName)}` : undefined
         const id = `${file}/import/${key}/${at}`
         yield record(id, { importer: file, import: id, targetFile: localTarget, targetPackage, specifier: imported.specifier, importKind: imported.kind, importTypeOnly: imported.typeOnly }, imported.origin.uri, imported.origin)
       }

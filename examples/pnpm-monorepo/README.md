@@ -13,7 +13,7 @@ the tested upstream revision (includes the module inventory in AST PR #30):
 
 ```sh
 git clone https://github.com/mirek/ast.git .tmp/ast
-git -C .tmp/ast checkout 3f84949d1895c36269ef1d1e173f945c8a3b8b53
+git -C .tmp/ast checkout 3f516fc2ee602faef816144be3f518e17a54bde3
 pnpm --dir .tmp/ast install --frozen-lockfile
 pnpm --dir .tmp/ast --filter @mirek/ast build
 ```
@@ -73,9 +73,10 @@ pnpm exec cave query --db .tmp/cave-repository.db '?file IMPORTS repo/cave/file/
 pnpm exec cave query --db .tmp/cave-repository.db 'repo/cave/file/packages/core/src/claim.ts EXPORTS ?symbol'
 ```
 
-`pnpm list --recursive --depth -1 --json` determines membership, including the
-root. Manifest values come from AST JSON traversal. Source ownership is the
-nearest containing workspace package. AST walks TypeScript/JavaScript sources,
+`pnpm list --recursive --depth -1 --json` determines membership. A root with a package manifest is also a package;
+a manifestless root remains the workspace entity. Manifest values come from AST JSON traversal. Source ownership is the
+nearest containing workspace package, or the workspace itself when no package
+contains the file. AST walks TypeScript/JavaScript sources,
 excluding node_modules, .git, .tmp, dist, build and coverage. Repeat `--exclude`
 for additional globs; this does not change pnpm package membership.
 
@@ -83,7 +84,9 @@ The nearest ancestor `tsconfig.json` supplies compiler options and resolution.
 AST does not load project references transitively, and files outside the
 selected project remain syntax-only. Warnings are printed; each file records
 its analysis mode. Imports with no compiler-resolved file retain their original
-specifier, and bare package imports still relate to their package. Dynamic
+specifier, and bare package imports still relate to their package. A compiler-resolved
+local alias relates to the target workspace package; Node built-ins and local aliases
+do not create npm package targets. Dynamic
 imports and CommonJS require calls are outside the static inventory. This is
 source analysis, not a build or a type-check.
 

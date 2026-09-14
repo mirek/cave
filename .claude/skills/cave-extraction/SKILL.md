@@ -519,3 +519,8 @@ atomic refresh (§23.5). The maxRecords bound counts emitted records rather than
 bytes or compiler memory. Dry-run uses an isolated in-memory store and does not
 open the supplied database. File reads do not constitute a global filesystem
 snapshot. The connector README and pnpm example describe CLI options and globs.
+
+A pnpm root without `package.json` remains a workspace, not an invented package;
+sources outside member packages belong to the workspace. Compiler-resolved local
+aliases use the target workspace package. Neither local aliases nor Node built-ins
+(including bare built-in names) produce npm package relations.

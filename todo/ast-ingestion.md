@@ -97,3 +97,22 @@ Tool shim path is `/Users/mirek/github/mirek/cave/.tmp/tools`; AST checkout
 uses pnpm 11.13.0, Cave uses 11.9.0. Invoking bare pnpm without the shim finds
 9.12.3. Upstream check log: `.tmp/ast-review-check.log`; connector log:
 `.tmp/connect-check.log`; successful packed smoke log: `.tmp/ast-smoke.log`.
+
+## Review follow-up
+
+AST PR #30 at `3f516fc` now keeps import targets and declaration revisions tied
+to compiler snapshots and includes exported import-equals aliases. Three public
+regressions fail before the fix; upstream check/build pass. All nine findings
+so far have replies and resolved threads; another review is running.
+
+Bridge PR #248 at `7ee44f9` explicitly closes custom iterators when next rejects
+and preserves simultaneous cleanup errors. Its 256 tests pass with the real
+runtime. The workspace branch merges that fix. Windows testing exposed a test
+runtime import needing file URLs and a provenance assertion needing escaped
+backslashes; both are fixed, and workspace ingestion itself passed on Windows.
+
+Workspace PR #249 review fixes distinguish compiler-resolved local aliases and
+Node built-ins from npm packages, and support roots without package manifests.
+Uncontained root sources belong to the workspace entity. All four real-runtime
+workspace scenarios pass. Inspect the final connector/build logs and latest CI,
+reply/resolve these two findings after pushing, and finish the review loop.
