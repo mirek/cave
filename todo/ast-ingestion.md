@@ -48,21 +48,21 @@ claim grammar; this work does not implement document mutation.
 
 ## Current verification and remaining work
 
-- AST module analysis: https://github.com/mirek/ast/pull/30 at `6ca17c5`.
-  All eighteen review findings have fixes, public regressions, replies and
+- AST module analysis: https://github.com/mirek/ast/pull/30 at `c7c9f50`.
+  All nineteen review findings have fixes, public regressions, replies and
   resolved threads. Full `pnpm check` and `pnpm build` pass. Re-review is running.
 - Generic bridge: https://github.com/mirek/cave/pull/248 at `7ee44f9`.
   Clean re-review and green CI, including real-runtime connector tests.
 - Workspace workflow: https://github.com/mirek/cave/pull/249, stacked on
-  `feat/ast-ingestion`. Clean re-review and green CI at `386c49f`.
-  Both CI runtime refs and the example README now target `6ca17c5`.
+  `feat/ast-ingestion`. Clean re-review and green CI at `05694b1`.
+  Both CI runtime refs and the example README now target `c7c9f50`.
 - All 261 connector tests and 258 CLI tests passed. Packed smoke verifies the
   real AST fixture, 19 records and an unchanged refresh. Documentation and
   book replay pass; the updated book PDF was rendered and inspected.
 - Cave self-ingestion at `cfb24b6` produces 3,957 unchanged records: zero mapped,
   added or retracted claims and no failures. Packages/imports/exports queries
-  were verified. The latest upstream change only requires source snapshot identity
-  in the captured compiler program before using configured module analysis.
+  were verified. The latest upstream change only preserves type-only export routes
+  through ambient module symbols and merged declarations.
 
 Wait for clean upstream re-review and final pinned CI, including Windows.
 Fix or answer any new findings and resolve their threads. Delete this task and
@@ -72,6 +72,6 @@ stacked until its parent is merged; merging/publishing is outside this task.
 Temporary work stays within Cave `.tmp/` per the user's request. `.tmp/ast` is
 upstream, `.tmp/bridge` is the bridge worktree, `.tmp/tools` contains Corepack
 shims, and `.tmp/runtime` is TMPDIR. Use absolute Cave-root PATH/TMPDIR in
-sub-checkouts. Latest logs: `ast-late-file-check.log`,
-`ast-late-file-build.log`, `workspace-local-binding-runtime.log`, and
+sub-checkouts. Latest logs: `ast-ambient-check.log`,
+`ast-ambient-build.log`, `workspace-local-binding-runtime.log`, and
 `cave-final-pin-command.json`.
