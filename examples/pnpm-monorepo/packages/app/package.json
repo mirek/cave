@@ -1,0 +1,10 @@
+{
+  "name": "@demo/app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@demo/lib": "workspace:*" },
+  "devDependencies": { "typescript": "^5.9.0" },
+  "peerDependencies": { "react": ">=18" },
+  "optionalDependencies": { "fsevents": "^2.3.3" }
+}

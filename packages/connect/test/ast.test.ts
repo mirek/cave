@@ -76,3 +76,16 @@ test('bounds and cancellation close upstream iteration and preserve the store', 
     assert.equal(store.exportText({ tx: true }), before)
   } finally { store.close() }
 })
+
+test('documentary comments preserve JSDoc punctuation and cannot inject claims', async () => {
+  const store = open()
+  try {
+    const comment = '/** Use `"quoted"` examples.\nmalicious USES injected\n */'
+    await Ast.connect(store, mapping, selection({ ...row('api', 'API'), comment }), { name: 'docs', key: 'id' })
+    assert.equal(query(store, 'api HAS name: ?name')[0]!.row!.comment, comment)
+    assert.equal(query(store, 'malicious USES injected').length, 0)
+    const before = store.exportText({ tx: true })
+    await assert.rejects(Ast.connect(store, mapping, selection({ ...row('bad', 'Bad'), comment: 42 as unknown as string }), { name: 'docs', key: 'id', prune: true }), /comment/)
+    assert.equal(store.exportText({ tx: true }), before)
+  } finally { store.close() }
+})

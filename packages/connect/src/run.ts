@@ -152,6 +152,8 @@ export type ConnectOptions = {
   readonly spans?: readonly LineSpan[]
   /** Record-aligned physical sources for heterogeneous adapter queries. Exclusive with source/spans. */
   readonly origins?: readonly { readonly source: string, readonly span?: LineSpan }[]
+  /** Optional comments attached to each record's first emitted claim. */
+  readonly comments?: readonly (string | undefined)[]
   /** Re-map records whose digest is unchanged. */
   readonly force?: boolean
   /** Retract claims of records that disappeared from the source. */
@@ -273,6 +275,7 @@ export const connect = (
     source: options.source,
     spans: options.spans,
     origins: options.origins,
+    comments: options.comments,
     force: options.force,
     prune: options.prune
   }
@@ -308,6 +311,14 @@ export const connect = (
     })
   }
   const naming = options.naming ?? adHocNaming(name)
+  const comments = options.comments
+  if (comments !== undefined && (!Array.isArray(comments) || comments.length !== records.length)) throw new TypeError('comments must have one entry per record')
+  const capturedComments: (string | undefined)[] = records.map((_record, at) => {
+    if (comments === undefined) return undefined
+    const comment = comments[at]
+    if (!Object.hasOwn(comments, at) || (comment !== undefined && typeof comment !== 'string')) throw new TypeError(`invalid comment for record ${at + 1}`)
+    return comment
+  })
   const failures: Failure[] = []
   const notes: string[] = []
   const seen = new Set<string>()
@@ -380,9 +391,12 @@ export const connect = (
       return fields.get(name)
     }
     const instantiation = Template.instantiate(mapping.templates, field)
+    const comment = capturedComments[at]
+    const text = comment !== undefined && instantiation.text.trim() !== '' ?
+      comment.split(/\r\n|\r|\n/).map(line => `; ${line}`).join('\n') + '\n' + instantiation.text : instantiation.text
     dropped += instantiation.dropped
     const key = options.key === undefined ?
-      digestOf(instantiation.text) :
+      digestOf(text) :
       keyOf(field(options.key))
     if (key === undefined) {
       unidentifiedFailures += 1
@@ -402,13 +416,13 @@ export const connect = (
     }
     const subject = naming.unit(key)
     const sourceContext = recordSourceContexts?.[at] ?? defaultSourceContext
-    const digest = digestOf(`${instantiation.text}\0${sourceContext ?? ''}`)
+    const digest = digestOf(`${text}\0${sourceContext ?? ''}`)
     if (!force && isConnected(store, subject, digest)) {
       skipped += 1
       return
     }
     try {
-      if (ingestUnit(subject, naming.run(key), instantiation.text, digest, sourceContext)) mapped += 1
+      if (ingestUnit(subject, naming.run(key), text, digest, sourceContext)) mapped += 1
       else skipped += 1
     } catch (error) {
       if (!isRecordError(error)) {

@@ -73,7 +73,7 @@ cave doctor <token>
 PASS Node <token> satisfies ^24.16.0 || ^26.1.0
 PASS SQLite <token> supports FTS5, JSON functions, foreign keys, and extension loading
 PASS Grammar WASM and highlight query are installed
-PASS pnpm is not required for this installed CLI
+PASS pnpm <any>
 PASS CAVE schema 2 is compatible (33 claim(s))
 PASS SQLite integrity and foreign-key checks passed
 PASS Stored payloads, provenance, flags, confidence and sigma levels are valid
@@ -83,7 +83,9 @@ result: ready
 ```
 
 The CAVE, Node, and SQLite version tokens reflect the installed CLI and
-runtime and vary between releases and supported installations.
+runtime and vary between releases and supported installations. The pnpm line
+reports either that pnpm is unnecessary outside a workspace or that the
+installed version satisfies the enclosing workspace's requirement.
 
 Warnings such as a database that does not exist yet exit 0; an unsupported
 runtime, a broken grammar asset, a malformed hooks file, or a corrupt store

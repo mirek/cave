@@ -9,6 +9,7 @@
     "test/**/*.ts"
   ],
   "references": [
+    { "path": "../loop" },
     {
       "path": "../canonical"
     },

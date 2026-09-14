@@ -49,12 +49,24 @@ claim grammar; this work does not implement document mutation.
 ## Completion evidence
 
 AST module inventory is available in https://github.com/mirek/ast/pull/30
-at `9738feb47035c32a4ff161adafa677ddba04e1f4`; upstream check/build and CI pass.
-The generic Cave bridge is implemented as `Ast.connect` in the connector API,
-with a real JSON adapter integration regression and pinned CI runtime.
-The pnpm workspace command, fixture, runtime loader, self-ingestion queries,
-and their user-facing documentation remain to implement in the next milestone.
+at `3f84949d1895c36269ef1d1e173f945c8a3b8b53`. Both review rounds are fixed,
+with public regressions for default/type-only exports, export assignment,
+namespace identity, statement JSDoc and syntax-only JSX traversal. Upstream
+check/build pass; the latest CI/review remain to inspect.
 
+The generic bridge is in https://github.com/mirek/cave/pull/248 at `9d14774`;
+all CI checks pass. The current `feat/ast-pnpm-workspace` branch adds the
+workspace CLI, fixture, real-runtime CI on all supported platforms, documentary
+comments, package/file/import/export queries and refreshed documentation/book.
+All 258 connector tests pass with the pinned runtime. Packed CLI smoke passes with actual fixture ingestion and a zero-change repeat.
+Self-ingestion produces 3,956 records without failures; its final repeat is running. A full CLI run exposed the book doctor
+example's assumption that TMPDIR is outside a workspace; its documented pnpm
+placeholder now permits either successful context and still rejects FAIL.
+Both focused book regressions pass after that adjustment and disabling Node
+compile caching inside the cleanup test. The complete chapter replay also passes.
+
+Open the workspace milestone PR against `feat/ast-ingestion` (parent unmerged).
+Inspect final checks and all review threads before declaring the work finished.
 The upstream milestone checkout is `.tmp/ast` on `feat/typescript-module-analysis`;
 `.tmp/tools` contains pnpm shims. Both live under the Cave workspace and are
 locally Git-ignored. Use `PATH="$PWD/.tmp/tools:$PATH"` from the Cave root.
@@ -65,3 +77,22 @@ dependencies, source imports, and JSDoc exports. Repeating an unchanged pass
 must append no history; deleting a dependency/file must retract owned facts.
 Review DOCUMENTATION.md and update all affected live surfaces per milestone.
 Delete this task when the whole requested workflow is verified and PRs exist.
+
+## Workspace milestone implementation notes
+
+Use the existing `@cavelang/loop` direct process boundary to run
+`pnpm list --recursive --depth -1 --json` in the selected root (verified on
+Cave: includes the root and all 25 packages). This delegates workspace YAML
+semantics/globs to pnpm and avoids another parser dependency. Validate the
+returned package paths stay within the root. Read manifests through AST JSON
+traversal; preserve dependency category and exact authored range. Use AST
+filesystem traversal for source files and `TypeScriptAdapter.moduleInfo` with
+the nearest appropriate tsconfig; preserve syntax-only diagnostics where no
+project applies. The optional AST runtime loader should resolve @mirek/ast
+from the caller project or accept an explicit built module path.
+
+Keep temporary files/checkouts and TMPDIR under Cave `.tmp/` per user request.
+Tool shim path is `/Users/mirek/github/mirek/cave/.tmp/tools`; AST checkout
+uses pnpm 11.13.0, Cave uses 11.9.0. Invoking bare pnpm without the shim finds
+9.12.3. Upstream check log: `.tmp/ast-review-check.log`; connector log:
+`.tmp/connect-check.log`; successful packed smoke log: `.tmp/ast-smoke.log`.

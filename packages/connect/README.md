@@ -696,3 +696,29 @@ changes its record digest and reconciles previous source-stamped claims.
 
 Set `CAVE_AST_MODULE` to an absolute built AST module path to enable the real
 adapter integration test when running the connector suite.
+
+## pnpm workspace inventory
+
+`cave ast <root> --runtime <built-ast-module.js> --db repo.db` uses the
+`AstWorkspace.connect` API to ingest workspace packages, categorized dependency
+ranges, source-file ownership, static imports/re-exports, and exported symbols
+with JSDoc comments. The [runnable fixture and self-ingestion guide](../../examples/pnpm-monorepo/README.md)
+cover setup, identities, queries, exclusions and limits. AST remains optional
+and caller-supplied; pnpm discovers membership without installing dependencies.
+
+Successful workspace passes always reconcile removed records. Parse failures,
+error diagnostics, invalid mappings and cancellation publish no part of a
+refresh. Each invocation creates fresh adapters, so compiler snapshots do not
+leak across refreshes. File imports use the nearest tsconfig; unsupported
+project references and syntax-only files are reported through diagnostics.
+Unresolved imports retain their specifier instead of acquiring guessed targets.
+`--dry-run` exports a fresh in-memory preview and never opens the target DB.
+
+Projected `Ast.Record.comment` and the lower-level record-aligned `comments`
+option attach documentary text to the first emitted claim for that record.
+Every physical line is prefixed as a Cave comment before parsing, so embedded
+quotes, backticks or claim-looking text cannot inject claims. Comment changes
+participate in record digests. JSDoc uses this boundary on the `EXPORTS` claim;
+`declaration-source` preserves its originating file when an alias re-exports
+another module's declaration. Missing comments clear earlier comments on a
+changed record in the ordinary connector lifecycle.

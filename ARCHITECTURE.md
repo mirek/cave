@@ -810,3 +810,11 @@ Per-record physical sources preserve heterogeneous document provenance.
 Failed extraction, adapter error diagnostics or mapping errors publish none
 of that refresh. AST is supplied by the caller; the bridge changes neither
 the core claim grammar nor the parser's Cave-specific syntax model.
+
+The pnpm workspace projection (`cave ast`, `AstWorkspace.connect`) delegates
+membership to pnpm, syntax to AST, and the complete refresh to `Ast.connect`.
+It records file/package ownership, declared dependency categories and ranges,
+compiler-resolved imports, and exported declarations with JSDoc. Range text
+is not an installed-version inventory. Optional runtime loading and nearest
+project selection remain integration concerns; file and export identities are
+ordinary namespaced entities. CLI dry-run uses a separate in-memory store.

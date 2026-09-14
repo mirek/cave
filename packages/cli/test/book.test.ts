@@ -34,7 +34,7 @@ fs.${operation} = (...args) => {
 syncBuiltinESMExports()
 `)
       const result = spawnSync(process.execPath, ['--import', preload, script, '--only', '28-operating'], {
-        encoding: 'utf8', timeout: 10_000, env: { ...process.env, TMPDIR: scratch }
+        encoding: 'utf8', timeout: 10_000, env: { ...process.env, TMPDIR: scratch, NODE_DISABLE_COMPILE_CACHE: '1' }
       })
       assert.equal(result.error, undefined)
       assert.equal(result.status, 1, result.stderr)
@@ -42,7 +42,7 @@ syncBuiltinESMExports()
       assert.deepEqual(readdirSync(scratch), [], `${operation} left temporary workspaces`)
     }
     const retry = spawnSync(process.execPath, [script, '--only', '28-operating'], {
-      encoding: 'utf8', timeout: 30_000, env: { ...process.env, TMPDIR: scratch }
+      encoding: 'utf8', timeout: 30_000, env: { ...process.env, TMPDIR: scratch, NODE_DISABLE_COMPILE_CACHE: '1' }
     })
     assert.equal(retry.error, undefined)
     assert.equal(retry.status, 0, retry.stdout + retry.stderr)
@@ -99,7 +99,10 @@ test('the recorded doctor session accepts release versions without hiding diagno
     const actual = recorded.replace(/^cave doctor .*$/m, `cave doctor ${version}`)
       .replace('PASS Node <token>', 'PASS Node 24.21.0')
       .replace('PASS SQLite <token>', 'PASS SQLite 3.53.4')
+      .replace('PASS pnpm <any>', 'PASS pnpm is not required for this installed CLI')
     assert.ok(matches(recorded, actual), `the example must survive release ${version}`)
+    assert.ok(matches(recorded, actual.replace('pnpm is not required for this installed CLI', 'pnpm 11.9.0 satisfies the workspace requirement')))
+    assert.ok(!matches(recorded, actual.replace('PASS pnpm', 'FAIL pnpm')))
     assert.ok(!matches(recorded, actual.replace('result: ready', 'result: failed')))
   }
 })

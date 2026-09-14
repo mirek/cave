@@ -71,6 +71,10 @@ const execute = async (raw: readonly string[], runtime: CommandRuntime): Promise
       const { runConnect } = await import('@cavelang/connect')
       return await runConnect(rest, context)
     }
+    case 'ast': {
+      const { runAst } = await import('@cavelang/connect')
+      return await runAst(rest, context)
+    }
     case 'automate': {
       const { runAutomate } = await import('@cavelang/automate')
       return await runAutomate(rest, context)
