@@ -2,7 +2,6 @@
 
 ## Active backlog
 
-- [AST-backed monorepo ingestion](todo/ast-ingestion.md) — `feat`, high priority. Integrate mirek/ast and demonstrate pnpm packages, dependencies, source imports, and documented exports in milestone PRs.
 - [Review the complete system](todo/system-review.md) — `review`, high priority. Continue the user-requested runtime, workflow, documentation, website, and enhancement audit.
 
 ## Task files
