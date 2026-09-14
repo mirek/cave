@@ -800,3 +800,13 @@ The limiting factor for cross-cutting changes is usually identity stability:
 a change to normalization, source stamping, contexts, inverse mapping, or key
 construction can split or merge belief series and therefore affects history,
 resolution, sync, and eval scoring at once.
+
+## External syntax queries
+
+`Ast.connect` in the connector API receives projected mirek/ast queries.
+Asynchronous parsing and traversal finish before one synchronous publication
+transaction reuses Cave's mapping, digests and ownership reconciliation.
+Per-record physical sources preserve heterogeneous document provenance.
+Failed extraction, adapter error diagnostics or mapping errors publish none
+of that refresh. AST is supplied by the caller; the bridge changes neither
+the core claim grammar nor the parser's Cave-specific syntax model.

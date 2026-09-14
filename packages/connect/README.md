@@ -119,7 +119,15 @@ before either operation can treat the batch as empty. Empty batches and
 field-less object records remain valid. This captures the advertised array
 entries, not a deep snapshot of record fields.
 
+AST projections are explicitly closed when extraction fails, including when a
+custom iterator's `next()` rejects. If cleanup also fails, the rejected
+`AggregateError` retains both causes; neither failure publishes claims.
+
 ## Mapping templates (§23.1)
+
+The `origins` programmatic option accepts a dense, record-aligned array of
+`{ source, span? }` values for heterogeneous sources. It is mutually exclusive
+with `source`/`spans`, and validates before writing. See AST integration below.
 
 Explicit `@claim` lines use the same subject formatting as ordinary claims.
 For example, `@claim ?id IS record` quotes an `id` field of `20 kg` as an
@@ -645,3 +653,50 @@ a failure before preparing the first source leaves existing history intact.
 - **Keys are sanitized, claims are not.** The record key rides in an
   entity name and a `@src:` context, so reserved characters collapse to
   `-`; claim subjects/values keep the exact field value.
+
+## AST query integration
+
+`Ast.connect` consumes a projected `@mirek/ast` query and applies one complete
+connector refresh. AST owns parsing, traversal and source semantics; Cave owns
+mapping, provenance and reconciliation. Supply AST separately (its packages
+are currently private); the bridge requires only `iterate({ signal })`.
+
+```ts
+import { Ast, Template } from '@cavelang/cli/connect'
+import { createJsonAdapter, select } from '@mirek/ast'
+
+const adapter = createJsonAdapter()
+const records = select(adapter, { uri: 'package.json' }, 'json::property')
+  .project(({ snapshot }) => ({
+    data: { id: snapshot.id.local, name: snapshot.attributes.name },
+    source: snapshot.origin!.uri
+  }))
+const { mapping } = Template.parse('?id HAS name: ?name')
+await Ast.connect(store, mapping!, records, {
+  name: 'manifest-tree', key: 'id', prune: true,
+  diagnostics: () => adapter.diagnostics()
+})
+```
+
+Every projected record has `data`, a physical `source`, and an optional
+one-based inclusive `span`. Convert adapter positions explicitly: AST offsets
+are UTF-16 and its line/column positions are zero-based. Offset-based node IDs
+are not durable cross-revision entity identities; this example uses the JSON
+adapter's local structural identity for a single document. Cross-file
+projections must namespace record keys by resource identity.
+
+The query is drained and its resources closed before the synchronous store
+transaction starts. Records and the mapping are detached from caller mutation.
+An iterator/cleanup error, adapter error diagnostic, invalid provenance,
+mapping failure, or cancellation rejects without publishing claims, digests,
+or prunes. Supply the diagnostics callback for adapters that report parse
+errors instead of throwing. Warnings do not reject the pass. All records are
+buffered; `maxRecords` defaults to 100,000 and exceeding it rejects the pass
+and closes iteration. The bound counts records, not bytes. The abort signal
+is forwarded through `iterate` and checked before publication. Query implementations
+remain responsible for observing cancellation while awaiting external reads.
+Ordinary key and vocabulary-retention semantics still apply. Changing an origin
+changes its record digest and reconciles previous source-stamped claims.
+
+Set `CAVE_AST_MODULE` to an absolute built AST module path to enable the real
+adapter integration test when running the connector suite.
