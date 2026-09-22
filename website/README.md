@@ -86,6 +86,9 @@ two clocks visibly compose. Each slider has an `aria-valuetext` and a polite
 diagram carries an `img` label, and forced-colors mode maps every mark to
 `CanvasText`. The diagram data is illustrative and hard-coded, not queried from
 a store; keep it consistent with the spec sections it depicts.
+The two `<output>` readouts carry the implicit ARIA `status` role, so the
+homepage has more than one status region: browser tests locate the install-copy
+status within `.hero` rather than with a page-wide `getByRole('status')`.
 
 Homepage capability cards use the same code wrapper as the hero example, so
 long shell commands and rules support arrow-key scrolling with a visible focus
