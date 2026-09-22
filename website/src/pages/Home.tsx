@@ -120,6 +120,45 @@ export const Home = () => {
         <span>CC0</span>
       </section>
 
+      <section className="concepts" aria-labelledby="concepts-title">
+        <div className="concepts-heading">
+          <div className="section-label">THE MODEL, AT A GLANCE</div>
+          <div>
+            <h2 id="concepts-title">A claim is one thing you know.</h2>
+            <p>Connect claims to make a graph. Add context to say when they hold, where they came from, and how sure you are.</p>
+          </div>
+        </div>
+
+        <div className="concepts-grid">
+          <div className="concept-panel">
+            <div className="concept-panel-title"><span>01 / CLAIM</span><strong>subject · verb · object</strong></div>
+            <div className="claim-anatomy" aria-label="Claim: kaffa-coop supplies lot/huila-26">
+              <div><small>SUBJECT</small><code>kaffa-coop</code><span>the thing</span></div>
+              <div><small>VERB</small><code>SUPPLIES</code><span>the relationship</span></div>
+              <div><small>OBJECT</small><code>lot/huila-26</code><span>another thing</span></div>
+            </div>
+            <p>Each relation is an edge you can follow or query in either direction.</p>
+            <div className="concept-query"><span>ASK</span><code>?who SUPPLIES lot/huila-26</code><span>→ kaffa-coop</span></div>
+          </div>
+
+          <div className="concept-panel">
+            <div className="concept-panel-title"><span>02 / TRAJECTORY</span><strong>a value across time</strong></div>
+            <div className="trajectory-code"><code>lot/huila-26 HAS price: <b>7.80 -&gt; 8.60 USD/kg</b></code><code><b>@2026..2027</b> @src:contract @ 90%</code></div>
+            <div className="trajectory-plot" role="img" aria-label="Price rises linearly from 7.80 US dollars per kilogram at the start of 2026 to 8.60 at the start of 2027, then stays at 8.60 through 2027.">
+              <div className="trajectory-values"><span>7.80 USD/kg</span><span>8.60 USD/kg</span></div>
+              <svg viewBox="0 0 400 94" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path className="trajectory-axis" d="M10 83H390" />
+                <path className="trajectory-line" d="M10 78L205 12H390" />
+                <circle cx="10" cy="78" r="4" /><circle cx="205" cy="12" r="4" /><circle cx="390" cy="12" r="4" />
+              </svg>
+              <div className="trajectory-dates"><span>2026 starts</span><span>2027 starts</span><span>2027 ends</span></div>
+            </div>
+            <p><code>@2026..2027</code> says when it holds. <code>@src:contract</code> names the source; <code>@ 90%</code> expresses confidence in the claim.</p>
+          </div>
+        </div>
+        <div className="concept-footnote"><strong>Beliefs can change.</strong> New assessments are appended, so the store remembers what you knew before.</div>
+      </section>
+
       <section className="manifesto">
         <div className="section-label">HOW IT'S TAUGHT</div>
         <div>
