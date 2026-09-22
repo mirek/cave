@@ -752,6 +752,31 @@ test('highlighting recovers after a failed grammar download when source changes'
   expect(pageErrors).toEqual([])
 })
 
+test('homepage concept map scrubbers read belief --as-of and valid time --at together', async ({ page }) => {
+  await page.goto('./#/home')
+  const map = page.getByRole('region', { name: 'Five ideas carry the rest.' })
+  const asOf = map.getByRole('slider', { name: /--as-of/ })
+  const at = map.getByRole('slider', { name: /--at/ })
+  const readouts = map.locator('.cm-scrubber output')
+  await expect(asOf).toHaveAttribute('aria-valuetext', '2026-07-16')
+  await expect(readouts.nth(0)).toHaveText('2026-07-16: price 7.80, supply 100%')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-07-16, at 2026-07: 7.80 timeless, 8.10 on the trajectory')
+
+  await asOf.focus()
+  await page.keyboard.press('End')
+  await expect(readouts.nth(0)).toHaveText('2026-09-30: price 8.20, supply retracted')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-07: 8.20 timeless, 8.20 on the trajectory')
+
+  await at.focus()
+  await page.keyboard.press('Home')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2025-01: 8.20 timeless, trajectory out of range')
+
+  await asOf.focus()
+  await page.keyboard.press('Home')
+  await expect(readouts.nth(0)).toHaveText('2026-06-01: price not yet written, supply not yet written')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-06-01, at 2025-01: no price yet, no trajectory yet')
+})
+
 for (const width of [320, 375, 390, 720, 768, 1024, 1280]) {
   test(`production routes fit a ${width}px viewport and preserve navigation`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })

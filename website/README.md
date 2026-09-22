@@ -75,6 +75,18 @@ Inline code inside reference tables stays on one line, keeping command flags
 such as `--as-of` intact. A table that needs more width uses the same horizontal
 scrolling and keyboard access instead of splitting those tokens.
 
+The homepage's "The model" section (`src/components/ConceptMap.tsx`) is a
+concept map: the anatomy of one claim line, then four small SVG diagrams for
+append-only belief, per-source voices resolved by `--resolve` (§26.2), trajectory
+values in valid time (§32), and rule derivation with `BECAUSE` lineage. Two range
+inputs are named after the CLI flags they stand for: `--as-of` scrubs learning
+time and `--at` scrubs valid time, and the trajectory diagram reads both, so the
+two clocks visibly compose. Each slider has an `aria-valuetext` and a polite
+`<output>` readout stating what the store believes at that position; each
+diagram carries an `img` label, and forced-colors mode maps every mark to
+`CanvasText`. The diagram data is illustrative and hard-coded, not queried from
+a store; keep it consistent with the spec sections it depicts.
+
 Homepage capability cards use the same code wrapper as the hero example, so
 long shell commands and rules support arrow-key scrolling with a visible focus
 outline. Examples that fit their card do not add a Tab stop; resizing updates

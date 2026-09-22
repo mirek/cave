@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { CaveCode } from '../components/CaveCode.tsx'
+import { ConceptMap } from '../components/ConceptMap.tsx'
 import { ScrollableCode } from '../components/ScrollableCode.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { ButtonLink } from '../components/ui/button.tsx'
@@ -119,6 +120,8 @@ export const Home = () => {
         <span>TEMPORAL</span><i />
         <span>CC0</span>
       </section>
+
+      <ConceptMap />
 
       <section className="manifesto">
         <div className="section-label">HOW IT'S TAUGHT</div>
