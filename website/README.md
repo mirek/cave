@@ -84,7 +84,10 @@ time and `--at` scrubs valid time, and the trajectory diagram reads both, so the
 two clocks visibly compose. Each slider has an `aria-valuetext` and a polite
 `<output>` readout stating what the store believes at that position; each
 diagram carries an `img` label, and forced-colors mode maps every mark to
-`CanvasText`. The diagram data is illustrative and hard-coded, not queried from
+`CanvasText`. The `--at` position is the first day of the chosen month as a UTC instant, and
+the trajectory interpolates by elapsed calendar time between its January 1
+anchors, as §32 specifies; twelfths of a year would misstate values (8.07
+instead of 8.06 for May 2026 on the 7.80 -> 8.60 estimate). The diagram data is illustrative and hard-coded, not queried from
 a store; keep it consistent with the spec sections it depicts.
 The two `<output>` readouts carry the implicit ARIA `status` role, so the
 homepage has more than one status region: browser tests locate the install-copy

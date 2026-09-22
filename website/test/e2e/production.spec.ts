@@ -771,10 +771,17 @@ test('homepage concept map scrubbers read belief --as-of and valid time --at tog
   await page.keyboard.press('Home')
   await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2025-01: 8.20 timeless, trajectory out of range')
 
+  // Interpolation follows elapsed calendar days (spec §32), not twelfths of a year:
+  // 2026-05-01 is 120/365 of the way from 7.80 to 8.60, so 8.06 rather than 8.07.
+  for (let step = 0; step < 16; step++) await page.keyboard.press('ArrowRight')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-05: 8.20 timeless, 8.06 on the trajectory')
+  for (let step = 0; step < 3; step++) await page.keyboard.press('ArrowRight')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-08: 8.20 timeless, 8.26 on the trajectory')
+
   await asOf.focus()
   await page.keyboard.press('Home')
   await expect(readouts.nth(0)).toHaveText('2026-06-01: price not yet written, supply not yet written')
-  await expect(readouts.nth(1)).toHaveText('as of 2026-06-01, at 2025-01: no price yet, no trajectory yet')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-06-01, at 2026-08: no price yet, no trajectory yet')
 })
 
 for (const width of [320, 375, 390, 720, 768, 1024, 1280]) {

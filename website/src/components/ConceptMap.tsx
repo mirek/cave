@@ -268,9 +268,21 @@ const plot = (year: number, price: number): Point => [yearX(year), priceY(price)
 const fixed = (value: number) => value.toFixed(2)
 const monthLabel = (month: number) => `${2025 + Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, '0')}`
 
-// Interpolates across 2026..2027 and holds the end value through 2028.
-const valueAt = ({ from, to }: Estimate, year: number) =>
-  year < 2026 || year >= 2028 ? undefined : from + (to - from) * Math.min(year - 2026, 1)
+const yearStart = (year: number) => Date.UTC(year, 0, 1)
+const monthStart = (month: number) => Date.UTC(2025 + Math.floor(month / 12), month % 12, 1)
+// Position of a UTC instant on the year axis, by real elapsed time within its year.
+const fractionalYear = (instant: number) => {
+  const year = new Date(instant).getUTCFullYear()
+  return year + (instant - yearStart(year)) / (yearStart(year + 1) - yearStart(year))
+}
+
+// Spec §32: interpolates in real calendar time between the 2026-01-01 and
+// 2027-01-01 anchors, holds the end value through 2027, and does not apply
+// from 2028 on.
+const valueAt = ({ from, to }: Estimate, instant: number) =>
+  instant < yearStart(2026) || instant >= yearStart(2028)
+    ? undefined
+    : from + (to - from) * Math.min((instant - yearStart(2026)) / (yearStart(2027) - yearStart(2026)), 1)
 
 const timelessPrice = (iso: string) => {
   const row = latestOn(series[0].rows, iso)
@@ -293,12 +305,12 @@ const EstimatePath = ({ estimate, state }: { estimate: Estimate; state: RowState
 const TrajectoryFigure = ({ asOf }: { asOf: number }) => {
   const [month, setMonth] = useState(18)
   const iso = dayToIso(asOf)
-  const year = 2025 + month / 12
-  const x = yearX(year)
+  const instant = monthStart(month)
+  const x = yearX(fractionalYear(instant))
   const at = monthLabel(month)
   const held = latestOn(estimates, iso)
   const timeless = timelessPrice(iso)
-  const moving = held && valueAt(held, year)
+  const moving = held && valueAt(held, instant)
   const parts = [
     timeless === undefined ? 'no price yet' : `${fixed(timeless)} timeless`,
     held === undefined ? 'no trajectory yet' : moving === undefined ? 'trajectory out of range' : `${fixed(moving)} on the trajectory`,
