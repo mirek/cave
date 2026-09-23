@@ -1,5 +1,11 @@
 # @cavelang/core
 
+## 0.37.1
+
+### Patch Changes
+
+- ffb447e: Add a homepage concept map with interactive `--as-of` and `--at` scrubbers showing claim anatomy, append-only belief, source resolution, trajectories, and rule derivation.
+
 ## 0.37.0
 
 ### Patch Changes
