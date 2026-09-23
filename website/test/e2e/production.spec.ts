@@ -625,7 +625,7 @@ test('install copying allows only one pending clipboard request and recovers aft
   expect(await page.evaluate(() => (window as unknown as { copyCalls: number }).copyCalls)).toBe(1)
   await page.evaluate(() => (window as unknown as { finishCopy: () => void }).finishCopy())
   await expect(button).toBeEnabled()
-  await expect(page.getByRole('status')).toContainText('Install command copied.')
+  await expect(page.locator('.hero').getByRole('status')).toContainText('Install command copied.')
   await expect(button).toBeFocused()
   await button.click()
   expect(await page.evaluate(() => (window as unknown as { copyCalls: number }).copyCalls)).toBe(2)
@@ -647,7 +647,7 @@ for (const failure of ['denied', 'unavailable'] as const) {
     await page.goto('./#/home')
     const button = page.getByRole('button', { name: 'Copy install command' })
     await button.click()
-    await expect(page.getByRole('status')).toContainText('Copy unavailable')
+    await expect(page.locator('.hero').getByRole('status')).toContainText('Copy unavailable')
     const manual = page.getByRole('textbox', { name: 'Install command for manual copying' })
     const command = await page.locator('.install-command code').textContent()
     await expect(manual).toHaveValue(command!)
@@ -664,7 +664,7 @@ for (const failure of ['denied', 'unavailable'] as const) {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { (window as unknown as { copiedCommand: string }).copiedCommand = text } } })
     })
     await button.click()
-    await expect(page.getByRole('status')).toHaveText('Install command copied.')
+    await expect(page.locator('.hero').getByRole('status')).toHaveText('Install command copied.')
     await expect(manual).toHaveCount(0)
     expect(await page.evaluate(() => (window as unknown as { copiedCommand: string }).copiedCommand)).toBe(command)
     expect(errors).toEqual([])
@@ -750,6 +750,38 @@ test('highlighting recovers after a failed grammar download when source changes'
   await expect.poll(() => page.locator('.cave-editor .syntax').count(), { timeout: 10_000 }).toBeGreaterThan(0)
   expect(requests).toBe(2)
   expect(pageErrors).toEqual([])
+})
+
+test('homepage concept map scrubbers read belief --as-of and valid time --at together', async ({ page }) => {
+  await page.goto('./#/home')
+  const map = page.getByRole('region', { name: 'Five ideas carry the rest.' })
+  const asOf = map.getByRole('slider', { name: /--as-of/ })
+  const at = map.getByRole('slider', { name: /--at/ })
+  const readouts = map.locator('.cm-scrubber output')
+  await expect(asOf).toHaveAttribute('aria-valuetext', '2026-07-16')
+  await expect(readouts.nth(0)).toHaveText('2026-07-16: price 7.80, supply 100%')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-07-16, at 2026-07: 7.80 timeless, 8.10 on the trajectory')
+
+  await asOf.focus()
+  await page.keyboard.press('End')
+  await expect(readouts.nth(0)).toHaveText('2026-09-30: price 8.20, supply retracted')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-07: 8.20 timeless, 8.20 on the trajectory')
+
+  await at.focus()
+  await page.keyboard.press('Home')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2025-01: 8.20 timeless, trajectory out of range')
+
+  // Interpolation follows elapsed calendar days (spec §32), not twelfths of a year:
+  // 2026-05-01 is 120/365 of the way from 7.80 to 8.60, so 8.06 rather than 8.07.
+  for (let step = 0; step < 16; step++) await page.keyboard.press('ArrowRight')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-05: 8.20 timeless, 8.06 on the trajectory')
+  for (let step = 0; step < 3; step++) await page.keyboard.press('ArrowRight')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-09-30, at 2026-08: 8.20 timeless, 8.26 on the trajectory')
+
+  await asOf.focus()
+  await page.keyboard.press('Home')
+  await expect(readouts.nth(0)).toHaveText('2026-06-01: price not yet written, supply not yet written')
+  await expect(readouts.nth(1)).toHaveText('as of 2026-06-01, at 2026-08: no price yet, no trajectory yet')
 })
 
 for (const width of [320, 375, 390, 720, 768, 1024, 1280]) {
