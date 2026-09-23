@@ -1,5 +1,13 @@
 # @cavelang/store
 
+## 0.37.1
+
+### Patch Changes
+
+- Updated dependencies [ffb447e]
+  - @cavelang/core@0.37.1
+  - @cavelang/canonical@0.37.1
+
 ## 0.37.0
 
 ### Patch Changes
