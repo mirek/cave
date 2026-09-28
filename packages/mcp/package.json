@@ -57,6 +57,6 @@
     "@cavelang/query": "workspace:*",
     "@cavelang/rules": "workspace:*",
     "@cavelang/store": "workspace:*",
-    "@modelcontextprotocol/server": "2.0.0"
+    "@modelcontextprotocol/server": "2.1.0"
   }
 }
