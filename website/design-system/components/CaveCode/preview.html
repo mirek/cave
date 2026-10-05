@@ -1,0 +1,8 @@
+<!-- @dsCard group="Code" height=330 -->
+<div style="padding:24px;background:var(--background)">
+  <div class="code-frame" style="max-width:600px">
+    <header><span><span class="dots"><i></i><i></i><i></i></span><b>packages.cave</b></span><span>plain text</span></header>
+    <pre><span class="code-line"><i>01</i><span class="syntax-comment">; a small monorepo: which package uses which</span></span><span class="code-line"><i>02</i>web <span class="syntax-keyword">USES</span> ui</span><span class="code-line"><i>03</i>ui <span class="syntax-keyword">USES</span> core</span><span class="code-line"><i>04</i>core <span class="syntax-keyword">HAS</span> <span class="syntax-property">version</span><span class="syntax-punctuation">:</span> <span class="syntax-number">1.4.0</span></span><span class="code-line"><i>05</i>core <span class="syntax-keyword">HAS</span> <span class="syntax-property">maintainer</span><span class="syntax-punctuation">:</span> bob <span class="syntax-label">@src:standup</span> <span class="syntax-operator">@</span> <span class="syntax-number">60%</span></span></pre>
+    <footer><span>QUERY</span><code>?p USES+ core</code><small>4 matches</small></footer>
+  </div>
+</div>

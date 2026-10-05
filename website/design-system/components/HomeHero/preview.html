@@ -1,0 +1,38 @@
+<!-- @dsCard group="Pages" height=640 width=1200 -->
+<style>
+  .hh { background: var(--background); color: var(--foreground); }
+  .hh-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 72px 48px 64px; max-width: 1200px; margin: 0 auto;
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1.2px); background-size: 24px 24px; background-position: -12px -12px; }
+  .hh h1 { font: 600 58px/1.04 var(--font-sans); letter-spacing: -.032em; margin: 20px 0 22px; }
+  .hh-lead { font-size: 19px; line-height: 1.6; color: var(--muted-foreground); max-width: 56ch; margin: 0 0 30px; }
+  .hh-actions { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
+  .hh-install { font: 400 13px/1.6 var(--font-mono); color: var(--muted-foreground); }
+  .hh-install b { color: var(--brand-ink); font-weight: 600; margin-right: 8px; }
+  .hh-strip { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; padding: 16px 24px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--muted); }
+  .hh-strip span::before { content: "■"; color: var(--brand); margin-right: 10px; font-size: 8px; vertical-align: 2px; }
+</style>
+<div class="hh">
+  <header class="site-header">
+    <a class="logo" href="#" aria-label="CAVE home"><svg viewBox="0 0 44 44" aria-hidden="true"><path class="logo-ink" d="M6 7h32v7H17v16h21v7H6z"/><path class="logo-bar" d="M17 18h17v8H17z"/></svg><span>CAVE</span></a>
+    <nav aria-label="Primary"><a class="nav-link" href="#">Docs</a><a class="nav-link" href="#">Playground</a><a class="nav-link" href="#">Book</a><a class="nav-link" href="#">GitHub ↗</a></nav>
+    <a class="ui-button ui-button-outline ui-button-sm header-cta" href="#">Documentation</a>
+  </header>
+  <section class="hh-hero">
+    <div>
+      <span class="ui-badge ui-badge-brand">Start with one line</span>
+      <h1>Write down what you know, <span class="hl">one claim per line.</span> Ask questions across all of it.</h1>
+      <p class="hh-lead">CAVE is a plain-text language for claims and a tool that keeps them in one local store, never overwrites them, and answers questions over the whole graph — chains, inverses, confidence, history, and why.</p>
+      <div class="hh-actions">
+        <a class="ui-button ui-button-default ui-button-lg" href="#">Start the tutorial</a>
+        <a class="ui-button ui-button-outline ui-button-lg" href="#">Try the playground</a>
+      </div>
+      <div class="hh-install"><b>$</b>pnpm i -g @cavelang/cli</div>
+    </div>
+    <div class="code-frame">
+      <header><span><span class="dots"><i></i><i></i><i></i></span><b>packages.cave</b></span><span>plain text</span></header>
+      <pre><span class="code-line"><i>01</i><span class="syntax-comment">; a small monorepo: which package uses which</span></span><span class="code-line"><i>02</i>web <span class="syntax-keyword">USES</span> ui</span><span class="code-line"><i>03</i>web <span class="syntax-keyword">USES</span> api-client</span><span class="code-line"><i>04</i>ui <span class="syntax-keyword">USES</span> core</span><span class="code-line"><i>05</i>api-client <span class="syntax-keyword">USES</span> core</span><span class="code-line"><i>06</i>docs <span class="syntax-keyword">USES</span> ui</span><span class="code-line"><i>07</i> </span><span class="code-line"><i>08</i>core <span class="syntax-keyword">HAS</span> <span class="syntax-property">version</span><span class="syntax-punctuation">:</span> <span class="syntax-number">1.4.0</span></span><span class="code-line"><i>09</i>core <span class="syntax-keyword">HAS</span> <span class="syntax-property">maintainer</span><span class="syntax-punctuation">:</span> bob <span class="syntax-label">@src:standup</span> <span class="syntax-operator">@</span> <span class="syntax-number">60%</span></span></pre>
+      <footer><span>QUERY</span><code>?p USES+ core</code><small>4 matches</small></footer>
+    </div>
+  </section>
+  <div class="hh-strip meta"><span>Plain text</span><span>Local-first</span><span>Append-only</span><span>Temporal</span><span>CC0</span></div>
+</div>
