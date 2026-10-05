@@ -403,7 +403,7 @@ export const ConceptMap = () => {
   const [asOf, setAsOf] = useState(45)
   return (
     <section className="concept-map" aria-labelledby="concept-map-title">
-      <div className="section-label">THE MODEL</div>
+      <div className="section-label">§ 01 — THE MODEL</div>
       <div className="cm-body">
         <h2 id="concept-map-title">Five ideas carry the rest.</h2>
         <p className="cm-intro">

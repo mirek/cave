@@ -2,6 +2,13 @@
 
 The Vite/React site for the CAVE landing page, documentation, and browser playground.
 
+The look follows the CAVE design system in [`design-system/`](design-system/README.md)
+("warm technical": Paper and Lamp themes, IBM Plex, one signal orange, dark code
+slabs). `src/styles.css` defines its tokens as CSS custom properties; Lamp
+follows the reader's `prefers-color-scheme`. IBM Plex is bundled from
+`@fontsource` rather than loaded from Google Fonts, so the site makes no
+third-party requests for fonts.
+
 The development server uses the pinned Vite dependency and its checked-in
 shutdown patch, which settles optimizer work and prevents late watched-file
 additions from reopening a closed watcher. Install through the workspace's pnpm

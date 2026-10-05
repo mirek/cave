@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils.ts'
 
-type BadgeVariant = 'default' | 'secondary' | 'outline'
+type BadgeVariant = 'default' | 'brand' | 'secondary' | 'outline'
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   readonly variant?: BadgeVariant
