@@ -130,6 +130,13 @@ query(store, `?cause CAUSE app/crash
 
 query(store, '?x PART-OF monorepo')     // inverse verb → same physical query
 query(store, 'terrier EXTENDS+ animal') // transitive
+query(store, 'api (NEEDS|USES)* ?dep')  // property path: zero or more hops over either verb
+
+// Conjunctive queries (§12.4): joined premises, OPTIONAL, SELECT, ORDER BY
+query(store, `?svc USES jwt, ?svc HAS owner: ?who
+OPTIONAL ?who HAS team: ?team
+SELECT DISTINCT ?svc ?team
+ORDER BY ?team DESC`)
 
 query(store, '?x USES postgres', { aliases: true }) // + rows about aliased names (§13.6)
 query(store, 'server IS compromised', { asOf: '2026-01-15' }) // belief state at a past moment (§12.3)
@@ -178,6 +185,41 @@ const second = first.next === undefined ? undefined :
   same seeded direction when `{ support: true }` is requested.
   Transitive works through inverses too (`packages/api PART-OF+ ?c` walks
   `CONTAINS` upward from the object side).
+- **Property paths**: `VERB*` adds zero-hop pairs (a concrete endpoint
+  reaches itself; an unseeded walk adds every endpoint of a traversed
+  edge); `(A|B)+` and `(A|B)*` walk any listed verb per hop, an inverse
+  member backwards, sharing one recursive CTE and the `VERB+` restrictions
+  and support semantics (a zero-hop match has empty `rows`). A single
+  forward verb keeps the original single-scan plan. A one-hop `(A|B)`
+  runs one ordinary pattern per member over the same snapshot — rows,
+  filters and inverse resolution per member — merged by transaction with
+  duplicate rows removed, then windowed by `limit`/`offset`. Patterns
+  expose these as a `path` verb slot; `VERB+` keeps its `verb` shape.
+
+## Conjunctive queries (§12.4)
+
+Text with a top-level comma, a second premise line, or an `OPTIONAL`,
+`SELECT` or `ORDER BY` line is a conjunctive query; text that parses as
+one pattern plus `WHERE` lines keeps its original meaning and row shape.
+`Select.parseQuery()` exposes the distinction; `Select.parse()` and
+`Select.execute()` run a parsed query inside a caller's read snapshot.
+
+- Premises are §24.1 rule premises — patterns and `?var op value`
+  constraints — parsed by `Select.parsePremise()` and joined left to right
+  with `Select.specialize()`/`Select.satisfies()`; `@cavelang/rules`,
+  `act` and `automate` reuse these, so query and rule bodies cannot drift.
+- `WHERE` filters the single pattern on the line directly above it.
+- `OPTIONAL` groups are all-or-nothing left-outer joins; unextended
+  solutions keep the group's variables unbound (absent from `bindings`).
+- `SELECT [DISTINCT] ?a ?b` projects; `DISTINCT` unions the collapsed
+  solutions' rows. `ORDER BY ?a [DESC], …` uses a total order — numbers
+  before text, grouped by unit, unbound last — and ties keep join order.
+- Every premise is compiled against the options before joining, so
+  invalid combinations fail on empty stores too.
+- A match has `bindings` and `rows` (every premise row, plus path support
+  under `support`) and no `row`; `queryRecords()` and `page()` project the
+  rows as `support`. Pages materialize the answer at the frozen snapshot,
+  then window it.
 
 ## Filters (§12.2)
 

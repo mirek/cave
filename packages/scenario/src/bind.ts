@@ -181,8 +181,8 @@ const validateBinding = (binding: Binding): void => {
       invalid('select must name a variable bound by the CAVE-Q pattern', binding.id)
     }
   }
-  if (pattern.verb.kind === 'verb' && pattern.verb.transitive) {
-    invalid('transitive bindings are deferred until snapshot-aware shared query primitives are available', binding.id)
+  if ((pattern.verb.kind === 'verb' && pattern.verb.transitive) || pattern.verb.kind === 'path') {
+    invalid('transitive and property-path bindings are deferred until snapshot-aware shared query primitives are available', binding.id)
   }
 }
 

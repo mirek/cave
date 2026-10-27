@@ -293,8 +293,11 @@ Options:
   --no-prelude   open the store without the standard verb registry
 
 Patterns are claim triples with ?variables and optional metadata filters
-(spec §12). A second positional starting with WHERE filters on conf,
-value or tx. A binding line carries the matched claim's comment
+(spec §12). Each positional is one query line: WHERE filters the pattern
+above it on conf, value or tx. Commas or further pattern lines join
+premises (?a < 18 constraints too); OPTIONAL, SELECT [DISTINCT] and
+ORDER BY lines shape the answer (spec §12.4). Paths: VERB+ (one or more
+hops), VERB* (zero or more), (A|B) alternation, (A|B)+ and (A|B)*. A binding line carries the matched claim's comment
 (?x = value  ; comment), so evidence written next to a claim travels
 with the answer; fully bound patterns print the raw line, comment included.
 
@@ -304,6 +307,9 @@ Examples:
   cave query --db k.db '?x HAS bug: ?bug #security'
   cave query --db k.db '?cause CAUSE app/crash' 'WHERE conf >= 0.5'
   cave query --db k.db 'terrier EXTENDS+ animal'
+  cave query --db k.db 'api (NEEDS|USES)* ?dep'
+  cave query --db k.db '?svc USES jwt, ?svc HAS owner: ?who' \
+    'OPTIONAL ?who HAS team: ?team' 'SELECT DISTINCT ?team' 'ORDER BY ?team'
   cave query --db k.db '?x USES postgres' --aliases
   cave query --db k.db 'server IS compromised' --as-of 2026-01-15
   cave query --db k.db 'revenue IS' --at 2026-07

@@ -267,14 +267,17 @@ export const tools: readonly Tool[] = [
     name: 'cave_query',
     description: 'Run a CAVE-Q graph pattern (spec §12). Examples: "?x USES jwt" — ' +
       'all systems using jwt; "?x HAS bug: ?bug #security"; "?cause CAUSE app/crash\\nWHERE conf >= 0.7"; ' +
-      '"terrier EXTENDS+ animal" (transitive); "?x PART-OF monorepo" (inverse verbs work). ' +
+      '"terrier EXTENDS+ animal" (transitive); "?x PART-OF monorepo" (inverse verbs work); ' +
+      '"api (NEEDS|USES)* ?dep" (property paths: VERB*, (A|B), (A|B)+, (A|B)*). ' +
+      'Conjunctive queries (spec §12.4) join comma-separated premises and ?var constraints, one clause per line: ' +
+      '"?svc USES jwt, ?svc HAS owner: ?who\\nOPTIONAL ?who HAS team: ?team\\nSELECT DISTINCT ?team\\nORDER BY ?team DESC". ' +
       'Runs over supported current beliefs by default.',
     permission: 'read',
     inputSchema: {
       type: 'object',
       required: ['pattern'],
       properties: {
-        pattern: { type: 'string', description: 'CAVE-Q pattern; WHERE filters on following lines' },
+        pattern: { type: 'string', description: 'CAVE-Q query; one clause per line — WHERE filters the pattern above it; further premise lines, OPTIONAL, SELECT and ORDER BY lines (spec §12.4)' },
         all: { type: 'boolean', description: 'match the full append-only history, not just current beliefs' },
         aliases: { type: 'boolean', description: 'resolve entities through current ALIAS claims (union of aliased names, spec §13.6)' },
         asOf: { type: 'string', description: 'resolve beliefs as of a past moment (spec §12.3): a date (whole day included), a timestamp (whole second), or a transaction id — rows recorded later are invisible' },

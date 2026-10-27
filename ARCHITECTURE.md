@@ -378,8 +378,13 @@ allowing WAL readers and writers to remain online during backup.
 ## Read path
 
 `@cavelang/query` parses a CAVE-Q pattern and compiles it to parameterized SQL.
-Normal patterns become filtered selects; transitive `VERB+` patterns become
-recursive CTEs with a depth cap. Lifecycle spellings resolve to stable storage
+Normal patterns become filtered selects; transitive `VERB+` patterns and the
+repeated property paths (`VERB*`, `(A|B)+`, `(A|B)*`) become recursive CTEs
+over deduplicated endpoint pairs, with no depth cap. A one-hop `(A|B)` runs
+one select per member. Conjunctive queries (spec §12.4) join premises in
+TypeScript, left to right inside one read snapshot: each partial solution
+specializes the next pattern into an ordinary compiled query, which is also
+how `@cavelang/rules`, `act` and `automate` evaluate their premises. Lifecycle spellings resolve to stable storage
 verbs, and inverse verbs swap query endpoints against the same canonical rows.
 Historical vocabulary reconstruction bounds both declaration rows and qualifier
 parents at the requested time. Attaching a later parent cannot retroactively

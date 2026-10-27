@@ -50,7 +50,7 @@ jan HAS birth-year: ?year
 WHERE conf >= 0.7
 ```
 
-`+` requests a transitive path. Use `aliases` for equivalent-name closure, `resolve` for a single policy-ranked belief, `asOf` for historical belief time, and `at` for valid time in the world.
+`+` requests a transitive path, `*` also counts zero hops, and `(A|B)+` walks either verb. Join several patterns with commas (`?svc USES jwt, ?svc HAS owner: ?who`), and shape the answer on later lines with `OPTIONAL …`, `SELECT DISTINCT ?who`, and `ORDER BY ?who DESC`; a `WHERE` line filters the single pattern above it. Use `aliases` for equivalent-name closure, `resolve` for a single policy-ranked belief, `asOf` for historical belief time, and `at` for valid time in the world.
 
 ## Revision
 

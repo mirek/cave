@@ -4340,7 +4340,7 @@ Kind: value, namespace.
 Kind: type.
 
 ```ts
-export type ConstraintOp = '=' | '!=' | '>' | '>=' | '<' | '<=';
+export type ConstraintOp = Select.ConstraintOp;
 ```
 
 #### `digestOf`
@@ -4510,7 +4510,7 @@ export declare const ruleSubject: (digest: string) => string;
 Kind: value.
 
 ```ts
-export declare const satisfies: (bound: undefined | string, op: Rule.ConstraintOp, literal: Value.t) => boolean;
+export declare const satisfies: (bound: undefined | string, op: Select.ConstraintOp, literal: Value.t) => boolean;
 ```
 
 ### `specialize`
@@ -7303,6 +7303,14 @@ Kind: value.
 export declare const parse: (input: string) => Pattern;
 ```
 
+#### `parseFilter`
+
+Kind: value.
+
+```ts
+export declare const parseFilter: (tokens: readonly Token.t[], lineNo: number) => Filter;
+```
+
 #### `Pattern`
 
 Kind: type.
@@ -7339,6 +7347,14 @@ export type PayloadPattern = {
 };
 ```
 
+#### `Repeat`
+
+Kind: type.
+
+```ts
+export type Repeat = 'one' | 'plus' | 'star';
+```
+
 #### `Slot`
 
 Kind: type.
@@ -7372,6 +7388,10 @@ export type VerbSlot = {
     readonly kind: 'verb';
     readonly name: string;
     readonly transitive: boolean;
+} | {
+    readonly kind: 'path';
+    readonly verbs: readonly string[];
+    readonly repeat: Repeat;
 } | {
     readonly kind: 'var';
     readonly name: string;
@@ -7461,6 +7481,169 @@ Kind: value.
 
 ```ts
 export declare const version: 1;
+```
+
+### `Select`
+
+Kind: value, namespace.
+
+#### `ConstraintOp`
+
+Kind: type.
+
+```ts
+export type ConstraintOp = '=' | '!=' | '>' | '>=' | '<' | '<=';
+```
+
+#### `execute`
+
+Kind: value.
+
+```ts
+export declare const execute: (store: Store, select: Select, options: Compile.Options) => Compile.Window;
+```
+
+#### `Order`
+
+Kind: type.
+
+```ts
+export type Order = {
+    readonly variable: string;
+    readonly descending: boolean;
+};
+```
+
+#### `parse`
+
+Kind: value.
+
+```ts
+export declare const parse: (input: string) => Select;
+```
+
+#### `parsePremise`
+
+Kind: value.
+
+```ts
+export declare const parsePremise: (segment: string, bound: ReadonlySet<string>) => {
+    premise?: Premise;
+    problem?: string;
+};
+```
+
+#### `parseQuery`
+
+Kind: value.
+
+```ts
+export declare const parseQuery: (input: string) => Query;
+```
+
+#### `patternVariables`
+
+Kind: value.
+
+```ts
+export declare const patternVariables: (pattern: Pattern.t) => string[];
+```
+
+#### `Premise`
+
+Kind: type.
+
+```ts
+export type Premise = {
+    readonly kind: 'pattern';
+    readonly pattern: Pattern.t;
+} | {
+    readonly kind: 'constraint';
+    readonly variable: string;
+    readonly op: ConstraintOp;
+    readonly value: Value.t;
+};
+```
+
+#### `query`
+
+Kind: value.
+
+```ts
+export declare const query: (store: Store, input: string, options?: Compile.Options) => Compile.Match[];
+```
+
+#### `Query`
+
+Kind: type.
+
+```ts
+export type Query = {
+    readonly kind: 'pattern';
+    readonly pattern: Pattern.t;
+} | {
+    readonly kind: 'select';
+    readonly select: Select;
+};
+```
+
+#### `run`
+
+Kind: value.
+
+```ts
+export declare const run: (store: Store, input: string, options?: Compile.Options) => Compile.Window;
+```
+
+#### `satisfies`
+
+Kind: value.
+
+```ts
+export declare const satisfies: (bound: undefined | string, op: ConstraintOp, literal: Value.t) => boolean;
+```
+
+#### `Select`
+
+Kind: type.
+
+```ts
+export type Select = {
+    readonly steps: readonly Step[];
+    readonly projection?: readonly string[];
+    readonly distinct: boolean;
+    readonly order: readonly Order[];
+};
+```
+
+#### `specialize`
+
+Kind: value.
+
+```ts
+export declare const specialize: (pattern: Pattern.t, bindings: Readonly<Record<string, string>>) => undefined | Pattern.t;
+```
+
+#### `Step`
+
+Kind: type.
+
+```ts
+export type Step = {
+    readonly kind: 'required';
+    readonly premise: Premise;
+} | {
+    readonly kind: 'optional';
+    readonly premises: readonly Premise[];
+};
+```
+
+#### `t`
+
+Kind: type.
+
+```ts
+export type t = Select;
 ```
 
 ## `@cavelang/scenario`
@@ -10574,9 +10757,9 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/mcp/server.d.ts` — `3511232a34d9ffbc2441a4867fe2b2350aba31f3eafc8a34eab94d95d4a41367`
 - `@cavelang/cli/dist/internal/mcp/tools.d.ts` — `7c0a5ca32f0b7e34c35ebe06f16ca4514416fe3eb1e50201c70c0e1838a0e6a0`
 - `@cavelang/cli/dist/internal/rules/declare.d.ts` — `4ebe2d87b9a1d9b68dbf2f31c38209e44c72c0799784146c5b672161ba5a4bd5`
-- `@cavelang/cli/dist/internal/rules/engine.d.ts` — `6fa09461bb604d31e5ef00c6f0d934587fa3f9b64998fb37deb8c844f57e52fc`
+- `@cavelang/cli/dist/internal/rules/engine.d.ts` — `1732fc29f0be845b93cbec1c7fd5ea31281f1e0c098cb4b6ddebbfbb24ccc91f`
 - `@cavelang/cli/dist/internal/rules/index.d.ts` — `550f8ea95eb2a5fa4538513bba50b435a7cf22a75c016d0d827582d2cd75da0f`
-- `@cavelang/cli/dist/internal/rules/rule.d.ts` — `ada748e6d996b09536baedd5a8961ef84fe31ed124c066beb03ed3d20598894d`
+- `@cavelang/cli/dist/internal/rules/rule.d.ts` — `d88409e25dfe2f8373e0af3994cc45c366db9f7c807a73a037f492905be341b0`
 - `@cavelang/cli/dist/internal/shape/check.d.ts` — `7b06d43ce95f7671f1b92b9a48b5bed4f46d00317bbfb3b082913341ec1b8a03`
 - `@cavelang/cli/dist/internal/shape/client.d.ts` — `44278d6171c836b65d595195dec6ac142ffdfdc6b2d89a13a2b6ce561d23e4d5`
 - `@cavelang/cli/dist/internal/shape/constraints.d.ts` — `c1d179b3c281a53a94d65775dd085941e8af3f496935166dc6ba7d14122888e3`
@@ -10622,12 +10805,13 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/parser/dist/src/index.d.ts` — `25846cb1d030f184c46f49c8fb941b57e0fe9661da006933b3cf26d1aa5647e6`
 - `@cavelang/parser/dist/src/line.d.ts` — `c7766d6ba681f31c878a5c97c8ec2b132e4fe1bdbf42db212cd41fe3f0e0d439`
 - `@cavelang/parser/dist/src/token.d.ts` — `9ac24d9084dcd7c0735870c81ab96ea6af9c65c7242c87f79de84e05665f2519`
-- `@cavelang/query/dist/src/bounded.d.ts` — `ac6386cbfdab800a7ec01adebf245ab181f01ab54e49794891fe509b40fb25e7`
-- `@cavelang/query/dist/src/compile.d.ts` — `92c569dda8361b96222c9c4c07399417d8bf114cee1c1a38c600b7a73028f187`
-- `@cavelang/query/dist/src/index.d.ts` — `1c175d519d9034a4a3469bb14c52735c0f9a80a013cd79dae3b8ae4b2e702f8f`
+- `@cavelang/query/dist/src/bounded.d.ts` — `0f5976dbadb9421e03d72e584379cdfa3e2cfb468e6ce66cb2adbf6f1400e4af`
+- `@cavelang/query/dist/src/compile.d.ts` — `bea71f3595ca7ca12cf231ae0c281990a427d6722e73f6fd7b57343aec18fa6a`
+- `@cavelang/query/dist/src/index.d.ts` — `4252fa96eab859263bce2445bb8842b2917d54ddea84474eca0aff150f6ecc97`
 - `@cavelang/query/dist/src/page.d.ts` — `5713324006866019d5c966af56c39cbc9e353851a05993118dd764a7497d973c`
-- `@cavelang/query/dist/src/pattern.d.ts` — `10f537a7d3bfbc8fc53a71e439291453a104f5c612d93e752847bc84f744d535`
+- `@cavelang/query/dist/src/pattern.d.ts` — `c7b1983915a18e9c5778cb70eca234322524cf6090d3ad39ab9573423e0c6bb5`
 - `@cavelang/query/dist/src/record.d.ts` — `9f21f9ea484c80de7f3ce4b1d18b9e1d32a4dc0dfe47cd533ea709a87f3d7cc0`
+- `@cavelang/query/dist/src/select.d.ts` — `f68056055c2aa7c53ceea6f4ae3ad9e50ee19c6e55300c6e30590ad03fac623f`
 - `@cavelang/scenario/dist/src/bind.d.ts` — `6869b463ef6670e236ce987fce868cf3b79bea98bebaffbb55d3399c7e5200d8`
 - `@cavelang/scenario/dist/src/error.d.ts` — `a8a7a2e7dcb67e5e76b9f5005025ce2482a6818d740e7aac2984cb25a7e8e88d`
 - `@cavelang/scenario/dist/src/explain.d.ts` — `ba2349a429e40d4c0ee331ff5a5d2cebbe3c88200d55d8b94f5cf920a8b4780c`
