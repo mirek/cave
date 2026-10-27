@@ -34,8 +34,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tree-sitter-cave
       web-tree-sitter:
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: ^0.27.1
+        version: 0.27.1
     devDependencies:
       '@types/vscode':
         specifier: 1.100.0
@@ -257,8 +257,8 @@ importers:
         specifier: ^1.41.6
         version: 1.41.6
       web-tree-sitter:
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: ^0.27.1
+        version: 0.27.1
 
   packages/ingest:
     devDependencies:
@@ -528,8 +528,8 @@ importers:
         specifier: 1.14.2
         version: 1.14.2(patch_hash=c7de120f349c8a2f85e88e6e32161431bb765e7a97a5b325ebab1ba1e17b736c)
       web-tree-sitter:
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: ^0.27.1
+        version: 0.27.1
     devDependencies:
       '@playwright/test':
         specifier: ^1.63.0
@@ -2600,8 +2600,8 @@ packages:
       yaml:
         optional: true
 
-  web-tree-sitter@0.27.0:
-    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
+  web-tree-sitter@0.27.1:
+    resolution: {integrity: sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -4991,7 +4991,7 @@ snapshots:
       fsevents: 2.3.3
       yaml: 2.9.0
 
-  web-tree-sitter@0.27.0: {}
+  web-tree-sitter@0.27.1: {}
 
   whatwg-encoding@3.1.1:
     dependencies:

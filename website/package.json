@@ -24,7 +24,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "sql.js": "1.14.2",
-    "web-tree-sitter": "^0.27.0"
+    "web-tree-sitter": "^0.27.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
