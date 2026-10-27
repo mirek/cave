@@ -7,7 +7,7 @@
  * `serveStdio`.
  */
 
-import { Transform, type Readable, type Writable } from 'node:stream'
+import { PassThrough, Transform, type Readable, type Writable } from 'node:stream'
 import { errorMessage } from './error-message.ts'
 import { sourceValue } from './source.ts'
 import {
@@ -254,7 +254,14 @@ export const serve = (
       catch (cause) { callback(new TypeError('MCP input must contain valid UTF-8', { cause })) }
     }
   })
-  const transport = new StdioServerTransport(validated, writable)
+  // Since SDK 2.1 the transport closes itself on its input's end or close and
+  // aborts requests still in flight. CAVE owns EOF instead (below): the SDK
+  // reads a feed that never ends, so accepted requests still get replies.
+  const feed = new PassThrough()
+  // The SDK also leaves its output error handler attached after close; the
+  // caller owns the output stream again once serving settles.
+  const outputErrorListeners = writable.listeners('error')
+  const transport = new StdioServerTransport(feed, writable)
   let shuttingDown = false
   const shutdownErrors: unknown[] = []
   const handle = serveStdio(() => createServer(store, options), {
@@ -287,10 +294,14 @@ export const serve = (
       input.removeListener('close', closeInput)
       input.removeListener('error', fail)
       output.removeListener('error', fail)
+      for (const listener of writable.listeners('error')) {
+        if (!outputErrorListeners.includes(listener)) writable.removeListener('error', listener as (error: Error) => void)
+      }
       output.removeListener('close', close)
       output.removeListener('finish', close)
       signal?.removeEventListener('abort', close)
       readable.unpipe(validated)
+      validated.unpipe(feed)
       // A transform error may already be queued when another event closes us.
       validated.on('error', () => {})
       validated.destroy()
@@ -381,6 +392,6 @@ export const serve = (
     output.once('finish', close)
     signal?.addEventListener('abort', close, { once: true })
     if (signal?.aborted === true) close()
-    else readable.pipe(validated)
+    else readable.pipe(validated).pipe(feed, { end: false })
   })
 }
