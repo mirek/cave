@@ -361,7 +361,11 @@ function shapeProblem (violation) {
   return problems.join('; ')
 }
 
-/* Relation graphs — inline SVG, laid out here; nodes are links onward. */
+/*
+ * Relation graphs — inline SVG, laid out here; nodes are links onward.
+ * Dictionaries keyed by stored names are prototype-free: an entity may be
+ * called __proto__ or constructor.
+ */
 
 function hashOf (text) {
   var hash = 0
@@ -370,9 +374,9 @@ function hashOf (text) {
 }
 /* The eight most common first types in this graph get distinct colours. */
 function typeColors (nodes) {
-  var counts = {}
+  var counts = Object.create(null)
   nodes.forEach(function (node) { if (node.types.length) counts[node.types[0]] = (counts[node.types[0]] || 0) + 1 })
-  var colors = {}
+  var colors = Object.create(null)
   Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || (a < b ? -1 : 1) }).slice(0, 8).forEach(function (type, i) {
     colors[type] = ' c' + i
   })
@@ -382,7 +386,7 @@ function typeColors (nodes) {
 function layoutGraph (data, width, height) {
   var nodes = data.nodes
   var n = nodes.length
-  var index = {}
+  var index = Object.create(null)
   nodes.forEach(function (node, i) { index[node.name] = i })
   var links = data.edges.filter(function (edge) { return edge.source !== edge.target }).map(function (edge) {
     return [index[edge.source], index[edge.target]]
@@ -462,10 +466,10 @@ function drawGraph (target, data, opts) {
   var pos = layoutGraph(data, width, height)
   var colors = typeColors(data.nodes)
   function colorOf (node) { return node.types.length ? colors[node.types[0]] || '' : '' }
-  var index = {}
+  var index = Object.create(null)
   data.nodes.forEach(function (node, i) { index[node.name] = i })
   // One path per ordered pair; verbs on the same pair share a label.
-  var pairs = {}
+  var pairs = Object.create(null)
   var order = []
   data.edges.forEach(function (edge) {
     if (edge.source === edge.target) return
@@ -750,7 +754,7 @@ function dashboard (data) {
 
 /* Neighbors grouped by relation, both directions — the quick way onward. */
 function neighborsHtml (data) {
-  var groups = {}
+  var groups = Object.create(null)
   var order = []
   function add (label, name) {
     if (isLiteral(name) || name === data.name) return

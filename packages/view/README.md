@@ -230,7 +230,9 @@ surface never reinterprets them:
   zooms and resets. Colours mark each node's first `IS` type, most common
   types first, with a legend. The layout is a small deterministic force
   simulation in the page — no library, no external request — and the full
-  screen view carries the same graph as a text list;
+  screen view carries the same graph as a text list. The page keys its
+  graph and related-index dictionaries by stored names in prototype-free
+  objects, so names such as `__proto__` or `constructor` render like any other;
 - **search** — the store's FTS5 over subjects, objects, values,
   comments and raw lines. The search box names its phrase-matching behavior.
   Matches include superseded revisions and retractions, each with its own row

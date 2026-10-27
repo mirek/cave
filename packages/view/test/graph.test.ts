@@ -185,3 +185,31 @@ drawGraph`, { window: { innerHeight: 900 }, BACKTICK: '`' }) as (target: unknown
   draw(target, { nodes: [], edges: [] })
   assert.match(target.innerHTML, /no relations between entities/)
 })
+
+test('graphs and the related index render entity names that match Object.prototype keys', () => {
+  const target = { clientWidth: 800, innerHTML: '', querySelector: () => null }
+  const draw = runInNewContext(`${slice('function esc (value)', '\nfunction claimHtml')}
+${slice('function plural', '\nfunction shapeProblem')}
+${slice('function hashOf', '\nfunction wireGraph')}
+function wireGraph () {}
+drawGraph`, { window: { innerHeight: 900 }, BACKTICK: '`' }) as (target: unknown, data: unknown) => void
+  const nodes = ['api', '__proto__', 'constructor', 'toString'].map(name => ({ name, degree: 1, types: ['__proto__'] }))
+  assert.doesNotThrow(() => draw(target, {
+    focus: 'api', nodes,
+    edges: nodes.slice(1).map(node => ({ source: 'api', target: node.name, verb: 'USES', negated: false, conf: 1 }))
+  }))
+  assert.match(target.innerHTML, /href="#\/e\/__proto__"/)
+  assert.match(target.innerHTML, /<i class="c0"><\/i>__proto__/)
+  const related = runInNewContext(`var BACKTICK = '\\u0060'
+${slice('function esc (value)', '\nfunction claimHtml')}
+function section (title, body) { return body }
+${slice('function neighborsHtml', '\nfunction entityPage')}
+neighborsHtml`) as (data: unknown) => string
+  const html = related({
+    name: 'api',
+    out: [{ verb: '__proto__', negated: false, object: 'db', conf: 1 }, { verb: 'constructor', negated: false, object: 'x', conf: 1 }],
+    in: []
+  })
+  assert.match(html, />__proto__ →</)
+  assert.match(html, />constructor →</)
+})
