@@ -224,7 +224,8 @@ surface never reinterprets them:
   rows, literals and object-less facts are not drawn, negated relations are
   dashed, and confidence below 100% fades the edge and labels it. Graphs are
   capped (40 names for the map, 60 for a neighborhood, nearer and better
-  connected names first); the API's `total` and the page's “N of M” say when
+  connected names first; the focus always leads, and a large alias group is
+  cut like any other layer because the page lays the graph out in the browser); the API's `total` and the page's “N of M” say when
   names were left out. Nodes are links to their entity 360 (keyboard focusable,
   hover or focus traces their relations), can be dragged, and the panel pans,
   zooms and resets. Colours mark each node's first `IS` type, most common

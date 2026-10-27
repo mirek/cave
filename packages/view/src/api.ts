@@ -539,7 +539,9 @@ export const graph = (store: Store, options: GraphOptions = {}): Graph => {
       let layer = [...new Set(seeds)]
       for (let hop = 0; hop <= depth && layer.length > 0; hop++) {
         for (const node of layer) depthOf.set(node, hop)
-        order.push(...[...layer].sort(hop === 0 ? () => 0 : rank))
+        // The focus leads its aliases, so the cap below always keeps it.
+        order.push(...[...layer].sort(hop === 0 ?
+          (a, b) => (a === name ? -1 : b === name ? 1 : rank(a, b)) : rank))
         if (hop === depth) break
         const next = new Set<string>()
         for (const node of layer) {
@@ -550,8 +552,9 @@ export const graph = (store: Store, options: GraphOptions = {}): Graph => {
         layer = [...next]
       }
       total = order.length
-      // The focus and its aliases always survive the cap.
-      chosen = order.slice(0, Math.max(limit, seeds.length))
+      // A hard bound even for large alias groups: the page lays the graph out
+      // in the browser, and `total` reports the names left out.
+      chosen = order.slice(0, limit)
     }
     const shown = new Set(chosen)
     return {

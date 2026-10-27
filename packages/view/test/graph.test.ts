@@ -270,3 +270,17 @@ test('names fills its limit with entities even when verb tokens sort first', () 
     assert.deepEqual(names(store, 'a'), names(store, 'a', { limit: 20 }))
   } finally { store.close() }
 })
+
+test('alias neighborhoods stay within the node limit and keep the focus first', () => {
+  const store = open()
+  try {
+    store.ingest(Array.from({ length: 300 }, (_, i) => `root ALIAS member-${i}`).join('\n') + '\nmember-7 USES db')
+    const near = graph(store, { name: 'root', aliases: true, maxSensitivity: 'restricted' })
+    assert.equal(near.nodes.length, 60)
+    assert.equal(near.nodes[0]!.name, 'root')
+    assert.equal(near.total, 302)
+    assert.ok(near.edges.every(edge => near.nodes.some(node => node.name === edge.source) &&
+      near.nodes.some(node => node.name === edge.target)))
+    assert.deepEqual(graph(store, { name: 'member-7', aliases: true, limit: 1 }).nodes.map(node => node.name), ['member-7'])
+  } finally { store.close() }
+})
