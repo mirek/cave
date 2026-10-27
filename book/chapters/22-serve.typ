@@ -25,16 +25,20 @@ is no second grammar to drift out of sync.
 
 == The views
 
-*Dashboard.* The health report of Chapter 13 on a screen: coverage tiles,
-then the frontier, which is shape violations, review candidates, stale
-beliefs, and alias disagreements, plus topics and the latest appends. It
-answers "what is missing and what needs a look" from the graph itself.
+*Dashboard.* The health report of Chapter 13 on a screen: a one-line
+summary with the coverage tiles a click away, a map of the most connected
+entities, topics, then the frontier, which is shape violations, review
+candidates, stale beliefs, and alias disagreements, each folded under its
+count, and the latest appends. It answers "what is missing and what needs a
+look" from the graph itself.
 
 *Entity 360.* One name's current picture: its types, its attributes and
 metrics, its relations in both directions with the declared inverse name
 annotated on the object side, its topics, and the alias closure on an
-explicit toggle, because alias-aware reading is opt-in everywhere.
-Underneath, the activity feed of the newest rows about the name, superseded
+explicit toggle, because alias-aware reading is opt-in everywhere. A
+neighborhood graph draws the name and its neighbors one to three hops out,
+and a *related* index lists those neighbors grouped by relation, so the next
+entity is one click away. Underneath, folded, the activity feed of the newest rows about the name, superseded
 and retracted included.
 
 *Belief history.* One claim key's series, oldest first, as a timeline with
@@ -48,11 +52,20 @@ render is a tree, so a row reached again is restated without children; the
 walk is depth-capped and a truncated node says so rather than posing as a
 leaf.
 
+*Graph.* Current relations between entities as a node-link diagram, laid
+out in the page itself: the whole store's most connected names, or one
+entity's neighborhood full screen. Edges are stored rows, never inferred;
+negated relations are dashed, uncertain ones faded and labelled, and a capped
+graph says how many names it left out. Every node is a link.
+
 *Search.* The store's full-text index over subjects, objects, values,
-comments, and raw lines, newest first.
+comments, and raw lines, newest first, with matching entity names offered
+first as direct links.
 
 Every entity name, claim key, and row id links onward, so the whole store is
-reachable by clicking. Source spans are decoded and, for URLs, linked to the
+reachable by clicking. A claim row shows its statement and confidence; the
+contexts, tags, comment, timestamp, and the history and lineage links open
+from the row. Pressing `/` jumps to search. Source spans are decoded and, for URLs, linked to the
 cited fragment.
 
 == The promises
@@ -80,8 +93,9 @@ are visible.
 
 The page reads plain JSON endpoints, which `curl` can read too: `/api/overview`,
 `/api/entity?name=`, `/api/topic?name=`, `/api/history?key=`,
-`/api/lineage?id=`, and `/api/search?q=`, with `&aliases=1` where the closure
-applies. They serve exactly the views above; CAVE-Q remains the query
+`/api/lineage?id=`, `/api/search?q=`, `/api/graph` (optionally `?name=` and
+`&depth=` from 1 to 3), and `/api/names?q=`, with `&aliases=1` where the
+closure applies. They serve exactly the views above; CAVE-Q remains the query
 language. The same view models are plain functions in the `@cavelang/view`
 package, usable without a server.
 
@@ -115,7 +129,7 @@ same on every exit path.
 The view is deliberately not an MCP tool. Agents read through the query and
 neighbourhood tools; the page is for the human outside the loop.
 
-#recap[`cave serve` renders a dashboard, entity pages, belief-history
-timelines, lineage trees, and search from one self-contained page.
+#recap[`cave serve` renders a dashboard, relation graphs, entity pages,
+belief-history timelines, lineage trees, and search from one self-contained page.
 `GET`/`HEAD` only, localhost, `internal` ceiling by default, live reads. JSON
 endpoints under `/api/` serve the same views.]

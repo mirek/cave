@@ -1,8 +1,8 @@
 /**
  * `@cavelang/view` — the human read surface (spec §30, §31): `cave serve`
  * puts one static, self-contained HTML page over a store, backed by
- * read-only JSON endpoints — entity 360, topic browse, belief-history
- * timelines, `BECAUSE`/`VIA` lineage trees and the §20 coverage/frontier
+ * read-only JSON endpoints — entity 360 with its neighborhood graph,
+ * a store-wide relation map, topic browse, belief-history timelines, `BECAUSE`/`VIA` lineage trees and the §20 coverage/frontier
  * dashboard, with full-text search over everything — and `cave report`
  * renders templated markdown from CAVE-Q results, claim keys as
  * citations (§31).
@@ -24,10 +24,11 @@
  */
 
 export {
-  entity, history, lineage, overview, search, topic, topics
+  entity, graph, history, lineage, names, overview, search, topic, topics
 } from './api.ts'
 export type {
-  Capped, ClaimView, Entity, History, Lineage, LineageNode, Options, Overview, Topic, TopicPage
+  Capped, ClaimView, Entity, Graph, GraphEdge, GraphNode, GraphOptions, History, Lineage, LineageNode,
+  Options, Overview, Topic, TopicPage
 } from './api.ts'
 export { report } from './report.ts'
 export type { Problem, Report, ReportOptions } from './report.ts'

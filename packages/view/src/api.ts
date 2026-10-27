@@ -429,3 +429,181 @@ export const search = (store: Store, text: string, options: { limit?: number, ma
     maxSensitivity: maximum
   }), maximum))
 }
+
+/** One entity in a relation graph (spec §30.2). */
+export type GraphNode = {
+  readonly name: string
+  /** Current relations touching the name anywhere in the visible store. */
+  readonly degree: number
+  /** Objects of its current positive `IS` relations. */
+  readonly types: readonly string[]
+  /** Hops from the focus (`0` is the focus itself); absent on the store-wide map. */
+  readonly depth?: number
+}
+
+/** One current relation between two graph nodes — a stored row, never inferred. */
+export type GraphEdge = {
+  readonly id: string
+  readonly key: string
+  readonly source: string
+  readonly target: string
+  readonly verb: string
+  readonly negated: boolean
+  readonly conf: number
+}
+
+export type Graph = {
+  /** The neighborhood's centre; absent on the store-wide map. */
+  readonly focus?: string
+  readonly nodes: readonly GraphNode[]
+  /** Every current relation whose endpoints are both shown. */
+  readonly edges: readonly GraphEdge[]
+  /** Nodes eligible before the `limit` cap — more than `nodes.length` means some were left out. */
+  readonly total: number
+}
+
+export type GraphOptions = Options & {
+  /** Centre of a neighborhood; omitted selects the most connected names in the store. */
+  readonly name?: string
+  /** Neighborhood radius in hops, 1–3 (default 1). */
+  readonly depth?: number
+  /** Most nodes returned (default 40 for the map, 60 for a neighborhood). */
+  readonly limit?: number
+}
+
+const maxGraphDepth = 3
+
+/**
+ * The relation graph (spec §30.2): current, non-retracted rows whose
+ * subject and object are both entity names, as nodes and edges the page
+ * draws. With a `name` it is that entity's neighborhood — breadth-first
+ * to `depth` hops in either direction, nearer and better-connected names
+ * first; without one it is the store-wide map of the most connected
+ * names. Negated relations stay (they are knowledge) and are flagged.
+ * Capped by `limit`; `total` says how many names qualified, so a cut
+ * graph never poses as complete.
+ */
+export const graph = (store: Store, options: GraphOptions = {}): Graph => {
+  const maximum = maximumOf(options)
+  const useAliases = aliasesOf(options.aliases)
+  const { name } = options
+  if (name !== undefined && (typeof name !== 'string' || name === '')) {
+    throw new TypeError('graph name must be a non-empty string')
+  }
+  const { depth = 1, limit = name === undefined ? 40 : 60 } = options
+  if (!Number.isSafeInteger(depth) || depth < 1 || depth > maxGraphDepth) {
+    throw new TypeError(`graph depth must be an integer in 1..${maxGraphDepth}`)
+  }
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw new TypeError('graph limit must be a positive safe integer')
+  }
+  return withScopedStore(store, maximum, scoped => {
+    const relations = (scoped.db.prepare(`
+      SELECT c.id, c.claim_key, c.subject, c.verb, c.negated, c.object, c.conf FROM (${currentSql}) c
+      WHERE c.object IS NOT NULL AND c.conf > 0
+        AND ${Row.entityTermSql('c.subject')} AND ${Row.entityTermSql('c.object')}
+      ORDER BY c.tx
+    `).all() as { id: string, claim_key: string, subject: string, verb: string, negated: number, object: string, conf: number }[])
+      .filter(row => isEntityName(row.subject) && isEntityName(row.object))
+    const degree = new Map<string, number>()
+    const types = new Map<string, string[]>()
+    const neighbors = new Map<string, Set<string>>()
+    const link = (from: string, to: string): void => {
+      let set = neighbors.get(from)
+      if (set === undefined) neighbors.set(from, set = new Set())
+      set.add(to)
+    }
+    for (const row of relations) {
+      degree.set(row.subject, (degree.get(row.subject) ?? 0) + 1)
+      if (row.object !== row.subject) degree.set(row.object, (degree.get(row.object) ?? 0) + 1)
+      link(row.subject, row.object)
+      link(row.object, row.subject)
+      if (row.verb === 'IS' && row.negated === 0) {
+        const list = types.get(row.subject) ?? []
+        if (!list.includes(row.object)) list.push(row.object)
+        types.set(row.subject, list)
+      }
+    }
+    const rank = (a: string, b: string): number =>
+      (degree.get(b) ?? 0) - (degree.get(a) ?? 0) || (a < b ? -1 : a > b ? 1 : 0)
+    const depthOf = new Map<string, number>()
+    let chosen: string[]
+    let total: number
+    if (name === undefined) {
+      const all = [...degree.keys()].sort(rank)
+      total = all.length
+      chosen = all.slice(0, limit)
+    } else {
+      const seeds = useAliases ? scoped.aliasesOf(name) : [name]
+      const order: string[] = []
+      let layer = [...new Set(seeds)]
+      for (let hop = 0; hop <= depth && layer.length > 0; hop++) {
+        for (const node of layer) depthOf.set(node, hop)
+        order.push(...[...layer].sort(hop === 0 ? () => 0 : rank))
+        if (hop === depth) break
+        const next = new Set<string>()
+        for (const node of layer) {
+          for (const neighbor of neighbors.get(node) ?? []) {
+            if (!depthOf.has(neighbor)) next.add(neighbor)
+          }
+        }
+        layer = [...next]
+      }
+      total = order.length
+      // The focus and its aliases always survive the cap.
+      chosen = order.slice(0, Math.max(limit, seeds.length))
+    }
+    const shown = new Set(chosen)
+    return {
+      ...name === undefined ? {} : { focus: name },
+      nodes: chosen.map(node => ({
+        name: node,
+        degree: degree.get(node) ?? 0,
+        types: types.get(node) ?? [],
+        ...depthOf.has(node) ? { depth: depthOf.get(node)! } : {}
+      })),
+      edges: relations
+        .filter(row => shown.has(row.subject) && shown.has(row.object))
+        .map(row => ({
+          id: row.id,
+          key: row.claim_key,
+          source: row.subject,
+          target: row.object,
+          verb: row.verb,
+          negated: row.negated !== 0,
+          conf: row.conf
+        })),
+      total
+    }
+  })
+}
+
+/**
+ * Entity names containing `text` (case-insensitive), drawn from current
+ * non-retracted subjects and relation objects — exact matches first, then
+ * prefix matches, then shorter names. The page offers them beside search
+ * results so a phrase can jump straight to an entity 360.
+ */
+export const names = (store: Store, text: string, options: { limit?: number, maxSensitivity?: Sensitivity.Level } = {}): string[] => {
+  const maximum = maximumOf(options)
+  const { limit = 20 } = options
+  if (typeof text !== 'string') throw new TypeError('names text must be a string')
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    throw new TypeError('names limit must be a non-negative safe integer')
+  }
+  if (text === '' || limit === 0) return []
+  return withScopedStore(store, maximum, scoped => (scoped.db.prepare(`
+    WITH named(name) AS (
+      SELECT c.subject FROM (${currentSql}) c WHERE c.conf > 0
+      UNION
+      SELECT c.object FROM (${currentSql}) c WHERE c.conf > 0 AND c.object IS NOT NULL
+    )
+    SELECT name FROM named
+    WHERE ${Row.entityTermSql('name')} AND instr(lower(name), lower(?1)) > 0
+    ORDER BY lower(name) = lower(?1) DESC, instr(lower(name), lower(?1)) = 1 DESC, length(name), name
+    LIMIT ?2
+  `).all(text, limit + 8) as { name: string }[])
+    .map(row => row.name)
+    .filter(isEntityName)
+    .slice(0, limit))
+}

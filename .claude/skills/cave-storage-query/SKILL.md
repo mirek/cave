@@ -2385,7 +2385,10 @@ tag side tables — never by re-parsing text, so no second grammar exists
 to drift out of sync (§16's single-source stance); the stored
 `raw_line` is shown where the authored text is itself the point. Every
 entity name, claim key and row id links onward: the whole store is
-reachable by clicking. Source contexts also expose §9.8's parsed source and
+reachable by clicking. A claim leads with its statement and confidence;
+provenance, tags, comment and timestamp are one disclosure away, so the
+reading surface stays the knowledge rather than its metadata. Graphs are
+inline SVG laid out by the page's own script. Source contexts also expose §9.8's parsed source and
 line range; HTTP(S) locations link to the cited fragment.
 
 ### 30.2 The views
@@ -2400,8 +2403,8 @@ Structured claim views (§30.2) MUST also validate canonical UUIDv7 row identity
 references. These checks apply when the source is read directly at the restricted
 ceiling as well as when a sensitivity projection is used.
 
-- **Dashboard** — the §20.2 report rendered: coverage stats, then the
-  frontier — shape violations, review candidates (conf 0.3–0.7), stale
+- **Dashboard** — the §20.2 report rendered: coverage stats, the
+  relation map, then the frontier — shape violations, review candidates (conf 0.3–0.7), stale
   beliefs, alias disagreements — plus topics (subjects of current
   positive `CONTAINS` claims, §11.2) and the latest appends. The §17.6
   story on a screen: what is missing and what needs review, read from
@@ -2411,9 +2414,17 @@ ceiling as well as when a sensitivity projection is used.
   existence), relations in both directions — stored rows shown
   verbatim, with the declared inverse name annotated on the object side
   (§13.3) — topics, and the §13.6 alias closure on an explicit toggle
-  (opt-in here because it is opt-in everywhere). Underneath, the
+  (opt-in here because it is opt-in everywhere), its neighborhood graph
+  and its neighbors grouped by relation. Underneath, the
   activity feed: the newest rows about the name, superseded and
   retracted included.
+- **Graph** — current, non-retracted rows whose subject and object are
+  both entity names, drawn as nodes and edges: the store-wide map of the
+  most connected names, or one name's neighborhood breadth-first to 1–3
+  hops in either direction. Edges are stored rows, never inferred;
+  negated relations stay (they are knowledge) and are marked. The graph is
+  capped, and the cap is honest: the view reports how many names
+  qualified, so a cut graph never poses as complete.
 - **Belief history** — one claim key's series (§9.1), oldest first,
   with per-row confidence, provenance and timestamps: the "stack of
   cards" as a timeline. The last row is current belief; retraction and
@@ -2429,7 +2440,8 @@ ceiling as well as when a sensitivity projection is used.
   (never posing as a leaf), with the row's own lineage as the way to
   keep walking.
 - **Search** — the store's FTS5 index (§13.1) over subjects, objects,
-  values, comments and raw lines, newest first.
+  values, comments and raw lines, newest first, alongside the current entity
+  names containing the phrase.
 
 ### 30.3 Surfaces and the read-only promise
 
@@ -2438,8 +2450,8 @@ ceiling as well as when a sensitivity projection is used.
   2283 ("cave" on a phone keypad) and the §9.7 ceiling defaults to `internal`.
 - The JSON the page reads is plain GET endpoints (`/api/overview`,
   `/api/entity?name=`, `/api/topic?name=`, `/api/history?key=`,
-  `/api/lineage?id=`, `/api/search?q=`, with `&aliases=1` where the
-  closure applies) — scriptable with `curl`, though CAVE-Q (§12) stays
+  `/api/lineage?id=`, `/api/search?q=`, `/api/graph[?name=&depth=]`,
+  `/api/names?q=`, with `&aliases=1` where the closure applies) — scriptable with `curl`, though CAVE-Q (§12) stays
   the query language; the endpoints only ever serve the §30.2 views.
 - **Read-only, structurally**: only GET/HEAD are answered (anything
   else is 405) and no endpoint writes — recording knowledge stays with
@@ -2458,7 +2470,7 @@ ceiling as well as when a sensitivity projection is used.
   own transport.
 - Programmatic: `@cavelang/view` — `serve(store, { maxSensitivity, ... })` plus the
   view models (`overview`, `entity`, `topic`, `history`, `lineage`,
-  `search`) as plain functions over a store, no server needed.
+  `search`, `graph`, `names`) as plain functions over a store, no server needed.
 - Deliberately **not** an MCP tool (§28.5's reasoning): agents read
   through `cave_query`/`cave_about`; the page is for the human outside
   the loop.
