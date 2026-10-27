@@ -1,5 +1,11 @@
 # @cavelang/loop
 
+## 0.39.0
+
+### Minor Changes
+
+- Align the @cavelang/loop workspace with the CAVE 0.39.0 release identity.
+
 ## 0.38.0
 
 ### Minor Changes
