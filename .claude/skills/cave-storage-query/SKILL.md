@@ -333,7 +333,10 @@ member resolves on its own — an inverse member walks its primary's edges
 backwards, so `(CONTAINS|PART-OF)*` is undirected. Repeated paths share the
 `VERB+` contract: current positive edges, no hop limit, endpoint slots only
 (`NOT`, `@ctx`, `#tag` and `WHERE` are rejected), no `at` anchor, and
-supporting edges under `support` — a zero-hop match stands on none. A
+supporting edges under `support` — a zero-hop match stands on none.
+Zero-hop answers need no rows, so they survive an empty store or an as-of
+boundary before the first claim: a page with a `null` snapshot still
+returns them (at most one per seeded premise, so no continuation). A
 one-hop alternation `(A|B)` is instead the union of one ordinary pattern
 per member: each keeps its rows, filters and inverse resolution, results
 are ordered by transaction, and a row matched by two members appears once.

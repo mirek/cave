@@ -189,7 +189,9 @@ const second = first.next === undefined ? undefined :
   reaches itself; an unseeded walk adds every endpoint of a traversed
   edge); `(A|B)+` and `(A|B)*` walk any listed verb per hop, an inverse
   member backwards, sharing one recursive CTE and the `VERB+` restrictions
-  and support semantics (a zero-hop match has empty `rows`). A single
+  and support semantics (a zero-hop match has empty `rows`). Zero-hop
+  answers need no rows, so `page()` returns them even when its snapshot is
+  `null` (empty store, or an as-of boundary before the first claim). A single
   forward verb keeps the original single-scan plan. A one-hop `(A|B)`
   runs one ordinary pattern per member over the same snapshot — rows,
   filters and inverse resolution per member — merged by transaction with

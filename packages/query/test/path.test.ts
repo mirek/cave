@@ -89,3 +89,19 @@ test('paths compose with conjunctive queries and carry support there (spec §12.
     assert.ok(matches[0]!.rows!.some(row => row.raw_line === 'postgres NEEDS disk'))
   } finally { store.close() }
 })
+
+test('pages keep rowless zero-hop answers when the snapshot is empty', () => {
+  const store = open()
+  try {
+    assert.deepEqual(query(store, 'unknown NEEDS* ?x').map(match => match.bindings), [{ x: 'unknown' }])
+    for (const input of ['unknown NEEDS* ?x', 'unknown NEEDS* ?x, ?x (USES|NEEDS)* ?y']) {
+      const result = page(store, input)
+      assert.equal(result.snapshot, null)
+      assert.equal(result.next, undefined)
+      assert.deepEqual(result.matches.map(match => match.bindings), query(store, input).map(match => match.bindings), input)
+    }
+    store.ingest('later NEEDS disk')
+    const boundary = page(store, 'unknown NEEDS* ?x', { asOf: '2000-01-01' })
+    assert.deepEqual(boundary.matches.map(match => match.bindings), [{ x: 'unknown' }], 'an as-of boundary before any claim too')
+  } finally { store.close() }
+})
