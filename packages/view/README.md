@@ -433,7 +433,7 @@ It bypasses the header, focuses the current main view and leaves the route and
 loaded data unchanged. The next Tab continues through the content links.
 
 The search field is named “Search claims” for assistive technology, advertises
-its Enter shortcut and requests a Search key on virtual keyboards. Plain Enter starts
+its Enter shortcut and the `/` key that focuses it, and requests a Search key on virtual keyboards. Plain Enter starts
 a search after input-method composition finishes; confirming a composed word
 does not navigate away while text is still being entered. Empty searches leave
 the current view in place.
