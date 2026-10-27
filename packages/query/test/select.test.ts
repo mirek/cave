@@ -176,3 +176,13 @@ test('interpolated value bindings join after valid-time evaluation (spec §32.4)
       .map(match => match.bindings['peer']), ['acme'])
   } finally { store.close() }
 })
+
+test('equal normalized numbers tie in ORDER BY whatever their spelling', () => {
+  const store = open()
+  try {
+    store.ingest('a HAS score: 1000\nb HAS score: 1K\nc HAS score: 999')
+    assert.deepEqual(query(store, '?s HAS score: ?n\nORDER BY ?n, ?s DESC').map(match => match.bindings['s']), ['c', 'b', 'a'])
+    assert.deepEqual(query(store, '?s HAS score: ?n\nORDER BY ?n').map(match => match.bindings['s']), ['c', 'a', 'b'],
+      'ties keep join order')
+  } finally { store.close() }
+})

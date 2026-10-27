@@ -354,7 +354,8 @@ type Solution = { readonly bindings: Readonly<Record<string, string>>, readonly 
 
 /**
  * Total order over bound values: numbers before text, numbers grouped by
- * unit and compared numerically, text by code point. Unbound (`OPTIONAL`)
+ * unit and compared numerically (equal values tie across spellings), text
+ * by code point. Unbound (`OPTIONAL`)
  * values sort last in either direction.
  */
 const compareValues = (left: undefined | string, right: undefined | string): number => {
@@ -368,7 +369,9 @@ const compareValues = (left: undefined | string, right: undefined | string): num
     const aUnit = a.unit ?? ''
     const bUnit = b.unit ?? ''
     if (aUnit !== bUnit) return aUnit < bUnit ? -1 : 1
-    if (a.num !== b.num) return a.num! < b.num! ? -1 : 1
+    // Equal normalized numbers tie whatever their spelling (`1000`, `1K`),
+    // so later keys and join order decide.
+    return a.num === b.num ? 0 : a.num! < b.num! ? -1 : 1
   }
   return left < right ? -1 : left > right ? 1 : 0
 }

@@ -464,8 +464,10 @@ ORDER BY ?team DESC, ?svc               ; ordering keys
   `DISTINCT` keeps one answer per projected binding set, first occurrence
   first, and its evidence is the union of the collapsed solutions' rows.
 - **ORDER BY** sorts by its keys, then by join order. The order is total:
-  numbers before text, numbers grouped by unit then compared numerically,
-  text by code point; unbound values sort last in either direction.
+  numbers before text, numbers grouped by unit then compared numerically
+  (equal values tie whatever their spelling, so `1000` and `1K` fall to the
+  next key), text by code point; unbound values sort last in either
+  direction.
 - **Results.** A solution carries its bindings and every row it stands on
   — premise rows in premise order, plus supporting edges of path premises
   under `support` — and no single claim row. In `cave.query-match/v1` those
