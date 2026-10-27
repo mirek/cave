@@ -373,6 +373,15 @@ const compareValues = (left: undefined | string, right: undefined | string): num
   return left < right ? -1 : left > right ? 1 : 0
 }
 
+/** Value equality for a deferred join: the same number and unit, or the same text. */
+const sameValue = (left: string, right: string): boolean => {
+  const a = Row.parseValue(left)
+  const b = Row.parseValue(right)
+  return a.num !== undefined && b.num !== undefined ?
+    a.num === b.num && (a.unit ?? '') === (b.unit ?? '') :
+    left === right
+}
+
 const lookup = (bindings: Readonly<Record<string, string>>, name: string): undefined | string =>
   Object.hasOwn(bindings, name) ? bindings[name] : undefined
 
@@ -397,10 +406,22 @@ export const execute = (store: Store, select: Select, options: Compile.Options):
     if (premise.kind === 'constraint') {
       return solutions.filter(solution => satisfies(lookup(solution.bindings, premise.variable), premise.op, premise.value))
     }
+    // Under `at`, a value-slot binding may be an interpolated trajectory
+    // value (spec §32.4) that no stored column holds. Such variables join
+    // after valid-time evaluation instead of becoming storage filters.
+    const deferred = unbounded.at !== undefined && premise.pattern.payload.kind === 'attribute' &&
+      premise.pattern.payload.value.kind === 'var' ? premise.pattern.payload.value.name : undefined
     return solutions.flatMap(solution => {
-      const pattern = specialize(premise.pattern, solution.bindings)
+      const bound = deferred === undefined ? undefined : lookup(solution.bindings, deferred)
+      let specializing = solution.bindings
+      if (bound !== undefined) {
+        const { [deferred!]: _omitted, ...rest } = solution.bindings
+        specializing = rest
+      }
+      const pattern = specialize(premise.pattern, specializing)
       if (pattern === undefined) return []
-      return executeCaptured(store, pattern, unbounded).matches.map(found => ({
+      const found = executeCaptured(store, pattern, unbounded).matches
+      return (bound === undefined ? found : found.filter(match => sameValue(match.bindings[deferred!]!, bound))).map(found => ({
         bindings: { ...solution.bindings, ...found.bindings },
         rows: found.row !== undefined ? [...solution.rows, found.row] :
           found.rows !== undefined ? [...solution.rows, ...found.rows] : solution.rows

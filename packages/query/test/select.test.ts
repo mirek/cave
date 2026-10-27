@@ -162,3 +162,17 @@ test('variable names that shadow prototype members survive joins and projection'
     assert.deepEqual(Object.entries(match!.bindings), [['__proto__', 'jwt'], ['constructor', 'ana']])
   } finally { store.close() }
 })
+
+test('interpolated value bindings join after valid-time evaluation (spec §32.4)', () => {
+  const store = open()
+  try {
+    store.ingest('acme HAS headcount: 100 -> 400 @2025..2027\nglobex HAS headcount: 250')
+    const at = { at: '2026' }
+    assert.deepEqual(query(store, 'acme HAS headcount: ?n', at).map(match => match.bindings['n']), ['250'])
+    assert.deepEqual(query(store, 'acme HAS headcount: ?n, acme HAS headcount: ?n', at).map(match => match.bindings), [{ n: '250' }])
+    assert.deepEqual(query(store, 'acme HAS headcount: ?n, ?peer HAS headcount: ?n\nSELECT ?peer\nORDER BY ?peer', at)
+      .map(match => match.bindings['peer']), ['acme', 'globex'], 'an evaluated value joins a stored scalar too')
+    assert.deepEqual(query(store, 'acme HAS headcount: ?n, ?peer HAS headcount: ?n', { at: '2025' })
+      .map(match => match.bindings['peer']), ['acme'])
+  } finally { store.close() }
+})

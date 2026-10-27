@@ -445,7 +445,11 @@ ORDER BY ?team DESC, ?svc               ; ordering keys
   lifecycle names, property paths, and every option (`all`, `aliases`,
   `asOf`, `at`, `resolve`, `support`) apply to every premise. A constraint
   variable must be bound by an earlier pattern premise. A trailing comma
-  continues the conjunction on the next line.
+  continues the conjunction on the next line. Under `at`, an attribute
+  value variable bound earlier is not pushed into the next premise as a
+  stored-value filter: an interpolated trajectory value (§32.4) exists in
+  no column. The premise matches unspecialized and joins after evaluation
+  on equal number and unit, or equal text.
 - **WHERE** applies to the single pattern on the premise or `OPTIONAL`
   line directly above it. A line with several patterns rejects `WHERE`:
   express the condition as a constraint or as inline `@ctx`/`#tag`.
