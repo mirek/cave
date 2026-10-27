@@ -3,7 +3,7 @@
 import { Record as ClaimRecord } from '@cavelang/store/adapter'
 import type { Store } from '@cavelang/store/adapter'
 import type { Match, Options } from './compile.ts'
-import { query } from './bounded.ts'
+import { query } from './select.ts'
 import { readSnapshot } from './read-snapshot.ts'
 import { captureOptions } from './capture.ts'
 

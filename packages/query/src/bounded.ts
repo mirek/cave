@@ -13,7 +13,7 @@ export type { Window } from './compile.ts'
  * transaction-time boundary as the rows. The store remains otherwise
  * unchanged; compiler SQL still applies the authoritative row boundary.
  */
-const storeAtBoundary = (store: Store, options: Compile.Options): Store => {
+export const storeAtBoundary = (store: Store, options: Compile.Options): Store => {
   if (options.asOf === undefined) {
     return store
   }
@@ -39,12 +39,21 @@ const execute = (
   return readSnapshot(store, () => executeCaptured(store, pattern, options, positions))
 }
 
-const executeCaptured = (
+/**
+ * Executes a captured pattern inside the caller's read snapshot. Exported
+ * for the conjunctive executor (spec §12.4), which joins many premises in
+ * one snapshot.
+ */
+export const executeCaptured = (
   store: Store,
   pattern: Pattern.t,
   options: Compile.Options,
   positions?: WeakMap<object, number>
 ): Compile.Window => {
+  const members = Compile.alternatives(pattern)
+  if (members.length > 1 || members[0] !== pattern) {
+    return executeAlternatives(store, members, options)
+  }
   if (pattern.payload.kind !== 'attribute' || pattern.payload.value.kind !== 'term') {
     return Compile.window(storeAtBoundary(store, options), pattern, options, positions)
   }
@@ -78,6 +87,46 @@ const executeCaptured = (
   }) }
 }
 
+/**
+ * One-hop alternation (spec §12.1): every member runs as its own ordinary
+ * pattern over the same snapshot; the union is ordered by transaction like
+ * a single pattern, a row two members both match appears once, and the
+ * caller's window applies to the merged result.
+ */
+const executeAlternatives = (
+  store: Store,
+  members: readonly Pattern.t[],
+  options: Compile.Options
+): Compile.Window => {
+  const { limit, offset, ...unbounded } = options
+  validateWindow(limit, offset)
+  const seen = new Set<string>()
+  const merged = members
+    .flatMap(member => executeCaptured(store, member, unbounded).matches)
+    .filter(match => {
+      if (match.row === undefined) return true
+      if (seen.has(match.row.id)) return false
+      seen.add(match.row.id)
+      return true
+    })
+    .map((match, index) => ({ match, index }))
+    .sort((a, b) => a.match.row!.tx < b.match.row!.tx ? -1 : a.match.row!.tx > b.match.row!.tx ? 1 : a.index - b.index)
+    .map(entry => entry.match)
+  // As in SQL compilation, an offset only applies together with a limit.
+  const start = offset ?? 0
+  const matches = limit === undefined ? merged : merged.slice(start, start + limit)
+  return { matches, scanned: matches.length }
+}
+
+/** The SQL window contract, applied when a result is windowed after materialization. */
+export const validateWindow = (limit: undefined | number, offset: undefined | number): void => {
+  if (limit === undefined) return
+  const start = offset === undefined ? 0 : offset
+  if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(start) || start < 0) {
+    throw new Error('CAVE-Q: limit must be a positive safe integer and offset must be a non-negative safe integer')
+  }
+}
+
 export const window = (
   store: Store,
   pattern: Pattern.t,
@@ -90,10 +139,3 @@ export const match = (
   pattern: Pattern.t,
   options: Compile.Options = {}
 ): Compile.Match[] => execute(store, capturePattern(pattern), options).matches
-
-export const query = (
-  store: Store,
-  input: string,
-  options: Compile.Options = {}
-): Compile.Match[] =>
-  execute(store, Pattern.parse(input), options).matches

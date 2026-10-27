@@ -312,6 +312,8 @@ Two query layers: SQL over stored claims (§13.5) and **CAVE-Q**, a small graph-
   WHERE conf >= 0.7
 ?x ?verb ?y @production           ; all production facts
 terrier EXTENDS+ animal           ; transitive: one or more EXTENDS hops
+terrier EXTENDS* ?kind            ; zero or more hops — terrier itself too
+?x (USES|NEEDS)+ postgres         ; property path over either verb
 ```
 
 Variables begin with `?` and require a non-empty name (`?service`, `?bug`);
@@ -322,6 +324,25 @@ _ USES jwt
 ```
 
 Inverse verbs are valid in patterns. `?x PART-OF monorepo` and `monorepo CONTAINS ?x` compile to the same physical query against canonical rows.
+
+**Property paths** generalize `VERB+`. `VERB*` adds the zero-hop pair: a
+concrete endpoint reaches itself (even when no edge mentions it), and an
+unseeded walk adds every endpoint of a traversed edge. `(A|B)` lists two or
+more verbs; `(A|B)+` and `(A|B)*` walk any listed verb at each hop. Each
+member resolves on its own — an inverse member walks its primary's edges
+backwards, so `(CONTAINS|PART-OF)*` is undirected. Repeated paths share the
+`VERB+` contract: current positive edges, no hop limit, endpoint slots only
+(`NOT`, `@ctx`, `#tag` and `WHERE` are rejected), no `at` anchor, and
+supporting edges under `support` — a zero-hop match stands on none.
+Zero-hop answers need no rows, so they survive an empty store or an as-of
+boundary before the first claim: a page with a `null` snapshot still
+returns them (at most one per seeded premise, so no continuation). A
+one-hop alternation `(A|B)` is instead the union of one ordinary pattern
+per member: each keeps its rows, filters and inverse resolution, results
+are ordered by transaction, and a row matched by two members appears once.
+Bound paths (Cypher-style path variables) are not provided: enumerating
+paths is exponential where reachable pairs are quadratic, and supporting
+edges already answer which claims a reachability rests on.
 
 Query syntax and option compatibility MUST be validated independently of row
 availability, including paginated queries over empty stores or empty historical
@@ -395,6 +416,81 @@ JOIN (
   FROM cave_claim WHERE tx <= :boundary GROUP BY claim_key
 ) latest ON c.claim_key = latest.claim_key AND c.tx = latest.max_tx;
 ```
+
+
+### 12.4 Conjunctive queries
+
+One query may join several premises. The premise grammar is the rule
+premise grammar of §24.1 — CAVE-Q patterns and `?var op value` constraints
+— so a conjunctive query is a rule body without a conclusion. Each line is
+one clause:
+
+```cave
+?svc USES jwt, ?svc HAS owner: ?who     ; premises: commas or further lines conjoin
+  WHERE conf >= 0.7                     ; filters the one pattern on the line above
+?who HAS age: ?age, ?age >= 18          ; constraint on an earlier binding
+OPTIONAL ?who HAS team: ?team           ; left-outer group
+SELECT DISTINCT ?svc ?team              ; projection, optionally distinct
+ORDER BY ?team DESC, ?svc               ; ordering keys
+```
+
+- **Compatibility.** Text that parses as one §12.1 pattern followed by
+  `WHERE` lines keeps exactly that meaning and result shape. Only text with
+  conjunctive structure — a top-level comma, a second premise line, or a
+  leading `OPTIONAL`/`SELECT`/`ORDER BY` — is a conjunctive query; any other
+  unparseable text reports the single-pattern diagnostic. A line whose first
+  word is `OPTIONAL`, `SELECT`, `WHERE`, or `ORDER BY` is always a clause.
+- **Join.** Premises join left to right; each partial solution specializes
+  the next pattern and runs it as an ordinary query, so inverse verbs,
+  lifecycle names, property paths, and every option (`all`, `aliases`,
+  `asOf`, `at`, `resolve`, `support`) apply to every premise. A constraint
+  variable must be bound by an earlier pattern premise. A trailing comma
+  continues the conjunction on the next line. Under `at`, an attribute
+  value variable bound earlier is not pushed into the next premise as a
+  stored-value filter: an interpolated trajectory value (§32.4) exists in
+  no column. The premise matches unspecialized and joins after evaluation
+  on equal number and unit, or equal text.
+- **WHERE** applies to the single pattern on the premise or `OPTIONAL`
+  line directly above it. A line with several patterns rejects `WHERE`:
+  express the condition as a constraint or as inline `@ctx`/`#tag`.
+- **OPTIONAL** is a left-outer join of its comma-separated group, all or
+  nothing: a solution the whole group extends is replaced by its
+  extensions; any other solution survives unchanged with the group's
+  variables unbound. Unbound is *unknown*, never *false* — a constraint on
+  an unbound variable fails rather than passes. Optional lines apply in
+  text order with required lines.
+- **SELECT** names the projected variables (`*` or omission keeps all
+  bound variables); every named variable must be bound by some premise.
+  `DISTINCT` keeps one answer per projected binding set, first occurrence
+  first, and its evidence is the union of the collapsed solutions' rows.
+- **ORDER BY** sorts by its keys, then by join order. The order is total:
+  numbers before text, numbers grouped by unit then compared numerically
+  (equal values tie whatever their spelling, so `1000` and `1K` fall to the
+  next key), text by code point; unbound values sort last in either
+  direction.
+- **Results.** A solution carries its bindings and every row it stands on
+  — premise rows in premise order, plus supporting edges of path premises
+  under `support` — and no single claim row. In `cave.query-match/v1` those
+  rows are the `support` records. `limit`/`offset` and pages window the
+  ordered, projected answers; a page materializes the whole answer at the
+  frozen snapshot before windowing it.
+- **Validation** is independent of rows (§12.1): every premise compiles
+  against the options before the first join can short-circuit.
+
+Confidence stays on the rows: a solution reports no combined confidence,
+because combining premise confidences is a modelling assumption that
+`derive` makes explicitly (noisy-AND, §24.2) and a read does not.
+
+**Deliberately absent.** Negation-as-failure (`NOT EXISTS`, `MINUS`):
+absence in one store is not falsity (§24.1), and stratified negation would
+break monotonic derivation and support-driven retraction (§24.5) if it ever
+reached rules; `VERB NOT` remains the only way to ask for a negative, and a
+missing value is found with `OPTIONAL` or a health check (§20). Aggregates
+(`COUNT`, `GROUP BY`): reporting arithmetic belongs to SQL over §13.5
+views and to callers, not the pattern language (`PROJECT-BOUNDARIES.md`).
+Write clauses (`CREATE`, `MERGE`, `SET`): writes go through `cave add` and
+governed actions (§25). Graph-drawing syntax (`(a)-[:USES]->(b)`): a
+CAVE-Q pattern stays a claim line with holes in it.
 
 ---
 
@@ -1057,7 +1153,8 @@ A premise is either
 
 - a **pattern** — a CAVE-Q pattern (§12.1): `?var` variables, `_`
   wildcards, `NOT` (matching explicitly negated claims — there is no
-  negation-as-failure), inverse verbs, transitive `VERB+` hops, and
+  negation-as-failure), inverse verbs, transitive `VERB+` hops and the
+  other property paths (`VERB*`, `(A|B)`, `(A|B)+`, `(A|B)*`), and
   inline `@ctx` / `#tag` filters all carry over unchanged; or
 - a **constraint** — `?var op value` with `op` one of
   `= != < <= > >=`. Numeric comparison applies when both sides parse as
@@ -1113,8 +1210,11 @@ match **current, positive, non-retracted** beliefs (§12's defaults),
 joined left to right: each partial binding specializes the next pattern
 and runs it as an ordinary CAVE-Q query, so inverse verbs cost nothing
 and the alias closure (§13.6) applies when opted in. Transitive
-premises constrain bindings but contribute no premise row — no
-confidence, no lineage edge.
+premises (`VERB+`, `VERB*`, `(A|B)+`, `(A|B)*`) constrain bindings but
+contribute no premise row — no confidence, no lineage edge; a one-hop
+alternation contributes its member's row. Incremental wake-up (§24.4)
+treats a repeated path like a transitive hop — any new edge of a member
+verb re-fires the rule — and a one-hop alternation like its members.
 
 Each solution instantiates the conclusion template and pushes it through
 the ordinary canonicalization pipeline (§13.4) — an inverse-verb

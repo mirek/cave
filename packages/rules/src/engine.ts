@@ -39,7 +39,7 @@ import { Claim, Context, Key, Value, Verb } from '@cavelang/core'
 import * as Canonical from '@cavelang/canonical'
 import { noisyAndIndependent } from '@cavelang/fusion'
 import { Row, type Store } from '@cavelang/store'
-import { match, type Pattern } from '@cavelang/query'
+import { match, Select, type Pattern } from '@cavelang/query'
 import * as Rule from './rule.ts'
 import { currentDeclarations, declarationText } from './declarations.ts'
 
@@ -266,12 +266,25 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
         verb = { kind: 'verb', name: primary, transitive: verb.transitive }
       }
     }
-    const transitive = verb.kind === 'verb' && verb.transitive
+    // Property paths (spec §12.1) wake on any new edge of a member verb; a
+    // one-hop alternation probes like its members, a repeated path like a
+    // transitive hop.
+    const transitive = verb.kind === 'verb' ? verb.transitive :
+      verb.kind === 'path' && verb.repeat !== 'one'
     const conditions: string[] = ['c.tx > ?']
     const params: (string | number)[] = [mark]
     if (verb.kind === 'verb') {
       conditions.push('c.verb = ?')
       params.push(verb.name)
+    } else if (verb.kind === 'path') {
+      const primaries = [...new Set(verb.verbs.map(name => Canonical.Registry.primaryOf(registry, name).primary))]
+      conditions.push(`c.verb IN (${primaries.map(() => '?').join(', ')})`)
+      params.push(...primaries)
+      if (verb.repeat === 'one' && verb.verbs.some(name => Canonical.Registry.primaryOf(registry, name).isInverse)) {
+        // Members disagree on direction, so endpoint terms cannot narrow the probe.
+        subjectSlot = { kind: 'wildcard' }
+        objectSlot = objectSlot === undefined ? undefined : { kind: 'wildcard' }
+      }
     }
     conditions.push(`c.negated = ${!transitive && premise.pattern.negated ? 1 : 0}`)
     if (transitive) {
@@ -324,62 +337,15 @@ const shapeMatchesSince = (store: Store, rule: Rule.t, mark: string, aliases: bo
 }
 
 /**
- * Specializes a pattern under partial bindings: bound variables become
- * terms, so each join step runs an ordinary CAVE-Q query. Shared with
- * `@cavelang/act`, whose premise evaluation is the same left-to-right
- * join with parameters pre-bound (spec §25.2).
- * @returns `undefined` when a verb variable is bound to a non-verb —
- * no row can match.
+ * Specializes a pattern under partial bindings — CAVE-Q's conjunctive join
+ * step (spec §12.4), re-exported for `@cavelang/act` and
+ * `@cavelang/automate`, whose premise evaluation is the same left-to-right
+ * join (spec §25.2, §29.2).
  */
-export const specialize = (pattern: Pattern.t, bindings: Readonly<Record<string, string>>): undefined | Pattern.t => {
-  const slot = (candidate: Pattern.Slot): Pattern.Slot =>
-    candidate.kind === 'var' && Object.hasOwn(bindings, candidate.name) && bindings[candidate.name] !== undefined ?
-      { kind: 'term', text: bindings[candidate.name]! } :
-      candidate
-  let verb = pattern.verb
-  if (verb.kind === 'var' && Object.hasOwn(bindings, verb.name) && bindings[verb.name] !== undefined) {
-    const name = bindings[verb.name]!
-    if (!Verb.isVerbToken(name)) {
-      return undefined
-    }
-    verb = { kind: 'verb', name, transitive: false }
-  }
-  const payload: Pattern.PayloadPattern =
-    pattern.payload.kind === 'object' ? { kind: 'object', object: slot(pattern.payload.object) } :
-    pattern.payload.kind === 'attribute' ? { kind: 'attribute', attribute: pattern.payload.attribute, value: slot(pattern.payload.value) } :
-    pattern.payload
-  return { ...pattern, subject: slot(pattern.subject), verb, payload }
-}
+export const specialize = Select.specialize
 
 /** Evaluates a `?var op value` constraint against the variable's binding. */
-export const satisfies = (bound: undefined | string, op: Rule.ConstraintOp, literal: Value.t): boolean => {
-  if (bound === undefined) {
-    return false
-  }
-  const value = Row.parseValue(bound)
-  if (value.num !== undefined && literal.num !== undefined) {
-    // A unit on the constraint demands the same unit on the value; a bare
-    // numeric constraint compares numbers regardless of unit.
-    if (literal.unit !== undefined && value.unit !== literal.unit) {
-      return false
-    }
-    switch (op) {
-      case '=': return value.num === literal.num
-      case '!=': return value.num !== literal.num
-      case '>': return value.num > literal.num
-      case '>=': return value.num >= literal.num
-      case '<': return value.num < literal.num
-      case '<=': return value.num <= literal.num
-    }
-  }
-  if (op === '=') {
-    return value.raw === literal.raw
-  }
-  if (op === '!=') {
-    return value.raw !== literal.raw
-  }
-  return false
-}
+export const satisfies = Select.satisfies
 
 /**
  * A bound value substituted into a conclusion term slot. Stored bindings

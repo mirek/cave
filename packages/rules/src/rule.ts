@@ -22,11 +22,9 @@
 import { createHash } from 'node:crypto'
 import { Claim, Value } from '@cavelang/core'
 import { parseDocument, Token, type Ast } from '@cavelang/parser'
-import { Pattern } from '@cavelang/query'
+import { Pattern, Select } from '@cavelang/query'
 
-export type ConstraintOp = '=' | '!=' | '>' | '>=' | '<' | '<='
-
-const constraintOps: readonly ConstraintOp[] = ['>=', '<=', '!=', '=', '>', '<']
+export type ConstraintOp = Select.ConstraintOp
 
 export type Premise =
   | { readonly kind: 'pattern', readonly pattern: Pattern.t, readonly text: string }
@@ -88,22 +86,7 @@ const isVariableToken = (text: string): boolean =>
   text.startsWith('?') && text.length > 1
 
 /** Variables a pattern binds — the names its slots introduce. */
-export const patternVariables = (pattern: Pattern.t): string[] => {
-  const names: string[] = []
-  if (pattern.subject.kind === 'var') {
-    names.push(pattern.subject.name)
-  }
-  if (pattern.verb.kind === 'var') {
-    names.push(pattern.verb.name)
-  }
-  if (pattern.payload.kind === 'object' && pattern.payload.object.kind === 'var') {
-    names.push(pattern.payload.object.name)
-  }
-  if (pattern.payload.kind === 'attribute' && pattern.payload.value.kind === 'var') {
-    names.push(pattern.payload.value.name)
-  }
-  return names
-}
+export const patternVariables = Select.patternVariables
 
 /** Variables the conclusion template references (subject/object/value slots). */
 const conclusionVariables = (conclusion: Ast.Full): string[] => {
@@ -143,29 +126,10 @@ export const parsePremise = (segment: string, bound: ReadonlySet<string>): { pre
   if (text === '') {
     return { problem: 'empty premise — remove the extra comma' }
   }
-  const tokens = Token.tokenize(segment)
-  const [first, second, ...rest] = tokens
-  // A constraint is `?var op value` — no CAVE-Q pattern puts an operator
-  // symbol in verb position, so the shapes never collide.
-  if (
-    first?.kind === 'word' && isVariableToken(first.text) &&
-    second?.kind === 'word' && constraintOps.includes(second.text as ConstraintOp)
-  ) {
-    if (rest.length === 0) {
-      return { problem: `constraint ${JSON.stringify(text)} is missing a value` }
-    }
-    const variable = first.text.slice(1)
-    if (!bound.has(variable)) {
-      return { problem: `constraint on ?${variable} before any pattern premise binds it — reorder the premises` }
-    }
-    const value = Value.parse(rest.map(token => token.text).join(' '))
-    return { premise: { kind: 'constraint', variable, op: second.text as ConstraintOp, value, text } }
-  }
-  try {
-    return { premise: { kind: 'pattern', pattern: Pattern.parse(segment), text } }
-  } catch (error) {
-    return { problem: error instanceof Error ? error.message : String(error) }
-  }
+  // The grammar is CAVE-Q's conjunctive premise grammar (spec §12.4);
+  // rules add the normalized text that rule identity digests.
+  const { premise, problem } = Select.parsePremise(segment, bound)
+  return problem !== undefined ? { problem } : { premise: { ...premise!, text } }
 }
 
 /**
