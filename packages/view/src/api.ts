@@ -592,18 +592,27 @@ export const names = (store: Store, text: string, options: { limit?: number, max
     throw new TypeError('names limit must be a non-negative safe integer')
   }
   if (text === '' || limit === 0) return []
-  return withScopedStore(store, maximum, scoped => (scoped.db.prepare(`
-    WITH named(name) AS (
-      SELECT c.subject FROM (${currentSql}) c WHERE c.conf > 0
-      UNION
-      SELECT c.object FROM (${currentSql}) c WHERE c.conf > 0 AND c.object IS NOT NULL
-    )
-    SELECT name FROM named
-    WHERE ${Row.entityTermSql('name')} AND instr(lower(name), lower(?1)) > 0
-    ORDER BY lower(name) = lower(?1) DESC, instr(lower(name), lower(?1)) = 1 DESC, length(name), name
-    LIMIT ?2
-  `).all(text, limit + 8) as { name: string }[])
-    .map(row => row.name)
-    .filter(isEntityName)
-    .slice(0, limit))
+  return withScopedStore(store, maximum, scoped => readSnapshot(scoped, () => {
+    const page = scoped.db.prepare(`
+      WITH named(name) AS (
+        SELECT c.subject FROM (${currentSql}) c WHERE c.conf > 0
+        UNION
+        SELECT c.object FROM (${currentSql}) c WHERE c.conf > 0 AND c.object IS NOT NULL
+      )
+      SELECT name FROM named
+      WHERE ${Row.entityTermSql('name')} AND instr(lower(name), lower(?1)) > 0
+      ORDER BY lower(name) = lower(?1) DESC, instr(lower(name), lower(?1)) = 1 DESC, length(name), name
+      LIMIT ?2 OFFSET ?3
+    `)
+    // Verb tokens are filtered after SQL, so keep paging until the limit is
+    // met or the matches run out — leading verbs cannot crowd out entities.
+    const found: string[] = []
+    const size = Math.max(limit, 32)
+    for (let offset = 0; found.length < limit; offset += size) {
+      const batch = (page.all(text, size, offset) as { name: string }[]).map(row => row.name)
+      found.push(...batch.filter(isEntityName))
+      if (batch.length < size) break
+    }
+    return found.slice(0, limit)
+  }))
 }

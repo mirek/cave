@@ -828,7 +828,9 @@ Programmatic `graph(store, { name, depth, limit, aliases, maxSensitivity })`
 validates `name` as a non-empty string, `depth` as an integer in 1..3 and
 `limit` as a positive safe integer before any read. `names(store, text,
 { limit, maxSensitivity })` validates a non-negative safe-integer limit and
-returns nothing for empty text or a zero limit.
+returns nothing for empty text or a zero limit. Verb tokens are filtered after
+the SQL ordering, so `names` pages through matches inside one read snapshot
+until the limit is filled; leading verb names cannot crowd out entities.
 Each endpoint’s required parameter must appear at most once. Repeated names,
 keys, IDs or search queries return HTTP 400, even when their values agree.
 The optional `aliases` parameter accepts `0` (off) or `1` (on), at most once;

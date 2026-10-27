@@ -259,3 +259,14 @@ test('graph layout keeps hub neighbors apart and survives parallel relations', (
   const points = layout({ nodes: pair, edges: parallel }, 900, 352)
   assert.ok(points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)), JSON.stringify(points))
 })
+
+test('names fills its limit with entities even when verb tokens sort first', () => {
+  const store = open()
+  try {
+    const verbs = Array.from({ length: 60 }, (_, i) => `A${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`)
+    store.ingest(verbs.map(verb => `${verb} IS verb`).join('\n') + '\napi-gateway USES db\nanother-api USES db')
+    assert.deepEqual(names(store, 'a', { limit: 1 }), ['another-api'])
+    assert.deepEqual(names(store, 'a', { limit: 5 }).sort(), ['another-api', 'api-gateway'])
+    assert.deepEqual(names(store, 'a'), names(store, 'a', { limit: 20 }))
+  } finally { store.close() }
+})
