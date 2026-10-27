@@ -1,5 +1,11 @@
 # @cavelang/mcp
 
+## 0.38.0
+
+### Minor Changes
+
+- Align the @cavelang/mcp workspace with the CAVE 0.38.0 release identity.
+
 ## 0.37.0
 
 ### Minor Changes
