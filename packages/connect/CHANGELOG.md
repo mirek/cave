@@ -1,5 +1,11 @@
 # @cavelang/connect
 
+## 0.38.0
+
+### Minor Changes
+
+- Align the @cavelang/connect workspace with the CAVE 0.38.0 release identity.
+
 ## 0.37.0
 
 ### Minor Changes
