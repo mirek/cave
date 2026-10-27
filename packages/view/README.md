@@ -229,7 +229,8 @@ surface never reinterprets them:
   hover or focus traces their relations), can be dragged, and the panel pans,
   zooms and resets. Colours mark each node's first `IS` type, most common
   types first, with a legend. The layout is a small deterministic force
-  simulation in the page — no library, no external request — and the full
+  simulation in the page (one spring per linked pair, weakened by degree, and
+  a bounded step, so hubs and many parallel relations stay stable and finite) — no library, no external request — and the full
   screen view carries the same graph as a text list. The page keys its
   graph and related-index dictionaries by stored names in prototype-free
   objects, so names such as `__proto__` or `constructor` render like any other;

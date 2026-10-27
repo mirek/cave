@@ -234,3 +234,28 @@ test('a superseded panel request cannot overwrite a newer one in the same view',
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(target.innerHTML, 'independent panel')
 })
+
+test('graph layout keeps hub neighbors apart and survives parallel relations', () => {
+  const layout = runInNewContext(`${slice('function hashOf', '\nfunction radiusOf')}\nlayoutGraph`) as
+    (data: unknown, width: number, height: number) => { x: number, y: number }[]
+  const spread = (points: { x: number, y: number }[]): number => {
+    let min = Infinity
+    for (let i = 0; i < points.length; i++) {
+      for (let j = i + 1; j < points.length; j++) min = Math.min(min, Math.hypot(points[i]!.x - points[j]!.x, points[i]!.y - points[j]!.y))
+    }
+    return min
+  }
+  for (const size of [30, 60]) {
+    const nodes = Array.from({ length: size }, (_, i) => ({ name: `n${String(i).padStart(2, '0')}`, degree: 1, types: [] }))
+    const edges = nodes.slice(1).map(node => ({ source: 'n00', target: node.name }))
+    for (const focus of [undefined, 'n00']) {
+      const points = layout({ focus, nodes, edges }, 900, 352)
+      assert.ok(points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)))
+      assert.ok(spread(points) >= 12, `hub of ${size} (focus ${focus}): nearest nodes ${spread(points).toFixed(1)}px apart`)
+    }
+  }
+  const pair = [{ name: 'a', degree: 500, types: [] }, { name: 'b', degree: 500, types: [] }]
+  const parallel = Array.from({ length: 500 }, () => ({ source: 'a', target: 'b' }))
+  const points = layout({ nodes: pair, edges: parallel }, 900, 352)
+  assert.ok(points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)), JSON.stringify(points))
+})

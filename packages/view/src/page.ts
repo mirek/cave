@@ -388,8 +388,18 @@ function layoutGraph (data, width, height) {
   var n = nodes.length
   var index = Object.create(null)
   nodes.forEach(function (node, i) { index[node.name] = i })
-  var links = data.edges.filter(function (edge) { return edge.source !== edge.target }).map(function (edge) {
-    return [index[edge.source], index[edge.target]]
+  // One spring per linked pair, however many relations it carries.
+  var seen = Object.create(null)
+  var links = []
+  var degree = nodes.map(function () { return 0 })
+  data.edges.forEach(function (edge) {
+    var s = index[edge.source], t = index[edge.target]
+    if (s === undefined || t === undefined || s === t) return
+    var id = Math.min(s, t) + ':' + Math.max(s, t)
+    if (seen[id]) return
+    seen[id] = true
+    links.push([s, t])
+    degree[s]++; degree[t]++
   })
   var cx = width / 2
   var cy = height / 2
@@ -416,19 +426,26 @@ function layoutGraph (data, width, height) {
         vel[b].x += dx * push / Math.sqrt(d2); vel[b].y += dy * push / Math.sqrt(d2)
       }
     }
+    // Springs weaken with degree and move the less connected end more (as in
+    // d3-force), so a hub's many springs cannot add up and fling it.
     links.forEach(function (link) {
       var s = pos[link[0]], t = pos[link[1]]
       var dx = t.x - s.x, dy = t.y - s.y
       var d = Math.sqrt(dx * dx + dy * dy) || 1
-      var pull = (d - span) / d * alpha * 0.25
-      vel[link[0]].x += dx * pull; vel[link[0]].y += dy * pull
-      vel[link[1]].x -= dx * pull; vel[link[1]].y -= dy * pull
+      var pull = (d - span) / d * alpha * 0.5 / Math.min(degree[link[0]], degree[link[1]])
+      var bias = degree[link[0]] / (degree[link[0]] + degree[link[1]])
+      vel[link[0]].x += dx * pull * (1 - bias); vel[link[0]].y += dy * pull * (1 - bias)
+      vel[link[1]].x -= dx * pull * bias; vel[link[1]].y -= dy * pull * bias
     })
     for (var i = 0; i < n; i++) {
       // Gravity keeps disconnected clusters close enough to share the frame.
       vel[i].x += (cx - pos[i].x) * 0.02 * alpha
       vel[i].y += (cy - pos[i].y) * 0.02 * alpha * width / height
       if (nodes[i].name === data.focus) { vel[i].x = 0; vel[i].y = 0; continue }
+      // Bound each step; a non-finite velocity is discarded rather than spread.
+      var speed = Math.sqrt(vel[i].x * vel[i].x + vel[i].y * vel[i].y)
+      if (!(speed < Infinity)) { vel[i].x = 0; vel[i].y = 0; speed = 0 }
+      if (speed > span) { vel[i].x *= span / speed; vel[i].y *= span / speed }
       pos[i].x += vel[i].x; pos[i].y += vel[i].y
       vel[i].x *= 0.6; vel[i].y *= 0.6
     }
