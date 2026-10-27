@@ -256,7 +256,9 @@ Navigation aids: `/` focuses search from anywhere outside a text field; the
 header links the overview and the full graph; a *visited* trail under the
 header lists the entities opened earlier in this page session (kept in
 memory only, never stored); secondary panels (graphs, entity-name matches)
-load after their view renders and are dropped if navigation moves on.
+load after their view renders and are dropped if navigation moves on or a
+newer request for the same panel (another hop count) has started, so a slow
+earlier response never replaces the selected graph.
 
 Claims render from *structured* row data (columns plus side tables),
 never by re-parsing text — no second grammar exists to drift out of

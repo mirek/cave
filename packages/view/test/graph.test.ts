@@ -213,3 +213,24 @@ neighborsHtml`) as (data: unknown) => string
   assert.match(html, />__proto__ →</)
   assert.match(html, />constructor →</)
 })
+
+test('a superseded panel request cannot overwrite a newer one in the same view', async () => {
+  const target = { innerHTML: '' }
+  const view = { querySelector: () => target }
+  const later = runInNewContext(`var navigation = 1\nvar esc = String\n${slice('var panelRequests', '\n/* Recently visited')}\nlater`, { view }) as
+    (selector: string, promise: Promise<string>, render: (el: typeof target, data: string) => void) => void
+  const pending: ((value: string) => void)[] = []
+  const request = () => new Promise<string>(resolve => pending.push(resolve))
+  const render = (el: typeof target, data: string) => { el.innerHTML = data }
+  later('#egraph', request(), render)
+  later('#egraph', request(), render)
+  later('#other', request(), render)
+  pending[1]!('depth 3')
+  await new Promise(resolve => setImmediate(resolve))
+  pending[0]!('depth 1')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(target.innerHTML, 'depth 3')
+  pending[2]!('independent panel')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(target.innerHTML, 'independent panel')
+})

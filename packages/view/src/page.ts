@@ -672,15 +672,22 @@ function neighborhood (name, depth, opts) {
   })
 }
 
-/* Loads a secondary panel for the current view; superseded navigation drops it. */
+/*
+ * Loads a secondary panel for the current view. Superseded navigation drops
+ * it, and so does a newer request for the same panel (a hop change while the
+ * previous graph is still loading), whatever order the responses arrive in.
+ */
+var panelRequests = Object.create(null)
 function later (selector, promise, render) {
   var current = navigation
+  var ticket = panelRequests[selector] = (panelRequests[selector] || 0) + 1
+  function live () { return current === navigation && panelRequests[selector] === ticket }
   promise.then(function (data) {
     var target = view.querySelector(selector)
-    if (current === navigation && target) render(target, data)
+    if (live() && target) render(target, data)
   }).catch(function (error) {
     var target = view.querySelector(selector)
-    if (current === navigation && target) target.innerHTML = '<p class="err" style="padding:.6rem">' + esc(error.message) + '</p>'
+    if (live() && target) target.innerHTML = '<p class="err" style="padding:.6rem">' + esc(error.message) + '</p>'
   })
 }
 
