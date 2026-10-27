@@ -318,6 +318,13 @@ subscription and cleanup. Its returned promise follows these boundaries:
 | Input or output emits an error | Close the transport, then reject with the original stream error. |
 | SDK transport closes after an input-buffer error | Reject with that error without waiting for EOF or cancellation. |
 
+Since SDK 2.1 the stdio transport closes itself on input EOF and abandons
+requests still in flight. CAVE keeps the EOF row above by handing the SDK a
+private feed that never ends; its own EOF handling closes the session once
+replies are written. When serving settles it also removes the output `error`
+handler the SDK transport installed on start and leaves attached after close.
+Handlers the caller attached, before or during serving, are kept.
+
 The SDK limits its incoming buffer to 10 MiB. Exceeding that limit closes the
 session and rejects with the original size-limit diagnostic, even if the client
 keeps stdin open. Previously committed data remains available. Reduce buffered
