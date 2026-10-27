@@ -1,5 +1,18 @@
 # @cavelang/cli
 
+## 0.39.1
+
+### Patch Changes
+
+- 933c441: Patch dependency advisories: update the bundled MCP server SDK to 2.3.1 (zod 4.6.7) while keeping stdio EOF draining replies to accepted requests, move the website to Vite 8.3.5 without the local shutdown patch, refresh vulnerable transitive tooling packages, and record the one unreachable `@azure/msal-node` advisory as an expiring audit ignore.
+- @cavelang/canonical@0.39.1
+  - @cavelang/core@0.39.1
+  - @cavelang/fusion@0.39.1
+  - @cavelang/highlight@0.39.1
+  - @cavelang/parser@0.39.1
+  - @cavelang/query@0.39.1
+  - @cavelang/store@0.39.1
+
 ## 0.39.0
 
 ### Minor Changes
