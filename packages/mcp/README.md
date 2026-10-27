@@ -322,8 +322,8 @@ Since SDK 2.1 the stdio transport closes itself on input EOF and abandons
 requests still in flight. CAVE keeps the EOF row above by handing the SDK a
 private feed that never ends; its own EOF handling closes the session once
 replies are written. When serving settles it also removes the output `error`
-handler the SDK leaves attached after close, so no listeners remain on the
-caller's streams.
+handler the SDK transport installed on start and leaves attached after close.
+Handlers the caller attached, before or during serving, are kept.
 
 The SDK limits its incoming buffer to 10 MiB. Exceeding that limit closes the
 session and rejects with the original size-limit diagnostic, even if the client

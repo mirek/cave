@@ -258,10 +258,18 @@ export const serve = (
   // aborts requests still in flight. CAVE owns EOF instead (below): the SDK
   // reads a feed that never ends, so accepted requests still get replies.
   const feed = new PassThrough()
-  // The SDK also leaves its output error handler attached after close; the
-  // caller owns the output stream again once serving settles.
-  const outputErrorListeners = writable.listeners('error')
   const transport = new StdioServerTransport(feed, writable)
+  // The SDK also leaves its output error handler attached after close; the
+  // caller owns the output stream again once serving settles. Only handlers
+  // the transport installs while starting are removed, never the caller's.
+  let transportErrorListeners: Function[] = []
+  const start = transport.start.bind(transport)
+  transport.start = () => {
+    const before = writable.listeners('error')
+    const started = start()
+    transportErrorListeners = writable.listeners('error').filter(listener => !before.includes(listener))
+    return started
+  }
   let shuttingDown = false
   const shutdownErrors: unknown[] = []
   const handle = serveStdio(() => createServer(store, options), {
@@ -294,9 +302,7 @@ export const serve = (
       input.removeListener('close', closeInput)
       input.removeListener('error', fail)
       output.removeListener('error', fail)
-      for (const listener of writable.listeners('error')) {
-        if (!outputErrorListeners.includes(listener)) writable.removeListener('error', listener as (error: Error) => void)
-      }
+      for (const listener of transportErrorListeners) writable.removeListener('error', listener as (error: Error) => void)
       output.removeListener('close', close)
       output.removeListener('finish', close)
       signal?.removeEventListener('abort', close)

@@ -327,8 +327,11 @@ The daily full audit had been failing on `main` with 38 advisories (1 critical,
     into with `{ end: false }`, so it never observes EOF; CAVE's own `end`
     handling still closes the session once replies are written.
   - The transport keeps its output `error` handler attached after `close()` to
-    swallow late write failures. `serve` removes the handlers its session added
-    when it settles, because the caller owns the output stream again.
+    swallow late write failures. When `serve` settles it removes exactly the
+    handlers the transport installed in `start()`, because the caller owns the
+    output stream again. Handlers the caller attaches during the session stay:
+    an earlier before/after snapshot of the whole session removed those too,
+    leaving a later caller-owned stream error unhandled.
 - **Release tooling:** `shell-quote` 1.10.0 (critical, `quote()` injection) and
   `launch-editor` 2.14.1 under `@changesets/cli`; refreshed to 1.12.0 and 2.14.2
   within the existing ranges. The Changesets CLI pin itself stays at 3.0.2.
