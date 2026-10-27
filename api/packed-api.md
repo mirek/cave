@@ -5054,6 +5054,68 @@ export type Entity = {
 };
 ```
 
+### `graph`
+
+Kind: value.
+
+```ts
+export declare const graph: (store: Store, options?: GraphOptions) => Graph;
+```
+
+### `Graph`
+
+Kind: type.
+
+```ts
+export type Graph = {
+    readonly focus?: string;
+    readonly nodes: readonly GraphNode[];
+    readonly edges: readonly GraphEdge[];
+    readonly total: number;
+};
+```
+
+### `GraphEdge`
+
+Kind: type.
+
+```ts
+export type GraphEdge = {
+    readonly id: string;
+    readonly key: string;
+    readonly source: string;
+    readonly target: string;
+    readonly verb: string;
+    readonly negated: boolean;
+    readonly conf: number;
+};
+```
+
+### `GraphNode`
+
+Kind: type.
+
+```ts
+export type GraphNode = {
+    readonly name: string;
+    readonly degree: number;
+    readonly types: readonly string[];
+    readonly depth?: number;
+};
+```
+
+### `GraphOptions`
+
+Kind: type.
+
+```ts
+export type GraphOptions = Options & {
+    readonly name?: string;
+    readonly depth?: number;
+    readonly limit?: number;
+};
+```
+
 ### `Handle`
 
 Kind: type.
@@ -5117,6 +5179,17 @@ export type LineageNode = {
     readonly truncated?: boolean;
     readonly children: readonly LineageNode[];
 };
+```
+
+### `names`
+
+Kind: value.
+
+```ts
+export declare const names: (store: Store, text: string, options?: {
+    limit?: number;
+    maxSensitivity?: Sensitivity.Level;
+}) => string[];
 ```
 
 ### `Options`
@@ -10512,8 +10585,8 @@ Every packed CAVE declaration loaded by the consumer is fingerprinted, including
 - `@cavelang/cli/dist/internal/shape/suggest.d.ts` — `2ab8788483c7534b3f05cd60d662421c53c9c5a65f004342f18368b6aab87115`
 - `@cavelang/cli/dist/internal/sync/index.d.ts` — `1a194eabf5ed8fe507ecbd8c680ca9bd0b2ac22a4e73aac11bf75c85dbc76e04`
 - `@cavelang/cli/dist/internal/sync/sync.d.ts` — `4993115e2e89482d95091aefcc8d9192bef57f2a1f9499493c62c4388901277d`
-- `@cavelang/cli/dist/internal/view/api.d.ts` — `23d1ebd18ab1a69043a6eaa87b5d7aae5822f8492f4b8421f9d7e7bced1a3264`
-- `@cavelang/cli/dist/internal/view/index.d.ts` — `3c0b42259fe456e35e41dd15fe629f671020bc373653f5c4f78390fae3c0040b`
+- `@cavelang/cli/dist/internal/view/api.d.ts` — `fbf7419af61f8fa60dc4026eab4b53d5278eecef84bcf882366ebd5cccff4169`
+- `@cavelang/cli/dist/internal/view/index.d.ts` — `21a3b9f4c5e75eb33d7fb99e3ca39f0cd8254c34bb001d7d3ce159bafe540c64`
 - `@cavelang/cli/dist/internal/view/main.d.ts` — `7e74be111be0e5698b8ba68840461d55b27599e83c67547a6971308c496d89ce`
 - `@cavelang/cli/dist/internal/view/page.d.ts` — `5002c49da381c40936b2e7f38f126253e5bc1d5a4740cc797d57c26775b683fc`
 - `@cavelang/cli/dist/internal/view/report.d.ts` — `01ea6817d996d814802dbac514a1b82f37660b58b9f1c569bb3839c92cdfb206`

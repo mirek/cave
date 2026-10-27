@@ -184,16 +184,22 @@ cave report --db k.db weekly.md > report.md
 Every view renders semantics defined elsewhere in the spec — the
 surface never reinterprets them:
 
-- **dashboard** — the §20.2 coverage tiles and the frontier: shape
+- **dashboard** — a one-line summary (entities, current beliefs, topics,
+  average confidence) with the full §20.2 coverage tiles one click away, the
+  relation map, topics, then the frontier under *needs attention* — shape
   violations, review candidates (conf 0.3–0.7), stale beliefs, alias
-  disagreements — plus topics and the latest appends. Shape violations retain
+  disagreements, each a collapsed section with its count — and the ten latest
+  appends, older ones folded. Shape violations retain
   observed counts and units, so `#cardinality:one` and `#unit:<unit>` failures
   render as actionable mismatches rather than generic missing fields;
 - **entity 360** — everything currently believed about one name:
-  types, object-less facts, both relation directions (inverse names
-  from the registry, §13.3), topics, the §13.6 alias closure on a
-  toggle, and the raw activity feed underneath;
-- **topic browse** — `CONTAINS` members (§11.2), each a link onward;
+  types and topics as chips, its neighborhood graph, a *related* index of
+  neighbors grouped by relation in both directions (inverse names from the
+  registry, §13.3), object-less facts, both relation directions as claim rows
+  (the page's own name dimmed), the §13.6 alias closure on a toggle, and the
+  raw activity feed folded underneath;
+- **topic browse** — `CONTAINS` members (§11.2), each a link onward, with
+  the topic's neighborhood graph;
 - **belief history** — the §9.1 series of any claim key as a timeline,
   confidence bars included; the last row is the latest visible event. A zero
   confidence event marks the series as retracted in the selected audience.
@@ -210,15 +216,51 @@ surface never reinterprets them:
   edge-count reads while retaining every repeated branch. Later requests build
   fresh views; the four metadata statements are prepared once per request and
   reused across distinct rows. Depth and repeat behavior are unchanged;
+- **graph** — current relations between entity names drawn as an inline SVG
+  node-link diagram: the store-wide *map* of the most connected names (on the
+  dashboard and at `#/g`) and each entity's *neighborhood*, breadth-first to
+  1–3 hops in either direction (on the entity and topic pages and full screen
+  at `#/g/<hops>/<name>`). Edges are stored rows, never inferred: retracted
+  rows, literals and object-less facts are not drawn, negated relations are
+  dashed, and confidence below 100% fades the edge and labels it. Graphs are
+  capped (40 names for the map, 60 for a neighborhood, nearer and better
+  connected names first; the focus always leads, and a large alias group is
+  cut like any other layer because the page lays the graph out in the browser); the API's `total` and the page's “N of M” say when
+  names were left out. Nodes are links to their entity 360 (keyboard focusable,
+  hover or focus traces their relations), can be dragged, and the panel pans,
+  zooms and resets. Colours mark each node's first `IS` type, most common
+  types first, with a legend. The layout is a small deterministic force
+  simulation in the page (one spring per linked pair, weakened by degree, and
+  a bounded step, so hubs and many parallel relations stay stable and finite) — no library, no external request — and the full
+  screen view carries the same graph as a text list. The page keys its
+  graph and related-index dictionaries by stored names in prototype-free
+  objects, so names such as `__proto__` or `constructor` render like any other;
 - **search** — the store's FTS5 over subjects, objects, values,
   comments and raw lines. The search box names its phrase-matching behavior.
   Matches include superseded revisions and retractions, each with its own row
   ID and confidence; search results are historical evidence, not a list of
   current beliefs. Revisions share a claim key that links to their belief history.
   The search page explains this historical scope and directs readers to claim
-  history to follow changes.
+  history to follow changes. Entity names containing the phrase (current,
+  non-retracted subjects and relation objects, exact and prefix matches first)
+  are offered above the claim matches as direct links to their entity 360.
   HTTP results contain at most the newest 100 matching rows; when 100 are shown,
   the page explains that more may exist and suggests refining the phrase.
+
+Each claim row leads with its statement — subject, verb, payload,
+uncertainty, confidence below 100% and the importance mark — and folds the
+rest behind a native disclosure: comment, contexts and source links, tags, the
+full timestamp, and the history and lineage links. A row hints `note` when it
+has a comment and `why` when it cites evidence. Timeline views (history,
+activity, recent, search) keep the date up front.
+
+Navigation aids: `/` focuses search from anywhere outside a text field; the
+header links the overview and the full graph; a *visited* trail under the
+header lists the entities opened earlier in this page session (kept in
+memory only, never stored); secondary panels (graphs, entity-name matches)
+load after their view renders and are dropped if navigation moves on or a
+newer request for the same panel (another hop count) has started, so a slow
+earlier response never replaces the selected graph.
 
 Claims render from *structured* row data (columns plus side tables),
 never by re-parsing text — no second grammar exists to drift out of
@@ -372,7 +414,7 @@ errors do not take focus away from a search field the user has already entered.
 Error views include a keyboard-accessible Retry view button. It reloads the
 current route with the current alias setting without adding a history entry.
 After retry, focus moves from the removed button to the error or recovered
-view heading; overview recovery uses its first section heading. Focus moved to
+view heading; the overview has its own “Overview” heading. Focus moved to
 search while loading remains there.
 Request errors retain the HTTP status when the response is HTML, unreadable JSON,
 or lacks a string error message. Structured API error messages remain visible.
@@ -392,7 +434,7 @@ It bypasses the header, focuses the current main view and leaves the route and
 loaded data unchanged. The next Tab continues through the content links.
 
 The search field is named “Search claims” for assistive technology, advertises
-its Enter shortcut and requests a Search key on virtual keyboards. Plain Enter starts
+its Enter shortcut and the `/` key that focuses it, and requests a Search key on virtual keyboards. Plain Enter starts
 a search after input-method composition finishes; confirming a composed word
 does not navigate away while text is still being entered. Empty searches leave
 the current view in place.
@@ -741,7 +783,7 @@ The programmatic `port` must be an integer in 0..65535; zero asks for a free
 port. Invalid types or ranges throw `TypeError` before server creation.
 
 ```ts
-import { serve, report, overview, entity, history, lineage } from '@cavelang/cli/view'
+import { serve, report, overview, entity, graph, names } from '@cavelang/cli/view'
 
 const handle = await serve(store, { port: 0, label: 'k.db', maxSensitivity: 'public' })
 // handle.url → http://127.0.0.1:<port>/
@@ -750,6 +792,8 @@ await handle.close()
 // the view models are plain functions over a store, no server needed
 const dash = overview(store)
 const gateway = entity(store, 'api-gateway', { aliases: true })
+const around = graph(store, { name: 'api-gateway', depth: 2 }) // { focus, nodes, edges, total }
+const matches = names(store, 'gate') // ['api-gateway', …]
 const { markdown, problems } = report(store, template, {
   maxSensitivity: 'confidential',
   resolve: true,
@@ -774,8 +818,20 @@ before database reads or sensitivity projection work. Each call captures the
 setting once and accepts a corrected setting on retry.
 
 Endpoints: `/api/overview`, `/api/entity?name=`, `/api/topic?name=`,
-`/api/history?key=`, `/api/lineage?id=`, `/api/search?q=` (`&aliases=1`
-where the §13.6 closure applies).
+`/api/history?key=`, `/api/lineage?id=`, `/api/search?q=`,
+`/api/graph[?name=&depth=1|2|3]`, `/api/names?q=` (`&aliases=1` where the
+§13.6 closure applies — entity, topic and graph).
+`/api/graph` rejects a repeated `name` or `depth` and any depth other than
+`1`, `2` or `3` with HTTP 400; `/api/names` rejects missing, blank, repeated
+and NUL-containing queries the way search does.
+
+Programmatic `graph(store, { name, depth, limit, aliases, maxSensitivity })`
+validates `name` as a non-empty string, `depth` as an integer in 1..3 and
+`limit` as a positive safe integer before any read. `names(store, text,
+{ limit, maxSensitivity })` validates a non-negative safe-integer limit and
+returns nothing for empty text or a zero limit. Verb tokens are filtered after
+the SQL ordering, so `names` pages through matches inside one read snapshot
+until the limit is filled; leading verb names cannot crowd out entities.
 Each endpoint’s required parameter must appear at most once. Repeated names,
 keys, IDs or search queries return HTTP 400, even when their values agree.
 The optional `aliases` parameter accepts `0` (off) or `1` (on), at most once;
