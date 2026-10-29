@@ -1,7 +1,7 @@
 import type { AnchorHTMLAttributes, ComponentProps } from 'react'
 import { cn } from '../../lib/utils.ts'
 
-type ButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost' | 'link'
+type ButtonVariant = 'default' | 'brand' | 'secondary' | 'outline' | 'ghost' | 'link'
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon'
 
 type ButtonProps = ComponentProps<'button'> & {

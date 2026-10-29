@@ -49,7 +49,7 @@ in the repository.
 | Book artifact | `website/public/cave-book.pdf` | Generated PDF; must change with its Typst source. |
 | Package reference | `packages/*/README.md`, `packages/solver/MINIZINC-EVALUATION.md`, `packages/solver/HIGHS-EVALUATION.md`, `packages/solver-z3/BENCHMARK.md` | Public package contracts, examples, solver measurements, and backend decisions. |
 | Package history | `packages/*/CHANGELOG.md` | Generated historical release record. |
-| Website | `website/README.md`, `website/src/content.ts`, `website/src/pages/Home.tsx`, `website/src/App.tsx` | Site instructions and user-facing documentation/navigation copy. Most docs pages import repository Markdown directly. |
+| Website | `website/README.md`, `website/src/content.ts`, `website/src/pages/Home.tsx`, `website/src/App.tsx`, `website/design-system/` | Site instructions and user-facing documentation/navigation copy. Most docs pages import repository Markdown directly. Visual changes keep `website/src/styles.css` and the design system's tokens and guidelines in step. |
 | Editor | `editors/vscode/README.md` | VS Code extension usage and development. |
 | Examples | `examples/**/*.md` | Runnable fixture explanations, the full family-history tour, and agent/extraction instructions; tutorial outputs in the root README must match the fixtures. |
 | Backlog and defects | `TODO.md`, `todo/*.md` | Active work classified by frontmatter `type` (for example, `bug`, `feat`, or `review`). Completed or rejected TODOs and fixed bugs are removed; lasting rejection rationale moves to project boundaries. |

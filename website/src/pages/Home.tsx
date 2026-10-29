@@ -83,8 +83,8 @@ export const Home = () => {
     <main>
       <section className="hero">
         <div className="hero-copy">
-          <Badge variant="secondary">Start with one line</Badge>
-          <h1>Write down what you know, one claim per line. Ask questions across all of it.</h1>
+          <Badge variant="brand">Start with one line</Badge>
+          <h1>Write down what you know, <span className="hl">one claim per line.</span> Ask questions across all of it.</h1>
           <p>
             CAVE is a plain-text language for claims and a tool that keeps them in one local store, never overwrites them,
             and answers questions over the whole graph — chains, inverses, confidence, history, and why.
@@ -124,7 +124,7 @@ export const Home = () => {
       <ConceptMap />
 
       <section className="manifesto">
-        <div className="section-label">HOW IT'S TAUGHT</div>
+        <div className="section-label">§ 02 — HOW IT'S TAUGHT</div>
         <div>
           <h2>One idea per step.</h2>
           <p>
@@ -139,7 +139,7 @@ export const Home = () => {
       <section className="capabilities">
         {steps.map(item => (
           <Card key={item.number} className="capability-card">
-            <span>{item.number}</span>
+            <span>§ {item.number}</span>
             <h3>{item.title}</h3>
             <p>{item.text}</p>
             <ScrollableCode><code>{item.language === 'cave' ? <CaveCode code={item.code} /> : item.code}</code></ScrollableCode>
@@ -148,7 +148,7 @@ export const Home = () => {
       </section>
 
       <section className="loop-section">
-        <div className="section-label">TWO TUTORIALS</div>
+        <div className="section-label">§ 03 — TWO TUTORIALS</div>
         <div className="loop-copy">
           <h2>A monorepo, then a market.</h2>
           <p>
@@ -179,7 +179,7 @@ export const Home = () => {
           <h2>Browser playground</h2>
         </div>
         <p>Edit a sample dataset, rebuild the in-memory store, and execute CAVE-Q without sending data to a server.</p>
-        <ButtonLink size="lg" href="#/playground">Open playground</ButtonLink>
+        <ButtonLink size="lg" variant="brand" href="#/playground">Open playground</ButtonLink>
       </Card>
     </main>
   )

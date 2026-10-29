@@ -2417,7 +2417,8 @@ for (const width of [320, 1280]) test(`article contents identifies the selected 
   await contents.locator('summary').click()
   const current = contents.locator('a[aria-current="location"]')
   await expect(current).toHaveText('Portable semantics')
-  await expect(current).toHaveCSS('font-weight', '700')
+  // The design system caps weights at 600 (design-system/README.md, Type).
+  await expect(current).toHaveCSS('font-weight', '600')
   const links = contents.getByRole('link')
   const next = links.filter({ hasText: /^Validation and identity$/ })
   await next.click()
