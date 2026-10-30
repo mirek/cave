@@ -19,6 +19,7 @@
  */
 
 export * as Source from './source.ts'
+export * as Ast from './ast.ts'
 export * as Template from './template.ts'
 export * as Declared from './declared.ts'
 export { assemble } from './declared.ts'
