@@ -1,5 +1,11 @@
 # @cavelang/sync
 
+## 0.39.2
+
+### Patch Changes
+
+- Align the @cavelang/sync workspace with the CAVE 0.39.2 release identity.
+
 ## 0.39.1
 
 ### Patch Changes
