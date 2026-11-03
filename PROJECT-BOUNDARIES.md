@@ -18,7 +18,7 @@ retention policy requires selective deletion belongs outside a CAVE store.
 
 ## Resolved extension gates
 
-Four exploratory proposals are deliberately outside the active roadmap. They
+Eight exploratory proposals are deliberately outside the active roadmap. They
 are not latent promises: the implemented alternatives keep the core language
 bound, deterministic, and locally operable.
 
@@ -28,6 +28,10 @@ bound, deterministic, and locally operable.
 | Reified `[S V O]` terms | Claims do not become recursively nestable values or acquire structural equality. | Qualifier/support edges, row IDs, claim keys, provenance, and scenario artifacts address the relevant relationship or record explicitly. |
 | Temporal `(t -> expr)` functions | CAVE data contains observations, ranges, and linear trajectories, not executable formulas. | Tile scalar ranges, use layer-2 trajectories, or evaluate a bounded external model and record its inputs and result. |
 | Socket, webhook, or push listeners | `cave connect` owns deterministic passes, file watch, and query-time overlays; network listeners remain external adapters. | A transport-specific bridge authenticates, retries, deduplicates, and writes a file or invokes a bounded connect pass. |
+| Negation-as-failure in CAVE-Q or rules (`NOT EXISTS`, `MINUS`, stratified negation) | Absence from one store is not falsity, and negated premises would break monotonic derivation and support-driven retraction (spec §12.4, §24.5). | `VERB NOT` asks for explicit negatives; `OPTIONAL` reports missing values as unbound; `EXPECTS` health checks (§20) find gaps. |
+| Aggregates in CAVE-Q (`COUNT`, `SUM`, `GROUP BY`) | Reporting arithmetic stays out of the pattern language; CAVE is not an analytics suite. | SQL over the §13.5 current-belief views, or caller code over `queryRecords()`/`--jsonl` results. |
+| Write clauses in queries (Cypher `CREATE`/`MERGE`/`SET`) | Reads never write; every write is an append through ingestion or a governed action. | `cave add`, `cave_add`, and §25 actions, whose premises use the same grammar as queries. |
+| Bound path variables (Cypher `p = (a)-[*]->(b)`) | Enumerating paths is exponential where reachable pairs are quadratic; path order is not evidence. | Property paths (`VERB*`, `(A|B)+`) with `support` return the edges a reachability stands on. |
 
 A future proposal may revisit one boundary only with a concrete workflow that
 cannot be expressed cleanly by the listed alternative. It must specify the

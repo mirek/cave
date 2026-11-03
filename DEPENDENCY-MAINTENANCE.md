@@ -182,35 +182,34 @@ affected workflow or feature until the risk is contained.
 
 ## Vite build and development-server checks
 
-The website uses Vite 8.3.0. Its Node requirement (`^20.19.0 || >=22.12.0`)
-covers CAVE's supported Node majors. The [versioned changelog](https://raw.githubusercontent.com/vitejs/vite/v8.3.0/packages/vite/CHANGELOG.md)
+The website uses Vite 8.3.5. Its Node requirement (`^20.19.0 || >=22.12.0`)
+covers CAVE's supported Node majors. The [versioned changelog](https://raw.githubusercontent.com/vitejs/vite/v8.3.5/packages/vite/CHANGELOG.md)
 includes worker URL, asset URL and preload changes. Keep production verification
 under the `/cave/` subpath with worker/WASM loading and lazy-route recovery;
 a successful root-page build alone does not cover those asset paths.
 
-Vite is pinned exactly to 8.3.0 and patched through
-`patches/vite@8.3.0.patch`. When closing the development dependency optimizer,
-the patch settles both current and queued dependency-processing promises after
-cancelling optimization. Without this cleanup, client transforms can continue
-waiting for those promises after the optimizer has closed, preventing
-`server.close()` from completing. The same timeout was also observed with
-8.2.2; it was not established as an 8.3-specific regression.
-The patch also prevents `ensureWatchedFile` from adding files to a closed
-watcher. Chokidar's `add` reopens its instance: a late transform or shutdown
-hook can otherwise create a native watcher after Vite has already awaited
-watcher cleanup. The deterministic shutdown-hook regression fails without
-this guard and passes with it on both supported Node majors.
+Vite is pinned exactly to 8.3.5 and is no longer patched. CAVE carried
+`patches/vite@8.3.0.patch` for two shutdown defects, and 8.3.5 fixes both
+upstream:
+
+- Closing the development dependency optimizer left current and queued
+  dependency-processing promises unsettled, so client transforms could keep
+  waiting after the optimizer closed and `server.close()` never completed
+  (also observed with 8.2.2). 8.3.5 resolves `depOptimizationProcessing` and
+  the enqueued promises right after cancellation, as the patch did.
+- Chokidar's `add` reopens a closed watcher, so a late transform or shutdown
+  hook could create a native watcher after Vite had awaited watcher cleanup.
+  The patch guarded `ensureWatchedFile`; 8.3.5 instead wraps the watcher
+  (`makeWatcherCloseFinal`) so every `add` after `close()` is a no-op, which
+  also covers direct calls through the exposed watcher.
 
 `website/test/vite-close.test.ts` runs `scripts/vite-close-probe.mjs` with an
 isolated empty optimizer cache. It requests the entry point, documentation,
 playground and worker transforms, then requires successful process termination.
 It also runs a shutdown hook that adds an external watched file and asserts
-that the watcher remains closed. The combined patch passes full workspace
-integration on Node 24.21.0 and 26.8.1 (3,185 tests each), all 144 production
-browser tests, and normal development CLI termination after five route/worker
-requests. Thirty repeated uninstrumented cold-cache Node 26 probes exit
-naturally. These checks supersede the optimizer-only patch's intermittent
-integration failure.
+that the watcher remains closed. The probe and the late-watch regression pass on
+unpatched 8.3.5 (verification for the update is recorded in the
+[registry checkpoint](#registry-checkpoint--2026-10-27) below).
 
 The probe reports `closed: true` only after awaiting close and checking the
 watcher; successful process termination is still required. A parent timeout
@@ -218,12 +217,12 @@ kills a hung diagnostic process and counts as failure. The optional Vite
 entrypoint and `CAVE_VITE_CACHE_DIR` support isolated comparisons;
 `CAVE_VITE_LATE_WATCH=1` enables the shutdown-hook regression.
 
-Retain or adapt the patch on future Vite updates until the replacement passes
-the cold-cache shutdown regression on both majors, normal CLI termination and
-the full production-browser suite. Use pnpm patch/patch-commit so the patch,
-workspace configuration and lockfile stay aligned. This development-tooling
-fix does not change the playground's database cleanup protocol or impose a
-general runtime deadline.
+Keep both regressions on future Vite updates. If either fails again, restore a
+patch with pnpm patch/patch-commit so the patch, workspace configuration and
+lockfile stay aligned, and require the cold-cache shutdown regression on both
+majors, normal CLI termination and the full production-browser suite before
+removing it. This development-tooling fix does not change the playground's
+database cleanup protocol or impose a general runtime deadline.
 
 ## Website React updates
 
@@ -307,6 +306,58 @@ source still uses the legacy TypeScript APIs and compiler entrypoint, and the
 extension still declares VS Code 1.100.0 as its minimum. No dependency update
 or audit exclusion was added. This is a registry snapshot, not a guarantee
 against unreported vulnerabilities or future advisories.
+
+## Registry checkpoint — 2026-10-27
+
+The daily full audit had been failing on `main` with 38 advisories (1 critical,
+16 high, 17 moderate, 4 low). Triage by path:
+
+- **Shipped (CLI production):** `@modelcontextprotocol/server` 2.0.0 (HTTP
+  transport body/batch limits, shared-transport message delivery, bearer-token
+  audience) and its `zod` 4.4.3 (memory exhaustion on oversized constrained
+  collections). CAVE serves MCP over stdio only, so the HTTP findings were not
+  reachable, but zod validates every tool call. Updated to 2.3.1 (zod resolves to
+  4.6.7). Two SDK 2.1 behavior changes needed adaptation in
+  `packages/mcp/src/server.ts`, covered by the existing stdio tests (11 fail
+  without the first change):
+  - The stdio transport now closes itself when its input ends or closes and
+    aborts requests still in flight. CAVE's contract is that EOF first drains
+    replies to every accepted request, after the final UTF-8 check. The SDK
+    therefore reads a private `PassThrough` feed that the validated input pipes
+    into with `{ end: false }`, so it never observes EOF; CAVE's own `end`
+    handling still closes the session once replies are written.
+  - The transport keeps its output `error` handler attached after `close()` to
+    swallow late write failures. When `serve` settles it removes exactly the
+    handlers the transport installed in `start()`, because the caller owns the
+    output stream again. Handlers the caller attaches during the session stay:
+    an earlier before/after snapshot of the whole session removed those too,
+    leaving a later caller-owned stream error unhandled.
+- **Release tooling:** `shell-quote` 1.10.0 (critical, `quote()` injection) and
+  `launch-editor` 2.14.1 under `@changesets/cli`; refreshed to 1.12.0 and 2.14.2
+  within the existing ranges. The Changesets CLI pin itself stays at 3.0.2.
+- **Website build/dev server:** Vite 8.3.0 (dev-server file exposure and
+  launch-editor findings) and `source-map-js` 1.2.1 through PostCSS. Updated to
+  Vite 8.3.5 and `source-map-js` 1.2.2; the local Vite patch was dropped (see
+  [Vite checks](#vite-build-and-development-server-checks)).
+- **VSIX packaging (`@vscode/vsce` 3.9.2):** `brace-expansion`, `fast-uri`,
+  `markdown-it`, `qs` and `undici` refreshed to patched versions inside vsce's
+  declared ranges.
+- **Ignored, unreachable:** `@azure/msal-node` 5.3.1 (GHSA-xcx6-jx8p-x3h5,
+  auth-code flow parameter disclosure) through `@vscode/vsce > @azure/identity`.
+  Every released `@azure/identity` requires `@azure/msal-node ^6`, all of which
+  are vulnerable, so no compatible fix exists. vsce's credential chain
+  (environment, Azure CLI, managed identity, PowerShell and azd credentials)
+  never calls `acquireTokenByCode`, and CAVE publishes with `VSCE_PAT` without
+  `--azure-credential`. The GHSA is listed in `auditConfig.ignoreGhsas` with an
+  expiry of 2026-11-26, tracked in
+  [#268](https://github.com/mirek/cave/issues/268).
+
+After the update, `pnpm audit --audit-level=low` reports no advisories other
+than the one ignored. On Node 26.5.0, `make check`, the CLI, MCP (259) and
+website (149) suites, the packed smoke test, and 20 cold-cache Vite close probes
+(10 with `CAVE_VITE_LATE_WATCH=1`) all pass; Node 24 and the production-browser
+suite are left to CI. This is a registry snapshot, not a guarantee against
+unreported vulnerabilities.
 
 ## Compiler and highlighting runtime upgrades
 

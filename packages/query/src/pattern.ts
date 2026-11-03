@@ -8,11 +8,15 @@
  *   WHERE conf >= 0.7
  * ?x ?verb ?y @production           ; all production facts
  * terrier EXTENDS+ animal           ; transitive hops
+ * terrier EXTENDS* ?kind            ; zero or more hops
+ * ?x (USES|NEEDS)+ postgres         ; alternation, one or more hops
  * _ USES jwt                        ; wildcard
  * ```
  *
- * A query is one pattern line followed by any number of `WHERE` filter
- * lines (spec §12.2), indented or not.
+ * A pattern query is one pattern line followed by any number of `WHERE`
+ * filter lines (spec §12.2), indented or not. Conjunctive queries — several
+ * premises, `OPTIONAL`, `SELECT` and `ORDER BY` lines — parse in
+ * `select.ts` (spec §12.4).
  */
 
 import { Confidence, Value, Verb } from '@cavelang/core'
@@ -25,9 +29,22 @@ export type Slot =
   | { readonly kind: 'wildcard' }
   | { readonly kind: 'term', readonly text: string }
 
-/** Verb position: concrete verb (possibly transitive `VERB+`), variable, or wildcard. */
+/**
+ * Path repetition (spec §12.1): `one` is a single hop over any listed verb,
+ * `plus` one or more hops, `star` zero or more hops.
+ */
+export type Repeat = 'one' | 'plus' | 'star'
+
+/**
+ * Verb position: concrete verb (possibly transitive `VERB+`), a property
+ * path (`VERB*`, `(A|B)`, `(A|B)+`, `(A|B)*`), variable, or wildcard.
+ * `VERB+` keeps its original `verb` shape; every other path form is a
+ * `path` so consumers that only understand single verbs cannot mistake an
+ * alternation for one of its members.
+ */
 export type VerbSlot =
   | { readonly kind: 'verb', readonly name: string, readonly transitive: boolean }
+  | { readonly kind: 'path', readonly verbs: readonly string[], readonly repeat: Repeat }
   | { readonly kind: 'var', readonly name: string }
   | { readonly kind: 'wildcard' }
 
@@ -94,12 +111,27 @@ const verbSlotOf = (token: Token.t): undefined | VerbSlot => {
   if (token.text.startsWith('?')) {
     return { kind: 'var', name: variableName(token.text) }
   }
-  const transitive = token.text.endsWith('+')
-  const name = transitive ? token.text.slice(0, -1) : token.text
-  return Verb.isVerbToken(name) ? { kind: 'verb', name, transitive } : undefined
+  const suffix = token.text.endsWith('+') ? '+' : token.text.endsWith('*') ? '*' : ''
+  const body = suffix === '' ? token.text : token.text.slice(0, -1)
+  const repeat: Repeat = suffix === '+' ? 'plus' : suffix === '*' ? 'star' : 'one'
+  if (body.startsWith('(') && body.endsWith(')')) {
+    const verbs = body.slice(1, -1).split('|')
+    if (verbs.length < 2 || !verbs.every(name => Verb.isVerbToken(name))) {
+      throw new Error(`CAVE-Q: a verb alternation lists two or more verbs as (A|B) — got ${JSON.stringify(token.text)} (spec §12.1)`)
+    }
+    return { kind: 'path', verbs: [...new Set(verbs)], repeat }
+  }
+  if (!Verb.isVerbToken(body)) {
+    return undefined
+  }
+  if (repeat === 'star') {
+    return { kind: 'path', verbs: [body], repeat }
+  }
+  return { kind: 'verb', name: body, transitive: repeat === 'plus' }
 }
 
-const parseFilter = (tokens: readonly Token.t[], lineNo: number): Filter => {
+/** Parses the tokens after `WHERE` (spec §12.2); shared with conjunctive queries. */
+export const parseFilter = (tokens: readonly Token.t[], lineNo: number): Filter => {
   const [field, op, ...valueTokens] = tokens
   const bad = (message: string): never => {
     throw new Error(`CAVE-Q line ${lineNo}: ${message}`)

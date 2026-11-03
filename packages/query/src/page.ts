@@ -9,7 +9,7 @@ import { of as recordOf } from './record.ts'
 import type { t as QueryRecord } from './record.ts'
 import { window } from './bounded.ts'
 import { readSnapshot } from './read-snapshot.ts'
-import * as Pattern from './pattern.ts'
+import { parseQuery } from './select.ts'
 
 export const format = 'cave.query-page' as const
 export const version = 1 as const
@@ -120,21 +120,29 @@ export const page = (store: Store, input: string, options: PageOptions = {}): Pa
   }
   const snapshot = cursor?.snapshot ?? snapshotOf(store, options.asOf)
   const { cursor: _cursor, limit: _limit, ...queryOptions } = options
-  const pattern = Pattern.parse(input)
+  const parsed = parseQuery(input)
   if (snapshot === null) {
-    // Use ordinary compilation/validation even when no rows exist at the
-    // requested boundary. A bounded read avoids a separate validation policy.
-    window(store, pattern, { ...queryOptions, limit: 1 })
-    return { format, version, snapshot, matches: [] }
+    // No rows exist at the requested boundary, but the query still compiles
+    // and validates normally, and zero-hop paths (`seed NEEDS* ?x`, spec
+    // §12.1) still answer without rows. Without edges such an answer comes
+    // only from concrete seeds, at most one per premise, so a conjunction
+    // has at most one rowless solution and needs no continuation.
+    const found = queryRecords(store, input, queryOptions)
+    return { format, version, snapshot, matches: found.slice(0, limit) }
   }
   const revision = revisionOf(store, snapshot)
   if (cursor !== undefined && !sameRevision(cursor.revision, revision)) changedSnapshot()
   const offset = cursor?.offset ?? 0
-  const exactNumeric = pattern.payload.kind === 'attribute' && pattern.payload.value.kind === 'term' &&
-    Value.parse(pattern.payload.value.text).kind === 'number'
+  const pattern = parsed.kind === 'pattern' ? parsed.pattern : undefined
+  const exactNumeric = pattern !== undefined && pattern.payload.kind === 'attribute' &&
+    pattern.payload.value.kind === 'term' && Value.parse(pattern.payload.value.text).kind === 'number'
+  // Conjunctive queries and one-hop alternations window their merged,
+  // already post-filtered solutions, so plain offsets stay exact for them.
+  const windowed = pattern === undefined ||
+    (pattern.verb.kind === 'path' && pattern.verb.repeat === 'one')
   let matches: readonly QueryRecord[]
   let nextOffset: undefined | number
-  if (options.at === undefined && !exactNumeric) {
+  if (windowed || (options.at === undefined && !exactNumeric)) {
     const found = queryRecords(store, input, {
       ...queryOptions,
       asOf: snapshot,
@@ -156,7 +164,7 @@ export const page = (store: Store, input: string, options: PageOptions = {}): Pa
       let unread = false
       while (found.length < limit && scanned < scanBudget) {
         const positions = new WeakMap<object, number>()
-        const result = window(store, pattern, {
+        const result = window(store, pattern!, {
           ...queryOptions,
           asOf: snapshot,
           limit: scanBudget - scanned,
@@ -181,7 +189,7 @@ export const page = (store: Store, input: string, options: PageOptions = {}): Pa
         // A single bounded probe distinguishes a genuinely finished page from
         // one that filled its match/scan budget. It need not pass post-filters:
         // the continuation resumes before it and applies them normally.
-        const probe = window(store, pattern, {
+        const probe = window(store, pattern!, {
           ...queryOptions,
           asOf: snapshot,
           limit: 1,

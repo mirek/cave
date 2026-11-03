@@ -11,4 +11,10 @@ allowBuilds:
 
 patchedDependencies:
   sql.js@1.14.2: patches/sql.js@1.14.2.patch
-  vite@8.3.0: patches/vite@8.3.0.patch
+
+auditConfig:
+  ignoreGhsas:
+    # @azure/msal-node auth-code flow via @vscode/vsce > @azure/identity; unreachable
+    # (vsce never uses acquireTokenByCode; CAVE publishes with VSCE_PAT) and no
+    # @azure/identity release accepts the patched 7.x. Tracked in #268; expires 2026-11-26.
+    - GHSA-xcx6-jx8p-x3h5

@@ -4,8 +4,8 @@
 
 CAVE-Q is the query language, and there is almost nothing to learn: a query
 is a claim with holes in it. This chapter walks through variables, wildcards,
-filters, reverse and transitive patterns, paging, and the JSON form, and
-ends with the SQL escape hatch.
+filters, reverse patterns and paths, joined patterns, paging, and the JSON
+form, and ends with the SQL escape hatch.
 
 == Patterns
 
@@ -133,6 +133,83 @@ Transitive matches are computed over current positive edges. They carry no
 single row, which is why they print bindings and never a raw line, and why
 they cannot be anchored in valid time (Chapter 10). The classic use is a
 dependency chain: `?x USES+ core` answers "what breaks if `core` changes".
+
+A `*` instead of `+` also counts the zero-hop path, so the starting point
+answers too. Parentheses list several verbs, and the walk may take any of
+them at each step, so a cafe reaches the lots in its cups through the
+coffees it stocks:
+
+```sh
+$ cave query --db roastery.db 'region/huila CONTAINS* ?x'
+?x = lot/huila-26
+?x = lot/santa-ana-26
+?x = region/huila
+
+$ cave query --db roastery.db 'cafe/north (STOCKS|USES)+ ?what'
+?what = coffee/morning-blend
+?what = coffee/yirgacheffe
+?what = lot/huila-26
+?what = lot/santa-ana-26
+?what = lot/yirgacheffe-26
+```
+
+An inverse verb in the list is walked backwards, so listing both
+`CONTAINS` and `PART-OF` walks the containment tree in both directions.
+Without a `+` or `*`, a list such as `(STOCKS|USES)` matches one claim of
+either verb and prints its rows like any single-hop pattern.
+
+== Joining patterns
+
+A question that spans several claims is several patterns separated by
+commas. They are read left to right, and a variable that appears twice
+must take the same value in both places. This is exactly the left-hand
+side of a rule (Chapter 17) without the conclusion, and it accepts the same
+`?var < value` constraints:
+
+```sh
+$ cave query --db roastery.db '?cafe STOCKS ?coffee, ?coffee USES ?lot, ?lot HAS process: washed'
+?cafe = cafe/north  ?coffee = coffee/morning-blend  ?lot = lot/santa-ana-26
+?cafe = cafe/north  ?coffee = coffee/yirgacheffe  ?lot = lot/yirgacheffe-26
+?cafe = cafe/harbour  ?coffee = coffee/morning-blend  ?lot = lot/santa-ana-26
+
+$ cave query --db roastery.db '?lot HAS price: ?p, ?p < 9 USD/kg'
+?lot = lot/huila-26  ?p = 7.80 USD/kg
+?lot = lot/santa-ana-26  ?p = 8.10 USD/kg
+```
+
+Further arguments shape the answer, one clause each. `SELECT` keeps only
+the variables you name, and `SELECT DISTINCT` also folds repeated answers
+together. `ORDER BY` sorts: numbers numerically, text alphabetically, with
+`DESC` for descending order:
+
+```sh
+$ cave query --db roastery.db '?cafe STOCKS ?coffee, ?coffee USES ?lot, ?lot HAS process: washed' 'SELECT DISTINCT ?cafe'
+?cafe = cafe/north
+?cafe = cafe/harbour
+
+$ cave query --db roastery.db '?lot HAS score: ?s' 'ORDER BY ?s DESC'
+?lot = lot/yirgacheffe-26  ?s = 87
+?lot = lot/santa-ana-26  ?s = 85
+?lot = lot/huila-26  ?s = 84
+```
+
+`OPTIONAL` adds what is known without demanding it. Each solution of the
+lines above keeps its place. If the optional premises can extend it, they
+do; if they cannot, its optional variables stay unbound. An unbound
+variable means "not recorded", not "false", and it sorts last:
+
+```sh
+$ cave query --db roastery.db '?lot IS lot' 'OPTIONAL ?lot HAS score: ?s, ?s >= 85' 'ORDER BY ?s DESC'
+?lot = lot/yirgacheffe-26  ?s = 87
+?lot = lot/santa-ana-26  ?s = 85
+?lot = lot/huila-26
+```
+
+A `WHERE` line still filters the one pattern directly above it. A solution
+stands on several claims, so it has no single comment to print; in JSON
+the claims a solution stands on arrive as its `support`. There is still no
+negation-as-failure: `OPTIONAL` reports what is missing, and it never
+treats missing as false.
 
 == Current, all, and the rest
 

@@ -486,7 +486,8 @@ $ cave report --db repo.db brief.md
 
 ### 12. Look at it, talk to it
 
-`cave serve` puts a read-only web page over the store — search, one page per
+`cave serve` puts a read-only web page over the store — a relation graph of
+the whole store and of each entity's neighborhood, search, one page per
 entity with both relation directions, the belief history of every claim, and
 the `BECAUSE`/`VIA` tree behind derived ones:
 

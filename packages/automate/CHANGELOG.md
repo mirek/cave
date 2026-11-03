@@ -1,5 +1,29 @@
 # @cavelang/automate
 
+## 0.39.2
+
+### Patch Changes
+
+- Align the @cavelang/automate workspace with the CAVE 0.39.2 release identity.
+
+## 0.39.1
+
+### Patch Changes
+
+- Align the @cavelang/automate workspace with the CAVE 0.39.1 release identity.
+
+## 0.39.0
+
+### Minor Changes
+
+- Align the @cavelang/automate workspace with the CAVE 0.39.0 release identity.
+
+## 0.38.0
+
+### Minor Changes
+
+- Align the @cavelang/automate workspace with the CAVE 0.38.0 release identity.
+
 ## 0.37.0
 
 ### Minor Changes

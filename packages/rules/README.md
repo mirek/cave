@@ -12,8 +12,10 @@ This is the Draft §17.4 grammar proven out and committed.
 ```
 
 Premises are ordinary CAVE-Q patterns (§12.1) — inverse verbs,
-transitive `VERB+` hops, `NOT`, `@ctx`/`#tag` filters all work — plus
-`?var op value` constraints. The conclusion is an ordinary claim line;
+transitive `VERB+` hops and property paths (`VERB*`, `(A|B)`, `(A|B)+`),
+`NOT`, `@ctx`/`#tag` filters all work — plus `?var op value` constraints.
+The premise grammar and join helpers live in `@cavelang/query`'s `Select`
+module (spec §12.4), so a rule body and a conjunctive query read the same. The conclusion is an ordinary claim line;
 its `@ N%` is the rule's confidence factor.
 
 ```ts

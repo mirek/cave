@@ -8,6 +8,7 @@ const base = '/cave/'
 const port = Number(process.env.PORT ?? 4173)
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',

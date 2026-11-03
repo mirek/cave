@@ -1235,3 +1235,22 @@ test('binary stored rule bodies identify the claim and preserve derived history 
     } finally { store.close() }
   }
 })
+
+test('property-path premises fire and wake incrementally on deep edges (spec §12.1, §24.4)', () => {
+  const store = open()
+  try {
+    store.ingest('app USES lib\nlib NEEDS core')
+    declareRules(store, 'app (USES|NEEDS)+ ?dep => app REACHES ?dep')
+    derive(store)
+    assert.deepEqual(query(store, 'app REACHES ?d').map(match => match.bindings['d']).sort(), ['core', 'lib'])
+    // A new edge far from the concrete premise subject still extends the path.
+    store.ingest('core NEEDS kernel')
+    assert.equal(derive(store).rules[0]!.fired, true)
+    assert.equal(query(store, 'app REACHES kernel').length, 1)
+    // A one-hop alternation mixing directions wakes on either member's edges.
+    declareRules(store, 'app (CONTAINS|PART-OF) ?unit => app GROUPS ?unit')
+    store.ingest('suite CONTAINS app')
+    derive(store)
+    assert.equal(query(store, 'app GROUPS suite').length, 1)
+  } finally { store.close() }
+})

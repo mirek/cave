@@ -2,13 +2,24 @@
 
 The Vite/React site for the CAVE landing page, documentation, and browser playground.
 
-The development server uses the pinned Vite dependency and its checked-in
-shutdown patch, which settles optimizer work and prevents late watched-file
-additions from reopening a closed watcher. Install through the workspace's pnpm
-lockfile so the patch applies. The cold-cache and shutdown-hook regressions run
-with `pnpm test`; see
+The development server uses the exactly pinned Vite release, which includes the
+fixes for the shutdown defects CAVE once patched locally (settling optimizer work
+and keeping late watched-file additions from reopening a closed watcher).
+Install through the workspace's pnpm lockfile. The cold-cache and shutdown-hook
+regressions run with `pnpm test`; see
 [dependency maintenance](../DEPENDENCY-MAINTENANCE.md#vite-build-and-development-server-checks)
-for the patch rationale and upgrade checks.
+for the history and upgrade checks.
+
+The dev server needs two settings that a production build does not, because
+dev serves workspace sources without bundling or tree-shaking. `sql.js` ships
+CommonJS, so `optimizeDeps.include` pre-bundles it; excluding it leaves the
+worker's default import unresolved. Workspace packages also import `node:*`
+built-ins at module top level for paths the browser never calls (version lookup,
+file stores, backups); Vite's browser-external proxy throws as soon as those
+named imports are bound. The dev-only `cave-node-builtin-stubs` plugin in
+`vite.config.ts` therefore replaces each built-in with same-named stubs that
+throw only when called. Without either setting, `pnpm dev` shows the playground's
+"Runtime error" while the built site works.
 
 Inline documentation code keeps short tokens such as `--prune` together when
 they reach a line boundary. Long identifiers still wrap within the article
@@ -75,7 +86,62 @@ Inline code inside reference tables stays on one line, keeping command flags
 such as `--as-of` intact. A table that needs more width uses the same horizontal
 scrolling and keyboard access instead of splitting those tokens.
 
-Homepage capability cards use the same code wrapper as the hero example, so
+The site's look ("rock, soot and pigment") is token-driven: `:root` in
+`src/styles.css` sets a warm limestone background, soot ink, and two pigments,
+`--ochre` and `--oxide` (`--ochre-ink` is the darker ochre for text on light
+surfaces). The closing "Cave theme" block adds the structure: square corners,
+2–3px ink edges, hard offset shadows, heavy tight headings, and sparing serif
+italics (`.pigment`) as the only ornament. The hero and the playground call to
+action are dark sections that redefine the same tokens locally, so components
+inside them need no dark variants. The hero background layers a firelight
+gradient, `src/assets/strata.svg` (deterministic rock-strata linework and ochre
+dots, generated once and checked in) and an SVG noise grain. The reduced-motion,
+forced-colors and print blocks in the theme must keep overriding its
+transitions, offsets and ornaments; a later theme rule wins over an earlier
+reduced-motion rule of equal specificity, which the browser suite caught once
+for button transitions. Text colors keep WCAG AA contrast on their surfaces.
+
+The hero's console (`src/components/HeroExamples.tsx`) is a six-slide tabbed
+carousel: chains, reverse reads, doubt, history, rules and time. Each slide's
+source, query and output live in `src/hero-examples.ts`, and
+`test/hero-examples.test.ts` replays every slide through the workspace CLI
+(`cave add`, or `cave derive` for the rules slide, then `cave query` with the
+shown flags) against a fresh store and requires the shown output exactly. Two
+findings shaped the data: a `;` comment line directly above a claim becomes
+that claim's comment and appears in query output, so each slide separates its
+header comment with a blank line; and the history slide uses `--all` rather
+than an `--as-of` date, because a store created now cannot reproduce a past
+recording time and `cave add` cannot backdate one.
+
+The active tab's progress bar is a CSS animation whose `animationend`
+advances the slide. Hover or focus inside the carousel pauses it
+(`animation-play-state`), choosing a tab or the previous/next buttons stops it
+for good, and reduced motion removes the animation, so nothing rotates. Tabs
+follow the ARIA tabs pattern with a roving tab stop and Arrow/Home/End keys.
+The query output is a plain element rather than `<output>`: an implicit
+`status` role would announce every slide change and would add a second status
+region inside `.hero`. The first slide keeps the original nine-line monorepo
+example that the line-number and keyboard-scrolling tests read.
+
+The homepage's "The model" section (`src/components/ConceptMap.tsx`) is a
+concept map: the anatomy of one claim line, then four small SVG diagrams for
+append-only belief, per-source voices resolved by `--resolve` (§26.2), trajectory
+values in valid time (§32), and rule derivation with `BECAUSE` lineage. Two range
+inputs are named after the CLI flags they stand for: `--as-of` scrubs learning
+time and `--at` scrubs valid time, and the trajectory diagram reads both, so the
+two clocks visibly compose. Each slider has an `aria-valuetext` and a polite
+`<output>` readout stating what the store believes at that position; each
+diagram carries an `img` label, and forced-colors mode maps every mark to
+`CanvasText`. The `--at` position is the first day of the chosen month as a UTC instant, and
+the trajectory interpolates by elapsed calendar time between its January 1
+anchors, as §32 specifies; twelfths of a year would misstate values (8.07
+instead of 8.06 for May 2026 on the 7.80 -> 8.60 estimate). The diagram data is illustrative and hard-coded, not queried from
+a store; keep it consistent with the spec sections it depicts.
+The two `<output>` readouts carry the implicit ARIA `status` role, so the
+homepage has more than one status region: browser tests locate the install-copy
+status within `.hero` rather than with a page-wide `getByRole('status')`.
+
+Homepage capability cards use the same code wrapper as the hero examples, so
 long shell commands and rules support arrow-key scrolling with a visible focus
 outline. Examples that fit their card do not add a Tab stop; resizing updates
 that decision. The source remains selectable and retains its highlighting.
