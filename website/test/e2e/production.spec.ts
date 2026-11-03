@@ -1952,6 +1952,35 @@ test('homepage code exposes source text without decorative line numbers', async 
 })
 
 
+test('homepage example carousel switches by tab, arrow keys and buttons, and stops rotating once chosen', async ({ page }) => {
+  await page.goto('./#/home')
+  const carousel = page.getByRole('region', { name: 'CAVE examples' })
+  const tabs = carousel.getByRole('tab')
+  await expect(tabs).toHaveCount(6)
+  await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
+  await expect(carousel.locator('.console-progress')).toHaveCount(1)
+  await carousel.getByRole('tab', { name: 'History' }).click()
+  await expect(carousel.getByRole('tabpanel')).toContainText('maintainers.cave')
+  await expect(carousel.locator('.query-output').last()).toContainText('?m = alice  ; left in July')
+  await expect(carousel.locator('.console-progress')).toHaveCount(0)
+  await page.keyboard.press('ArrowRight')
+  await expect(carousel.getByRole('tab', { name: 'Rules' })).toBeFocused()
+  await expect(carousel.getByRole('tabpanel')).toContainText('?p = web')
+  await page.keyboard.press('End')
+  await expect(carousel.getByRole('tab', { name: 'Time' })).toHaveAttribute('aria-selected', 'true')
+  await carousel.getByRole('button', { name: 'Next example' }).click()
+  await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
+  await carousel.getByRole('button', { name: 'Previous example' }).click()
+  await expect(carousel.getByRole('tabpanel')).toContainText('prices.cave')
+  await expect(carousel.getByRole('status')).toHaveCount(0)
+})
+
+test('homepage example carousel does not rotate with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('./#/home')
+  await expect(page.locator('.console-progress')).toHaveCSS('animation-name', 'none')
+})
+
 test('homepage code supports named keyboard scrolling on narrow screens', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 900 })
   await page.goto('./#/home')

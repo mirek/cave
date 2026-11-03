@@ -1,20 +1,11 @@
 import { useRef, useState } from 'react'
 import { CaveCode } from '../components/CaveCode.tsx'
 import { ConceptMap } from '../components/ConceptMap.tsx'
+import { HeroExamples } from '../components/HeroExamples.tsx'
 import { ScrollableCode } from '../components/ScrollableCode.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { ButtonLink } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
-
-const example = `; a small monorepo: which package uses which
-web USES ui
-web USES api-client
-ui USES core
-api-client USES core
-docs USES ui
-
-core HAS version: 1.4.0
-core HAS maintainer: bob @src:standup @ 60%`
 
 const steps = [
   {
@@ -84,7 +75,7 @@ export const Home = () => {
       <section className="hero">
         <div className="hero-copy">
           <Badge variant="secondary">Start with one line</Badge>
-          <h1>Write down what you know, one claim per line. Ask questions across all of it.</h1>
+          <h1>Write down what you know, <em className="pigment">one claim per line.</em> Ask questions across all of it.</h1>
           <p>
             CAVE is a plain-text language for claims and a tool that keeps them in one local store, never overwrites them,
             and answers questions over the whole graph — chains, inverses, confidence, history, and why.
@@ -99,18 +90,7 @@ export const Home = () => {
           <p className="copy-status" role="status">{copyStatus === 'copied' ? 'Install command copied.' : copyStatus === 'failed' ? 'Copy unavailable. Select the command below and copy it manually, or retry the copy button.' : ''}</p>
           {copyStatus === 'failed' && <textarea className="install-fallback" aria-label="Install command for manual copying" readOnly rows={3} value={installCommand} onFocus={event => event.currentTarget.select()} />}
         </div>
-        <Card className="hero-console" aria-label="CAVE code example">
-          <div className="console-bar">
-            <span>packages.cave</span>
-            <small>plain text</small>
-          </div>
-          <ScrollableCode><CaveCode code={example} lineNumbers /></ScrollableCode>
-          <div className="query-result">
-            <span>QUERY</span>
-            <code>?p USES+ core</code>
-            <div>4 matches</div>
-          </div>
-        </Card>
+        <HeroExamples />
       </section>
 
       <section className="proof-strip" aria-label="Project attributes">
@@ -126,7 +106,7 @@ export const Home = () => {
       <section className="manifesto">
         <div className="section-label">HOW IT'S TAUGHT</div>
         <div>
-          <h2>One idea per step.</h2>
+          <h2>One idea <em className="pigment">per step.</em></h2>
           <p>
             The tutorial starts from a single claim and adds one capability at a time — inverse reads, chains,
             attributes, your own verbs, structured imports, confidence and sources, rules, shapes, cited reports —
@@ -150,7 +130,7 @@ export const Home = () => {
       <section className="loop-section">
         <div className="section-label">TWO TUTORIALS</div>
         <div className="loop-copy">
-          <h2>A monorepo, then a market.</h2>
+          <h2>A monorepo, <em className="pigment">then a market.</em></h2>
           <p>
             Part I builds a package graph you can query for blast radius, owners, and advisories that travel up
             the dependency chain. Part II models companies and the themes that move them, lets an LLM read the
