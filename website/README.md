@@ -101,13 +101,23 @@ transitions, offsets and ornaments; a later theme rule wins over an earlier
 reduced-motion rule of equal specificity, which the browser suite caught once
 for button transitions. Text colors keep WCAG AA contrast on their surfaces.
 
-The hero's console (`src/components/HeroExamples.tsx`) is a six-slide tabbed
-carousel: chains, reverse reads, doubt, history, rules and time. Each slide's
-source, query and output live in `src/hero-examples.ts`, and
-`test/hero-examples.test.ts` replays every slide through the workspace CLI
-(`cave add`, or `cave derive` for the rules slide, then `cave query` with the
-shown flags) against a fresh store and requires the shown output exactly. Two
-findings shaped the data: a `;` comment line directly above a claim becomes
+The hero's console (`src/components/HeroExamples.tsx`) is a twelve-slide tabbed
+carousel: chains, reverse reads, `WHERE` filters, doubt, Bayesian fusion,
+history, valid time, shapes, rules, comparison guards, automations calling
+actions, and the Z3 solver. Each slide's source, calls and output live in
+`src/hero-examples.ts`, and `test/hero-examples.test.ts` replays every call
+against a fresh store loaded with `cave add` (or `cave derive` for rule
+slides): `cave query`, other `cave` commands (`check`, `automate --once`), an
+MCP tool over `cave mcp` (fusion is exposed only as the `cave_fuse` tool), and
+the `cave-solver-workflow` fixture. Output must match exactly unless a run is
+marked `excerpt`: then the shown lines must appear in the real output in order,
+a shown line ending in ` …` matches by prefix, and the slide says it is an
+excerpt. The solver has no CAVE syntax or `cave` command yet, so its slide
+describes the fixture's TypeScript model in comments and shows a summary of the
+sensitivity report's `points` computed by the test (contiguous deploy ranges per
+optimal architecture), not raw JSON. `cave check` exits 1 when it reports
+violations, which the replay accepts. The test reaches the CLI, MCP and solver
+entrypoints by workspace-relative source paths. Two findings shaped the data: a `;` comment line directly above a claim becomes
 that claim's comment and appears in query output, so each slide separates its
 header comment with a blank line; and the history slide uses `--all` rather
 than an `--as-of` date, because a store created now cannot reproduce a past
