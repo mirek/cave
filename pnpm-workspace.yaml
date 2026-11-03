@@ -14,7 +14,7 @@ patchedDependencies:
 
 auditConfig:
   ignoreGhsas:
-    # @azure/msal-node auth-code flow via @vscode/vsce > @azure/identity; unreachable
-    # (vsce never uses acquireTokenByCode; CAVE publishes with VSCE_PAT) and no
-    # @azure/identity release accepts the patched 7.x. Tracked in #268; expires 2026-11-26.
-    - GHSA-xcx6-jx8p-x3h5
+    # minimatch globparts DoS via @vscode/vsce > minimatch 10.x; patched only in 11.x,
+    # which no vsce release accepts. vsce matches only CAVE's own .vscodeignore and
+    # packaging globs (no attacker-supplied patterns). Tracked in #274; expires 2026-12-04.
+    - GHSA-g3hv-75wg-m249
