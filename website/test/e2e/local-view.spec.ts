@@ -1,7 +1,19 @@
 import { test, expect } from '@playwright/test'
+import type { Locator } from '@playwright/test'
 import { open } from '@cavelang/store'
 import { SourceSpan } from '@cavelang/core'
 import { serve } from '../../../packages/view/src/server.ts'
+
+// Claim metadata (contexts, history and lineage links) sits behind each row's
+// disclosure; open it from the keyboard the way a reader would.
+const expand = async (claim: Locator): Promise<Locator> => {
+  if (await claim.getAttribute('open') !== null) return claim
+  const summary = claim.locator('summary')
+  await summary.focus()
+  await summary.press('Enter')
+  await expect(claim).toHaveAttribute('open', '')
+  return claim
+}
 
 test('local skip link bypasses the header without changing the current route', async ({ page }, testInfo) => {
   const store = open()
@@ -50,7 +62,7 @@ test('local page titles follow navigation, errors and retry while retaining the 
     await page.goBack()
     await expect(page).toHaveTitle('root entity — cave — A & B <store>')
     await page.route('**/api/history?**', route => route.fulfill({ status: 503, body: 'Unavailable' }))
-    await page.locator('#view').getByRole('link', { name: 'history', exact: true }).first().click()
+    await (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'history', exact: true }).click()
     await expect(page).toHaveTitle('View error — cave — A & B <store>')
     await page.unroute('**/api/history?**')
     await page.getByRole('button', { name: 'Retry view', exact: true }).click()
@@ -125,12 +137,12 @@ test('keyboard claim navigation focuses each new view heading', async ({ page })
   const server = await serve(store, { port: 0 })
   try {
     await page.goto(server.url + '#/e/root')
-    const history = page.locator('#view').getByRole('link', { name: 'history', exact: true }).first()
+    const history = (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'history', exact: true })
     await history.focus()
     await history.press('Enter')
     await expect(page.locator('#view h1')).toContainText('belief history')
     await expect(page.locator('#view h1')).toBeFocused()
-    const lineage = page.locator('#view').getByRole('link', { name: 'lineage', exact: true }).first()
+    const lineage = (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'lineage', exact: true })
     await lineage.focus()
     await lineage.press('Enter')
     await expect(page.locator('#view h1')).toContainText('lineage')
@@ -150,7 +162,7 @@ test('failed claim navigation focuses the error and search recovers', async ({ p
     await page.route('**/api/history?**', route => route.fulfill({
       status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Temporarily unavailable' })
     }))
-    const history = page.locator('#view').getByRole('link', { name: 'history', exact: true }).first()
+    const history = (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'history', exact: true })
     await history.focus()
     await history.press('Enter')
     await expect(page.getByRole('alert')).toHaveText('Temporarily unavailable')
@@ -179,7 +191,7 @@ for (const failed of [false, true]) test(`a delayed ${failed ? 'failed' : 'succe
       if (failed) await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Temporarily unavailable' }) })
       else await route.continue()
     })
-    await page.locator('#view').getByRole('link', { name: 'history', exact: true }).first().click()
+    await (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'history', exact: true }).click()
     await expect(page.getByRole('status')).toHaveText('Loading view.')
     const search = page.getByRole('searchbox', { name: 'Search claims' })
     await search.fill('next draft')
@@ -323,7 +335,7 @@ test('local search uses plain Enter and preserves modified or composing input', 
       await expect(search).toBeFocused()
     }
     await expect(search).toHaveAttribute('enterkeyhint', 'search')
-    await expect(search).toHaveAttribute('aria-keyshortcuts', 'Enter')
+    await expect(search).toHaveAttribute('aria-keyshortcuts', 'Enter /')
     await search.press('Enter')
     await expect(page.locator('#view .claim')).toHaveCount(1)
     await expect(page.locator('#view')).toContainText('worker')
@@ -394,7 +406,7 @@ test('local viewer retains uncertainty sigma levels across entity and history vi
     await expect(claim).toContainText('+/- 0.01')
     await expect(claim).toContainText('(3σ)')
     await claim.screenshot({ path: testInfo.outputPath('uncertainty-sigma.png') })
-    await claim.getByRole('link', { name: 'history', exact: true }).click()
+    await (await expand(claim)).getByRole('link', { name: 'history', exact: true }).click()
     await expect(page.locator('#view h1')).toContainText('belief history')
     await expect(page.locator('#view .claim').first()).toContainText('(3σ)')
   } finally { await server.close(); store.close() }
@@ -413,7 +425,7 @@ test('local confidence display distinguishes rounding boundaries from retraction
     await expect(high.locator('.conf')).toHaveText('@ >99.9%')
     await expect(claims.filter({ hasText: 'gone:' }).first().locator('.conf.retracted')).toHaveText('@ 0%')
     await expect(claims.filter({ hasText: 'certain:' }).first().locator('.conf')).toHaveCount(0)
-    await high.getByRole('link', { name: 'history', exact: true }).click()
+    await (await expand(high)).getByRole('link', { name: 'history', exact: true }).click()
     await expect(page.locator('#view .bar')).toHaveAttribute('title', 'confidence >99.9%')
     store.ingest('sensor HAS low: 1 @ 0.001%\nsensor HAS high: 2 @ 0.001%\nsensor HAS gone: 3 @ 0.001%\nsensor HAS certain: 4 @ 0.001%')
     await page.goto(server.url)
@@ -439,7 +451,7 @@ test('local source citations preserve invalid identities and open valid encoded 
       await page.emulateMedia({ colorScheme })
       await page.setViewportSize({ width, height: 900 })
       await page.goto(server.url + '#/e/root')
-      const claim = page.locator('#view .claim').first()
+      const claim = await expand(page.locator('#view .claim').first())
       const invalidLabel = claim.locator('.ctx').filter({ hasText: '@' + invalid })
       const validLink = claim.getByRole('link', { name: '@' + valid, exact: true })
       await expect(invalidLabel).toHaveText('@' + invalid)
@@ -458,8 +470,9 @@ test('local source citations preserve invalid identities and open valid encoded 
         await expect(popup.getByRole('heading')).toHaveText('Source fixture')
         expect(popup.url()).toBe(href)
       } finally { await popup.close() }
-      await claim.getByRole('link', { name: 'history', exact: true }).click()
+      await (await expand(claim)).getByRole('link', { name: 'history', exact: true }).click()
       await expect(page.locator('#view h1')).toContainText('belief history')
+      await expand(claim)
       await expect(invalidLabel).toHaveText('@' + invalid)
       await expect(invalidLabel.getByRole('link')).toHaveCount(0)
       await expect(validLink).toHaveAttribute('href', href)
@@ -477,7 +490,7 @@ test('history navigation reveals the start of a tall focused heading below the s
   try {
     await page.setViewportSize({ width: 320, height: 600 })
     await page.goto(server.url + '#/e/root')
-    const history = page.locator('#view .claim').first().getByRole('link', { name: 'history', exact: true })
+    const history = (await expand(page.locator('#view .claim').first())).getByRole('link', { name: 'history', exact: true })
     await history.focus()
     await history.press('Enter')
     const heading = page.locator('#view h1')

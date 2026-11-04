@@ -14,6 +14,7 @@ const verb = (value: Pattern.VerbSlot): Pattern.VerbSlot => {
     case 'wildcard': return { kind: 'wildcard' }
     case 'var': return { kind: 'var', name: value.name }
     case 'verb': return { kind: 'verb', name: value.name, transitive: value.transitive }
+    case 'path': return { kind: 'path', verbs: [...value.verbs], repeat: value.repeat }
   }
 }
 

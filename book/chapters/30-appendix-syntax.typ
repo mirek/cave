@@ -28,7 +28,11 @@ a ALIAS b                                ; same entity, two names
 
 ?x VERB ?y                               ; query pattern; _ is a wildcard
 ?x VERB+ ?y                              ; one or more hops
+?x VERB* ?y                              ; zero or more hops
+?x (A|B) ?y, ?x (A|B)+ ?y, ?x (A|B)* ?y  ; verb alternation paths
 WHERE conf >= 0.8 | value < 10 kg | tx <= 2026-08-01
+?a A ?b, ?b B ?c, ?c < 18                ; joined premises (one query)
+OPTIONAL ?c C ?d | SELECT DISTINCT ?a | ORDER BY ?c DESC
 
 premise, premise, ?v op value => conclusion ; rule (cave derive)
 action/name HAS action: `?param, premise => effect, effect`

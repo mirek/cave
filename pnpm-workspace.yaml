@@ -11,4 +11,10 @@ allowBuilds:
 
 patchedDependencies:
   sql.js@1.14.2: patches/sql.js@1.14.2.patch
-  vite@8.3.0: patches/vite@8.3.0.patch
+
+auditConfig:
+  ignoreGhsas:
+    # minimatch globparts DoS via @vscode/vsce > minimatch 10.x; patched only in 11.x,
+    # which no vsce release accepts. vsce matches only CAVE's own .vscodeignore and
+    # packaging globs (no attacker-supplied patterns). Tracked in #274; expires 2026-12-04.
+    - GHSA-g3hv-75wg-m249

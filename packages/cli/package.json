@@ -1,6 +1,6 @@
 {
   "name": "@cavelang/cli",
-  "version": "0.37.0",
+  "version": "0.39.2",
   "type": "module",
   "description": "cave — CLI for parsing, storing, querying and exporting CAVE knowledge.",
   "keywords": [
@@ -125,10 +125,10 @@
     "@cavelang/parser": "workspace:*",
     "@cavelang/query": "workspace:*",
     "@cavelang/store": "workspace:*",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.13",
-    "mdast-util-from-markdown": "2.0.3",
+    "linkedom": "^0.18.15",
+    "mdast-util-from-markdown": "2.1.0",
     "mdast-util-gfm-footnote": "2.1.0",
     "micromark-extension-gfm-footnote": "2.1.0"
   },

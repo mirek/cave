@@ -250,7 +250,24 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
   }
 
   if (verb.kind === 'verb' && verb.transitive) {
-    return bounded(compileTransitive(pattern, verb.name, subjectSlot, objectSlot, options, policy), options)
+    return bounded(compileTransitive(pattern, [{ verb: verb.name, reversed: false }], false,
+      subjectSlot, objectSlot, options, policy), options)
+  }
+  if (verb.kind === 'path') {
+    if (verb.repeat === 'one') {
+      // Executors expand one-hop alternations into one ordinary pattern per
+      // verb (see `alternatives`); a single SQL statement cannot keep each
+      // member's inverse direction and row shape at once.
+      throw new Error('CAVE-Q: one-hop verb alternations compile per alternative (spec §12.1)')
+    }
+    // Each member resolves on its own: an inverse member walks its primary's
+    // edges backwards, so `(CONTAINS|PART-OF)+` treats CONTAINS as undirected.
+    const edges = verb.verbs.map(name => {
+      const { primary, isInverse } = Registry.primaryOf(registry, name)
+      return { verb: primary, reversed: isInverse }
+    })
+    return bounded(compileTransitive(pattern, edges, verb.repeat === 'star',
+      subjectSlot, objectSlot, options, policy), options)
   }
 
   const aliases = options.aliases === true
@@ -453,9 +470,23 @@ export const compile = (pattern: Pattern.t, registry: Registry.t, options: Optio
   return bounded({ sql, params, bind, transitive: false, valueVars }, options)
 }
 
+/**
+ * One-hop alternation members (spec §12.1): `?x (USES|NEEDS) ?y` runs as
+ * one ordinary pattern per verb, so every member keeps its own inverse
+ * resolution, filters and claim rows. Other patterns are returned as-is.
+ */
+export const alternatives = (pattern: Pattern.t): readonly Pattern.t[] =>
+  pattern.verb.kind === 'path' && pattern.verb.repeat === 'one' ?
+    pattern.verb.verbs.map(name => ({ ...pattern, verb: { kind: 'verb', name, transitive: false } })) :
+    [pattern]
+
+/** Traversed edge set of a path: each primary verb, walked forward or backward. */
+type PathEdge = { readonly verb: string, readonly reversed: boolean }
+
 const compileTransitive = (
   pattern: Pattern.t,
-  verb: string,
+  edges: readonly PathEdge[],
+  reflexive: boolean,
   subjectSlot: Pattern.Slot,
   objectSlot: undefined | Pattern.Slot,
   options: Options,
@@ -470,25 +501,30 @@ const compileTransitive = (
   /** Endpoint equality: exact, or alias-equal under the closure (spec §13.6). */
   const same = (left: string, right: string): string =>
     aliases ? aliasSame(left, right) : `${left} = ${right}`
+  const termParams = (term: string): string[] => aliases ? [term, term] : [term]
+  const primaries = [...new Set(edges.map(edge => edge.verb))]
+  const forward = [...new Set(edges.filter(edge => !edge.reversed).map(edge => edge.verb))]
+  const backward = [...new Set(edges.filter(edge => edge.reversed).map(edge => edge.verb))]
+  const verbIn = (column: string, verbs: readonly string[]): string =>
+    verbs.length === 1 ? `${column} = ?` : `${column} IN (${verbs.map(() => '?').join(', ')})`
+  const edgeParams: (string | number)[] = []
+  const seedParams: (string | number)[] = []
+  const identityParams: (string | number)[] = []
+  const conditionParams: (string | number)[] = []
   const conditions: string[] = []
-  const params: (string | number)[] = [verb]
-  const pushTerm = (term: string): void => {
-    params.push(term)
-    if (aliases) params.push(term)
-  }
   // A concrete source gives forward recursion its smallest seed. If only the
   // destination is concrete, recurse backwards over the object index. Both
   // forms retain normal (src, dst) orientation in their output.
   const direction = subjectSlot.kind === 'term' ? 'forward' :
     objectSlot?.kind === 'term' ? 'reverse' : 'all-pairs'
   if (subjectSlot.kind === 'term') {
-    pushTerm(subjectSlot.text)
+    seedParams.push(...termParams(subjectSlot.text))
   } else if (objectSlot?.kind === 'term') {
-    pushTerm(objectSlot.text)
+    seedParams.push(...termParams(objectSlot.text))
   }
   if (objectSlot?.kind === 'term' && direction !== 'reverse') {
     conditions.push(same('h.dst', '?'))
-    pushTerm(objectSlot.text)
+    conditionParams.push(...termParams(objectSlot.text))
   }
   // A repeated variable forces equality here just as in single-hop
   // patterns: `?x EXTENDS+ ?x` asks for nodes on a cycle, not for every
@@ -497,6 +533,44 @@ const compileTransitive = (
     conditions.push(same('h.src', 'h.dst'))
   }
   const withRecursive = `WITH RECURSIVE ${aliases ? `${aliasPairSql(options.asOf)}, ` : ''}`
+  const edgeCondition = `c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL`
+  // Edge set of the walk. One forward verb keeps the original single scan;
+  // alternations and inverse members read one filtered `edge` set, then
+  // orient each member (an inverse member contributes object → subject).
+  const generic = options.support === true || backward.length > 0
+  const edgeSql = `edge AS (
+  SELECT c.* FROM (${base}) c
+  WHERE ${verbIn('c.verb', primaries)} AND ${edgeCondition}
+)`
+  const oriented = (withId: boolean): string => {
+    const id = withId ? ', id AS edge_id' : ''
+    const parts: string[] = []
+    if (forward.length > 0) {
+      parts.push(`SELECT subject AS src, object AS dst${id} FROM edge${
+        backward.length > 0 ? ` WHERE ${verbIn('verb', forward)}` : ''}`)
+      if (backward.length > 0) edgeParams.push(...forward)
+    }
+    if (backward.length > 0) {
+      parts.push(`SELECT object AS src, subject AS dst${id} FROM edge${
+        forward.length > 0 ? ` WHERE ${verbIn('verb', backward)}` : ''}`)
+      if (forward.length > 0) edgeParams.push(...backward)
+    }
+    return parts.join('\n  UNION ALL\n  ')
+  }
+  let curSql: string
+  if (generic) {
+    edgeParams.push(...primaries)
+    curSql = `${edgeSql}, cur AS (
+  ${oriented(options.support === true)}
+)`
+  } else {
+    edgeParams.push(...primaries)
+    curSql = `cur AS (
+  SELECT c.subject AS src, c.object AS dst
+  FROM (${base}) c
+  WHERE ${verbIn('c.verb', primaries)} AND ${edgeCondition}
+)`
+  }
   // Reachable pairs are the complete recursive state. UNION (not UNION ALL)
   // deduplicates each pair before it can be expanded again, so a finite graph
   // reaches a fixed point even with cycles and no hop-depth cutoff.
@@ -513,6 +587,26 @@ const compileTransitive = (
   UNION
   ${recursiveSql}
 )`
+  // Zero-hop pairs (`VERB*`): the concrete seed endpoint reaches itself; an
+  // unseeded walk adds every endpoint of a traversed edge. The identity is
+  // exact — aliases widen endpoint comparisons, not the zero-length path.
+  let reachSql = ''
+  if (reflexive) {
+    const identity = direction === 'all-pairs' ?
+      'SELECT src, src FROM cur UNION SELECT dst, dst FROM cur' :
+      'SELECT ?, ?'
+    if (direction !== 'all-pairs') {
+      const seed = direction === 'forward' ? (subjectSlot as { text: string }).text :
+        (objectSlot as { text: string }).text
+      identityParams.push(seed, seed)
+    }
+    reachSql = `, reach(src, dst) AS (
+  SELECT src, dst FROM hops
+  UNION
+  ${identity}
+)`
+  }
+  const pairs = reflexive ? 'reach' : 'hops'
   // Support (an opt-in): propagate each edge id with every reachable pair it
   // supports. The triple is finite and UNION-deduplicated like `hops`, while
   // preserving forward/reverse seeding instead of rebuilding all-pairs
@@ -532,7 +626,7 @@ const compileTransitive = (
   ${supportRecursiveSql}
 )`
   const aliasedSelect = (() => {
-    if (!aliases) return 'SELECT DISTINCT h.src AS src, h.dst AS dst FROM hops h'
+    if (!aliases) return `SELECT DISTINCT h.src AS src, h.dst AS dst FROM ${pairs} h`
     // Alias widening can produce several physical endpoint pairs with the
     // same visible bindings. Project unbound slots to constants before
     // DISTINCT so SQL-level pagination sees the same solutions match()
@@ -541,30 +635,25 @@ const compileTransitive = (
       subjectSlot.name === objectSlot.name
     const src = subjectSlot.kind === 'var' ? repeated ? 'h.dst' : 'h.src' : "''"
     const dst = objectSlot?.kind === 'var' ? 'h.dst' : "''"
-    return `SELECT DISTINCT ${src} AS src, ${dst} AS dst FROM hops h`
+    return `SELECT DISTINCT ${src} AS src, ${dst} AS dst FROM ${pairs} h`
   })()
+  // A zero-hop pair has no supporting edge, so reflexive walks keep it
+  // through an outer join; its match carries an empty support list.
+  const join = reflexive ? 'LEFT JOIN' : 'JOIN'
   const sql = options.support === true ? `
-${withRecursive}edge AS (
-  SELECT c.* FROM (${base}) c
-  WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-), cur AS (
-  SELECT subject AS src, object AS dst, id AS edge_id FROM edge
-), ${hopsSql}, ${supportSql}, pair(src, dst) AS (
-  SELECT DISTINCT h.src, h.dst FROM hops h
+${withRecursive}${curSql}, ${hopsSql}${reachSql}, ${supportSql}, pair(src, dst) AS (
+  SELECT DISTINCT h.src, h.dst FROM ${pairs} h
   ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 )
 SELECT p.src AS src, p.dst AS dst, e.*
-FROM pair p JOIN support s ON ${same('s.src', 'p.src')} AND ${same('s.dst', 'p.dst')}
-JOIN edge e ON e.id = s.edge_id
+FROM pair p ${join} support s ON ${same('s.src', 'p.src')} AND ${same('s.dst', 'p.dst')}
+${join} edge e ON e.id = s.edge_id
 ORDER BY p.src, p.dst, e.tx` : `
-${withRecursive}cur AS (
-  SELECT c.subject AS src, c.object AS dst
-  FROM (${base}) c
-  WHERE c.verb = ? AND c.negated = 0 AND c.conf > 0 AND c.object IS NOT NULL
-), ${hopsSql}
+${withRecursive}${curSql}, ${hopsSql}${reachSql}
 ${aliasedSelect}
 ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
 ORDER BY src, dst`
+  const params = [...edgeParams, ...seedParams, ...identityParams, ...conditionParams]
   const bind = (row: Record<string, unknown>): Record<string, string> => {
     return {
       ...subjectSlot.kind === 'var' ? { [subjectSlot.name]: String(row['src']) } : {},
@@ -664,6 +753,8 @@ const run = (store: Store, pattern: Pattern.t, options: Options = {}, positions?
         entry = { bindings: compiled.bind(row), rows: [], seen: new Set() }
         matches.set(key, entry)
       }
+      // A zero-hop (`VERB*`) pair joins no edge: keep the match, add no row.
+      if (row['id'] === null || row['id'] === undefined) continue
       const id = String(row['id'])
       if (!entry.seen.has(id)) {
         entry.seen.add(id)
@@ -719,6 +810,25 @@ const run = (store: Store, pattern: Pattern.t, options: Options = {}, positions?
     }
     return [{ bindings, row: row as unknown as Row.t, at }]
   }) }
+}
+
+/**
+ * Validates a pattern against options without reading rows (spec §12.1):
+ * the conjunctive executor checks every premise up front, so a later
+ * premise's invalid option combination is reported even when an earlier
+ * premise matches nothing.
+ */
+export const check = (store: Store, pattern: Pattern.t, options: Options = {}): void => {
+  if (options.at !== undefined && Time.parseInstant(options.at) === undefined) {
+    throw new Error(
+      `CAVE-Q: cannot parse at anchor ${JSON.stringify(options.at)} — a date-like period or a timestamp (spec §32.4)`)
+  }
+  for (const member of alternatives(pattern)) {
+    const compiled = compile(member, store.registry(), options)
+    if (compiled.transitive && options.at !== undefined) {
+      throw new Error('CAVE-Q: at does not compose with transitive patterns — hop edges are not valid-time filtered (spec §32.4)')
+    }
+  }
 }
 
 /** Execute one SQL window and report how many pre-filter rows it consumed. */

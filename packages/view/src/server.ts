@@ -15,7 +15,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { Version } from '@cavelang/core'
 import { Sensitivity } from '@cavelang/store'
 import type { Store } from '@cavelang/store'
-import { entity, history, lineage, overview, search, topic } from './api.ts'
+import { entity, graph, history, lineage, names, overview, search, topic } from './api.ts'
 import { page } from './page.ts'
 import { errorMessage } from './error-message.ts'
 
@@ -59,7 +59,7 @@ const json = (res: ServerResponse, status: number, body: unknown): void => {
 
 const requiredParameters = new Map([
   ['/api/entity', 'name'], ['/api/topic', 'name'], ['/api/history', 'key'],
-  ['/api/lineage', 'id'], ['/api/search', 'q']
+  ['/api/lineage', 'id'], ['/api/search', 'q'], ['/api/names', 'q']
 ])
 
 /** A required query parameter, `undefined` when absent or blank. */
@@ -165,6 +165,32 @@ const handler = (store: Store, label: string, maximum: Sensitivity.Level) => {
             return text === undefined ?
               { status: 400, body: { error: 'search requires ?q=' } } :
               { status: 200, body: search(store, text, { maxSensitivity: maximum }) }
+          }
+          case '/api/graph': {
+            const nameValues = url.searchParams.getAll('name')
+            const depths = url.searchParams.getAll('depth')
+            if (nameValues.length > 1 || depths.length > 1) {
+              return { status: 400, body: { error: 'name and depth must be supplied at most once' } }
+            }
+            if (depths.length === 1 && !/^[1-3]$/.test(depths[0]!)) {
+              return { status: 400, body: { error: 'depth must be 1, 2 or 3' } }
+            }
+            const name = param(url, 'name')
+            return { status: 200, body: graph(store, {
+              ...name === undefined ? {} : { name },
+              ...depths.length === 1 ? { depth: Number(depths[0]) } : {},
+              aliases,
+              maxSensitivity: maximum
+            }) }
+          }
+          case '/api/names': {
+            const text = param(url, 'q')
+            if (text?.includes('\0')) {
+              return { status: 400, body: { error: 'names query must not contain NUL characters' } }
+            }
+            return text === undefined ?
+              { status: 400, body: { error: 'names requires ?q=' } } :
+              { status: 200, body: names(store, text, { maxSensitivity: maximum }) }
           }
           default:
             return { status: 404, body: { error: `no such endpoint: ${url.pathname}` } }

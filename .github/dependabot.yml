@@ -32,6 +32,12 @@ updates:
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
+      # z3-solver 5.3.x (embedded Z3 5.3.3) makes optimization about 6x slower
+      # and fails the Windows memory-stress recovery limit. Later releases are
+      # still proposed; see DEPENDENCY-MAINTENANCE.md (2026-11-04 checkpoint).
+      - dependency-name: "z3-solver"
+        versions:
+          - "5.3.x"
     groups:
       routine-compatible:
         applies-to: version-updates

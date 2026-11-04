@@ -276,6 +276,22 @@ for (const mode of ['input-error', 'eof']) test(`stdio retains SDK-reported shut
   }
 })
 
+test('stdio cleanup keeps output error handlers the caller attaches while serving', async () => {
+  const store = open()
+  const input = new PassThrough(), output = new PassThrough()
+  try {
+    output.resume()
+    const serving = serve(store, input, output)
+    await new Promise(resolve => setImmediate(resolve))
+    const handler = (): void => {}
+    output.on('error', handler)
+    input.end()
+    await serving
+    assert.deepEqual(output.listeners('error'), [handler], 'only the SDK transport handler is removed')
+    output.emit('error', new Error('late caller-owned failure'))
+  } finally { input.destroy(); output.destroy(); store.close() }
+})
+
 for (const side of ['input', 'output']) test(`stdio ${side} errors close transport listeners before rejecting`, async () => {
   const store = open()
   const input = new PassThrough(), output = new PassThrough()

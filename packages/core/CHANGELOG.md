@@ -1,5 +1,25 @@
 # @cavelang/core
 
+## 0.39.2
+
+### Patch Changes
+
+- 45921a0: Website: rock-and-pigment visual redesign, a homepage carousel of CLI-verified examples (chains, reverse reads, doubt, history, rules, time), and a working playground under `pnpm dev`.
+
+## 0.39.1
+
+No changes in this release.
+
+## 0.39.0
+
+No changes in this release.
+
+## 0.38.0
+
+### Patch Changes
+
+- ffb447e: Add a homepage concept map with interactive `--as-of` and `--at` scrubbers showing claim anatomy, append-only belief, source resolution, trajectories, and rule derivation.
+
 ## 0.37.0
 
 ### Patch Changes

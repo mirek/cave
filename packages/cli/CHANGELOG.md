@@ -1,5 +1,65 @@
 # @cavelang/cli
 
+## 0.39.2
+
+### Patch Changes
+
+- Updated dependencies [45921a0]
+  - @cavelang/core@0.39.2
+  - @cavelang/canonical@0.39.2
+  - @cavelang/fusion@0.39.2
+  - @cavelang/parser@0.39.2
+  - @cavelang/query@0.39.2
+  - @cavelang/store@0.39.2
+  - @cavelang/highlight@0.39.2
+
+## 0.39.1
+
+### Patch Changes
+
+- 933c441: Patch dependency advisories: update the bundled MCP server SDK to 2.3.1 (zod 4.6.7) while keeping stdio EOF draining replies to accepted requests, move the website to Vite 8.3.5 without the local shutdown patch, refresh vulnerable transitive tooling packages, and record the one unreachable `@azure/msal-node` advisory as an expiring audit ignore.
+- @cavelang/canonical@0.39.1
+  - @cavelang/core@0.39.1
+  - @cavelang/fusion@0.39.1
+  - @cavelang/highlight@0.39.1
+  - @cavelang/parser@0.39.1
+  - @cavelang/query@0.39.1
+  - @cavelang/store@0.39.1
+
+## 0.39.0
+
+### Minor Changes
+
+- f5c0505: CAVE-Q gains conjunctive queries (spec §12.4) — comma-joined premises and `?var` constraints, `OPTIONAL` left-outer groups, `SELECT [DISTINCT]` projection and `ORDER BY` — and property paths: `VERB*`, `(A|B)` alternation, `(A|B)+` and `(A|B)*`. Rule, action and automation premises share the grammar.
+
+### Patch Changes
+
+- Updated dependencies [f5c0505]
+  - @cavelang/query@0.39.0
+  - @cavelang/canonical@0.39.0
+  - @cavelang/core@0.39.0
+  - @cavelang/fusion@0.39.0
+  - @cavelang/highlight@0.39.0
+  - @cavelang/parser@0.39.0
+  - @cavelang/store@0.39.0
+
+## 0.38.0
+
+### Minor Changes
+
+- 4340ffd: `cave serve` draws relation graphs — a store-wide map on the dashboard and at `#/g`, and each entity's 1–3 hop neighborhood on its page — adds a related-entities index, entity-name matches in search, a visited trail and the `/` search shortcut, and folds claim metadata (contexts, tags, comments, timestamps, history/lineage links) behind a per-row disclosure; new `/api/graph` and `/api/names` endpoints and `graph`/`names` view models.
+
+### Patch Changes
+
+- Updated dependencies [ffb447e]
+  - @cavelang/core@0.38.0
+  - @cavelang/canonical@0.38.0
+  - @cavelang/fusion@0.38.0
+  - @cavelang/parser@0.38.0
+  - @cavelang/query@0.38.0
+  - @cavelang/store@0.38.0
+  - @cavelang/highlight@0.38.0
+
 ## 0.37.0
 
 ### Minor Changes
