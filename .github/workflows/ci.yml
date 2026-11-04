@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: mirek/ast
-          ref: c1b1bb8f89b41c9c595b61f36b6c5bc076937847
+          ref: f71cb254463870f45c51358e99875384b40be307
           path: .tmp/ast
           persist-credentials: false
 
@@ -179,7 +179,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: mirek/ast
-          ref: c1b1bb8f89b41c9c595b61f36b6c5bc076937847
+          ref: f71cb254463870f45c51358e99875384b40be307
           path: .tmp/ast
           persist-credentials: false
 

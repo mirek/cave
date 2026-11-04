@@ -9,11 +9,11 @@ optionalDependencies; exported functions/types carry JSDoc.
 
 Cave's AST integration uses `mirek/ast` as separately supplied, trusted local
 code. Its npm packages are currently private. From the Cave checkout, build
-the tested upstream revision (includes the module inventory in AST PR #30):
+the tested upstream revision (the merged module inventory from AST PR #30):
 
 ```sh
 git clone https://github.com/mirek/ast.git .tmp/ast
-git -C .tmp/ast checkout c1b1bb8f89b41c9c595b61f36b6c5bc076937847
+git -C .tmp/ast checkout f71cb254463870f45c51358e99875384b40be307
 (
   cd .tmp/ast
   pnpm install --frozen-lockfile
@@ -22,6 +22,11 @@ git -C .tmp/ast checkout c1b1bb8f89b41c9c595b61f36b6c5bc076937847
 ```
 
 Run pnpm from the AST checkout so Corepack selects AST's declared version.
+That revision declares `pnpm@11.13.0`, which newer pnpm releases refuse to
+switch to as a broken release (`ERR_PNPM_BROKEN_PNPM_RELEASE`). If you see
+that error, run the two AST commands with
+`npm_config_manage_package_manager_versions=false` so the installed pnpm
+performs them; the frozen lockfile still pins AST's dependencies.
 If the runtime is already built in a sibling checkout, use
 `../ast/packages/core/dist/index.js` instead. `--runtime` resolves relative to
 the invocation directory. Without that option, Cave looks for the installed
