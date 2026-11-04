@@ -62,7 +62,9 @@
     "prepack": "node ../../scripts/prepare-package-legal.mjs && pnpm run build"
   },
   "dependencies": {
+    "@cavelang/scenario": "workspace:*",
     "@cavelang/solver": "workspace:*",
+    "@cavelang/store": "workspace:*",
     "z3-solver": "5.2.0"
   }
 }

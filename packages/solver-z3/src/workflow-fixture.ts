@@ -1,7 +1,9 @@
 import { errorMessage } from './error-message.ts'
 /** Named CLI fixture for the solver workflow API. No raw model input is accepted. */
 
-import { Adapter, Model, Workflow } from '@cavelang/solver'
+import { bind, explanationContext, type Model as Scenario } from '@cavelang/scenario'
+import { Adapter, Canonical, Explain, Model, Validate, Workflow } from '@cavelang/solver'
+import { open } from '@cavelang/store'
 import { create, type Runtime } from './runtime.ts'
 
 export type Output = { readonly code: number, readonly out: string, readonly err: string }
@@ -19,6 +21,9 @@ Options:
   --deployment-frequency <1..12>      Default: 6
   --from <1..12>                      Sensitivity start; default: 1
   --to <1..12>                        Sensitivity end; default: 12
+  --db <path>                         Sensitivity only: read the team size from
+                                      the claim \`system HAS team-size: N people\`
+                                      in this CAVE store instead of --team-size
   --timeout-ms <1..2147483647>        Per solver run; default: 10000
   --max-explanation-bits <integer>    Local evaluation; default: ${Adapter.defaultLimits.maxExplanationBits}
   --max-explanation-work <integer>    Cumulative local evaluation; default: ${Adapter.defaultLimits.maxExplanationWork}
@@ -126,6 +131,7 @@ type Parsed = {
   readonly timeoutMs: number
   readonly maxExplanationBits: number
   readonly maxExplanationWork: number
+  readonly db?: string
 }
 
 const parseInteger = (name: string, value: string | undefined, min: number, max?: number): number => {
@@ -148,7 +154,7 @@ const parse = (argv: readonly string[]): Parsed | Output => {
   for (let index = 2; index < argv.length; index += 2) {
     const flag = argv[index]
     const value = argv[index + 1]
-    if (flag === undefined || !['--team-size', '--deployment-frequency', '--from', '--to', '--timeout-ms', '--max-explanation-bits', '--max-explanation-work'].includes(flag)) {
+    if (flag === undefined || !['--team-size', '--deployment-frequency', '--from', '--to', '--timeout-ms', '--max-explanation-bits', '--max-explanation-work', '--db'].includes(flag)) {
       return fail(`unknown workflow option ${JSON.stringify(flag ?? '')}`)
     }
     if (value === undefined || value.startsWith('--')) return fail(`${flag} needs a value`)
@@ -159,6 +165,9 @@ const parse = (argv: readonly string[]): Parsed | Output => {
     const from = parseInteger('--from', values.get('--from') ?? '1', 1, 12)
     const to = parseInteger('--to', values.get('--to') ?? '12', 1, 12)
     if (from > to) return fail('--from must be less than or equal to --to')
+    const db = values.get('--db')
+    if (db !== undefined && operation !== 'sensitivity') return fail('--db is supported only by sensitivity')
+    if (db !== undefined && values.has('--team-size')) return fail('--db and --team-size are mutually exclusive')
     return {
       operation,
       teamSize: parseInteger('--team-size', values.get('--team-size') ?? '10', 2, 20),
@@ -169,10 +178,51 @@ const parse = (argv: readonly string[]): Parsed | Output => {
       to,
       timeoutMs: parseInteger('--timeout-ms', values.get('--timeout-ms') ?? '10000', 1, 2147483647),
       maxExplanationBits: parseInteger('--max-explanation-bits', values.get('--max-explanation-bits') ?? String(Adapter.defaultLimits.maxExplanationBits), 1),
-      maxExplanationWork: parseInteger('--max-explanation-work', values.get('--max-explanation-work') ?? String(Adapter.defaultLimits.maxExplanationWork), 1)
+      maxExplanationWork: parseInteger('--max-explanation-work', values.get('--max-explanation-work') ?? String(Adapter.defaultLimits.maxExplanationWork), 1),
+      ...(db === undefined ? {} : { db })
     }
   } catch (error) {
     return fail(errorMessage(error))
+  }
+}
+
+/** The store claim `--db` binds, e.g. `system HAS team-size: 10 people`. */
+const teamSizeQuery = 'system HAS team-size: ?n'
+
+/**
+ * Binds the sensitivity sweep's fixed team size from a CAVE store through
+ * `@cavelang/scenario`, before Z3 loads. The explanation context carries the
+ * query, authored value and exact evidence row IDs into the report.
+ */
+const bindTeamSize = (
+  path: string,
+  limits: Adapter.Options['limits']
+): { readonly teamSize: number, readonly context: Explain.Context } => {
+  const definition: Scenario.Definition = {
+    id: 'architecture-sensitivity',
+    modelDigest: Canonical.digest(architectureModel(), Validate.mergeLimits(limits)),
+    snapshot: { aliases: 'exact', resolution: 'winner', minimumConfidence: 0.5 },
+    bindings: [{
+      id: 'team-size',
+      query: teamSizeQuery,
+      select: 'n',
+      expected: { kind: 'integer', unit: 'people' },
+      cardinality: 'one',
+      scenarioOverride: false,
+      policies: { missing: 'reject', contested: 'reject', retracted: 'exclude', unresolved: 'reject' }
+    }]
+  }
+  const store = open(path, { access: 'read-only' })
+  try {
+    const inputs = bind(store, definition)
+    const value = inputs.values['team-size'] as Scenario.Value | undefined
+    const teamSize = value?.kind === 'integer' ? Number(value.value) : Number.NaN
+    if (!Number.isSafeInteger(teamSize) || teamSize < 2 || teamSize > 20) {
+      throw new TypeError('team-size must be an integer from 2 to 20 people')
+    }
+    return { teamSize, context: explanationContext(definition, inputs) }
+  } finally {
+    store.close()
   }
 }
 
@@ -184,7 +234,15 @@ export const runWorkflowFixture = async (
   const parsed = parse(argv)
   if ('code' in parsed) return parsed
   const options: Adapter.Options = { limits: { timeoutMs: parsed.timeoutMs, maxExplanationBits: parsed.maxExplanationBits, maxExplanationWork: parsed.maxExplanationWork } }
-  const context = { snapshot: { transactionTime: null } } as const
+  let context: Explain.Context = { snapshot: { transactionTime: null } }
+  let teamSize = parsed.teamSize
+  if (parsed.db !== undefined) {
+    try {
+      ;({ teamSize, context } = bindTeamSize(parsed.db, options.limits))
+    } catch (error) {
+      return { code: 1, out: '', err: `--db ${parsed.db}: ${errorMessage(error)}\n` }
+    }
+  }
   const execute = async (adapter: Adapter.t): Promise<Output> => {
     switch (parsed.operation) {
       case 'feasibility':
@@ -217,7 +275,7 @@ export const runWorkflowFixture = async (
         return ok(await Workflow.sensitivity(adapter, architectureModel(), {
           variableId: 'deployment-frequency',
           samples,
-          fixed: [{ variableId: 'team-size', value: { sort: 'int', value: String(parsed.teamSize) } }],
+          fixed: [{ variableId: 'team-size', value: { sort: 'int', value: String(teamSize) } }],
           observe: ['architecture'],
           operation: 'optimization',
           maxRuns: 12

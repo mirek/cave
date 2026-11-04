@@ -112,10 +112,15 @@ MCP tool over `cave mcp` (fusion is exposed only as the `cave_fuse` tool), and
 the `cave-solver-workflow` fixture. Output must match exactly unless a run is
 marked `excerpt`: then the shown lines must appear in the real output in order,
 a shown line ending in ` …` matches by prefix, and the slide says it is an
-excerpt. The solver has no CAVE syntax or `cave` command yet, so its slide
-describes the fixture's TypeScript model in comments and shows a summary of the
-sensitivity report's `points` computed by the test (contiguous deploy ranges per
-optimal architecture), not raw JSON. `cave check` exits 1 when it reports
+excerpt. The solver has no CAVE syntax or `cave` command for models, so the solver
+slide describes the fixture's fixed TypeScript model in comments and puts its
+one input in a real claim, `system HAS team-size: 10 people`, loaded with
+`cave add`; the run passes `--db hero.db` so the fixture binds that claim
+through `@cavelang/scenario`. An earlier version showed only comments with
+`load: 'none'`, which read as if the comments were the program. The slide shows
+a summary of the sensitivity report's `points` computed by the test (contiguous
+deploy ranges per optimal architecture), not raw JSON, and the test also
+requires every point to cite the claim's evidence row. `cave check` exits 1 when it reports
 violations, which the replay accepts. The test reaches the CLI, MCP and solver
 entrypoints by workspace-relative source paths. Two findings shaped the data: a `;` comment line directly above a claim becomes
 that claim's comment and appears in query output, so each slide separates its

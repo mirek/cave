@@ -35,11 +35,20 @@ const callTool = (cwd: string, tool: string, args: Readonly<Record<string, strin
   return reply.result.content.map(part => part.text).join('\n')
 }
 
-type Point = { value: { value: string }, report: unknown }
+type Point = { value: { value: string }, report: { explanation: { run: { inputs: { id: string, evidenceRowIds: string[] }[] } } } }
 
-/** Contiguous ranges of the swept variable that share one optimal architecture. */
-const summarizeSensitivity = (stdout: string): string[] => {
+/**
+ * Contiguous ranges of the swept variable that share one optimal architecture.
+ * With `--db`, every point must cite the store row its team size came from.
+ */
+const summarizeSensitivity = (stdout: string, args: readonly string[]): string[] => {
   const report = JSON.parse(stdout) as { points: Point[] }
+  if (args.includes('--db')) {
+    for (const point of report.points) {
+      const input = point.report.explanation.run.inputs.find(candidate => candidate.id === 'team-size')
+      assert.equal(input?.evidenceRowIds.length, 1, 'the team size is bound from one stored claim')
+    }
+  }
   const architectureOf = (point: Point): string => {
     let found: string | undefined
     const visit = (value: unknown): void => {
@@ -70,7 +79,7 @@ const actual = (dir: string, step: HeroRun): string[] => {
     case 'query': return lines(run(dir, cli, ['query', '--db', 'hero.db', step.pattern, ...(step.flags ?? [])]))
     case 'cave': return lines(run(dir, cli, [step.args[0]!, '--db', 'hero.db', ...step.args.slice(1)]))
     case 'mcp': return lines(callTool(dir, step.tool, step.arguments))
-    case 'solver-sensitivity': return summarizeSensitivity(run(dir, solverWorkflow, step.args))
+    case 'solver-sensitivity': return summarizeSensitivity(run(dir, solverWorkflow, step.args), step.args)
   }
 }
 

@@ -68,6 +68,16 @@ $ cave-solver-workflow architecture optimization --team-size 10 --deployment-fre
 $ cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
 ```
 
+The sensitivity sweep can also take its team size from your claims. Given a
+store holding `system HAS team-size: 10 people`, `--db` replaces
+`--team-size`; the value is bound through the scenario layer, and every point
+of the report cites the claim's evidence row:
+
+// no-test
+```sh
+$ cave-solver-workflow architecture sensitivity --db facts.db --from 1 --to 12
+```
+
 The normal CAVE CLI, the MCP server, the browser playground, and the
 knowledge kernel do not depend on Z3.
 

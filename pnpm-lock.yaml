@@ -425,9 +425,15 @@ importers:
 
   packages/solver-z3:
     dependencies:
+      '@cavelang/scenario':
+        specifier: workspace:*
+        version: link:../scenario
       '@cavelang/solver':
         specifier: workspace:*
         version: link:../solver
+      '@cavelang/store':
+        specifier: workspace:*
+        version: link:../store
       z3-solver:
         specifier: 5.2.0
         version: 5.2.0

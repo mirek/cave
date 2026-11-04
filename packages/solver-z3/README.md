@@ -218,7 +218,23 @@ cave-solver-workflow architecture feasibility --team-size 10 --deployment-freque
 cave-solver-workflow architecture optimization --team-size 10 --deployment-frequency 6
 cave-solver-workflow architecture counterexample
 cave-solver-workflow architecture sensitivity --team-size 10 --from 1 --to 12
+cave-solver-workflow architecture sensitivity --db facts.db --from 1 --to 12
 ```
+
+With `--db <path>`, sensitivity reads the fixed team size from the claim
+`system HAS team-size: N people` in that CAVE store instead of `--team-size`
+(the two flags are mutually exclusive). The store is opened read-only and the
+value is bound through `@cavelang/scenario` before Z3 loads: exactly one
+winning claim at confidence 0.5 or above, an integer with the unit `people`,
+2..20. A missing, contested, unitless or out-of-range value fails with exit
+code 1 and a `--db <path>:` diagnostic; nothing is submitted to Z3. Every
+point's explanation carries the binding's query, authored value, scenario
+input digest and the claim's exact evidence row ID, so the report cites the
+fact it used. Only sensitivity accepts `--db`: feasibility and optimization
+build their model from the input values, so a binding would need the model
+digest before the inputs it is computed from; they keep their typed flags.
+This is why the package depends on `@cavelang/scenario` and `@cavelang/store`;
+neither depends back on it.
 
 Inputs and sample ranges are typed and bounded before Z3 loads. Every command
 uses the workflow API, so model validation, capability negotiation, limits,
