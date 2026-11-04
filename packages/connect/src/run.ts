@@ -150,6 +150,8 @@ export type ConnectOptions = {
   readonly source?: string
   /** Record-aligned source line spans, validated and captured before writes when source is supplied. */
   readonly spans?: readonly LineSpan[]
+  /** Record-aligned physical sources for heterogeneous adapter queries. Exclusive with source/spans. */
+  readonly origins?: readonly { readonly source: string, readonly span?: LineSpan }[]
   /** Re-map records whose digest is unchanged. */
   readonly force?: boolean
   /** Retract claims of records that disappeared from the source. */
@@ -270,6 +272,7 @@ export const connect = (
     key: options.key,
     source: options.source,
     spans: options.spans,
+    origins: options.origins,
     force: options.force,
     prune: options.prune
   }
@@ -290,8 +293,20 @@ export const connect = (
   // Provenance is input metadata: validate it before any lifecycle unit writes.
   const source = options.source
   const defaultSourceContext = source === undefined ? undefined : SourceSpan.context(source)
-  const recordSourceContexts = source === undefined || options.spans === undefined ? undefined :
+  let recordSourceContexts = source === undefined || options.spans === undefined ? undefined :
     records.map((_record, at) => SourceSpan.context(source, options.spans?.[at]))
+  if (options.origins !== undefined) {
+    if (source !== undefined || options.spans !== undefined) throw new TypeError('origins cannot be combined with source or spans')
+    const origins = options.origins
+    if (!Array.isArray(origins) || origins.length !== records.length) throw new TypeError('origins must have one entry per record')
+    recordSourceContexts = records.map((_record, at) => {
+      const origin = origins[at]
+      if (!Object.hasOwn(origins, at) || origin === null || typeof origin !== 'object') throw new TypeError(`invalid origin for record ${at + 1}`)
+      const source = origin.source
+      if (typeof source !== 'string') throw new TypeError(`invalid source for record ${at + 1}`)
+      return SourceSpan.context(source, origin.span)
+    })
+  }
   const naming = options.naming ?? adHocNaming(name)
   const failures: Failure[] = []
   const notes: string[] = []

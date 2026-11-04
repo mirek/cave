@@ -96,6 +96,20 @@ jobs:
 
       - run: pnpm test
 
+      - name: Check out the supported AST integration runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: mirek/ast
+          ref: 9738feb47035c32a4ff161adafa677ddba04e1f4
+          path: .tmp/ast
+          persist-credentials: false
+
+      - name: Build and test the real AST query bridge
+        run: |
+          pnpm --dir .tmp/ast install --frozen-lockfile
+          pnpm --dir .tmp/ast --filter @mirek/ast build
+          CAVE_AST_MODULE="$PWD/.tmp/ast/packages/core/dist/index.js" pnpm --filter @cavelang/connect test
+
       - name: Check representative performance budgets
         run: pnpm bench:performance
 

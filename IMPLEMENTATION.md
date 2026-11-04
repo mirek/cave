@@ -1109,3 +1109,15 @@ either range may independently make the claim visible to an `at` query.
 - **Non-normative agent layer (§18)**: implemented as `@cavelang/loop`,
   including the LLM-driven policy over shell-agent templates
   with the heuristic policy as its eval baseline.
+
+## AST query bridge
+
+The connector's `Ast.connect` API structurally accepts a projected mirek/ast
+query without installing its compiler into Cave. It buffers detached records
+and per-record source origins, checks adapter diagnostics and cancellation,
+then executes one synchronous connector transaction. A failed refresh rolls
+back claims, digests and pruning together. Ordinary `connect` retains its
+per-record failure behavior; its new `origins` metadata supports physical
+sources that differ between records. See the connector README for limits and
+an executable projection example. CLI workspace discovery remains separate
+from this generic adapter/query boundary.
