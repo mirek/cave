@@ -15,9 +15,11 @@ export type HeroRun =
   /** An MCP tool called over `cave mcp`; `display` is what the slide shows as the call. */
   | { readonly kind: 'mcp', readonly tool: string, readonly arguments: Readonly<Record<string, string>>, readonly display: string, readonly output: readonly string[], readonly excerpt?: boolean }
   /**
-   * The Z3 architecture fixture's sensitivity sweep. Its stdout is a JSON
-   * report; `output` is the test's summary of `points` (contiguous ranges of
-   * the swept variable that share one optimal architecture).
+   * The Z3 architecture fixture's sensitivity sweep (`cave-solver-workflow`).
+   * With `--db hero.db` it binds the team size from the slide's claim. Its
+   * stdout is a JSON report; `output` is the test's summary of `points`
+   * (contiguous ranges of the swept variable that share one optimal
+   * architecture), and the test checks every point cites the claim's row.
    */
   | { readonly kind: 'solver-sensitivity', readonly args: readonly string[], readonly output: readonly string[] }
 
@@ -234,18 +236,19 @@ auth HAS errors: 0.01`,
     key: 'solve',
     tab: 'Solve',
     title: 'Ask a solver.',
-    blurb: 'The Z3 adapter optimizes exact models and sweeps an input to find where the best answer flips. Here: at 5 deploys a week.',
-    file: 'architecture model · Z3',
-    load: 'none',
-    code: `; a decision model, solved exactly by Z3
+    blurb: 'A fixed Z3 decision model reads its input from your claims, then sweeps deploys per week to find where the best architecture flips. Here: at 5 deploys a week.',
+    file: 'architecture inputs · Z3',
+    code: `; a fixed Z3 decision model; its one input,
+; the team size, comes from the claim below
 ;   microservices need a team of 6+
 ;   teams under 8 pick a monolith
 ;   monolith costs      20 + team + 3·deploys
 ;   microservices cost  45 + 2·team − 4·deploys
-; team of 10: which wins at 1..12 deploys/week?`,
+
+system HAS team-size: 10 people`,
     runs: [{
       kind: 'solver-sensitivity',
-      args: ['architecture', 'sensitivity', '--team-size', '10', '--from', '1', '--to', '12'],
+      args: ['architecture', 'sensitivity', '--db', 'hero.db', '--from', '1', '--to', '12'],
       output: ['deploys 1–4 → monolith', 'deploys 5–12 → microservices'],
     }],
   },

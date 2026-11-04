@@ -2236,6 +2236,19 @@ if (backend?.name !== 'z3-wasm' || !/^Z3 5\\.1\\./.test(backend.version)) {
 }
 "
 
+echo "==> packed Z3 sensitivity binds its team size from a CAVE store"
+printf 'system HAS team-size: 10 people\n' > "$tmp/solver-input.cave"
+./node_modules/.bin/cave add --db "$tmp/solver-input.db" "$tmp/solver-input.cave" >/dev/null
+./node_modules/.bin/cave-solver-workflow architecture sensitivity \
+  --db "$tmp/solver-input.db" --from 4 --to 5 > "$tmp/solver-sensitivity.json"
+node -e "
+const report = require('$tmp/solver-sensitivity.json')
+if (report.fixed[0]?.value?.value !== '10') throw new Error('packed sensitivity did not bind the stored team size')
+const chosen = report.points.map(point => point.report.explanation.outcome.assignments?.find(row => row.id === 'architecture')?.value?.value)
+if (chosen.join() !== 'monolith,microservices') throw new Error('packed sensitivity flipped unexpectedly: ' + chosen.join())
+if (!report.points.every(point => point.report.explanation.run.inputs[0]?.evidenceRowIds.length === 1)) throw new Error('packed sensitivity did not cite the stored claim')
+"
+
 cave=./node_modules/.bin/cave
 echo "==> installed federated JSON retains source metadata before rollback"
 node --disable-warning=ExperimentalWarning --input-type=module - "$cave" "$tmp" <<'JS'

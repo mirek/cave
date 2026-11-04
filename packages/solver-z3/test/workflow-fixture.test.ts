@@ -132,3 +132,78 @@ for (const mode of ['startup', 'cleanup', 'combined', 'success', 'unprintable-st
     ], { timeout: 10000 })
   })
 }
+
+test('sensitivity --db binds the team size from a CAVE claim and cites its evidence row', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { open } = await import('@cavelang/store')
+  const dir = mkdtempSync(join(tmpdir(), 'cave-solver-db-'))
+  try {
+    const path = join(dir, 'facts.db')
+    const store = open(path)
+    store.ingest('system HAS team-size: 12 people')
+    store.close()
+    let calls = 0
+    const adapter: Adapter.t = { backend: { name: 'fixture', version: '1' }, capabilities: new Set(Adapter.capabilities),
+      solve: async () => {
+        calls++
+        return { status: 'unknown', reason: { kind: 'indeterminate', message: 'fixture' },
+          backend: { name: 'fixture', version: '1' }, diagnostics: [], elapsedMs: 0 }
+      } }
+    const result = await runWorkflowFixture(['architecture', 'sensitivity', '--db', path, '--from', '3', '--to', '3'], adapter)
+    assert.equal(result.code, 0, result.err)
+    assert.equal(calls, 1)
+    const report = JSON.parse(result.out) as Workflow.SensitivityReport
+    assert.deepEqual(report.fixed, [{ variableId: 'team-size', value: { sort: 'int', value: '12' } }])
+    const run = report.points[0]!.report.explanation.run
+    assert.equal(run.scenario?.id, 'architecture-sensitivity')
+    assert.equal(run.inputs.length, 1)
+    assert.equal(run.inputs[0]!.query, 'system HAS team-size: ?n')
+    assert.equal(run.inputs[0]!.authoredValue, '12 people')
+    assert.equal(run.inputs[0]!.evidenceRowIds.length, 1)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('--db rejects other operations, --team-size, and unusable claims before the adapter runs', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { open } = await import('@cavelang/store')
+  let calls = 0
+  const adapter: Adapter.t = { backend: { name: 'fixture', version: '1' }, capabilities: new Set(Adapter.capabilities),
+    solve: async () => { calls++; throw new Error('must not run') } }
+  for (const operation of ['feasibility', 'optimization', 'counterexample']) {
+    const result = await runWorkflowFixture(['architecture', operation, '--db', 'facts.db'], adapter)
+    assert.equal(result.code, 2)
+    assert.match(result.err, /--db is supported only by sensitivity/)
+  }
+  const both = await runWorkflowFixture(['architecture', 'sensitivity', '--db', 'facts.db', '--team-size', '10'], adapter)
+  assert.equal(both.code, 2)
+  assert.match(both.err, /mutually exclusive/)
+  const dir = mkdtempSync(join(tmpdir(), 'cave-solver-db-'))
+  try {
+    for (const [index, [claim, message]] of ([
+      ['other HAS team-size: 10 people', /matched no eligible value/],
+      ['system HAS team-size: 10', /expected unit "people"/],
+      ['system HAS team-size: 30 people', /from 2 to 20 people/]
+    ] as const).entries()) {
+      const path = join(dir, `${index}.db`)
+      const store = open(path)
+      store.ingest(claim)
+      store.close()
+      const result = await runWorkflowFixture(['architecture', 'sensitivity', '--db', path], adapter)
+      assert.equal(result.code, 1)
+      assert.equal(result.out, '')
+      assert.match(result.err, message)
+    }
+    const missing = await runWorkflowFixture(['architecture', 'sensitivity', '--db', join(dir, 'absent.db')], adapter)
+    assert.equal(missing.code, 1)
+    assert.match(missing.err, /^--db /)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+  assert.equal(calls, 0)
+})

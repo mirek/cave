@@ -624,8 +624,10 @@ outer rollback or silently deferring delivery.
 - **`@cavelang/solver-z3`** is the optional Node.js search backend. It lazily
   loads the official threaded Z3 Wasm package, compiles only solver-neutral
   models, queues checks through one process runtime, and shuts workers down
-  explicitly. Its allowlisted workflow fixture is a separate opt-in binary;
-  no kernel, main CLI, MCP, or browser package depends on it.
+  explicitly. Its allowlisted workflow fixture is a separate opt-in binary
+  whose sensitivity sweep can bind its team size from a store claim through
+  `scenario` (so `solver-z3` depends on `scenario` and `store`, never the
+  reverse); no kernel, main CLI, MCP, or browser package depends on it.
 
 ## Package layers
 
