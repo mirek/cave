@@ -1,8 +1,29 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
-import { heroExamples } from '../hero-examples.ts'
+import { Fragment, useRef, useState, type KeyboardEvent } from 'react'
+import { heroExamples, type HeroExample, type HeroRun } from '../hero-examples.ts'
 import { CaveCode } from './CaveCode.tsx'
 import { ScrollableCode } from './ScrollableCode.tsx'
 import { Card } from './ui/card.tsx'
+
+const loadLabel: Record<NonNullable<HeroExample['load']>, string> = { add: 'cave add', derive: 'cave derive', none: 'no store' }
+const runLabel: Record<HeroRun['kind'], string> = { query: 'QUERY', cave: 'RUN', mcp: 'MCP', 'solver-sensitivity': 'SOLVE' }
+
+/** Command arguments that wrap between words, never inside a flag such as `--team-size`. */
+const Args = ({ args }: { args: readonly string[] }) =>
+  <>{args.map((arg, at) => <Fragment key={at}>{at > 0 && ' '}<span className="query-arg">{arg}</span></Fragment>)}</>
+
+/** The call as a reader would type it: WHERE filters on their own lines, flags in pigment. */
+const RunCall = ({ run }: { run: HeroRun }) => {
+  switch (run.kind) {
+    case 'query': {
+      const where = run.flags?.filter(flag => flag.startsWith('WHERE ')) ?? []
+      const flags = run.flags?.filter(flag => !flag.startsWith('WHERE ')) ?? []
+      return <code>{run.pattern}{flags.length > 0 && <b> {flags.join(' ')}</b>}{where.map(line => <b className="query-where" key={line}>{line}</b>)}</code>
+    }
+    case 'cave': return <code>cave <b><Args args={run.args} /></b></code>
+    case 'mcp': return <code>{run.display}</code>
+    case 'solver-sensitivity': return <code>cave-solver-workflow <b><Args args={run.args} /></b></code>
+  }
+}
 
 /**
  * Homepage example carousel. The active tab's progress bar is a CSS
@@ -68,15 +89,18 @@ export const HeroExamples = () => {
       <div id="hero-example-panel" role="tabpanel" aria-labelledby={`hero-tab-${example.key}`} className="console-panel" key={example.key}>
         <div className="console-bar">
           <span>{example.file}</span>
-          <small>{example.derive ? 'cave derive' : 'cave add'}</small>
+          <small>{loadLabel[example.load ?? 'add']}</small>
         </div>
         <ScrollableCode><CaveCode code={example.code} lineNumbers /></ScrollableCode>
         <div className="query-result">
           {example.runs.map((run, at) => (
             <div className="query-run" key={at}>
-              <span>QUERY</span>
-              <code>{run.pattern}{run.flags && <b> {run.flags.join(' ')}</b>}</code>
-              <div className="query-output">{run.output.map((line, at) => <span key={at}>{line}</span>)}</div>
+              <span>{runLabel[run.kind]}</span>
+              <RunCall run={run} />
+              <div className="query-output">
+                {run.output.map((line, at) => <span key={at}>{line}</span>)}
+                {'excerpt' in run && run.excerpt && <span className="query-excerpt">excerpt of the full output</span>}
+              </div>
             </div>
           ))}
         </div>
