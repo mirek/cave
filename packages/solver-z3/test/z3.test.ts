@@ -69,7 +69,7 @@ test('rejects overflowing deadlines without poisoning subsequent checks', async 
 test('initializes one lazy process runtime', async () => {
   const runtime = await runtimePromise
   assert.strictEqual(await create(), runtime)
-  assert.match(runtime.backend.version, /5\.1\.0/)
+  assert.match(runtime.backend.version, /5\.3\.3/)
   assert.ok(runtime.initializationMs > 0)
 })
 

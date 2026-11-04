@@ -40,7 +40,7 @@ serializing CI jobs that already have separate runners and caches.
 
 ## Changesets release toolchain
 
-The checkout pairs CLI 3.0.2 with action 2.1.2; action v2 requires CLI v3.
+The checkout pairs CLI 3.0.3 with action 2.1.2; action v2 requires CLI v3.
 The original coupled migration used action 2.1.1. The 3.0.2 patch updates the
 prerelease-exit review message and internal dependencies; its
 [upstream changelog](https://raw.githubusercontent.com/changesets/changesets/main/packages/cli/CHANGELOG.md)
@@ -263,12 +263,12 @@ Node or editor minimums.
 
 ## Playwright browser-test updates
 
-The website uses `@playwright/test` 1.63.0, with matching `playwright` and
+The website uses `@playwright/test` 1.64.1, with matching `playwright` and
 `playwright-core` packages in the lockfile. The package requires Node 20 or
 newer, covering both supported CAVE majors. The
 [versioned release notes](https://github.com/microsoft/playwright/releases/tag/v1.63.0)
 remove Ubuntu 20.04 support; the browser CI job already uses Ubuntu 24.04.
-This release's Chromium build is 153.0.8010.12 (revision 1243). Install the
+This release's Chromium build is 156.0.8078.4 (revision 1248). Install the
 browser matching the lockfile through `pnpm --dir website exec playwright
 install --no-shell chromium`; a previously installed browser is not version evidence.
 For local review, `--no-remove` preserves other Playwright installations' browsers.
@@ -359,6 +359,40 @@ website (149) suites, the packed smoke test, and 20 cold-cache Vite close probes
 suite are left to CI. This is a registry snapshot, not a guarantee against
 unreported vulnerabilities.
 
+## Registry checkpoint — 2026-11-04
+
+One consolidated update (replacing the open Dependabot pull requests) moved every
+outdated dependency except the documented holds:
+
+- **Updated:** `@changesets/cli` 3.0.2 → 3.0.3 (upstream fixes: semver ranges
+  cut off when updating internal dependencies, and pnpm/npm 12 registry
+  reading; engine ranges unchanged), React 19.3.1, `semver` 7.8.6,
+  `@modelcontextprotocol/server` 2.4.0, `@playwright/test` 1.64.1,
+  `@vitejs/plugin-react` 6.2.1, `mdast-util-from-markdown` 2.1.0, `z3-solver`
+  5.3.3, `linkedom` 0.18.15, `web-tree-sitter` 0.27.1 and `@vscode/vsce` 4.1.0,
+  plus in-range transitive refreshes and the `actions/setup-node` 7.1.0,
+  `actions/upload-artifact` 7.0.2 and `typst-community/setup-typst` 5.3.0 pins.
+- **Z3 version string:** `z3-solver` 5.3.3 embeds Z3 5.3.3 and reports
+  `5.3.3.0 <commit> z3-5.3.3`, without the former `Z3 ` prefix (5.2.0 reported
+  `Z3 5.1.0.0`). The runtime test and the packed-workflow smoke check pin the
+  bundled release and moved to 5.3.
+- **Held:** TypeScript 7 ([compiler API migration](#compiler-and-highlighting-runtime-upgrades)),
+  `@types/vscode` ([editor baseline](#vs-code-api-baseline)), `@types/node` 26
+  (the established Node declaration major) and SQL.js 1.15
+  ([text compatibility patch](#sqljs-text-compatibility-patch)).
+- **Advisories:** with `@azure/identity` 4.14.1 the lockfile resolves the
+  patched `@azure/msal-node` 7.1.2, so the GHSA-xcx6-jx8p-x3h5 ignore (#268)
+  was removed. GHSA-g3hv-75wg-m249 (moderate, `minimatch` globparts DoS) remains
+  on `@vscode/vsce > minimatch` 10.2.6: the fix exists only in 11.x and vsce
+  4.1.0 declares `^10.2.6`. vsce matches only CAVE's own `.vscodeignore` and
+  packaging globs, so no attacker supplies the amplifying patterns. It is
+  listed in `auditConfig.ignoreGhsas` with an expiry of 2026-12-04, tracked in
+  [#274](https://github.com/mirek/cave/issues/274). `pnpm audit
+  --audit-level=low` then exits 0 with only that ignored finding.
+
+This is a registry snapshot, not a guarantee against unreported
+vulnerabilities.
+
 ## Compiler and highlighting runtime upgrades
 
 TypeScript is both the workspace compiler and a library used by CAVE's package
@@ -392,7 +426,7 @@ separately in `scripts/grammar-toolchain.json`; a runtime update must demonstrat
 that it loads the shipped grammar rather than assume matching version numbers
 are necessary or sufficient. In an isolated 0.27.0 runtime trial, all 22 current
 highlighter tests pass on both supported Node majors with CAVE's unchanged
-grammar WASM. The workspace now uses 0.27.0 across all three consumers. This
+grammar WASM. The workspace now uses 0.27.1 across all three consumers (0.27.0 was the trialed version). This
 update retains the existing generated grammar and separately verifies compiler,
 browser, editor and installed-package behavior; the isolated trial alone does
 not establish those contracts. The system-review ledger records the completed
