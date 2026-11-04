@@ -837,7 +837,7 @@ The reconstruction *loop* — select, route, stop — is a **policy over the gra
 
 ## 16. Grammar (Normative Core)
 
-Consolidated EBNF for the committed language. `REVERSE` and `RENAMED-TO` declarations need **no grammar change** — they are ordinary claim lines whose subject and object happen to be verbs; their meaning is a semantic pass.
+Consolidated EBNF for the committed language. This section and §22 are published verbatim as the website's Grammar page (`website/src/grammar.ts`), which locates them by their `## 16. ` and `## 22. ` headings — keep those numbers when editing. `REVERSE` and `RENAMED-TO` declarations need **no grammar change** — they are ordinary claim lines whose subject and object happen to be verbs; their meaning is a semantic pass.
 
 ```ebnf
 file          = { line } ;
