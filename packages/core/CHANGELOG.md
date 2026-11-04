@@ -1,5 +1,13 @@
 # @cavelang/core
 
+## 0.40.0
+
+### Patch Changes
+
+- b3c28a2: Dependency refresh: MCP SDK 2.4.0, web-tree-sitter 0.27.1, mdast-util-from-markdown 2.1.0, linkedom 0.18.15 and current development tooling (Changesets CLI 3.0.3, Playwright 1.64.1, vsce 4.1.0); the msal-node audit ignore is removed and the vsce minimatch advisory is tracked. z3-solver stays at 5.2.0: 5.3.3 is about 6× slower on optimization.
+- f3c49d2: CI: bump typst-community/setup-typst to 5.3.1 for the book PDF build.
+- d0bfabf: Website: the homepage carousel grows to twelve CLI-verified examples, adding WHERE filters, Bayesian fusion (`cave_fuse`), shape checks, comparison guards in rules, automations calling actions, and a Z3 solver sensitivity sweep.
+
 ## 0.39.2
 
 ### Patch Changes

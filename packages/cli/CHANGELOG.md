@@ -1,5 +1,25 @@
 # @cavelang/cli
 
+## 0.40.0
+
+### Minor Changes
+
+- 5a2590c: Add an atomic AST query connector bridge and per-record physical source provenance.
+- 03d0e0e: Add pnpm workspace AST ingestion with package dependencies, source imports, documented exports, and a runnable example.
+
+### Patch Changes
+
+- Updated dependencies [b3c28a2]
+- Updated dependencies [f3c49d2]
+- Updated dependencies [d0bfabf]
+  - @cavelang/core@0.40.0
+  - @cavelang/canonical@0.40.0
+  - @cavelang/fusion@0.40.0
+  - @cavelang/parser@0.40.0
+  - @cavelang/query@0.40.0
+  - @cavelang/store@0.40.0
+  - @cavelang/highlight@0.40.0
+
 ## 0.39.2
 
 ### Patch Changes
