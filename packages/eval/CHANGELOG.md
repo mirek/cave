@@ -1,5 +1,11 @@
 # @cavelang/eval
 
+## 0.40.0
+
+### Minor Changes
+
+- Align the @cavelang/eval workspace with the CAVE 0.40.0 release identity.
+
 ## 0.39.2
 
 ### Patch Changes
