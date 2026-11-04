@@ -48,7 +48,7 @@
     "@cavelang/query": "workspace:*",
     "@cavelang/shape": "workspace:*",
     "@cavelang/store": "workspace:*",
-    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-from-markdown": "2.1.0",
     "mdast-util-gfm-footnote": "2.1.0",
     "micromark-extension-gfm-footnote": "2.1.0"
   }
