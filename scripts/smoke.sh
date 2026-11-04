@@ -10,7 +10,7 @@ set -euo pipefail
 # CLI output into EPIPE/SIGPIPE failures under pipefail; redirect grep instead.
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/cave-smoke.XXXXXX")"
 children=()
 cleanup() {
   status=$?
@@ -5398,4 +5398,20 @@ try {
 NODE
 echo "==> cave demo"
 "$cave" demo >/dev/null
+if [ -n "${CAVE_AST_MODULE:-}" ]; then
+  echo "==> cave ast (real runtime, packed CLI)"
+  "$cave" ast "$root/examples/pnpm-monorepo" --runtime "$CAVE_AST_MODULE" --name demo --db "$tmp/ast.db" --json > "$tmp/ast-first.json"
+  "$cave" ast "$root/examples/pnpm-monorepo" --runtime "$CAVE_AST_MODULE" --name demo --db "$tmp/ast.db" --json > "$tmp/ast-repeat.json"
+  node --input-type=module - "$tmp/ast-first.json" "$tmp/ast-repeat.json" <<'NODE'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+const [first, repeat] = process.argv.slice(2).map(path => JSON.parse(readFileSync(path, 'utf8')))
+assert.equal(first.records, 19)
+assert.ok(first.added > 0)
+assert.equal(first.failures.length, 0)
+assert.equal(repeat.added, 0)
+assert.equal(repeat.retracted, 0)
+assert.equal(repeat.skipped, 19)
+NODE
+fi
 echo "==> smoke OK"

@@ -232,6 +232,26 @@ writes roll back together. The previous data survives, and fixing the source
 and rerunning retries the complete transition. An unchanged declaration
 continues to isolate failures one record at a time.
 
+== Source-code workspaces
+
+`cave ast <root>` inventories a pnpm workspace through the separately supplied
+`mirek/ast` runtime. Packages and their categorized dependency ranges come from
+manifests; source files carry ownership, static imports, and exported symbols.
+JSDoc is attached to export claims as comments, so it travels with query
+answers and participates in full-text search.
+
+The runtime can be a built module selected with `--runtime`, or an
+`@mirek/ast` package installed in the target workspace. pnpm must be on the
+command path. The command only reads source documents. A successful refresh
+reconciles removed files and dependencies; an extraction error publishes no
+part of that refresh. #box[`--dry-run`] exports an isolated in-memory preview.
+
+Compiler resolution uses the nearest `tsconfig.json`. Files outside that
+project remain syntax-only, and unsupported project references are reported.
+Unresolved imports retain their specifiers; they do not acquire guessed file
+targets. The repository's `examples/pnpm-monorepo/README.md` provides the
+runtime setup, a runnable fixture, and commands for ingesting CAVE itself.
+
 #recap[`cave connect <source> --map <template>` instantiates a CAVE
 document per record; blocks without variables are prelude. Records are
 identified by `--key`, digested, stamped `@src:connect/<name>/<key>` and

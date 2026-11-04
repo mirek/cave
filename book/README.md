@@ -93,7 +93,9 @@ The conventions the runner reads from `chapters/*.typ`:
 The `cave doctor` session uses `<token>` for the installed CAVE, Node, and
 SQLite versions, which differ between releases and supported runtimes. Restore
 all three version placeholders after refreshing this session. Keep the
-surrounding check messages and supported engine range exact.
+surrounding check messages and supported engine range exact. The pnpm check
+uses `<any>` because temporary chapter directories may be inside a workspace;
+its PASS status remains required.
 
 When the CLI's output changes, run `--update`, review the diff, and restore
 any placeholders the update replaced with concrete values (the updater keeps

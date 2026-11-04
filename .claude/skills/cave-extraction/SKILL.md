@@ -485,3 +485,42 @@ record-aligned `origins: [{ source, span? }]`, mutually exclusive with its
 single-source `source`/`spans`. Origin changes participate in record digests.
 AST parsing and node identity remain adapter-owned; no foreign AST becomes
 Cave grammar, and imported claims do not trigger source document writes.
+
+### 23.6 pnpm workspace AST inventory
+
+`cave ast <root>` and `AstWorkspace.connect` project pnpm workspaces through
+mirek/ast's JSON, filesystem and TypeScript adapters. pnpm's recursive package
+listing defines membership; source files belong to the nearest containing
+workspace package. The separately supplied runtime resolves from the target
+workspace or an explicit `--runtime` built-module path and is trusted code.
+No installation or source-document modification is performed by the inventory.
+
+The projection includes dependency category/range records and USES relations,
+CONTAINS ownership, IMPORTS file relations for compiler-resolved targets, and
+EXPORTS with names, declaration-source, declaration kinds and type-only flags.
+Unresolved imports retain specifiers; bare package references retain package
+relations. Static import declarations, external import-equals and re-exports
+are included; dynamic imports and CommonJS require calls are not.
+
+Workspace identities are namespaced; file identities are relative paths,
+package identities are names, and export identities are public names within
+exporting files. Import occurrence keys use kind/specifier/duplicate ordinal.
+Full connector keys are hashed to avoid the ordinary key sanitizer collapsing
+punctuation. Dependency ranges remain textual rather than resolved versions.
+JSDoc attaches to EXPORTS as documentary comments; declaration-source points to
+its originating file. Record-aligned comments are validated before publication,
+comment-prefixed line by line, and included in connector digests.
+
+A successful pass reconciles all records it owns, including removals. Every
+refresh creates fresh adapter snapshots. Nearest-ancestor tsconfig selection
+and AST's project-reference limitations determine per-file analysis mode;
+syntax-only mode never invents resolved file imports. Source errors abort the
+atomic refresh (§23.5). The maxRecords bound counts emitted records rather than
+bytes or compiler memory. Dry-run uses an isolated in-memory store and does not
+open the supplied database. File reads do not constitute a global filesystem
+snapshot. The connector README and pnpm example describe CLI options and globs.
+
+A pnpm root without `package.json` remains a workspace, not an invented package;
+sources outside member packages belong to the workspace. Compiler-resolved local
+aliases use the target workspace package. Neither local aliases nor Node built-ins
+(including bare built-in names) produce npm package relations.

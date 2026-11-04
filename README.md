@@ -291,6 +291,11 @@ $ cave query --db repo.db 'billing USES ?p' --all
 over the union of store and file without storing anything. See
 [`@cavelang/connect`](packages/connect).)
 
+For an existing pnpm repository, `cave ast <root>` extracts packages, dependencies,
+source imports and documented exports through `mirek/ast`, then maintains their
+claims on refresh. Follow the [runnable pnpm example](examples/pnpm-monorepo/README.md)
+for the optional AST runtime setup and graph queries.
+
 ### 8. Say how sure you are, and why
 
 So far every claim was certain and anonymous. Two more pieces of metadata:

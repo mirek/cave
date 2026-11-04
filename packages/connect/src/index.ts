@@ -20,6 +20,8 @@
 
 export * as Source from './source.ts'
 export * as Ast from './ast.ts'
+export * as AstWorkspace from './ast-workspace.ts'
+export { runAst } from './ast-main.ts'
 export * as Template from './template.ts'
 export * as Declared from './declared.ts'
 export { assemble } from './declared.ts'
