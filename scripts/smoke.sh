@@ -2231,7 +2231,7 @@ const workLimited = require('$tmp/solver-work-limited.json').explanation
 if (workLimited.run.limits.maxExplanationWork !== 1 || workLimited.outcome.status !== 'satisfied') throw new Error('packed workflow lost cumulative work policy')
 if (!workLimited.outcome.hardConstraints.every(row => row.evaluation === 'indeterminate' && /maxExplanationWork/.test(row.evaluationReason))) throw new Error('packed workflow omitted cumulative work diagnostics')
 const backend = report.explanation?.run?.backend
-if (backend?.name !== 'z3-wasm' || !/^5\\.3\\./.test(backend.version)) {
+if (backend?.name !== 'z3-wasm' || !/^Z3 5\\.1\\./.test(backend.version)) {
   throw new Error('packed workflow omitted the pinned Z3 backend version')
 }
 "

@@ -368,15 +368,24 @@ outdated dependency except the documented holds:
   cut off when updating internal dependencies, and pnpm/npm 12 registry
   reading; engine ranges unchanged), React 19.3.1, `semver` 7.8.6,
   `@modelcontextprotocol/server` 2.4.0, `@playwright/test` 1.64.1,
-  `@vitejs/plugin-react` 6.2.1, `mdast-util-from-markdown` 2.1.0, `z3-solver`
-  5.3.3, `linkedom` 0.18.15, `web-tree-sitter` 0.27.1 and `@vscode/vsce` 4.1.0,
+  `@vitejs/plugin-react` 6.2.1, `mdast-util-from-markdown` 2.1.0,
+  `linkedom` 0.18.15, `web-tree-sitter` 0.27.1 and `@vscode/vsce` 4.1.0,
   plus in-range transitive refreshes and the `actions/setup-node` 7.1.0,
   `actions/upload-artifact` 7.0.2 and `typst-community/setup-typst` 5.3.0 pins.
-- **Z3 version string:** `z3-solver` 5.3.3 embeds Z3 5.3.3 and reports
-  `5.3.3.0 <commit> z3-5.3.3`, without the former `Z3 ` prefix (5.2.0 reported
-  `Z3 5.1.0.0`). The runtime test and the packed-workflow smoke check pin the
-  bundled release and moved to 5.3.
-- **Held:** TypeScript 7 ([compiler API migration](#compiler-and-highlighting-runtime-upgrades)),
+- **Held — `z3-solver` 5.3.3 (embedded Z3 5.3.3) regresses optimization
+  latency.** The `test:memory-stress` recovery solve (a 3,000-variable 0–1
+  maximization after a memory-limited run) took about 4.97 s per iteration on
+  macOS arm64 against about 0.81 s with 5.2.0 (embedded Z3 5.1.0), measured
+  back to back on the same machine; the recorded 5.2.0 baseline in
+  `benchmarks/z3-memory-current-review.json` agrees. On the Windows CI runner
+  the slowdown crossed the diagnostic's 30 s recovery limit (30.4 s,
+  `sat.canceled`). Keep 5.2.0 until a release restores the latency, and rerun
+  the memory stress on all CI platforms before moving. 5.3.3 also reports its
+  version as `5.3.3.0 <commit> z3-5.3.3` without the `Z3 ` prefix, so the
+  runtime test and the packed-workflow smoke check, which pin the bundled
+  release, must change together with it. `.github/dependabot.yml` ignores
+  the 5.3.x line only, so later releases are still proposed.
+- **Also held:** TypeScript 7 ([compiler API migration](#compiler-and-highlighting-runtime-upgrades)),
   `@types/vscode` ([editor baseline](#vs-code-api-baseline)), `@types/node` 26
   (the established Node declaration major) and SQL.js 1.15
   ([text compatibility patch](#sqljs-text-compatibility-patch)).
