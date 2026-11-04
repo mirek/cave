@@ -1,5 +1,11 @@
 # @cavelang/ingest
 
+## 0.41.1
+
+### Patch Changes
+
+- Align the @cavelang/ingest workspace with the CAVE 0.41.1 release identity.
+
 ## 0.41.0
 
 ### Minor Changes

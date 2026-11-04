@@ -1,5 +1,13 @@
 # @cavelang/solver-z3
 
+## 0.41.1
+
+### Patch Changes
+
+- @cavelang/scenario@0.41.1
+  - @cavelang/store@0.41.1
+  - @cavelang/solver@0.41.1
+
 ## 0.41.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @cavelang/highlight
 
+## 0.41.1
+
+### Patch Changes
+
+- @cavelang/tree-sitter-cave@0.41.1
+
 ## 0.41.0
 
 ### Patch Changes
