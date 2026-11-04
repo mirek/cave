@@ -1,5 +1,17 @@
 # @cavelang/solver-z3
 
+## 0.41.0
+
+### Minor Changes
+
+- a40bd79: `cave-solver-workflow architecture sensitivity --db <path>` binds the team size from the claim `system HAS team-size: N people` through `@cavelang/scenario` and cites its evidence row in every point; the homepage solver slide now loads that claim instead of showing only comments.
+
+### Patch Changes
+
+- @cavelang/scenario@0.41.0
+  - @cavelang/solver@0.41.0
+  - @cavelang/store@0.41.0
+
 ## 0.40.0
 
 ### Patch Changes
