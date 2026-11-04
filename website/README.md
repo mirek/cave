@@ -21,6 +21,18 @@ named imports are bound. The dev-only `cave-node-builtin-stubs` plugin in
 throw only when called. Without either setting, `pnpm dev` shows the playground's
 "Runtime error" while the built site works.
 
+The Docs → Reference → Grammar page (`#/docs/grammar`) is not a separate
+Markdown file. `src/grammar.ts` extracts §16 (the normative EBNF) and §22 (the
+compact spec card) from `.claude/skills/cave-writing/SKILL.md` at build time, so
+the skill stays the single source of truth. The extractor finds sections by their
+`## <number>. ` headings and throws when one is missing, so renumbering either
+section fails the build rather than publishing an empty page;
+`test/grammar-page.test.ts` checks the page against the current skill.
+Fenced `ebnf` blocks are highlighted by the small synchronous tokenizer in
+`src/lib/ebnf-highlight.ts`, not by Tree-sitter: rule definitions use the bold
+keyword colour, quoted terminals the string colour, and `(* … *)` comments the
+comment style. It shares `src/lib/render-spans.tsx` with the CAVE highlighter.
+
 Inline documentation code keeps short tokens such as `--prune` together when
 they reach a line boundary. Long identifiers still wrap within the article
 width, so narrow screens do not overflow. Fenced code retains its separate

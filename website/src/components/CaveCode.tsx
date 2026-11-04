@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { createBrowserHighlighter, type Highlighter, type Span } from '@cavelang/highlight/browser'
 import caveLanguageWasmUrl from '@cavelang/tree-sitter-cave/wasm?url'
 import caveQuerySource from '@cavelang/tree-sitter-cave/highlights?raw'
 import treeSitterWasmUrl from 'web-tree-sitter/web-tree-sitter.wasm?url'
-import { firstSpanEndingAfter } from '../lib/highlight-range.ts'
+import { renderRange } from '../lib/render-spans.tsx'
 
 let highlighterPromise: Promise<Highlighter> | undefined
 
@@ -16,30 +16,6 @@ const loadHighlighter = (): Promise<Highlighter> =>
     highlighterPromise = undefined
     throw error
   })
-
-const captureClass = (capture: string): string =>
-  `syntax syntax-${capture.replaceAll('.', '-')}`
-
-const renderRange = (
-  source: string,
-  spans: readonly Span[],
-  start = 0,
-  end = source.length,
-): ReactNode[] => {
-  const nodes: ReactNode[] = []
-  let at = start
-  for (let index = firstSpanEndingAfter(spans, start); index < spans.length; index++) {
-    const span = spans[index]!
-    if (span.start >= end) break
-    const spanStart = Math.max(span.start, start)
-    const spanEnd = Math.min(span.end, end)
-    if (spanStart > at) nodes.push(source.slice(at, spanStart))
-    nodes.push(<span className={captureClass(span.capture)} key={`${spanStart}-${spanEnd}-${span.capture}`}>{source.slice(spanStart, spanEnd)}</span>)
-    at = spanEnd
-  }
-  if (at < end) nodes.push(source.slice(at, end))
-  return nodes
-}
 
 const useCaveSpans = (source: string): readonly Span[] => {
   const [highlight, setHighlight] = useState<{ source: string, spans: readonly Span[] }>({ source, spans: [] })

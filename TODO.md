@@ -3,6 +3,8 @@
 ## Active backlog
 
 - [Review the complete system](todo/system-review.md) — `review`, high priority. Continue the user-requested runtime, workflow, documentation, website, and enhancement audit.
+- [Homepage spec card](todo/homepage-spec-card.md) — `feat`, medium priority. Put the §22 compact spec card on the homepage, sourced from the `cave-writing` skill.
+- [Console session highlighting](todo/console-session-highlighting.md) — `feat`, medium priority. Highlight `$ cave …` shell sessions in the docs, embedding the CAVE highlighter for patterns and output.
 
 ## Task files
 

@@ -30,6 +30,7 @@ import solverZ3 from '../../packages/solver-z3/README.md?raw'
 import highlight from '../../packages/highlight/README.md?raw'
 import treeSitter from '../../packages/tree-sitter-cave/README.md?raw'
 import vscode from '../../editors/vscode/README.md?raw'
+import { grammar, grammarSource } from './grammar.ts'
 
 export type Doc = {
   readonly slug: string
@@ -46,6 +47,7 @@ export const docs: readonly Doc[] = [
   { slug: 'architecture', label: 'Architecture', group: 'Learn', markdown: architecture, source: 'ARCHITECTURE.md' },
   { slug: 'implementation', label: 'Implementation', group: 'Learn', markdown: implementation, source: 'IMPLEMENTATION.md' },
   { slug: 'cli', label: 'Command line', group: 'Reference', markdown: cli, source: 'packages/cli/README.md' },
+  { slug: 'grammar', label: 'Grammar', group: 'Reference', markdown: grammar, source: grammarSource },
   { slug: 'core', label: 'Core model', group: 'Reference', markdown: core, source: 'packages/core/README.md' },
   { slug: 'parser', label: 'Parser', group: 'Reference', markdown: parser, source: 'packages/parser/README.md' },
   { slug: 'canonical', label: 'Canonicalization', group: 'Reference', markdown: canonical, source: 'packages/canonical/README.md' },

@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import { CaveCode } from './CaveCode.tsx'
+import { EbnfCode } from './EbnfCode.tsx'
 import { ScrollableTable } from './ScrollableTable.tsx'
 import { ScrollableCode } from './ScrollableCode.tsx'
 import { docs } from '../content.ts'
@@ -37,11 +38,14 @@ export const Markdown = ({ children, source, afterHeading }: { children: string,
       pre: ScrollableCode,
       code: ({ className, children: code, ...props }: ComponentPropsWithoutRef<'code'>) => {
         const sourceCode = String(code).replace(/\n$/u, '')
+        const languages = className?.split(' ') ?? []
         return (
           <code {...props} className={className}>
-            {className?.split(' ').includes('language-cave') === true
+            {languages.includes('language-cave')
               ? <CaveCode code={sourceCode} />
-              : code}
+              : languages.includes('language-ebnf')
+                ? <EbnfCode code={sourceCode} />
+                : code}
           </code>
         )
       },
