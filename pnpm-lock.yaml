@@ -33,8 +33,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tree-sitter-cave
       web-tree-sitter:
-        specifier: ^0.27.1
-        version: 0.27.1
+        specifier: ^0.27.2
+        version: 0.27.2
     devDependencies:
       '@types/vscode':
         specifier: 1.100.0
@@ -259,8 +259,8 @@ importers:
         specifier: ^1.41.6
         version: 1.41.6
       web-tree-sitter:
-        specifier: ^0.27.1
-        version: 0.27.1
+        specifier: ^0.27.2
+        version: 0.27.2
 
   packages/ingest:
     devDependencies:
@@ -536,8 +536,8 @@ importers:
         specifier: 1.14.2
         version: 1.14.2(patch_hash=c7de120f349c8a2f85e88e6e32161431bb765e7a97a5b325ebab1ba1e17b736c)
       web-tree-sitter:
-        specifier: ^0.27.1
-        version: 0.27.1
+        specifier: ^0.27.2
+        version: 0.27.2
     devDependencies:
       '@playwright/test':
         specifier: ^1.64.1
@@ -1074,6 +1074,7 @@ packages:
   '@secretlint/secretlint-rule-preset-recommend@10.2.2':
     resolution: {integrity: sha512-K3jPqjva8bQndDKJqctnGfwuAxU2n9XNCPtbXVI5JvC7FnQiNg/yWlQPbMUlBXtBoBGFYp08A94m6fvtc9v+zA==}
     engines: {node: '>=20.0.0'}
+    deprecated: Built into secretlint v14 and later. Remove this package; the rule id still works. https://github.com/secretlint/secretlint/blob/HEAD/docs/rules/preset-recommend.md
 
   '@secretlint/source-creator@10.2.2':
     resolution: {integrity: sha512-h6I87xJfwfUTgQ7irWq7UTdq/Bm1RuQ/fYhA3dtTIAop5BwSFmZyrchph4WcoEvbN460BWKmk4RYSvPElIIvxw==}
@@ -2131,8 +2132,8 @@ packages:
       yaml:
         optional: true
 
-  web-tree-sitter@0.27.1:
-    resolution: {integrity: sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==}
+  web-tree-sitter@0.27.2:
+    resolution: {integrity: sha512-ZRo86GKI4aOSBAqOrPmCtriExI3xIzu1sNw/V6v3b4QGxrEmO19FGwbMNdyhw3MJLAZIw0xAV0oSpqX361eAyQ==}
 
   wsl-utils@1.0.1:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
@@ -3894,7 +3895,7 @@ snapshots:
       fsevents: 2.3.3
       yaml: 2.9.1
 
-  web-tree-sitter@0.27.1: {}
+  web-tree-sitter@0.27.2: {}
 
   wsl-utils@1.0.1:
     dependencies:
